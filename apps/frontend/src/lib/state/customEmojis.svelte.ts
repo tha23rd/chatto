@@ -16,6 +16,7 @@
  * segment (used by message components), which normalize to one store instance.
  */
 
+import { SvelteMap } from 'svelte/reactivity';
 import {
   createCustomEmojiAPI,
   type CustomEmoji,
@@ -31,13 +32,9 @@ export class CustomEmojisStore {
   loaded = $state(false);
   private loadPromise: Promise<void> | null = null;
 
-  /**
-   * Lowercase-name → emoji lookup. Recomputes when {@link emojis} changes.
-   * A plain Map is intentional: it is rebuilt on each `emojis` change rather
-   * than mutated in place, so readers stay reactive without a SvelteMap.
-   */
-  byName: Map<string, CustomEmoji> = $derived.by(() => {
-    const map = new Map<string, CustomEmoji>();
+  /** Lowercase-name → emoji lookup. Recomputes when {@link emojis} changes. */
+  byName: SvelteMap<string, CustomEmoji> = $derived.by(() => {
+    const map = new SvelteMap<string, CustomEmoji>();
     for (const emoji of this.emojis) {
       map.set(emoji.name.toLowerCase(), emoji);
     }
