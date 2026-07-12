@@ -1,6 +1,9 @@
 name: build image
 
 on:
+  push:
+    branches:
+      - feat/screenshare-1080p60
   workflow_dispatch:
     inputs:
       ref:
