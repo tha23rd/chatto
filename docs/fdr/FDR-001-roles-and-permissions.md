@@ -21,7 +21,7 @@ Chatto controls who can do what through role-based access control. Every authent
 - RBAC editor and inspection APIs are exposed through ConnectRPC admin services. Admin entry is authenticated, and individual operations keep narrower gates such as `role.manage`, `role.assign`, `user.manage-accounts`, `user.manage-permissions`, or `room.manage`.
 - Roles have a `pingable` setting that controls whether `@role` pings notify assigned room members. Fresh servers seed `moderator` as pingable and leave `owner`, `admin`, and `everyone` unpingable.
 - User-initiated RBAC writes carry the authenticated user's ID as the event actor. Synthetic `system` actors are reserved for bootstrap, seeding, resets, migrations, and other non-user maintenance.
-- OIDC providers can manage configured direct role claims. An OIDC-managed role is effective alongside manual and other-provider grants; reconciling one provider never revokes another source. Administrators change an OIDC-only assignment at the identity provider rather than through the member-role editor.
+- OIDC providers can manage configured direct role claims. An OIDC-managed role is effective alongside manual and other-provider grants; reconciling one provider never revokes another source. Administrators change an OIDC-only assignment at the identity provider rather than through the member-role editor. Disconnecting the linked identity removes that provider's managed source.
 
 ## Design Decisions
 
