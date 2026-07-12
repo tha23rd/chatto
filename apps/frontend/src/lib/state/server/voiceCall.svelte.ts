@@ -628,9 +628,24 @@ export class VoiceCallState {
 
   private async performToggleScreenShare(room: Room): Promise<void> {
     const newEnabled = !this.isScreenShareEnabled;
+    // Screen-share quality target: 1080p @ 60fps. This is an adaptive ceiling,
+    // not a forced floor: adaptiveStream + dynacast (enabled on the Room) still
+    // downshift resolution/framerate for viewers on small tiles or weak links.
+    const screenShareCapture = {
+      resolution: { width: 1920, height: 1080, frameRate: 60 }
+    };
+    const screenSharePublish = {
+      videoEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 }
+    };
     try {
       await this.runExplicitMediaDeviceOperation(() =>
-        room.localParticipant.setScreenShareEnabled(newEnabled)
+        newEnabled
+          ? room.localParticipant.setScreenShareEnabled(
+              newEnabled,
+              screenShareCapture,
+              screenSharePublish
+            )
+          : room.localParticipant.setScreenShareEnabled(newEnabled)
       );
       if (this.room !== room) return;
 

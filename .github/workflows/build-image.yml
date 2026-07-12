@@ -34,7 +34,7 @@ jobs:
             echo "### Image"
             echo
             echo "- Commit: \`${sha}\`"
-            echo "- Image: \`ghcr.io/chattocorp/chatto:${sha}\`"
+            echo "- Image: \`ghcr.io/${{ github.repository_owner }}/chatto:${sha}\`"
             echo "- Platform: \`linux/amd64\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -82,11 +82,11 @@ jobs:
           file: /tmp/chatto-docker/linux-amd64/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/chattocorp/chatto:${{ steps.image.outputs.sha }}
+          tags: ghcr.io/${{ github.repository_owner }}/chatto:${{ steps.image.outputs.sha }}
           cache-from: type=gha,scope=chatto-manual-amd64
           cache-to: type=gha,mode=max,scope=chatto-manual-amd64
           labels: |
-            org.opencontainers.image.source=https://github.com/chattocorp/chatto
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.image.outputs.sha }}
             org.opencontainers.image.version=${{ steps.image.outputs.sha }}
             org.opencontainers.image.licenses=AGPL-3.0-or-later
