@@ -186,6 +186,14 @@ type ChattoCore struct {
 	// for WaitFor from reaction writers.
 	ReactionsProjector *events.Projector
 
+	// CustomEmojis holds the current server custom-emoji catalog derived
+	// from durable custom-emoji aggregate events.
+	CustomEmojis *CustomEmojiProjection
+
+	// CustomEmojisProjector runs the consumer for CustomEmojis. Exposed
+	// for WaitFor from custom-emoji writers.
+	CustomEmojisProjector *events.Projector
+
 	// Users holds current user/account/profile/auth lookup state derived
 	// from durable user-aggregate events.
 	Users *UserProjection
@@ -948,6 +956,9 @@ func NewChattoCore(ctx context.Context, nc *nats.Conn, cfg config.CoreConfig) (*
 	reactions := NewReactionProjection()
 	reactionsProjector := newProjector(reactions, "reactions", "Reactions", reactions.adminProjectionEstimate)
 
+	customEmojis := NewCustomEmojiProjection()
+	customEmojisProjector := newProjector(customEmojis, "custom_emojis", "Custom Emojis", customEmojis.adminProjectionEstimate)
+
 	dekResolver := newUnwrappedDEKResolver(encMgr.keyWrapper, encMgr.contentKeys)
 
 	users := newUserProjectionWithDEKResolver(dekResolver)
@@ -1016,6 +1027,8 @@ func NewChattoCore(ctx context.Context, nc *nats.Conn, cfg config.CoreConfig) (*
 		ThreadsProjector:         threadsProjector,
 		Reactions:                reactions,
 		ReactionsProjector:       reactionsProjector,
+		CustomEmojis:             customEmojis,
+		CustomEmojisProjector:    customEmojisProjector,
 		Users:                    users,
 		UsersProjector:           usersProjector,
 		ContentKeys:              contentKeys,

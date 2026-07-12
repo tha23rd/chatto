@@ -58,7 +58,9 @@ User-facing concepts. If a user might say the word, it goes here.
 
 **Echo** — Reposting a thread reply back to its parent channel so non-thread participants see it. Gated by `message.echo`. See [FDR-003](fdr/FDR-003-thread-reply-echo.md).
 
-**Reaction** — Emoji attached to a message by a user. See [FDR-005](fdr/FDR-005-reactions.md).
+**Reaction** — Emoji attached to a message by a user; the emoji can be a built-in gemoji or a server *Custom Emoji*. See [FDR-005](fdr/FDR-005-reactions.md).
+
+**Custom Emoji** — Admin-uploaded, named image shortcode (for example `:partyparrot:`) in a server-wide catalog that any member can use. Names match `^[a-z0-9_]{1,64}$` and must not collide with built-in gemoji shortcodes. In its first version custom emoji are usable as message *Reactions* (rendered as images); inline `:name:` substitution in message bodies is out of scope. Managed with `server.manage`. See [FDR-029](fdr/FDR-029-custom-emoji.md).
 
 **Mention** — `@handle` syntax in a message that notifies referenced users, pingable roles, or virtual room groups such as `@all` and `@here`. See [FDR-006](fdr/FDR-006-mentions.md).
 

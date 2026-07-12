@@ -44,6 +44,34 @@
     "banner_removed": "Banner removed",
     "banner_delete_failed": "Failed to delete banner",
     "banner_change": "Change Banner",
-    "banner_upload": "Upload Banner"
+    "banner_upload": "Upload Banner",
+    "custom_emoji": {
+      "nav": "Custom Emoji",
+      "title": "Custom Emoji",
+      "subtitle": "Add and manage custom emojis for reactions",
+      "upload": "Add Custom Emoji",
+      "list_title": "Custom Emojis",
+      "name_label": "Name",
+      "name_help": "Shortcode used to reference this emoji, e.g. partyblob",
+      "choose_image": "Choose Image",
+      "change_image": "Change Image",
+      "drop_image": "Drop image",
+      "drop_subtitle": "Upload as a custom emoji",
+      "preview_alt": "Custom emoji preview",
+      "add_button": "Add Emoji",
+      "uploading": "Uploading...",
+      "uploaded": "Custom emoji added",
+      "upload_failed": "Failed to add custom emoji",
+      "invalid_image": "Please choose an image file",
+      "image_too_large": "Image is too large (max 2 MB)",
+      "loading": "Loading custom emojis...",
+      "empty": "No custom emojis yet",
+      "load_failed": "Failed to load custom emojis",
+      "column_preview": "Preview",
+      "column_name": "Name",
+      "delete": "Remove",
+      "deleted": "Custom emoji removed",
+      "delete_failed": "Failed to remove custom emoji"
+    }
   }
 }

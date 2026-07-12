@@ -24,6 +24,10 @@ export type MessageActionParams = {
 export function useReactionActions() {
   const connection = useConnection();
 
+  // Normalize a unicode emoji to its gemoji shortcode. Custom emojis are
+  // already passed in by name (not a unicode char), so `emojiToName` returns
+  // undefined for them and the raw name flows through unchanged as the
+  // reaction key.
   function reactionName(emojiOrName: string): string | null {
     return emojiToName(emojiOrName) ?? emojiOrName;
   }

@@ -44,6 +44,34 @@
     "banner_removed": "Banner entfernt",
     "banner_delete_failed": "Banner konnte nicht gelöscht werden",
     "banner_change": "Banner ändern",
-    "banner_upload": "Banner hochladen"
+    "banner_upload": "Banner hochladen",
+    "custom_emoji": {
+      "nav": "Eigene Emojis",
+      "title": "Eigene Emojis",
+      "subtitle": "Eigene Emojis für Reaktionen hinzufügen und verwalten",
+      "upload": "Eigenes Emoji hinzufügen",
+      "list_title": "Eigene Emojis",
+      "name_label": "Name",
+      "name_help": "Kurzcode, mit dem dieses Emoji referenziert wird, z. B. partyblob",
+      "choose_image": "Bild auswählen",
+      "change_image": "Bild ändern",
+      "drop_image": "Bild ablegen",
+      "drop_subtitle": "Als eigenes Emoji hochladen",
+      "preview_alt": "Vorschau des eigenen Emojis",
+      "add_button": "Emoji hinzufügen",
+      "uploading": "Wird hochgeladen...",
+      "uploaded": "Eigenes Emoji hinzugefügt",
+      "upload_failed": "Eigenes Emoji konnte nicht hinzugefügt werden",
+      "invalid_image": "Bitte wähle eine Bilddatei",
+      "image_too_large": "Bild ist zu groß (max. 2 MB)",
+      "loading": "Eigene Emojis werden geladen...",
+      "empty": "Noch keine eigenen Emojis",
+      "load_failed": "Eigene Emojis konnten nicht geladen werden",
+      "column_preview": "Vorschau",
+      "column_name": "Name",
+      "delete": "Entfernen",
+      "deleted": "Eigenes Emoji entfernt",
+      "delete_failed": "Eigenes Emoji konnte nicht entfernt werden"
+    }
   }
 }

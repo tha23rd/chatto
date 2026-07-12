@@ -9,6 +9,11 @@ export type EmojiResult = {
   name: string;
   emoji: string;
   tags: string[];
+  /**
+   * Image URL for custom (server-defined) emojis. When present, consumers
+   * render this image instead of the `emoji` glyph. Absent for gemoji.
+   */
+  url?: string;
 };
 
 /**
@@ -178,10 +183,16 @@ const CATEGORY_ICONS: Record<string, string> = {
   Flags: '🏁'
 };
 
+/**
+ * A single entry within an emoji category. `url` is set only for custom
+ * (server-defined) emojis, whose image is rendered in place of a glyph.
+ */
+export type EmojiCategoryEntry = { emoji: string; name: string; url?: string };
+
 export type EmojiCategory = {
   name: string;
   icon: string;
-  emojis: { emoji: string; name: string }[];
+  emojis: EmojiCategoryEntry[];
 };
 
 /**

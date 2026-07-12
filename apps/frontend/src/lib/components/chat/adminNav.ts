@@ -63,6 +63,14 @@ export function getAdminNavItems({
     });
   }
 
+  if (chrome.canManage) {
+    items.push({
+      href: resolve('/chat/[serverId]/server-admin/custom-emoji', { serverId: serverSegment }),
+      label: m['server_settings.custom_emoji.nav'](),
+      icon: 'iconify uil--smile'
+    });
+  }
+
   if (chrome.canViewAdmin) {
     items.push({
       href: resolve('/chat/[serverId]/server-admin/moderation', { serverId: serverSegment }),

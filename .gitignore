@@ -22,3 +22,6 @@ test-results/
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 /cli/cmd/embedded/
+
+# Local scratch/bench artifacts and verification screenshots (never committed)
+.context/

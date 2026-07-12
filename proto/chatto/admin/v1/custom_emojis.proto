@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package chatto.admin.v1;
+
+import "buf/validate/validate.proto";
+import "chatto/api/v1/common.proto";
+import "chatto/api/v1/custom_emojis.proto";
+
+option go_package = "hmans.de/chatto/internal/pb/chatto/admin/v1;adminv1";
+
+// Request to create a new custom emoji from an uploaded image.
+message CreateCustomEmojiRequest {
+  // Required. Shortcode name, unique across the server catalog and distinct
+  // from the built-in gemoji vocabulary. Lowercase letters, digits, and
+  // underscores are recommended; validated further by the server.
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  // Required. The source image to process into the emoji (resized to a small
+  // square WebP; animated GIFs are preserved as animated WebP).
+  chatto.api.v1.ImageUpload image = 2;
+}
+
+// Result of creating a custom emoji.
+message CreateCustomEmojiResponse {
+  // The newly created custom emoji.
+  chatto.api.v1.CustomEmoji emoji = 1;
+}
+
+// Request to delete a custom emoji by ID.
+message DeleteCustomEmojiRequest {
+  // Required. Custom emoji identifier to delete.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// Result of deleting a custom emoji.
+message DeleteCustomEmojiResponse {}
+
+// Request to list all custom emojis for administrative management.
+message ListCustomEmojisRequest {}
+
+// Response carrying the full server custom emoji catalog.
+message ListCustomEmojisResponse {
+  // All custom emojis, ordered by name.
+  repeated chatto.api.v1.CustomEmoji emojis = 1;
+}
+
+// AdminCustomEmojiService is the administrative surface for managing the server
+// custom emoji catalog. Every RPC requires the `server.manage` permission,
+// which is held by the owner and admin roles.
+service AdminCustomEmojiService {
+  // Creates a custom emoji from an uploaded image. Requires `server.manage`.
+  rpc CreateCustomEmoji(CreateCustomEmojiRequest) returns (CreateCustomEmojiResponse);
+  // Deletes a custom emoji by ID. Requires `server.manage`.
+  rpc DeleteCustomEmoji(DeleteCustomEmojiRequest) returns (DeleteCustomEmojiResponse);
+  // Lists all custom emojis for management. Requires `server.manage`.
+  rpc ListCustomEmojis(ListCustomEmojisRequest) returns (ListCustomEmojisResponse);
+}

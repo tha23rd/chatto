@@ -1,0 +1,52 @@
+---
+title: CustomEmojiService
+description: Authenticated custom-emoji catalog listing RPCs for the picker and reaction rendering.
+editUrl: false
+---
+
+{/* Generated from proto/chatto/{auth,discovery,api,admin,realtime}/v1/*.proto. Do not edit directly. */}
+
+Chatto exposes this service below `/api/connect`.
+
+
+
+Shared message and enum definitions are documented in [Shared Types And Enums](/reference/connectrpc-api/types/).
+
+
+
+<a id="chatto-api-v1-CustomEmojiService"></a>
+
+## CustomEmojiService
+
+CustomEmojiService exposes the read side of the server custom emoji catalog.
+It is available to any authenticated user for the emoji picker and for
+resolving custom reaction shortcodes to images. Management (create/delete)
+lives in the administrative chatto.admin.v1.CustomEmojiService.
+
+<a id="chatto-api-v1-CustomEmojiService-ListCustomEmojis"></a>
+
+### ListCustomEmojis
+
+Lists all custom emojis defined on the server. Available to any
+authenticated user.
+
+```http
+POST /api/connect/chatto.api.v1.CustomEmojiService/ListCustomEmojis
+```
+
+<a id="chatto-api-v1-ListCustomEmojisRequest"></a>
+
+#### Input: ListCustomEmojisRequest
+
+Request to list all custom emojis defined on the server.
+
+
+<a id="chatto-api-v1-ListCustomEmojisResponse"></a>
+
+#### Result: ListCustomEmojisResponse
+
+Response carrying the full server custom emoji catalog.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `emojis` | repeated [`CustomEmoji`](/reference/connectrpc-api/types/#chatto-api-v1-CustomEmoji) | All custom emojis, ordered by name. |

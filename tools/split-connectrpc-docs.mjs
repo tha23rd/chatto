@@ -62,6 +62,12 @@ const categories = [
         description: 'Chunked room-scoped attachment upload RPCs.'
       },
       {
+        name: 'CustomEmojiService',
+        slug: 'custom-emojis',
+        title: 'Custom Emojis',
+        description: 'Authenticated custom-emoji catalog listing RPCs for the picker and reaction rendering.'
+      },
+      {
         name: 'MessageService',
         slug: 'messages',
         title: 'Messages',
@@ -149,6 +155,12 @@ const categories = [
         slug: 'admin-diagnostics',
         title: 'Admin Diagnostics',
         description: 'System diagnostics RPCs.'
+      },
+      {
+        name: 'AdminCustomEmojiService',
+        slug: 'admin-custom-emojis',
+        title: 'Admin Custom Emojis',
+        description: 'Administrative custom-emoji create, delete, and list RPCs.'
       },
       {
         name: 'AdminEventLogService',

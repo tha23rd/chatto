@@ -12,9 +12,11 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
 -->
 <script lang="ts">
   import * as m from '$lib/i18n/messages';
-  import { searchEmojis, EMOJI_BY_CATEGORY } from '$lib/emoji';
+  import { searchEmojis, EMOJI_BY_CATEGORY, type EmojiResult } from '$lib/emoji';
   import { supportsHoverActions } from '$lib/utils/inputCapabilities';
   import { getRecentEmojis, MAX_RECENT_EMOJIS } from '$lib/state/recentEmojis.svelte';
+  import { getCustomEmojis } from '$lib/state/customEmojis.svelte';
+  import { useConnection } from '$lib/state/server/connection.svelte';
 
   let {
     serverId,
@@ -32,7 +34,57 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
   const recentStore = $derived(getRecentEmojis(serverId));
   const recent = $derived(recentStore.recent.slice(0, MAX_RECENT_EMOJIS));
 
-  const searchResults = $derived(query.trim() ? searchEmojis(query.trim(), 50) : []);
+  // The picker renders in a few surfaces; most sit inside a server connection,
+  // but some (e.g. the custom-status editor) do not. Guard so those still work;
+  // custom emojis are simply unavailable without a connection.
+  let connection: ReturnType<typeof useConnection> | null = null;
+  try {
+    connection = useConnection();
+  } catch {
+    connection = null;
+  }
+
+  const customStore = $derived(getCustomEmojis(serverId));
+
+  // Load the server's custom emojis when the picker opens (mounts).
+  $effect(() => {
+    const conn = connection?.();
+    if (!conn) return;
+    customStore.ensureLoaded({
+      serverId: conn.serverId,
+      baseUrl: conn.connectBaseUrl,
+      bearerToken: conn.bearerToken
+    });
+  });
+
+  // Synthetic "Custom" category, prepended to the standard categories. Each
+  // entry carries a `url`, which switches rendering from glyph to <img>.
+  const customEntries = $derived(
+    customStore.emojis.map((emoji) => ({
+      name: emoji.name,
+      emoji: emoji.name,
+      url: emoji.url
+    }))
+  );
+  const categories = $derived(
+    customEntries.length > 0
+      ? [
+          { name: m['emoji.custom_emoji.category'](), icon: '', emojis: customEntries },
+          ...EMOJI_BY_CATEGORY
+        ]
+      : EMOJI_BY_CATEGORY
+  );
+
+  const customSearchResults: EmojiResult[] = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return customStore.emojis
+      .filter((emoji) => emoji.name.toLowerCase().includes(q))
+      .map((emoji) => ({ name: emoji.name, emoji: emoji.name, tags: [], url: emoji.url }));
+  });
+  const searchResults = $derived(
+    query.trim() ? [...customSearchResults, ...searchEmojis(query.trim(), 50)] : []
+  );
   const isSearching = $derived(query.trim().length > 0);
 
   function focusSearchInput(node: HTMLInputElement) {
@@ -53,6 +105,16 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
   function selectEmoji(emoji: string) {
     recentStore.record(emoji);
     onSelect(emoji);
+  }
+
+  function selectEntry(entry: { emoji: string; name: string; url?: string }) {
+    if (entry.url) {
+      // Custom emoji: emit the shortcode name so it flows through as a reaction
+      // key. Not recorded in recents, which can only render unicode glyphs.
+      onSelect(entry.name);
+    } else {
+      selectEmoji(entry.emoji);
+    }
   }
 </script>
 
@@ -81,10 +143,14 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
             {#each searchResults as result (result.name)}
               <button
                 class="flex aspect-square cursor-pointer items-center justify-center rounded text-3xl hover:bg-surface-100 active:bg-surface-100 md:h-8 md:w-8 md:text-base"
-                onclick={() => selectEmoji(result.emoji)}
+                onclick={() => selectEntry(result)}
                 title={result.name}
               >
-                {result.emoji}
+                {#if result.url}
+                  <img src={result.url} alt={result.name} class="h-6 w-6 object-contain" />
+                {:else}
+                  {result.emoji}
+                {/if}
               </button>
             {/each}
           </div>
@@ -107,7 +173,7 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
             {/each}
           </div>
         {/if}
-        {#each EMOJI_BY_CATEGORY as cat (cat.name)}
+        {#each categories as cat (cat.name)}
           <div
             class="mt-3 mb-1 px-1 text-sm font-medium text-muted md:mt-1 md:mb-0.5 md:px-0 md:text-xs"
           >
@@ -117,10 +183,14 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
             {#each cat.emojis as entry (entry.name)}
               <button
                 class="flex aspect-square cursor-pointer items-center justify-center rounded text-3xl hover:bg-surface-100 active:bg-surface-100 md:h-8 md:w-8 md:text-base"
-                onclick={() => selectEmoji(entry.emoji)}
+                onclick={() => selectEntry(entry)}
                 title={entry.name}
               >
-                {entry.emoji}
+                {#if entry.url}
+                  <img src={entry.url} alt={entry.name} class="h-6 w-6 object-contain" />
+                {:else}
+                  {entry.emoji}
+                {/if}
               </button>
             {/each}
           </div>

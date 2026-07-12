@@ -58,6 +58,11 @@ func NewAssetID() string {
 	return newID("A")
 }
 
+// NewCustomEmojiID generates a new custom emoji ID with "CE" prefix.
+func NewCustomEmojiID() string {
+	return newID("CE")
+}
+
 // NewPasswordResetToken generates a new password reset token with "PR" prefix.
 func NewPasswordResetToken() string {
 	return newID("PR")
