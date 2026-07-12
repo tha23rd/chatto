@@ -12,6 +12,7 @@ import "chatto/core/v1/reaction_events.proto";
 import "chatto/core/v1/room_events.proto";
 import "chatto/core/v1/room_group_events.proto";
 import "chatto/core/v1/config_events.proto";
+import "chatto/core/v1/custom_emoji_events.proto";
 import "chatto/core/v1/thread_events.proto";
 import "chatto/core/v1/user_events.proto";
 
@@ -156,6 +157,13 @@ message Event {
     // reconciler in ListRoomGroupsOrdered; the layout aggregate only
     // tracks explicit reorders.
     RoomGroupsReorderedEvent room_groups_reordered = 650;
+
+    // ----- Custom emojis (660-669, durable, evt.custom_emoji.server) -----
+    // The custom-emoji catalog is a server-wide singleton aggregate keyed by
+    // the constant "server" id. Admins add named image shortcodes usable as
+    // message reactions; the referenced asset holds the processed WebP bytes.
+    CustomEmojiCreatedEvent custom_emoji_created = 660;
+    CustomEmojiDeletedEvent custom_emoji_deleted = 661;
 
     // ----- Users (700-799, durable, evt.user.{userId}) -----
     UserAccountCreatedEvent user_account_created = 700;

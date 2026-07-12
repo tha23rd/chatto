@@ -26,6 +26,11 @@ func (s *HTTPServer) setupAssetRoutes() {
 	// The serveServerAsset handler detects and routes transform requests appropriately
 	// These handlers probe both NATS and S3 backends automatically
 	s.router.GET("/assets/server/*path", s.serveServerAsset)
+	// Custom emoji images live in the same server-asset keyspace/backends as
+	// branding, so they reuse serveServerAsset (probe-any-backend + immutable
+	// cache). A distinct public path keeps the emoji URL namespace stable and
+	// independent of server branding. See FDR-029.
+	s.router.GET("/assets/emoji/*path", s.serveServerAsset)
 	s.router.GET("/assets/files/:assetID", s.serveStableAttachment)
 	s.router.GET("/assets/files/:assetID/image/:dimensions/:fit", s.serveStableTransformedAttachment)
 }

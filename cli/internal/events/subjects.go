@@ -409,6 +409,11 @@ func EventTypeOf(e *corev1.Event) string {
 		return EventOAuthConsentGranted
 	case *corev1.Event_OauthConsentDenied:
 		return EventOAuthConsentDenied
+
+	case *corev1.Event_CustomEmojiCreated:
+		return EventCustomEmojiCreated
+	case *corev1.Event_CustomEmojiDeleted:
+		return EventCustomEmojiDeleted
 	}
 	return ""
 }

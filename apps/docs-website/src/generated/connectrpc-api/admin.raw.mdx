@@ -14,6 +14,103 @@ Endpoint paths use the Connect convention:
 
 Use this reference when building clients against Chatto's public ConnectRPC API.
 
+<a id="chatto-admin-v1-AdminCustomEmojiService"></a>
+
+## AdminCustomEmojiService
+
+AdminCustomEmojiService is the administrative surface for managing the server
+custom emoji catalog. Every RPC requires the `server.manage` permission,
+which is held by the owner and admin roles.
+
+<a id="chatto-admin-v1-AdminCustomEmojiService-CreateCustomEmoji"></a>
+
+### CreateCustomEmoji
+
+Creates a custom emoji from an uploaded image. Requires `server.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminCustomEmojiService/CreateCustomEmoji
+```
+
+<a id="chatto-admin-v1-CreateCustomEmojiRequest"></a>
+
+#### Input: CreateCustomEmojiRequest
+
+Request to create a new custom emoji from an uploaded image.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | `string` | Required. Shortcode name, unique across the server catalog and distinct from the built-in gemoji vocabulary. Lowercase letters, digits, and underscores are recommended; validated further by the server. |
+| `image` | `chatto.api.v1.ImageUpload` | Required. The source image to process into the emoji (resized to a small square WebP; animated GIFs are preserved as animated WebP). |
+
+
+<a id="chatto-admin-v1-CreateCustomEmojiResponse"></a>
+
+#### Result: CreateCustomEmojiResponse
+
+Result of creating a custom emoji.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `emoji` | `chatto.api.v1.CustomEmoji` | The newly created custom emoji. |
+
+
+<a id="chatto-admin-v1-AdminCustomEmojiService-DeleteCustomEmoji"></a>
+
+### DeleteCustomEmoji
+
+Deletes a custom emoji by ID. Requires `server.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminCustomEmojiService/DeleteCustomEmoji
+```
+
+<a id="chatto-admin-v1-DeleteCustomEmojiRequest"></a>
+
+#### Input: DeleteCustomEmojiRequest
+
+Request to delete a custom emoji by ID.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Required. Custom emoji identifier to delete. |
+
+
+<a id="chatto-admin-v1-DeleteCustomEmojiResponse"></a>
+
+#### Result: DeleteCustomEmojiResponse
+
+Result of deleting a custom emoji.
+
+
+<a id="chatto-admin-v1-AdminCustomEmojiService-ListCustomEmojis"></a>
+
+### ListCustomEmojis
+
+Lists all custom emojis for management. Requires `server.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminCustomEmojiService/ListCustomEmojis
+```
+
+<a id="chatto-admin-v1-ListCustomEmojisRequest"></a>
+
+#### Input: ListCustomEmojisRequest
+
+Request to list all custom emojis for administrative management.
+
+
+<a id="chatto-admin-v1-ListCustomEmojisResponse"></a>
+
+#### Result: ListCustomEmojisResponse
+
+Response carrying the full server custom emoji catalog.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `emojis` | `repeated chatto.api.v1.CustomEmoji` | All custom emojis, ordered by name. |
+
+
 <a id="chatto-admin-v1-AdminDiagnosticsService"></a>
 
 ## AdminDiagnosticsService

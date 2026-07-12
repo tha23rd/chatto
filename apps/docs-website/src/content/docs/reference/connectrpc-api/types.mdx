@@ -450,6 +450,23 @@ Current server-side state for one room-scoped attachment upload.
 | `expires_at` | `google.protobuf.Timestamp` | Upload expiry. Clients should create a new upload after this time. |
 | `asset_id` | `string` | Asset ID after completion. |
 
+<a id="chatto-api-v1-CustomEmoji"></a>
+
+### CustomEmoji
+
+A server-wide custom emoji: a named image shortcode uploaded by an admin and
+usable as a message reaction. The `name` is unique across the server catalog
+and distinct from the built-in gemoji vocabulary, so clients can resolve an
+unknown reaction shortcode to a custom emoji by name.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Custom emoji identifier (NanoID). |
+| `name` | `string` | Shortcode name, e.g. "partyparrot". |
+| `url` | `string` | Absolute or root-relative URL that renders the emoji image. |
+| `created_by` | `string` | User ID of the admin who created the emoji. |
+| `created_at_ms` | `int64` | Creation time in Unix milliseconds. |
+
 <a id="chatto-api-v1-PageInfo"></a>
 
 ### PageInfo

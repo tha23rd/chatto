@@ -2,6 +2,9 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "emoji": {
     "search_placeholder": "Search emojis...",
-    "no_results": "No emojis found"
+    "no_results": "No emojis found",
+    "custom_emoji": {
+      "category": "Custom"
+    }
   }
 }

@@ -31,6 +31,8 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
   import type { MessagesStore } from '$lib/state/room';
   import FloatingPopover from '$lib/ui/FloatingPopover.svelte';
   import { getEmojiByName, getEmojiDisplayName } from '$lib/emoji';
+  import { getCustomEmoji, getCustomEmojis } from '$lib/state/customEmojis.svelte';
+  import { useConnection } from '$lib/state/server/connection.svelte';
   import * as m from '$lib/i18n/messages';
 
   // Extract the MessagePostedEvent type from the union
@@ -79,6 +81,19 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
   } = $props();
 
   const reactionActions = useReactionActions();
+
+  // Ensure this server's custom emojis are loaded so custom reactions render as
+  // images even before the emoji picker is opened. Idempotent per server.
+  const connection = useConnection();
+  $effect(() => {
+    const conn = connection();
+    getCustomEmojis(serverSegment).ensureLoaded({
+      serverId: conn.serverId,
+      baseUrl: conn.connectBaseUrl,
+      bearerToken: conn.bearerToken
+    });
+  });
+
   const replyCountLabel = $derived(
     replyCount === 1
       ? m['room.message.meta.reply_count_one']()
@@ -229,6 +244,7 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
 
   <!-- Reaction pills -->
   {#each reactions as reaction (reaction.emoji)}
+    {@const customEmoji = getCustomEmoji(serverSegment, reaction.emoji)}
     <span
       role="group"
       onmouseenter={(e) => showReactionTooltip(e, reaction)}
@@ -257,7 +273,15 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
             })}
         aria-pressed={reaction.hasReacted}
       >
-        <span aria-hidden="true">{getEmojiByName(reaction.emoji) ?? reaction.emoji}</span>
+        {#if customEmoji}
+          <img
+            src={customEmoji.url}
+            alt={reaction.emoji}
+            class="inline-block h-[1.2em] w-auto align-[-0.15em]"
+          />
+        {:else}
+          <span aria-hidden="true">{getEmojiByName(reaction.emoji) ?? reaction.emoji}</span>
+        {/if}
         <span class="text-xs" aria-hidden="true">{reaction.count}</span>
       </button>
     </span>
@@ -285,7 +309,10 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
   {#if tooltipReaction}
     {@const tooltipUsers = reactionTooltipUsers(tooltipReaction)}
     <div class="flex min-w-0 flex-col gap-1 menu-section px-3 py-2 text-xs">
-      <strong class="font-semibold">{getEmojiDisplayName(tooltipReaction.emoji)}</strong>
+      <strong class="font-semibold"
+        >{getCustomEmoji(serverSegment, tooltipReaction.emoji)?.name ??
+          getEmojiDisplayName(tooltipReaction.emoji)}</strong
+      >
       <span class="flex min-w-0 flex-col gap-0.5 text-muted">
         {#each tooltipUsers.names as name (name)}
           <span class="break-words" data-testid="reaction-tooltip-user">{name}</span>

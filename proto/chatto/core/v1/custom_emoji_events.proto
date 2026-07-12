@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package chatto.core.v1;
+
+import "chatto/core/v1/models.proto";
+
+option go_package = "hmans.de/chatto/internal/pb/chatto/core/v1;corev1";
+
+// ============================================================================
+// CUSTOM EMOJI EVENTS (server-scoped, durable in EVT)
+//
+// Top-level Event oneof tags owned by this file:
+//   - 660-661: durable custom-emoji events on evt.custom_emoji.server.*
+//
+// Custom emojis are a server-wide catalog of named, admin-uploaded image
+// shortcodes usable as message reactions. The aggregate is a singleton keyed
+// by the constant "server" id, mirroring the RBAC server aggregate.
+//
+// The emoji's creator and creation time are carried on the Event envelope
+// (actor_id / created_at); they are not duplicated in the payload.
+// Message-internal field numbers are local to each message and do not consume
+// top-level Event tag space.
+// ============================================================================
+
+// CustomEmojiCreatedEvent records the addition of a new custom emoji to the
+// server catalog. The referenced asset holds the processed WebP image bytes.
+message CustomEmojiCreatedEvent {
+  // Custom emoji identifier (NanoID).
+  string id = 1;
+
+  // Shortcode name, unique across the server catalog and distinct from the
+  // built-in gemoji vocabulary (e.g. "partyparrot").
+  string name = 2;
+
+  // Processed emoji image asset (small square WebP). Carries the storage
+  // backend so the image can be served and, on deletion, cleaned up without
+  // re-probing every backend. Mirrors ServerLogoSetEvent.asset.
+  AssetRecord asset = 3;
+}
+
+// CustomEmojiDeletedEvent records the removal of a custom emoji from the
+// server catalog. Existing reactions that reference the deleted name are left
+// intact and render by their raw shortcode.
+message CustomEmojiDeletedEvent {
+  // Custom emoji identifier (NanoID) that was removed.
+  string id = 1;
+}

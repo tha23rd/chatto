@@ -48,7 +48,7 @@ func parseReactionKey(key string) (string, string, string, error) {
 // Returns true if the reaction was added, false if it already existed.
 // Publishes a durable ReactionAddedEvent after successful OCC write.
 func (c *ChattoCore) AddReaction(ctx context.Context, kind RoomKind, roomID, messageEventID, emojiInput, userID string) (bool, error) {
-	emojiName, err := resolveEmojiInput(emojiInput)
+	emojiName, err := c.resolveReactionEmoji(emojiInput)
 	if err != nil {
 		return false, err
 	}
@@ -91,7 +91,7 @@ func (c *ChattoCore) AddReaction(ctx context.Context, kind RoomKind, roomID, mes
 // Returns true if the reaction was removed, false if it didn't exist.
 // Publishes a durable ReactionRemovedEvent after successful OCC write.
 func (c *ChattoCore) RemoveReaction(ctx context.Context, kind RoomKind, roomID, messageEventID, emojiInput, userID string) (bool, error) {
-	emojiName, err := resolveEmojiInput(emojiInput)
+	emojiName, err := c.resolveReactionEmoji(emojiInput)
 	if err != nil {
 		return false, err
 	}

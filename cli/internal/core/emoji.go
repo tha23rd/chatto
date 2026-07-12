@@ -32,3 +32,16 @@ func resolveEmojiInput(input string) (string, error) {
 	}
 	return "", invalidArgument("unsupported emoji")
 }
+
+// resolveReactionEmoji validates a reaction shortcode name, accepting either a
+// built-in gemoji shortcode or a server custom emoji name. Custom emoji names
+// are matched case-insensitively against the current catalog.
+func (c *ChattoCore) resolveReactionEmoji(input string) (string, error) {
+	if IsValidEmojiName(input) {
+		return input, nil
+	}
+	if c.CustomEmojis != nil && c.CustomEmojis.IsCustomEmojiName(input) {
+		return input, nil
+	}
+	return "", invalidArgument("unsupported emoji")
+}

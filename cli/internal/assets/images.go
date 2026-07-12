@@ -23,6 +23,9 @@ const (
 	DefaultMaxUploadSize int64 = 25 * 1024 * 1024
 	// MaxAvatarDim is the maximum dimension for avatar images.
 	MaxAvatarDim = 256
+	// MaxEmojiDim is the maximum dimension for custom emoji images. Emoji
+	// render small, so a compact square keeps the catalog and picker light.
+	MaxEmojiDim = 128
 	// MaxLogoDim is the maximum dimension for space logo images.
 	MaxLogoDim = 512
 	// MaxBannerWidth is the maximum width for space banner images (4:3 aspect ratio).
@@ -258,6 +261,38 @@ func ProcessAvatarImageWithConfig(input io.Reader, cfg Config) (io.Reader, error
 
 	// Resize if necessary
 	resized := resizeToFit(img, MaxAvatarDim, MaxAvatarDim)
+
+	// Encode to WebP (lossless)
+	var buf bytes.Buffer
+	if err := nativewebp.Encode(&buf, resized, nil); err != nil {
+		return nil, fmt.Errorf("failed to encode to webp: %w", err)
+	}
+
+	return bytes.NewReader(buf.Bytes()), nil
+}
+
+// ProcessEmojiImage reads an image from the input reader, resizes it to fit
+// within MaxEmojiDim x MaxEmojiDim while maintaining aspect ratio, and encodes
+// it as WebP. Uses default config values.
+func ProcessEmojiImage(input io.Reader) (io.Reader, error) {
+	return ProcessEmojiImageWithConfig(input, DefaultConfig())
+}
+
+// ProcessEmojiImageWithConfig reads an image from the input reader, resizes it
+// to fit within MaxEmojiDim x MaxEmojiDim while maintaining aspect ratio, and
+// encodes it as WebP. Returns an error if the input exceeds cfg.MaxUploadSize.
+//
+// TODO: preserve animated GIFs as animated WebP; this currently flattens to a
+// single static frame.
+func ProcessEmojiImageWithConfig(input io.Reader, cfg Config) (io.Reader, error) {
+	// Limit input size to prevent memory exhaustion
+	img, err := decodeBoundedImage(input, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	// Resize if necessary
+	resized := resizeToFit(img, MaxEmojiDim, MaxEmojiDim)
 
 	// Encode to WebP (lossless)
 	var buf bytes.Buffer

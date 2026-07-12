@@ -117,6 +117,7 @@ export default defineConfig({
               items: [
                 "reference/connectrpc-api/assets",
                 "reference/connectrpc-api/asset-uploads",
+                "reference/connectrpc-api/custom-emojis",
                 "reference/connectrpc-api/messages",
                 "reference/connectrpc-api/account",
                 "reference/connectrpc-api/notification-preferences",
@@ -135,6 +136,7 @@ export default defineConfig({
             {
               label: "chatto.admin.v1",
               items: [
+                "reference/connectrpc-api/admin-custom-emojis",
                 "reference/connectrpc-api/admin-diagnostics",
                 "reference/connectrpc-api/admin-event-log",
                 "reference/connectrpc-api/admin-permissions",

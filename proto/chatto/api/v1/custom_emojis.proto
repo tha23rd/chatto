@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package chatto.api.v1;
+
+option go_package = "hmans.de/chatto/internal/pb/chatto/api/v1;apiv1";
+
+// A server-wide custom emoji: a named image shortcode uploaded by an admin and
+// usable as a message reaction. The `name` is unique across the server catalog
+// and distinct from the built-in gemoji vocabulary, so clients can resolve an
+// unknown reaction shortcode to a custom emoji by name.
+message CustomEmoji {
+  // Custom emoji identifier (NanoID).
+  string id = 1;
+  // Shortcode name, e.g. "partyparrot".
+  string name = 2;
+  // Absolute or root-relative URL that renders the emoji image.
+  string url = 3;
+  // User ID of the admin who created the emoji.
+  string created_by = 4;
+  // Creation time in Unix milliseconds.
+  int64 created_at_ms = 5;
+}
+
+// Request to list all custom emojis defined on the server.
+message ListCustomEmojisRequest {}
+
+// Response carrying the full server custom emoji catalog.
+message ListCustomEmojisResponse {
+  // All custom emojis, ordered by name.
+  repeated CustomEmoji emojis = 1;
+}
+
+// CustomEmojiService exposes the read side of the server custom emoji catalog.
+// It is available to any authenticated user for the emoji picker and for
+// resolving custom reaction shortcodes to images. Management (create/delete)
+// lives in the administrative chatto.admin.v1.CustomEmojiService.
+service CustomEmojiService {
+  // Lists all custom emojis defined on the server. Available to any
+  // authenticated user.
+  rpc ListCustomEmojis(ListCustomEmojisRequest) returns (ListCustomEmojisResponse);
+}
