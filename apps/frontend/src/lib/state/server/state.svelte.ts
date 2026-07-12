@@ -29,6 +29,14 @@ export class ServerInfoState {
   maxUploadSize = $state(25 * 1024 * 1024); // default 25 MB
   maxVideoUploadSize = $state(25 * 1024 * 1024); // default 25 MB (overridden when video enabled)
   messageEditWindowSeconds = $state(3 * 60 * 60); // default 3 hours; overwritten after auth
+  // Screen-share quality ceiling (server-configured, overwritten after auth).
+  // Defaults mirror the server-side defaults so calls work before init/auth.
+  screenShare = $state<{
+    maxWidth: number;
+    maxHeight: number;
+    maxFramerate: number;
+    maxBitrate: number;
+  }>({ maxWidth: 1920, maxHeight: 1080, maxFramerate: 60, maxBitrate: 6_000_000 });
 
   loading = $state(true);
 
@@ -113,5 +121,8 @@ export class ServerInfoState {
     this.maxUploadSize = info.maxUploadSize;
     this.maxVideoUploadSize = info.maxVideoUploadSize;
     this.messageEditWindowSeconds = info.messageEditWindowSeconds;
+    if (info.screenShare) {
+      this.screenShare = info.screenShare;
+    }
   }
 }

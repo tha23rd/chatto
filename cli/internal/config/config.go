@@ -789,6 +789,54 @@ type LiveKitConfig struct {
 	InstanceID       string `toml:"instance_id,commented" env:"CHATTO_LIVEKIT_INSTANCE_ID" comment:"Deprecated alias for server_id. Prefer server_id / CHATTO_LIVEKIT_SERVER_ID."`
 	WebhookAPIKey    string `toml:"webhook_api_key,commented" env:"CHATTO_LIVEKIT_WEBHOOK_API_KEY" comment:"API key LiveKit uses to sign webhooks. Falls back to api_key if not set. Required when the webhook signing key differs from the per-server API key."`
 	WebhookAPISecret string `toml:"webhook_api_secret,commented" env:"CHATTO_LIVEKIT_WEBHOOK_API_SECRET" comment:"API secret for webhook signature validation. Falls back to api_secret if not set."`
+	// Screen-share quality ceiling sent to clients. These are an adaptive ceiling:
+	// clients still downshift for small render tiles and weak links. Tunable at
+	// runtime (change the value and restart; no client redeploy needed).
+	ScreenShareMaxWidth     int   `toml:"screenshare_max_width,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_WIDTH" comment:"Max screen-share capture width in pixels. Default: 1920."`
+	ScreenShareMaxHeight    int   `toml:"screenshare_max_height,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_HEIGHT" comment:"Max screen-share capture height in pixels. Default: 1080."`
+	ScreenShareMaxFramerate int   `toml:"screenshare_max_framerate,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_FRAMERATE" comment:"Max screen-share framerate. Default: 60."`
+	ScreenShareMaxBitrate   int64 `toml:"screenshare_max_bitrate,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_BITRATE" comment:"Max screen-share publish bitrate in bits/sec. Default: 6000000."`
+}
+
+// Default screen-share quality ceiling used when the corresponding config value
+// is unset (<= 0). Kept in sync with the client-side fallback.
+const (
+	defaultScreenShareMaxWidth     = 1920
+	defaultScreenShareMaxHeight    = 1080
+	defaultScreenShareMaxFramerate = 60
+	defaultScreenShareMaxBitrate   = 6_000_000
+)
+
+// ScreenShareMaxWidthOrDefault returns the configured max screen-share width, or the default.
+func (c *LiveKitConfig) ScreenShareMaxWidthOrDefault() int {
+	if c.ScreenShareMaxWidth > 0 {
+		return c.ScreenShareMaxWidth
+	}
+	return defaultScreenShareMaxWidth
+}
+
+// ScreenShareMaxHeightOrDefault returns the configured max screen-share height, or the default.
+func (c *LiveKitConfig) ScreenShareMaxHeightOrDefault() int {
+	if c.ScreenShareMaxHeight > 0 {
+		return c.ScreenShareMaxHeight
+	}
+	return defaultScreenShareMaxHeight
+}
+
+// ScreenShareMaxFramerateOrDefault returns the configured max screen-share framerate, or the default.
+func (c *LiveKitConfig) ScreenShareMaxFramerateOrDefault() int {
+	if c.ScreenShareMaxFramerate > 0 {
+		return c.ScreenShareMaxFramerate
+	}
+	return defaultScreenShareMaxFramerate
+}
+
+// ScreenShareMaxBitrateOrDefault returns the configured max screen-share bitrate, or the default.
+func (c *LiveKitConfig) ScreenShareMaxBitrateOrDefault() int64 {
+	if c.ScreenShareMaxBitrate > 0 {
+		return c.ScreenShareMaxBitrate
+	}
+	return defaultScreenShareMaxBitrate
 }
 
 // WebhookKeyPair returns the key/secret used to validate incoming LiveKit webhooks.

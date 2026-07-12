@@ -44,6 +44,9 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup
 
+      - name: Regenerate protobuf clients
+        run: mise codegen-proto
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

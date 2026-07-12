@@ -29,6 +29,23 @@ message ServerRuntimeConfig {
   int64 max_video_upload_size = 7;
   // Message edit window in seconds.
   int32 message_edit_window_seconds = 8;
+  // Screen-share capture/encoding ceiling applied by clients when publishing a
+  // screen share. Server-configured so operators can tune quality without a
+  // client redeploy.
+  ScreenShareConfig screen_share = 9;
+}
+
+// Client screen-share capture and encoding ceiling. Values are an adaptive
+// ceiling: clients still downshift for small render tiles and weak links.
+message ScreenShareConfig {
+  // Maximum capture width in pixels (e.g. 1920).
+  int32 max_width = 1;
+  // Maximum capture height in pixels (e.g. 1080).
+  int32 max_height = 2;
+  // Maximum capture/publish framerate (e.g. 60).
+  int32 max_framerate = 3;
+  // Maximum publish bitrate in bits per second (e.g. 6000000).
+  int64 max_bitrate = 4;
 }
 
 // Request for authenticated server runtime configuration.
