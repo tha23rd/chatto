@@ -3,6 +3,20 @@
 All notable changes to Chatto. Maintained by release-please from the
 conventional-commit messages on `main` — do not edit by hand.
 
+## [0.5.0-beta.1](https://github.com/chattocorp/chatto/compare/v0.4.8...v0.5.0-beta.1) (2026-07-12)
+
+
+### Features
+
+* **admin:** expose asset cleanup health ([#1401](https://github.com/chattocorp/chatto/issues/1401)) ([66d7de3](https://github.com/chattocorp/chatto/commit/66d7de341a70a49cbe8a3611b3338eb6046a52b5))
+* **api:** support GET server discovery ([#1396](https://github.com/chattocorp/chatto/issues/1396)) ([cf1a373](https://github.com/chattocorp/chatto/commit/cf1a3736f807b060757a93c83e93f4bf744b1c2d))
+* **frontend:** highlight rich composer mode ([#1412](https://github.com/chattocorp/chatto/issues/1412)) ([468cf14](https://github.com/chattocorp/chatto/commit/468cf146fdaab490c8e703a10577699554ff170d))
+
+
+### Bug Fixes
+
+* **release:** develop prereleases on main ([#1419](https://github.com/chattocorp/chatto/issues/1419)) ([a33d440](https://github.com/chattocorp/chatto/commit/a33d440f88f24d44fa6657f24ba09de48e89e857))
+
 ## [0.4.8](https://github.com/chattocorp/chatto/compare/v0.4.7...v0.4.8) (2026-07-12)
 
 
