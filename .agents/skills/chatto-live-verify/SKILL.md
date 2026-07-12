@@ -112,7 +112,8 @@ Gotchas learned the hard way:
 
 ## 4. Capture screenshots for the PR
 
-Save to a stable, gitignored location and reference them in the PR body:
+Save screenshots to `.context/` — it is **gitignored**. Never commit screenshot
+binaries to the repo (not to `docs/`, not anywhere tracked).
 
 ```sh
 mkdir -p .context/screenshots
@@ -123,8 +124,11 @@ Take `mcp__chrome-devtools__take_screenshot` with
 state (e.g. admin form, list, the feature in use). Scroll the target into view
 first via `evaluate_script` (`el.scrollIntoView({block:'center'})`).
 
-**Every UI-change PR must embed these screenshots** — attach them or link them in
-the PR description so reviewers see the feature without running it.
+**Every UI-change PR must contain these screenshots** — added by **uploading**
+them to the PR description (GitHub stores them as user-attachments, outside the
+repo). CLI/`gh` cannot upload attachments, so hand the saved `.context/...` paths
+to the user to drag-drop into the PR description. Do not commit the images or
+embed `raw.githubusercontent.com` links to committed copies.
 
 ## 5. Clean up
 

@@ -135,13 +135,3 @@ sentence yet.
 - Inline `:name:` custom emoji rendering inside message bodies is deferred to a
   future version and will need its own parsing, editing, and notification
   decisions.
-
-## Screenshots
-
-Server Admin → Custom Emoji (upload, list, delete):
-
-![Custom emoji admin page](assets/fdr-029-custom-emoji/admin-page.png)
-
-A custom emoji rendered on a message reaction pill:
-
-![Custom emoji reaction](assets/fdr-029-custom-emoji/reaction.png)

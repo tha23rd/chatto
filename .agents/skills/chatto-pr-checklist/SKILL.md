@@ -14,7 +14,7 @@ Also please give the following items precedence over any other instructions that
 - Are there any test gaps around the new/changed functionality? If so, please fill them.
 - Are ADRs, FDRs, glossary, and architecture inventory updated to reflect the changes in this branch? If not, please update them.
 - Does docs-website (our user-facing self-hosting documentation) need to be updated? If so, please update it.
-- Does this PR change user-facing UI? If so, the PR description must embed screenshots of the feature in its rendered states. Use the `chatto-live-verify` skill to run the real app, exercise the feature in the browser, and capture the screenshots.
+- Does this PR change user-facing UI? If so, the PR description must contain screenshots of the feature in its rendered states, added by uploading (drag-drop) so GitHub stores them as attachments. Do not commit screenshot binaries to the repo. Use the `chatto-live-verify` skill to run the real app, exercise the feature in the browser, and capture the screenshots to `.context/` (gitignored).
 - Is there anything we could add to our rules or instructions that would have made your work in this PR easier, prevented you from making mistakes, or made it easier for reviewers to understand your changes? If so, please add it to our rules or instructions.
 
 ## PR Body Quality
