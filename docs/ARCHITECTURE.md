@@ -131,7 +131,7 @@ Projections are in-memory read models rebuilt from `EVT`. `NewChattoCore` regist
 | Server/user config | Server Config        | `evt.config.>`, selected user cleanup/preference facts     | Server config, branding refs, user preferences, notification levels, blocked usernames     |
 | Users              | Users                | `evt.user.>`                                               | Account/profile/custom-status/auth lookup state, verified emails, external identity links, encrypted user PII |
 | Content keys       | Content Keys         | `evt.user.*.dek_generated`, `evt.user.*.user_key_shredded` | Active and shredded user DEK epochs for message bodies and user PII                        |
-| RBAC               | RBAC                 | `evt.rbac.>`                                               | Roles, role order, assignments, scoped allow/deny decisions                                |
+| RBAC               | RBAC                 | `evt.rbac.>`                                               | Roles, role order, manual/OIDC-managed assignments, scoped allow/deny decisions           |
 | Mentions           | Mentionables         | `evt.>`                                                    | Global mention-handle ownership across users, roles, `@all`, and `@here`                  |
 
 Notes: registered projector keys are used by metrics and automation; registered projector names match the admin projection diagnostics. Composite projections expose nested read models, but only their parent projector is started by `ChattoCore.Run`. The shared replay fanout reduces duplicate replay delivery and protobuf decoding while keeping each projection's status, lag, failure, and read-your-writes waiters independent. `Subjects()` is the logical consumption and readiness contract; optional replay subjects are only the physical consumer filter. Focused logical filters are appropriate for stable derived indexes such as Threads, while broad filters remain intentional for projections whose snapshots expose room-tail OCC positions, such as Reactions and Call State. Threads reports the focused logical subjects above for waits and diagnostics; non-thread room facts are skipped before `Apply`.
@@ -636,6 +636,8 @@ The aggregate ID is intentionally part of the subject; actor/user and detailed c
 | `evt.rbac.{server\|scopeId}.roles_reordered`                | `RbacRolesReorderedEvent`                          |
 | `evt.rbac.{server\|scopeId}.role_assigned`                  | `RbacRoleAssignedEvent`                            |
 | `evt.rbac.{server\|scopeId}.role_revoked`                   | `RbacRoleRevokedEvent`                             |
+| `evt.rbac.{server\|scopeId}.oidc_role_granted`              | `RbacOIDCRoleGrantedEvent`                         |
+| `evt.rbac.{server\|scopeId}.oidc_role_revoked`              | `RbacOIDCRoleRevokedEvent`                         |
 | `evt.rbac.{server\|scopeId}.permission_granted`             | `RbacPermissionGrantedEvent`                       |
 | `evt.rbac.{server\|scopeId}.permission_denied`              | `RbacPermissionDeniedEvent`                        |
 | `evt.rbac.{server\|scopeId}.permission_cleared`             | `RbacPermissionClearedEvent`                       |
