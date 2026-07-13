@@ -236,8 +236,26 @@ export class VoiceCallState {
   private analyserSource: MediaStreamAudioSourceNode | null = null;
   private analyserData: Float32Array<ArrayBuffer> | null = null;
 
-  constructor(api: VoiceCallAPI) {
+  // Lazily resolves the server-configured screen-share quality ceiling at
+  // share time. Optional so tests/callers can omit it (falls back to defaults).
+  #screenShareConfigProvider?: () => {
+    maxWidth: number;
+    maxHeight: number;
+    maxFramerate: number;
+    maxBitrate: number;
+  };
+
+  constructor(
+    api: VoiceCallAPI,
+    screenShareConfigProvider?: () => {
+      maxWidth: number;
+      maxHeight: number;
+      maxFramerate: number;
+      maxBitrate: number;
+    }
+  ) {
     this.#api = api;
+    this.#screenShareConfigProvider = screenShareConfigProvider;
   }
 
   /**
@@ -628,9 +646,34 @@ export class VoiceCallState {
 
   private async performToggleScreenShare(room: Room): Promise<void> {
     const newEnabled = !this.isScreenShareEnabled;
+    // Server-configured screen-share quality ceiling (defaults to 1080p60).
+    // This is an adaptive ceiling, not a forced floor: adaptiveStream + dynacast
+    // (enabled on the Room) still downshift for small tiles or weak links.
+    const quality = this.#screenShareConfigProvider?.() ?? {
+      maxWidth: 1920,
+      maxHeight: 1080,
+      maxFramerate: 60,
+      maxBitrate: 6_000_000
+    };
+    const screenShareCapture = {
+      resolution: {
+        width: quality.maxWidth,
+        height: quality.maxHeight,
+        frameRate: quality.maxFramerate
+      }
+    };
+    const screenSharePublish = {
+      videoEncoding: { maxBitrate: quality.maxBitrate, maxFramerate: quality.maxFramerate }
+    };
     try {
       await this.runExplicitMediaDeviceOperation(() =>
-        room.localParticipant.setScreenShareEnabled(newEnabled)
+        newEnabled
+          ? room.localParticipant.setScreenShareEnabled(
+              newEnabled,
+              screenShareCapture,
+              screenSharePublish
+            )
+          : room.localParticipant.setScreenShareEnabled(newEnabled)
       );
       if (this.room !== room) return;
 

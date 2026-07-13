@@ -145,7 +145,7 @@ export class ServerStateStore {
       bearerToken: serverConnection.bearerToken
     });
     this.pendingHighlights = new PendingHighlightStore();
-    this.voiceCall = new VoiceCallState(voiceCallAPI);
+    this.voiceCall = new VoiceCallState(voiceCallAPI, () => this.serverInfo.screenShare);
     this.callParticipants = new CallParticipantsState(voiceCallAPI);
     this.activeCallRooms = new ActiveCallRoomsState(voiceCallAPI, this.voiceCall);
     this.rooms = new RoomsStore(

@@ -26,6 +26,12 @@ export type AuthenticatedServerState = {
   maxUploadSize: number;
   maxVideoUploadSize: number;
   messageEditWindowSeconds: number;
+  screenShare: {
+    maxWidth: number;
+    maxHeight: number;
+    maxFramerate: number;
+    maxBitrate: number;
+  } | null;
   viewerPermissions: Record<string, boolean>;
   viewerCanManageServer: boolean;
   viewerCanCreateRooms: boolean;
@@ -151,6 +157,14 @@ export async function getAuthenticatedServerState(
     maxUploadSize: Number(runtime?.maxUploadSize ?? 0),
     maxVideoUploadSize: Number(runtime?.maxVideoUploadSize ?? 0),
     messageEditWindowSeconds: runtime?.messageEditWindowSeconds ?? 0,
+    screenShare: runtime?.screenShare
+      ? {
+          maxWidth: runtime.screenShare.maxWidth,
+          maxHeight: runtime.screenShare.maxHeight,
+          maxFramerate: runtime.screenShare.maxFramerate,
+          maxBitrate: Number(runtime.screenShare.maxBitrate)
+        }
+      : null,
     viewerPermissions,
     viewerCanManageServer: can('server.manage'),
     viewerCanCreateRooms: can('room.create'),

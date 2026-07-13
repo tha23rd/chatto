@@ -60,6 +60,12 @@ func (s *serverService) serverRuntimeConfig() *apiv1.ServerRuntimeConfig {
 	if s.api.config.LiveKit.IsConfigured() {
 		runtime.LivekitUrl = stringPtr(s.api.config.LiveKit.URL)
 	}
+	runtime.ScreenShare = &apiv1.ScreenShareConfig{
+		MaxWidth:     int32(s.api.config.LiveKit.ScreenShareMaxWidthOrDefault()),
+		MaxHeight:    int32(s.api.config.LiveKit.ScreenShareMaxHeightOrDefault()),
+		MaxFramerate: int32(s.api.config.LiveKit.ScreenShareMaxFramerateOrDefault()),
+		MaxBitrate:   s.api.config.LiveKit.ScreenShareMaxBitrateOrDefault(),
+	}
 	return runtime
 }
 
