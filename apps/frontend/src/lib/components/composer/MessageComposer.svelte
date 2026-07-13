@@ -25,6 +25,7 @@
   import { hasVisibleContent } from '$lib/validation';
   import { extractMentions, hasRoleOrVirtualMention } from '$lib/mentions';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
+  import { getCustomEmojis } from '$lib/state/customEmojis.svelte';
   import EmojiAutocomplete from '$lib/components/composer/EmojiAutocomplete.svelte';
   import MentionAutocomplete from '$lib/components/composer/MentionAutocomplete.svelte';
   import type { TipTapEditorApi } from './TipTapEditor.svelte';
@@ -155,10 +156,24 @@
       bearerToken: conn.bearerToken
     });
   });
+  // The active server's custom emojis, so `:shortcode` autocomplete can offer
+  // them alongside built-in gemoji. Loaded once per server (idempotent; the
+  // emoji picker and reaction bar share the same store).
+  const customEmojiStore = $derived(getCustomEmojis(getActiveServer()));
+  $effect(() => {
+    const conn = connection();
+    customEmojiStore.ensureLoaded({
+      serverId: conn.serverId,
+      baseUrl: conn.connectBaseUrl,
+      bearerToken: conn.bearerToken
+    });
+  });
+  const customEmojis = $derived(customEmojiStore.emojis);
   const autocomplete = new AutocompleteState(
     () => editorApi,
     () => mentionCandidateMembers,
-    () => mentionRoles
+    () => mentionRoles,
+    () => customEmojis
   );
   let mentionRoles = $state<MentionRole[]>([]);
   let mentionRolesLoadComplete = $state(false);
@@ -942,6 +957,7 @@
       <EmojiAutocomplete
         bind:this={autocomplete.emojiRef}
         query={autocomplete.emoji.query}
+        {customEmojis}
         onSelect={handleEmojiSelect}
         onClose={closeEmojiAutocomplete}
       />

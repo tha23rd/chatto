@@ -101,6 +101,29 @@ describe('AutocompleteState', () => {
     expect(state.emoji).toBeNull();
   });
 
+  it('opens emoji autocomplete for a custom emoji shortcode with no gemoji match', () => {
+    const fakeEditor = editor(':');
+    const state = new AutocompleteState(
+      () => fakeEditor.api,
+      () => [],
+      () => [],
+      () => [{ name: 'zzqqxx', url: 'https://example.test/assets/emoji/zz' }]
+    );
+
+    // No gemoji contains this run, so only the custom emoji can trigger it.
+    fakeEditor.setText(':zzqq');
+    state.update();
+    expect(state.emoji?.query).toBe('zzqq');
+
+    // Without the custom emoji registered, the same partial stays closed.
+    const bare = new AutocompleteState(
+      () => editor(':zzqq').api,
+      () => []
+    );
+    bare.update();
+    expect(bare.emoji).toBeNull();
+  });
+
   it('gives emoji autocomplete priority over mention autocomplete', () => {
     const fakeEditor = editor('@al');
     const state = new AutocompleteState(

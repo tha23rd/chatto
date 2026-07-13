@@ -90,6 +90,54 @@ export function searchEmojis(query: string, limit = 10): EmojiResult[] {
 }
 
 /**
+ * Minimal shape of a custom (server-defined) emoji needed for search/render:
+ * its shortcode `name` and the image `url` to display. Kept structural so
+ * callers can pass the richer `CustomEmoji` API type without importing it here.
+ */
+export type CustomEmojiLike = { name: string; url: string };
+
+/**
+ * Search a server's custom emojis by shortcode name (case-insensitive).
+ * Scored like {@link searchEmojis} (exact > prefix > substring) so custom and
+ * built-in results can be merged in a stable, sensible order. Returns
+ * {@link EmojiResult}s carrying `url`, which switches rendering from glyph to
+ * `<img>`. Returns an empty array for a blank query.
+ */
+export function searchCustomEmojis(
+  emojis: readonly CustomEmojiLike[],
+  query: string,
+  limit = 10
+): EmojiResult[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  const scored: { name: string; url: string; score: number }[] = [];
+  for (const e of emojis) {
+    const name = e.name.toLowerCase();
+    let score = 0;
+    if (name === q) {
+      score = 1000;
+    } else if (name.startsWith(q)) {
+      score = 500 - name.length;
+    } else if (name.includes(q)) {
+      score = 100 - name.length;
+    }
+    if (score > 0) {
+      scored.push({ name: e.name, url: e.url, score });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+  return scored.slice(0, limit).map((e) => ({
+    name: e.name,
+    emoji: e.name,
+    tags: [],
+    url: e.url
+  }));
+}
+
+/**
  * Total number of slots shown in the quick-reaction toolbar.
  * The first PINNED_REACTIONS.length slots are stable; the rest track recent usage.
  */
