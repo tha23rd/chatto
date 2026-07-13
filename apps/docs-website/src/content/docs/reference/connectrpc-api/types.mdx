@@ -815,6 +815,20 @@ Public server profile, identity, and branding fields.
 | `welcome_message` | `optional string` | Optional welcome message. |
 | `description` | `optional string` | Optional server description. |
 
+<a id="chatto-api-v1-ScreenShareConfig"></a>
+
+### ScreenShareConfig
+
+Client screen-share capture and encoding ceiling. Values are an adaptive
+ceiling: clients still downshift for small render tiles and weak links.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `max_width` | `int32` | Maximum capture width in pixels (e.g. 1920). |
+| `max_height` | `int32` | Maximum capture height in pixels (e.g. 1080). |
+| `max_framerate` | `int32` | Maximum capture/publish framerate (e.g. 60). |
+| `max_bitrate` | `int64` | Maximum publish bitrate in bits per second (e.g. 6000000). |
+
 <a id="chatto-api-v1-ServerRuntimeConfig"></a>
 
 ### ServerRuntimeConfig
@@ -830,6 +844,7 @@ Authenticated server runtime settings used by clients.
 | `max_upload_size` | `int64` | Maximum general upload size in bytes. |
 | `max_video_upload_size` | `int64` | Maximum video upload size in bytes. |
 | `message_edit_window_seconds` | `int32` | Message edit window in seconds. |
+| `screen_share` | [`ScreenShareConfig`](#chatto-api-v1-ScreenShareConfig) | Screen-share capture/encoding ceiling applied by clients when publishing a screen share. Server-configured so operators can tune quality without a client redeploy. |
 
 <a id="chatto-api-v1-FollowedThread"></a>
 

@@ -135,6 +135,15 @@ export class ServerRuntimeConfig extends Message<ServerRuntimeConfig> {
    */
   messageEditWindowSeconds = 0;
 
+  /**
+   * Screen-share capture/encoding ceiling applied by clients when publishing a
+   * screen share. Server-configured so operators can tune quality without a
+   * client redeploy.
+   *
+   * @generated from field: chatto.api.v1.ScreenShareConfig screen_share = 9;
+   */
+  screenShare?: ScreenShareConfig;
+
   constructor(data?: PartialMessage<ServerRuntimeConfig>) {
     super();
     proto3.util.initPartial(data, this);
@@ -150,6 +159,7 @@ export class ServerRuntimeConfig extends Message<ServerRuntimeConfig> {
     { no: 6, name: "max_upload_size", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 7, name: "max_video_upload_size", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 8, name: "message_edit_window_seconds", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 9, name: "screen_share", kind: "message", T: ScreenShareConfig },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ServerRuntimeConfig {
@@ -166,6 +176,72 @@ export class ServerRuntimeConfig extends Message<ServerRuntimeConfig> {
 
   static equals(a: ServerRuntimeConfig | PlainMessage<ServerRuntimeConfig> | undefined, b: ServerRuntimeConfig | PlainMessage<ServerRuntimeConfig> | undefined): boolean {
     return proto3.util.equals(ServerRuntimeConfig, a, b);
+  }
+}
+
+/**
+ * Client screen-share capture and encoding ceiling. Values are an adaptive
+ * ceiling: clients still downshift for small render tiles and weak links.
+ *
+ * @generated from message chatto.api.v1.ScreenShareConfig
+ */
+export class ScreenShareConfig extends Message<ScreenShareConfig> {
+  /**
+   * Maximum capture width in pixels (e.g. 1920).
+   *
+   * @generated from field: int32 max_width = 1;
+   */
+  maxWidth = 0;
+
+  /**
+   * Maximum capture height in pixels (e.g. 1080).
+   *
+   * @generated from field: int32 max_height = 2;
+   */
+  maxHeight = 0;
+
+  /**
+   * Maximum capture/publish framerate (e.g. 60).
+   *
+   * @generated from field: int32 max_framerate = 3;
+   */
+  maxFramerate = 0;
+
+  /**
+   * Maximum publish bitrate in bits per second (e.g. 6000000).
+   *
+   * @generated from field: int64 max_bitrate = 4;
+   */
+  maxBitrate = protoInt64.zero;
+
+  constructor(data?: PartialMessage<ScreenShareConfig>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "chatto.api.v1.ScreenShareConfig";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "max_width", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 2, name: "max_height", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 3, name: "max_framerate", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 4, name: "max_bitrate", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ScreenShareConfig {
+    return new ScreenShareConfig().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ScreenShareConfig {
+    return new ScreenShareConfig().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ScreenShareConfig {
+    return new ScreenShareConfig().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ScreenShareConfig | PlainMessage<ScreenShareConfig> | undefined, b: ScreenShareConfig | PlainMessage<ScreenShareConfig> | undefined): boolean {
+    return proto3.util.equals(ScreenShareConfig, a, b);
   }
 }
 

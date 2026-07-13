@@ -121,8 +121,12 @@ type ServerRuntimeConfig struct {
 	MaxVideoUploadSize int64 `protobuf:"varint,7,opt,name=max_video_upload_size,json=maxVideoUploadSize,proto3" json:"max_video_upload_size,omitempty"`
 	// Message edit window in seconds.
 	MessageEditWindowSeconds int32 `protobuf:"varint,8,opt,name=message_edit_window_seconds,json=messageEditWindowSeconds,proto3" json:"message_edit_window_seconds,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	// Screen-share capture/encoding ceiling applied by clients when publishing a
+	// screen share. Server-configured so operators can tune quality without a
+	// client redeploy.
+	ScreenShare   *ScreenShareConfig `protobuf:"bytes,9,opt,name=screen_share,json=screenShare,proto3" json:"screen_share,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ServerRuntimeConfig) Reset() {
@@ -204,6 +208,87 @@ func (x *ServerRuntimeConfig) GetMessageEditWindowSeconds() int32 {
 	return 0
 }
 
+func (x *ServerRuntimeConfig) GetScreenShare() *ScreenShareConfig {
+	if x != nil {
+		return x.ScreenShare
+	}
+	return nil
+}
+
+// Client screen-share capture and encoding ceiling. Values are an adaptive
+// ceiling: clients still downshift for small render tiles and weak links.
+type ScreenShareConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Maximum capture width in pixels (e.g. 1920).
+	MaxWidth int32 `protobuf:"varint,1,opt,name=max_width,json=maxWidth,proto3" json:"max_width,omitempty"`
+	// Maximum capture height in pixels (e.g. 1080).
+	MaxHeight int32 `protobuf:"varint,2,opt,name=max_height,json=maxHeight,proto3" json:"max_height,omitempty"`
+	// Maximum capture/publish framerate (e.g. 60).
+	MaxFramerate int32 `protobuf:"varint,3,opt,name=max_framerate,json=maxFramerate,proto3" json:"max_framerate,omitempty"`
+	// Maximum publish bitrate in bits per second (e.g. 6000000).
+	MaxBitrate    int64 `protobuf:"varint,4,opt,name=max_bitrate,json=maxBitrate,proto3" json:"max_bitrate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ScreenShareConfig) Reset() {
+	*x = ScreenShareConfig{}
+	mi := &file_chatto_api_v1_server_state_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ScreenShareConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScreenShareConfig) ProtoMessage() {}
+
+func (x *ScreenShareConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_chatto_api_v1_server_state_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScreenShareConfig.ProtoReflect.Descriptor instead.
+func (*ScreenShareConfig) Descriptor() ([]byte, []int) {
+	return file_chatto_api_v1_server_state_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ScreenShareConfig) GetMaxWidth() int32 {
+	if x != nil {
+		return x.MaxWidth
+	}
+	return 0
+}
+
+func (x *ScreenShareConfig) GetMaxHeight() int32 {
+	if x != nil {
+		return x.MaxHeight
+	}
+	return 0
+}
+
+func (x *ScreenShareConfig) GetMaxFramerate() int32 {
+	if x != nil {
+		return x.MaxFramerate
+	}
+	return 0
+}
+
+func (x *ScreenShareConfig) GetMaxBitrate() int64 {
+	if x != nil {
+		return x.MaxBitrate
+	}
+	return 0
+}
+
 // Request for authenticated server runtime configuration.
 type GetRuntimeConfigRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -213,7 +298,7 @@ type GetRuntimeConfigRequest struct {
 
 func (x *GetRuntimeConfigRequest) Reset() {
 	*x = GetRuntimeConfigRequest{}
-	mi := &file_chatto_api_v1_server_state_proto_msgTypes[3]
+	mi := &file_chatto_api_v1_server_state_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -225,7 +310,7 @@ func (x *GetRuntimeConfigRequest) String() string {
 func (*GetRuntimeConfigRequest) ProtoMessage() {}
 
 func (x *GetRuntimeConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_server_state_proto_msgTypes[3]
+	mi := &file_chatto_api_v1_server_state_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -238,7 +323,7 @@ func (x *GetRuntimeConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRuntimeConfigRequest.ProtoReflect.Descriptor instead.
 func (*GetRuntimeConfigRequest) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_server_state_proto_rawDescGZIP(), []int{3}
+	return file_chatto_api_v1_server_state_proto_rawDescGZIP(), []int{4}
 }
 
 // Authenticated server runtime configuration response.
@@ -252,7 +337,7 @@ type GetRuntimeConfigResponse struct {
 
 func (x *GetRuntimeConfigResponse) Reset() {
 	*x = GetRuntimeConfigResponse{}
-	mi := &file_chatto_api_v1_server_state_proto_msgTypes[4]
+	mi := &file_chatto_api_v1_server_state_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -264,7 +349,7 @@ func (x *GetRuntimeConfigResponse) String() string {
 func (*GetRuntimeConfigResponse) ProtoMessage() {}
 
 func (x *GetRuntimeConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_server_state_proto_msgTypes[4]
+	mi := &file_chatto_api_v1_server_state_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -277,7 +362,7 @@ func (x *GetRuntimeConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRuntimeConfigResponse.ProtoReflect.Descriptor instead.
 func (*GetRuntimeConfigResponse) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_server_state_proto_rawDescGZIP(), []int{4}
+	return file_chatto_api_v1_server_state_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetRuntimeConfigResponse) GetRuntime() *ServerRuntimeConfig {
@@ -295,7 +380,7 @@ const file_chatto_api_v1_server_state_proto_rawDesc = "" +
 	"\x0eGetMotdRequest\"3\n" +
 	"\x0fGetMotdResponse\x12\x17\n" +
 	"\x04motd\x18\x01 \x01(\tH\x00R\x04motd\x88\x01\x01B\a\n" +
-	"\x05_motd\"\xc4\x03\n" +
+	"\x05_motd\"\x89\x04\n" +
 	"\x13ServerRuntimeConfig\x12<\n" +
 	"\x1apush_notifications_enabled\x18\x01 \x01(\bR\x18pushNotificationsEnabled\x12-\n" +
 	"\x10vapid_public_key\x18\x02 \x01(\tH\x00R\x0evapidPublicKey\x88\x01\x01\x12$\n" +
@@ -304,9 +389,17 @@ const file_chatto_api_v1_server_state_proto_rawDesc = "" +
 	"\x18video_processing_enabled\x18\x05 \x01(\bR\x16videoProcessingEnabled\x12&\n" +
 	"\x0fmax_upload_size\x18\x06 \x01(\x03R\rmaxUploadSize\x121\n" +
 	"\x15max_video_upload_size\x18\a \x01(\x03R\x12maxVideoUploadSize\x12=\n" +
-	"\x1bmessage_edit_window_seconds\x18\b \x01(\x05R\x18messageEditWindowSecondsB\x13\n" +
+	"\x1bmessage_edit_window_seconds\x18\b \x01(\x05R\x18messageEditWindowSeconds\x12C\n" +
+	"\fscreen_share\x18\t \x01(\v2 .chatto.api.v1.ScreenShareConfigR\vscreenShareB\x13\n" +
 	"\x11_vapid_public_keyB\x0e\n" +
-	"\f_livekit_urlJ\x04\b\x04\x10\x05R\x1bdirect_registration_enabled\"\x19\n" +
+	"\f_livekit_urlJ\x04\b\x04\x10\x05R\x1bdirect_registration_enabled\"\x95\x01\n" +
+	"\x11ScreenShareConfig\x12\x1b\n" +
+	"\tmax_width\x18\x01 \x01(\x05R\bmaxWidth\x12\x1d\n" +
+	"\n" +
+	"max_height\x18\x02 \x01(\x05R\tmaxHeight\x12#\n" +
+	"\rmax_framerate\x18\x03 \x01(\x05R\fmaxFramerate\x12\x1f\n" +
+	"\vmax_bitrate\x18\x04 \x01(\x03R\n" +
+	"maxBitrate\"\x19\n" +
 	"\x17GetRuntimeConfigRequest\"X\n" +
 	"\x18GetRuntimeConfigResponse\x12<\n" +
 	"\aruntime\x18\x01 \x01(\v2\".chatto.api.v1.ServerRuntimeConfigR\aruntime2\xbe\x01\n" +
@@ -327,25 +420,27 @@ func file_chatto_api_v1_server_state_proto_rawDescGZIP() []byte {
 	return file_chatto_api_v1_server_state_proto_rawDescData
 }
 
-var file_chatto_api_v1_server_state_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_chatto_api_v1_server_state_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_chatto_api_v1_server_state_proto_goTypes = []any{
 	(*GetMotdRequest)(nil),           // 0: chatto.api.v1.GetMotdRequest
 	(*GetMotdResponse)(nil),          // 1: chatto.api.v1.GetMotdResponse
 	(*ServerRuntimeConfig)(nil),      // 2: chatto.api.v1.ServerRuntimeConfig
-	(*GetRuntimeConfigRequest)(nil),  // 3: chatto.api.v1.GetRuntimeConfigRequest
-	(*GetRuntimeConfigResponse)(nil), // 4: chatto.api.v1.GetRuntimeConfigResponse
+	(*ScreenShareConfig)(nil),        // 3: chatto.api.v1.ScreenShareConfig
+	(*GetRuntimeConfigRequest)(nil),  // 4: chatto.api.v1.GetRuntimeConfigRequest
+	(*GetRuntimeConfigResponse)(nil), // 5: chatto.api.v1.GetRuntimeConfigResponse
 }
 var file_chatto_api_v1_server_state_proto_depIdxs = []int32{
-	2, // 0: chatto.api.v1.GetRuntimeConfigResponse.runtime:type_name -> chatto.api.v1.ServerRuntimeConfig
-	0, // 1: chatto.api.v1.ServerService.GetMotd:input_type -> chatto.api.v1.GetMotdRequest
-	3, // 2: chatto.api.v1.ServerService.GetRuntimeConfig:input_type -> chatto.api.v1.GetRuntimeConfigRequest
-	1, // 3: chatto.api.v1.ServerService.GetMotd:output_type -> chatto.api.v1.GetMotdResponse
-	4, // 4: chatto.api.v1.ServerService.GetRuntimeConfig:output_type -> chatto.api.v1.GetRuntimeConfigResponse
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3, // 0: chatto.api.v1.ServerRuntimeConfig.screen_share:type_name -> chatto.api.v1.ScreenShareConfig
+	2, // 1: chatto.api.v1.GetRuntimeConfigResponse.runtime:type_name -> chatto.api.v1.ServerRuntimeConfig
+	0, // 2: chatto.api.v1.ServerService.GetMotd:input_type -> chatto.api.v1.GetMotdRequest
+	4, // 3: chatto.api.v1.ServerService.GetRuntimeConfig:input_type -> chatto.api.v1.GetRuntimeConfigRequest
+	1, // 4: chatto.api.v1.ServerService.GetMotd:output_type -> chatto.api.v1.GetMotdResponse
+	5, // 5: chatto.api.v1.ServerService.GetRuntimeConfig:output_type -> chatto.api.v1.GetRuntimeConfigResponse
+	4, // [4:6] is the sub-list for method output_type
+	2, // [2:4] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_chatto_api_v1_server_state_proto_init() }
@@ -361,7 +456,7 @@ func file_chatto_api_v1_server_state_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chatto_api_v1_server_state_proto_rawDesc), len(file_chatto_api_v1_server_state_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
