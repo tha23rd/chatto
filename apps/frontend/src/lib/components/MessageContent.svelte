@@ -11,6 +11,10 @@
   import MarkdownHtml from '$lib/ui/MarkdownHtml.svelte';
   import { classifyMessageBodyChatLink } from '$lib/messageLinks';
   import { wrapValidMentions, type RoomMember } from '$lib/mentions';
+  import { wrapCustomEmojis } from '$lib/customEmojiRender';
+  import { getCustomEmojis } from '$lib/state/customEmojis.svelte';
+  import { useConnection } from '$lib/state/server/connection.svelte';
+  import type { CustomEmojiLike } from '$lib/emoji';
   import { parseTrustedMarkdownHtml } from '$lib/security/trustedHtml';
 
   let {
@@ -36,6 +40,29 @@
     serverRegistry.tryGetStore(getActiveServer())?.currentUser.user?.login
   );
 
+  // Custom emojis for the active server, so `:shortcode:` references in message
+  // bodies render as images. Reading the store's array keeps `render` reactive:
+  // when the catalog finishes loading, messages re-render with the images. Some
+  // surfaces render messages without a server connection (previews); guard so
+  // those still work — custom emoji simply stay as text there.
+  let connection: ReturnType<typeof useConnection> | null = null;
+  try {
+    connection = useConnection();
+  } catch {
+    connection = null;
+  }
+  const customEmojiStore = $derived(getCustomEmojis(getActiveServer()));
+  $effect(() => {
+    const conn = connection?.();
+    if (!conn) return;
+    customEmojiStore.ensureLoaded({
+      serverId: conn.serverId,
+      baseUrl: conn.connectBaseUrl,
+      bearerToken: conn.bearerToken
+    });
+  });
+  const customEmojis = $derived(customEmojiStore.emojis);
+
   function injectEditedMarker(html: string): string {
     const doc = parseTrustedMarkdownHtml(`<div>${html}</div>`);
     const root = doc.body.firstElementChild;
@@ -58,17 +85,25 @@
     return root.innerHTML;
   }
 
-  // Render markdown then wrap valid mentions
+  // Render markdown, wrap valid mentions, then swap known custom-emoji
+  // shortcodes for their images. `customEmojis` is passed (not just closed over)
+  // so the await block re-runs when the catalog loads or changes.
   async function render(
     body: string,
     members: RoomMember[],
     roleHandles: string[],
     edited: boolean,
-    viewerLogin: string | undefined
+    viewerLogin: string | undefined,
+    customEmojis: CustomEmojiLike[]
   ): Promise<string> {
     const html = await renderMd(body);
     const wrapped = wrapValidMentions(html, members, viewerLogin, roleHandles);
-    return edited ? injectEditedMarker(wrapped) : wrapped;
+    let withEmojis = wrapped;
+    if (customEmojis.length > 0) {
+      const byName = new Map(customEmojis.map((emoji) => [emoji.name.toLowerCase(), emoji]));
+      withEmojis = wrapCustomEmojis(wrapped, (name) => byName.get(name.toLowerCase()));
+    }
+    return edited ? injectEditedMarker(withEmojis) : withEmojis;
   }
 
   // Handle clicks on links (open in system browser) and mentions (trigger callback).
@@ -108,7 +143,7 @@
 </script>
 
 <div class="prose max-w-none min-w-0" role="presentation" onclick={handleContentClick}>
-  {#await render(body, members, roleHandles, edited, viewerLogin)}
+  {#await render(body, members, roleHandles, edited, viewerLogin, customEmojis)}
     {body}
   {:then html}
     <MarkdownHtml {html} />

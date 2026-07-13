@@ -468,6 +468,18 @@
   @apply min-w-0 flex-1 space-y-1;
 }
 
+/* Inline custom emoji rendered from `:shortcode:` in message bodies. The
+   element+class specificity beats Tailwind Typography's `:where(img)` rule so
+   the glyph sits inline at text scale instead of as a block image. */
+img.custom-emoji {
+  display: inline-block;
+  height: 1.375em;
+  width: auto;
+  margin: 0 0.05em;
+  vertical-align: -0.3em;
+  object-fit: contain;
+}
+
 /* Pane header icon button — fixed padded hit area for icon-only controls in PaneHeader.
    Resting inactive state is intentionally transparent; pair with
    `pane-header-icon-button-active` for selected/toggled backgrounds. */
