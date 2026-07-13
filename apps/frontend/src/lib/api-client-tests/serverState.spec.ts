@@ -164,6 +164,7 @@ describe('getAuthenticatedServerState', () => {
       maxUploadSize: 123,
       maxVideoUploadSize: 456,
       messageEditWindowSeconds: 7200,
+      screenShare: null,
       viewerPermissions: {
         'admin.view-audit': true,
         'admin.view-users': true,

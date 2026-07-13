@@ -479,7 +479,11 @@ describe('VoiceCallState', () => {
 
     await state.toggleScreenShare();
 
-    expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(true);
+    expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(
+      true,
+      { resolution: { width: 1920, height: 1080, frameRate: 60 } },
+      { videoEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
+    );
     expect(state.isScreenShareEnabled).toBe(true);
     expect(state.participants[0]).toMatchObject({
       identity: 'local-user',
@@ -567,7 +571,11 @@ describe('VoiceCallState', () => {
 
     expect(state.isScreenSharePending).toBe(true);
     expect(state.isScreenShareEnabled).toBe(false);
-    expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenLastCalledWith(true);
+    expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenLastCalledWith(
+      true,
+      { resolution: { width: 1920, height: 1080, frameRate: 60 } },
+      { videoEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
+    );
 
     screenShareGate.resolve();
     await toggle;
@@ -584,7 +592,11 @@ describe('VoiceCallState', () => {
 
     await state.toggleScreenShare();
 
-    expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(true);
+    expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(
+      true,
+      { resolution: { width: 1920, height: 1080, frameRate: 60 } },
+      { videoEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
+    );
     expect(state.isScreenShareEnabled).toBe(false);
     expect(state.isInAnyCall).toBe(true);
     expect(state.roomId).toBe('R1');
