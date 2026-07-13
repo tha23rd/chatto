@@ -50,6 +50,7 @@ const { soundMocks, apiMocks } = vi.hoisted(() => ({
       Promise.resolve({
         name: 'Store Event Test',
         version: 'test',
+        screenShare: { maxWidth: 1920, maxHeight: 1080, maxFramerate: 60, maxBitrate: 6_000_000 },
         logoUrl: null,
         bannerUrl: null,
         welcomeMessage: null,
@@ -342,6 +343,7 @@ beforeEach(() => {
   apiMocks.getAuthenticatedServerState.mockResolvedValue({
     name: 'Store Event Test',
     version: 'test',
+    screenShare: { maxWidth: 1920, maxHeight: 1080, maxFramerate: 60, maxBitrate: 6_000_000 },
     logoUrl: null,
     bannerUrl: null,
     welcomeMessage: null,
