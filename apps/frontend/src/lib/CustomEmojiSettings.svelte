@@ -15,6 +15,8 @@ stable identity shown here alongside the rendered image.
     type CustomEmoji
   } from '$lib/api-client/customEmojis';
   import type { ConnectAPIConfig } from '$lib/api-client/connect';
+  import { getActiveServer } from '$lib/state/activeServer.svelte';
+  import { getCustomEmojis } from '$lib/state/customEmojis.svelte';
   import * as m from '$lib/i18n/messages';
 
   import { Panel, DataTable } from '$lib/components/admin';
@@ -36,7 +38,12 @@ stable identity shown here alongside the rendered image.
 
   let loading = $state(true);
   let error = $state<string | null>(null);
-  let emojis = $state<CustomEmoji[]>([]);
+
+  // The shared, per-server store is the single source of truth. Mutating it
+  // here keeps the emoji picker, composer typeahead, and reactions in sync
+  // with uploads/deletes without a client reload.
+  const store = getCustomEmojis(getActiveServer());
+  const emojis = $derived(store.emojis);
 
   // Upload form state
   let name = $state('');
@@ -59,13 +66,12 @@ stable identity shown here alongside the rendered image.
   async function loadEmojis() {
     loading = true;
     error = null;
-    try {
-      emojis = await createAdminCustomEmojiAPI(apiConfig()).list();
-    } catch {
+    // Force-refresh the shared store so this admin view shows the current
+    // catalog and every other surface benefits from the refresh too.
+    if (!(await store.load(apiConfig()))) {
       error = m['server_settings.custom_emoji.load_failed']();
-    } finally {
-      loading = false;
     }
+    loading = false;
   }
 
   $effect(() => {
@@ -111,7 +117,7 @@ stable identity shown here alongside the rendered image.
         filename: file.name,
         contentType: file.type
       });
-      emojis = [created, ...emojis.filter((existing) => existing.id !== created.id)];
+      store.upsert(created);
       name = '';
       selectedFile = null;
       if (fileInput) fileInput.value = '';
@@ -128,7 +134,7 @@ stable identity shown here alongside the rendered image.
   async function handleDelete(emoji: CustomEmoji) {
     try {
       await createAdminCustomEmojiAPI(apiConfig()).remove(emoji.id);
-      emojis = emojis.filter((existing) => existing.id !== emoji.id);
+      store.remove(emoji.id);
       toast.success(m['server_settings.custom_emoji.deleted']());
     } catch (err) {
       toast.error(

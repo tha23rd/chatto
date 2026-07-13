@@ -5,12 +5,14 @@ import EmojiAutocomplete from './EmojiAutocomplete.svelte';
 
 function renderAutocomplete(props: {
   query: string;
+  customEmojis?: { name: string; url: string }[];
   onSelect?: (emoji: string, name: string) => void;
   onClose?: () => void;
 }) {
   return render(EmojiAutocomplete, {
     props: {
       query: props.query,
+      customEmojis: props.customEmojis ?? [],
       onSelect: props.onSelect ?? (() => {}),
       onClose: props.onClose ?? (() => {})
     }
@@ -94,6 +96,33 @@ describe('EmojiAutocomplete', () => {
       const after = container.querySelector('.menu-item-active');
       expect(after).not.toBeNull();
       expect(after).not.toBe(before);
+    });
+  });
+
+  describe('custom emoji', () => {
+    const custom = [{ name: 'pepeperfect', url: 'https://example.test/assets/emoji/abc' }];
+
+    it('includes matching custom emoji, listed before gemoji', () => {
+      const { container } = renderAutocomplete({ query: 'pep', customEmojis: custom });
+      const codes = shortcodes(container);
+      expect(codes).toContain('pepeperfect');
+      // Custom emoji rank ahead of built-in gemoji for the same query.
+      expect(codes[0]).toBe('pepeperfect');
+      // Rendered as an image, not a glyph span.
+      expect(container.querySelector('img')).not.toBeNull();
+    });
+
+    it('surfaces a custom emoji even when no gemoji matches', () => {
+      const { container } = renderAutocomplete({ query: 'pepeperfect', customEmojis: custom });
+      expect(shortcodes(container)).toContain('pepeperfect');
+    });
+
+    it('inserts the :name: shortcode (not a glyph) when a custom emoji is picked', () => {
+      const onSelect = vi.fn();
+      const { container } = renderAutocomplete({ query: 'pep', customEmojis: custom, onSelect });
+      (container.querySelector('button') as HTMLButtonElement).click();
+      expect(onSelect).toHaveBeenCalledOnce();
+      expect(onSelect.mock.calls[0]).toEqual([':pepeperfect:', 'pepeperfect']);
     });
   });
 

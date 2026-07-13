@@ -1,6 +1,6 @@
 import type { RoomMember } from '$lib/state/room';
 import { fuzzyMatch } from '$lib/fuzzyMatch';
-import { searchEmojis } from '$lib/emoji';
+import { searchCustomEmojis, searchEmojis, type CustomEmojiLike } from '$lib/emoji';
 import type { TipTapEditorApi } from './TipTapEditor.svelte';
 
 export type MentionRole = {
@@ -37,7 +37,8 @@ export class AutocompleteState {
   constructor(
     private readonly getEditorApi: () => TipTapEditorApi | null,
     private readonly getMembers: () => RoomMember[],
-    private readonly getRoles: () => MentionRole[] = () => []
+    private readonly getRoles: () => MentionRole[] = () => [],
+    private readonly getCustomEmojis: () => readonly CustomEmojiLike[] = () => []
   ) {}
 
   reset(): void {
@@ -143,7 +144,11 @@ export class AutocompleteState {
 
   private updateEmoji(): void {
     const partial = this.getEmojiPartialAtCursor();
-    if (partial && searchEmojis(partial.query, 1).length > 0) {
+    const hasMatch =
+      !!partial &&
+      (searchEmojis(partial.query, 1).length > 0 ||
+        searchCustomEmojis(this.getCustomEmojis(), partial.query, 1).length > 0);
+    if (partial && hasMatch) {
       this.emoji = {
         query: partial.query,
         triggerStart: partial.start

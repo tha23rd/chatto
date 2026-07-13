@@ -41,13 +41,34 @@ export class CustomEmojisStore {
     return this.emojis.find((emoji) => emoji.name.toLowerCase() === target);
   }
 
-  /** Fetch the server's custom emojis, replacing local state. */
-  async load(config: ConnectAPIConfig): Promise<void> {
+  /**
+   * Insert or replace an emoji by id, keeping newest-first order. Call after a
+   * successful create so every surface reading this store (picker, composer,
+   * reactions) updates immediately without a client reload.
+   */
+  upsert(emoji: CustomEmoji): void {
+    this.emojis = [emoji, ...this.emojis.filter((existing) => existing.id !== emoji.id)];
+    this.loaded = true;
+  }
+
+  /** Remove an emoji by id. Call after a successful delete. */
+  remove(id: string): void {
+    this.emojis = this.emojis.filter((existing) => existing.id !== id);
+  }
+
+  /**
+   * Fetch the server's custom emojis, replacing local state. Returns `true` on
+   * success and `false` on failure; on failure existing state is left intact so
+   * passive callers keep working, while the admin view can surface an error.
+   */
+  async load(config: ConnectAPIConfig): Promise<boolean> {
     try {
       this.emojis = await createCustomEmojiAPI(config).list();
       this.loaded = true;
+      return true;
     } catch {
       // Leave existing state intact on failure; callers fall back to raw names.
+      return false;
     }
   }
 
@@ -59,9 +80,11 @@ export class CustomEmojisStore {
   ensureLoaded(config: ConnectAPIConfig): Promise<void> {
     if (this.loaded) return Promise.resolve();
     if (!this.loadPromise) {
-      this.loadPromise = this.load(config).finally(() => {
-        this.loadPromise = null;
-      });
+      this.loadPromise = this.load(config)
+        .then(() => {})
+        .finally(() => {
+          this.loadPromise = null;
+        });
     }
     return this.loadPromise;
   }

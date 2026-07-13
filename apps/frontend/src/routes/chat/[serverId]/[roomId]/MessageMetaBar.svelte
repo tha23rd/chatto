@@ -253,7 +253,10 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
       <button
         class={[
           baseButtonClass,
-          'gap-1 px-2 text-sm',
+          'gap-1 text-sm',
+          // Custom emoji are images: give them a larger glyph and tighter left
+          // padding so the pill hugs the emoji instead of boxing it in.
+          customEmoji ? 'gap-0.5 pr-2 pl-1' : 'px-2',
           canReact ? '' : '!cursor-default opacity-60',
           reaction.hasReacted ? 'border-accent/50' : 'border-transparent'
         ]}
@@ -277,7 +280,7 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
           <img
             src={customEmoji.url}
             alt={reaction.emoji}
-            class="inline-block h-[1.2em] w-auto align-[-0.15em]"
+            class="inline-block h-[1.35rem] w-auto"
           />
         {:else}
           <span aria-hidden="true">{getEmojiByName(reaction.emoji) ?? reaction.emoji}</span>
