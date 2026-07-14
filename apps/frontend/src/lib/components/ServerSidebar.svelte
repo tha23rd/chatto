@@ -11,7 +11,7 @@ See the "UI" section of `docs/GLOSSARY.md`.
 -->
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { SIDEBAR_PANEL_WIDTH_PX, sidebarSwipe } from '$lib/hooks/useSidebarSwipe.svelte';
+  import { SIDEBAR_PANEL_WIDTH_PX } from '$lib/hooks/useSidebarSwipe.svelte';
   import { sidebarNav } from '$lib/state/globals.svelte';
   import { serverSidebarWidth } from '$lib/state/serverSidebarWidth.svelte';
   import {
@@ -45,7 +45,6 @@ See the "UI" section of `docs/GLOSSARY.md`.
 </script>
 
 <div
-  use:sidebarSwipe
   data-app-sidebar="true"
   data-testid="server-sidebar"
   class={[
@@ -66,7 +65,7 @@ See the "UI" section of `docs/GLOSSARY.md`.
     // hidden, not just translated off-screen.
     mobileClosed && 'sidebar-mobile-closed',
     !dragging && 'sidebar-mobile-anim',
-    resizable && 'server-sidebar--resizable'
+    resizable && 'md:w-[var(--server-sidebar-width)]'
   ]}
   style:--server-sidebar-width={resizable ? `${serverSidebarWidth.value}px` : undefined}
   style:transform={sidebarNav.isMobile ? `translateX(${tx}px)` : undefined}
@@ -84,11 +83,3 @@ See the "UI" section of `docs/GLOSSARY.md`.
     />
   {/if}
 </div>
-
-<style>
-  @media (min-width: 768px) {
-    .server-sidebar--resizable {
-      width: var(--server-sidebar-width);
-    }
-  }
-</style>

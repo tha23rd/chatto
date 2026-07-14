@@ -176,7 +176,7 @@
       <p class="text-muted">
         {m['auth.login.welcome_description']()}
       </p>
-      <Button variant="accent" size="lg" fullWidth onclick={() => (addServerDialogVisible = true)}>
+      <Button variant="action" size="lg" fullWidth onclick={() => (addServerDialogVisible = true)}>
         {m['auth.login.add_server']()}
       </Button>
     </div>
@@ -262,9 +262,9 @@
     {#if directRegistrationEnabled}
       <Divider label={m['common.or']()} />
 
-      <a href={resolve('/register')} class="btn-secondary block w-full btn-lg text-center">
+      <Button href={resolve('/register')} variant="secondary" size="lg" fullWidth>
         {m['common.create_account']()}
-      </a>
+      </Button>
     {/if}
   </AuthLayout>
 {/if}

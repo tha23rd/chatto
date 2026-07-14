@@ -5,6 +5,11 @@ import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 
 const appHtml = readFileSync(new URL('./app.html', import.meta.url), 'utf8');
+const configuredLocales = (
+  JSON.parse(readFileSync(new URL('../project.inlang/settings.json', import.meta.url), 'utf8')) as {
+    locales: string[];
+  }
+).locales;
 const manifest = JSON.parse(
   readFileSync(new URL('../static/manifest.webmanifest', import.meta.url), 'utf8')
 ) as WebAppManifest;
@@ -85,7 +90,8 @@ function runThemeScript({
   runInNewContext(themeScript, {
     document: { documentElement: root },
     localStorage: {
-      getItem: (key: string) => storage.get(key) ?? null
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value)
     },
     ...(browserLanguages
       ? { navigator: { languages: browserLanguages, language: browserLanguages[0] } }
@@ -104,6 +110,7 @@ function runThemeScript({
 
   return {
     root,
+    storedLocale: () => storage.get('PARAGLIDE_LOCALE'),
     changeSystemTheme(systemTheme: 'light' | 'dark') {
       dark = systemTheme === 'dark';
       changeHandler?.();
@@ -120,8 +127,16 @@ describe('app.html metadata', () => {
   it('declares the Safari apple touch icon with an explicit size', () => {
     const tag = linkTag('apple-touch-icon');
 
-    expect(attributeValue(tag, 'href')).toBe('/icons/apple-touch-icon.png');
+    expect(attributeValue(tag, 'href')).toBe('/apple-touch-icon');
     expect(attributeValue(tag, 'sizes')).toBe('180x180');
+  });
+
+  it('declares the browser favicon with an explicit size', () => {
+    const tag = linkTag('icon');
+
+    expect(attributeValue(tag, 'href')).toBe('/favicon');
+    expect(attributeValue(tag, 'sizes')).toBe('32x32');
+    expect(attributeValue(tag, 'type')).toBeNull();
   });
 
   it('keeps manifest icon paths pointed at the generated PWA assets', () => {
@@ -220,28 +235,95 @@ describe('app.html theme bootstrap', () => {
 });
 
 describe('app.html locale bootstrap', () => {
-  it('falls back to English when no browser locale is available', () => {
+  it('keeps first-paint negotiation aligned with the configured locales', () => {
+    const localeList = appHtml.match(/const locales = (\[[\s\S]*?\]);/)?.[1];
+    expect(localeList).toBeTruthy();
+    expect(JSON.parse(localeList!.replaceAll("'", '"'))).toEqual(configuredLocales);
+  });
+
+  it('falls back to British English when no browser locale is available', () => {
     const { root } = runThemeScript({ systemDark: false });
-    expect(root.lang).toBe('en');
+    expect(root.lang).toBe('en-GB');
     expect(root.dir).toBe('ltr');
   });
 
   it('uses the stored Paraglide locale before browser languages', () => {
     const { root } = runThemeScript({
       systemDark: false,
-      storedLocale: 'de',
+      storedLocale: 'fr-CA',
       browserLanguages: ['en-US']
     });
 
-    expect(root.lang).toBe('de');
+    expect(root.lang).toBe('fr-CA');
   });
 
-  it('matches supported browser language variants', () => {
+  it('matches exact supported browser language variants', () => {
     const { root } = runThemeScript({
       systemDark: false,
       browserLanguages: ['de-AT', 'en-US']
     });
 
-    expect(root.lang).toBe('de');
+    expect(root.lang).toBe('de-AT');
+  });
+
+  it('maps a language-only browser preference to its default region', () => {
+    const result = runThemeScript({
+      systemDark: false,
+      browserLanguages: ['pt']
+    });
+
+    expect(result.root.lang).toBe('pt-BR');
+    expect(result.storedLocale()).toBe('pt-BR');
+  });
+
+  it('preserves an exact regional English browser locale', () => {
+    const { root } = runThemeScript({
+      systemDark: false,
+      browserLanguages: ['en-US']
+    });
+
+    expect(root.lang).toBe('en-US');
+  });
+
+  it('falls back other English regions to British English', () => {
+    const { root } = runThemeScript({
+      systemDark: false,
+      browserLanguages: ['en-AU']
+    });
+
+    expect(root.lang).toBe('en-GB');
+  });
+
+  it('migrates the legacy English preference to British English', () => {
+    const result = runThemeScript({
+      systemDark: false,
+      storedLocale: 'en',
+      browserLanguages: ['de-DE']
+    });
+
+    expect(result.root.lang).toBe('en-GB');
+    expect(result.storedLocale()).toBe('en-GB');
+  });
+
+  it('migrates the legacy German preference to German for Germany', () => {
+    const result = runThemeScript({
+      systemDark: false,
+      storedLocale: 'de',
+      browserLanguages: ['en-US']
+    });
+
+    expect(result.root.lang).toBe('de-DE');
+    expect(result.storedLocale()).toBe('de-DE');
+  });
+
+  it('ignores an unsupported stored locale when matching browser preferences', () => {
+    const result = runThemeScript({
+      systemDark: false,
+      storedLocale: 'it-IT',
+      browserLanguages: ['fr-CA']
+    });
+
+    expect(result.root.lang).toBe('fr-CA');
+    expect(result.storedLocale()).toBe('fr-CA');
   });
 });

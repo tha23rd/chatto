@@ -12,6 +12,7 @@
     eventId,
     deleteEventId = eventId,
     messageBody,
+    permalinkThreadRootEventId = null,
     threadRootEventId = null,
     channelEchoEventId = null,
     canAddChannelEcho = false,
@@ -33,6 +34,7 @@
     eventId: string;
     deleteEventId?: string;
     messageBody: string;
+    permalinkThreadRootEventId?: string | null;
     threadRootEventId?: string | null;
     channelEchoEventId?: string | null;
     canAddChannelEcho?: boolean;
@@ -65,6 +67,7 @@
     eventId,
     deleteEventId,
     messageBody,
+    permalinkThreadRootEventId,
     threadRootEventId,
     channelEchoEventId,
     canAddChannelEcho,
@@ -117,7 +120,7 @@
     <div class="flex justify-between menu-section px-2 py-1.5">
       {#each quickReactions as emoji (emoji)}
         <button
-          class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-xl active:bg-surface-100"
+          class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-xl active:bg-surface"
           onclick={() => handleReaction(emoji)}
           aria-label={m['room.message.actions.react_with']({ emoji })}
         >
@@ -126,7 +129,7 @@
       {/each}
       {#if onOpenEmojiPicker}
         <button
-          class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-xl text-muted active:bg-surface-100"
+          class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full text-xl text-muted active:bg-surface"
           onclick={() => {
             onOpenEmojiPicker();
             onClose();

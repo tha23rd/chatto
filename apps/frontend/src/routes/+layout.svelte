@@ -12,6 +12,7 @@
   import MobileSidebarChrome from '$lib/components/MobileSidebarChrome.svelte';
   import UpdateNotifier from '$lib/components/UpdateNotifier.svelte';
   import { usePageTitle, usePinchZoomPrevention, useVisualViewport } from '$lib/hooks';
+  import { sidebarSwipe } from '$lib/hooks/useSidebarSwipe.svelte';
   import { chatRoomIdFromRoute } from '$lib/navigation/chatRoomRoute';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
   import { sidebarNav } from '$lib/state/globals.svelte';
@@ -85,7 +86,8 @@
 
 {#snippet frame()}
   <div
-    class="flex h-full w-full flex-col overscroll-y-contain bg-surface-100 pt-[env(safe-area-inset-top,0px)] md:p-3 md:pt-0"
+    use:sidebarSwipe
+    class="flex h-full w-full flex-col overscroll-y-contain bg-surface pt-[env(safe-area-inset-top,0px)] md:p-3 md:pt-0"
   >
     <ConnectionIndicator />
 

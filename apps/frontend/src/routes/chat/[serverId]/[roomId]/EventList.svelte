@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import { fade } from 'svelte/transition';
   import { Virtualizer, type VirtualizerHandle } from 'virtua/svelte';
   import * as m from '$lib/i18n/messages';
@@ -36,6 +37,7 @@
 
   let {
     roomId,
+    permalinkThreadRootEventId = null,
     messageStore,
     events,
     // Scroll behavior
@@ -77,6 +79,7 @@
     pendingHighlightId = null
   }: {
     roomId: string;
+    permalinkThreadRootEventId?: string | null;
     messageStore: MessagesStore;
     events: RoomEventView[];
     // Scroll behavior
@@ -134,6 +137,22 @@
   let hasNewMessages = $state(false);
   let lastSeenNewestId = $state<string | null>(null);
   let firstVisibleAt = $state<string | null>(null);
+  const expandedSystemEventIds = new SvelteSet<string>();
+  let expandedStateRoomId: string | null = null;
+
+  function isSystemGroupExpanded(groupEvents: RoomEventView[]): boolean {
+    return groupEvents.some((event) => expandedSystemEventIds.has(event.id));
+  }
+
+  function setSystemGroupExpanded(groupEvents: RoomEventView[], expanded: boolean): void {
+    for (const event of groupEvents) {
+      if (expanded) {
+        expandedSystemEventIds.add(event.id);
+      } else {
+        expandedSystemEventIds.delete(event.id);
+      }
+    }
+  }
 
   function setShouldScrollToBottom(value: boolean) {
     shouldScrollToBottom = value;
@@ -262,6 +281,19 @@
     lastSeenNewestId = null;
     firstVisibleAt = null;
     previousOffset = null;
+  });
+
+  $effect(() => {
+    const currentRoomId = roomId;
+    if (expandedStateRoomId === null) {
+      expandedStateRoomId = currentRoomId;
+      return;
+    }
+    if (currentRoomId === expandedStateRoomId) return;
+    expandedStateRoomId = currentRoomId;
+    // This reset belongs exclusively to room navigation. Reading the reactive
+    // set here would also subscribe the effect to expansion changes.
+    untrack(() => expandedSystemEventIds.clear());
   });
 
   // When exiting jumped mode (returning to present), re-enable auto-scroll
@@ -971,7 +1003,7 @@
     <div class="mt-auto">
       {#if !isLoading && virtualItems.length === 0}
         <div class="flex flex-1 items-center justify-center">
-          <div class="py-4 text-sm text-muted/40">{emptyMessage}</div>
+          <div class="py-4 text-sm text-muted">{emptyMessage}</div>
         </div>
       {:else if !isLoading}
         <Virtualizer
@@ -987,8 +1019,8 @@
             {#if !item}
               <!-- Stale virtualizer index during data transition, skip -->
             {:else if item.type === 'start-marker'}
-              <div class="pt-10 pb-2 text-center text-sm text-muted/40">
-                This is the beginning of this conversation.
+              <div class="pt-10 pb-2 text-center text-sm text-muted">
+                {m['room.timeline.beginning']()}
               </div>
             {:else if item.type === 'day-separator'}
               <DaySeparator label={item.label} />
@@ -1001,7 +1033,12 @@
               {@const groupEvents = item?.events}
               {@const groupKind = item?.kind}
               {#if groupEvents && groupKind && groupEvents.length > 0}
-                <SystemEventGroup events={groupEvents} kind={groupKind} />
+                <SystemEventGroup
+                  events={groupEvents}
+                  kind={groupKind}
+                  expanded={isSystemGroupExpanded(groupEvents)}
+                  onExpandedChange={(expanded) => setSystemGroupExpanded(groupEvents, expanded)}
+                />
               {/if}
             {:else}
               <!--
@@ -1016,6 +1053,7 @@
                   event={eventData}
                   compact={!item.isFirstInGroup}
                   {roomId}
+                  {permalinkThreadRootEventId}
                   {messageStore}
                   onOpenThread={getOpenThreadHandler(eventData)}
                 />

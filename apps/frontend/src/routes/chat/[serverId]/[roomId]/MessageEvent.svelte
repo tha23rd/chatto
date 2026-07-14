@@ -70,12 +70,14 @@
     event,
     compact = false,
     roomId,
+    permalinkThreadRootEventId = null,
     messageStore = null,
     onOpenThread
   }: {
     event: RoomEventView;
     compact?: boolean;
     roomId: string;
+    permalinkThreadRootEventId?: string | null;
     messageStore?: MessagesStore | null;
     onOpenThread?: OpenThreadHandler;
   } = $props();
@@ -300,7 +302,12 @@
     if (!event) return;
     e.preventDefault();
     e.stopPropagation();
-    await copyMessageLinkToClipboard(getActiveServer(), roomId, event.id);
+    await copyMessageLinkToClipboard(
+      getActiveServer(),
+      roomId,
+      event.id,
+      permalinkThreadRootEventId
+    );
   }
 
   // Check if message has been edited (updatedAt is non-null)
@@ -422,7 +429,10 @@
       : null;
     const activeRepliedActor = repliedActor && !repliedActor.deleted ? repliedActor : null;
     const name = activeRepliedActor
-      ? getLiveDisplayName(activeRepliedActor.id, activeRepliedActor.displayName || activeRepliedActor.login)
+      ? getLiveDisplayName(
+          activeRepliedActor.id,
+          activeRepliedActor.displayName || activeRepliedActor.login
+        )
       : m['common.deleted_user']();
     const body = isMessagePostedEvent(replyTarget.event) ? (replyTarget.event.body ?? null) : null;
     return { name, body, actor: activeRepliedActor, deleted: !activeRepliedActor };
@@ -643,7 +653,7 @@
   {#if kind}
     <span
       class={[
-        'iconify shrink-0 text-xs leading-none text-accent',
+        'iconify shrink-0 text-xs leading-none text-action',
         kind === 'video' ? 'uil--video' : 'uil--phone'
       ]}
       title={kind === 'video' ? 'In a video call' : 'In a voice call'}
@@ -670,7 +680,7 @@
         'group/msg group/badges message-row',
         hasMessageFooter ? 'message-row-footer' : '',
         compact && msg?.body ? 'items-baseline' : 'items-start',
-        longPressActive || showActionSheet || contextMenuPos ? 'bg-surface-100' : ''
+        longPressActive || showActionSheet || contextMenuPos ? 'bg-surface' : ''
       ]}
       ontouchstart={handleTouchStart}
       ontouchend={handleTouchEnd}
@@ -713,13 +723,13 @@
               showPopoverForActor(e);
             }}
           >
-            <UserAvatar user={actor} size="md" class="!h-11 !w-11 shadow-md" />
+            <UserAvatar user={actor} size="message" class="shadow-md" />
           </button>
         {:else}
           <!-- Deleted user placeholder avatar -->
           <div
             class={[
-              'absolute left-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-surface-200 text-muted shadow-md ring-1 ring-surface-200/30',
+              'absolute left-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-surface-emphasized text-muted shadow-md ring-1 ring-surface-emphasized/30',
               replyPreview ? 'top-8' : 'top-1'
             ]}
           >
@@ -753,12 +763,12 @@
             {#if compact}
               <span
                 aria-hidden="true"
-                class="h-3 w-5 shrink-0 rounded-tl-md border-t-2 border-l-2 border-surface-300/30 transition-colors group-hover/reply:border-surface-300/55"
+                class="h-3 w-5 shrink-0 rounded-tl-md border-t-2 border-l-2 border-surface-strong/30 transition-colors group-hover/reply:border-surface-strong/55"
               ></span>
             {:else}
               <span
                 aria-hidden="true"
-                class="absolute top-[11px] left-0 h-7 w-[39px] rounded-tl-md border-t-2 border-l-2 border-surface-300/30 transition-colors group-hover/reply:border-surface-300/55"
+                class="absolute top-[11px] left-0 h-7 w-[39px] rounded-tl-md border-t-2 border-l-2 border-surface-strong/30 transition-colors group-hover/reply:border-surface-strong/55"
               ></span>
             {/if}
             {#if replyPreview.actor}
@@ -780,7 +790,8 @@
                 {@render callPresenceIcon(replyCallPresence)}
               </button>
             {:else if replyPreview.deleted}
-              <strong class="max-w-[45%] shrink-0 truncate font-medium"><DeletedUserLabel /></strong>
+              <strong class="max-w-[45%] shrink-0 truncate font-medium"><DeletedUserLabel /></strong
+              >
             {/if}
             <button
               type="button"
@@ -812,7 +823,9 @@
                 {@render callPresenceIcon(actorCallPresence)}
               </button>
             {:else}
-              <strong class="shrink-0 leading-none font-semibold text-muted"><DeletedUserLabel /></strong>
+              <strong class="shrink-0 leading-none font-semibold text-muted"
+                ><DeletedUserLabel /></strong
+              >
             {/if}
             <a
               href={resolve('/chat/[serverId]/[roomId]/m/[messageId]', {
@@ -833,7 +846,7 @@
         <!-- Message body - re-enable text selection on desktop (pointer-fine variant) -->
         {#if isDeleted}
           <!-- Message deleted or encryption key removed -->
-          <span class="text-muted/50 italic">{m['room.message.meta.deleted']()}</span>
+          <span class="text-muted italic">{m['room.message.meta.deleted']()}</span>
         {:else if msg.body}
           <div bind:this={messageBodySelectionRoot} class="pointer-fine:select-text">
             <MessageContent
@@ -965,6 +978,7 @@
         eventId={editEventId}
         deleteEventId={event.id}
         messageBody={msg.body ?? ''}
+        {permalinkThreadRootEventId}
         threadRootEventId={editThreadRootEventId}
         channelEchoEventId={editChannelEchoEventId}
         canAddChannelEcho={canReconcileChannelEcho}
@@ -1008,6 +1022,7 @@
         eventId={editEventId}
         deleteEventId={event.id}
         messageBody={msg.body ?? ''}
+        {permalinkThreadRootEventId}
         threadRootEventId={editThreadRootEventId}
         channelEchoEventId={editChannelEchoEventId}
         canAddChannelEcho={canReconcileChannelEcho}

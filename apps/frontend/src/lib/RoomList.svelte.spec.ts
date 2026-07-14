@@ -311,7 +311,7 @@ describe('RoomList', () => {
     const pulseIcon = icon?.querySelector('[data-testid="active-call-pulse-icon"]');
     const children = Array.from(dmRow?.children ?? []);
     expect(icon).not.toBeNull();
-    expect(icon?.classList.contains('text-accent')).toBe(true);
+    expect(icon?.classList.contains('text-action')).toBe(true);
     expect(icon?.querySelector('.uil--phone')).not.toBeNull();
     expect(pulseIcon).not.toBeNull();
     expect(pulseIcon?.classList.contains('animate-ping')).toBe(true);
@@ -533,9 +533,7 @@ describe('RoomList', () => {
     const row = q(container, '[href="/chat/-/channel-1"]') as HTMLAnchorElement;
     await expect.element(row).toBeInTheDocument();
     const icon = row.querySelector('.sidebar-icon');
-    expect(row.classList.contains('font-semibold')).toBe(true);
-    expect(row.classList.contains('text-text-top')).toBe(true);
-    expect(row.classList.contains('hover:!text-text-top')).toBe(true);
+    expect(row.classList.contains('sidebar-item-attention')).toBe(true);
     expect(icon?.classList.contains('text-text-top')).toBe(true);
     expect(icon?.classList.contains('text-muted')).toBe(false);
   });

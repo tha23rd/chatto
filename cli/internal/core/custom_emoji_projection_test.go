@@ -122,3 +122,55 @@ func TestCustomEmojiProjection_IgnoresDuplicateEventID(t *testing.T) {
 		t.Fatal("duplicate event id should have been ignored, emoji missing")
 	}
 }
+
+// Custom emoji images are served over an unauthenticated public route, and the
+// public asset classifier fails closed unless a projection positively declares
+// the asset. Emoji uploaded before the explicit public/ object namespace carry a
+// flat key and no visibility marker, so this index is their only declaration.
+func TestCustomEmojiProjection_PublicEmojiAssetIndexTracksLifecycle(t *testing.T) {
+	p := NewCustomEmojiProjection()
+
+	created := &corev1.Event{
+		Id:        "E1",
+		ActorId:   "U1",
+		CreatedAt: timestamppb.New(time.UnixMilli(1)),
+		Event: &corev1.Event_CustomEmojiCreated{
+			CustomEmojiCreated: &corev1.CustomEmojiCreatedEvent{
+				Id:   "emoji1",
+				Name: "partyparrot",
+				Asset: &corev1.AssetRecord{
+					Id:          "A_emoji1",
+					ContentType: "image/webp",
+					Storage:     &corev1.AssetRecord_Nats{Nats: &corev1.NATSAsset{Key: "legacy-flat-emoji-key"}},
+				},
+			},
+		},
+	}
+
+	applyCustomEmojiProjectionEvent(t, p, created, 1)
+
+	// Both the logical asset ID and the backing NATS key are valid request keys.
+	if !p.IsPublicEmojiAsset("A_emoji1") {
+		t.Fatal("IsPublicEmojiAsset(logical ID) = false, want true")
+	}
+	if !p.IsPublicEmojiAsset("legacy-flat-emoji-key") {
+		t.Fatal("IsPublicEmojiAsset(NATS key) = false, want true")
+	}
+
+	// Unrelated and empty keys must never be declared public.
+	if p.IsPublicEmojiAsset("A_other") {
+		t.Fatal("IsPublicEmojiAsset(unknown) = true, want false")
+	}
+	if p.IsPublicEmojiAsset("") {
+		t.Fatal("IsPublicEmojiAsset(empty) = true, want false")
+	}
+
+	// Deleting the emoji withdraws the declaration so the route fails closed.
+	applyCustomEmojiProjectionEvent(t, p, customEmojiDeletedProjectionEvent("E2", "emoji1"), 2)
+	if p.IsPublicEmojiAsset("A_emoji1") {
+		t.Fatal("IsPublicEmojiAsset(logical ID) after delete = true, want false")
+	}
+	if p.IsPublicEmojiAsset("legacy-flat-emoji-key") {
+		t.Fatal("IsPublicEmojiAsset(NATS key) after delete = true, want false")
+	}
+}

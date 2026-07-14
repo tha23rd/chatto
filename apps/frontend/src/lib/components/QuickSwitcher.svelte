@@ -486,7 +486,7 @@
     />
   {:else}
     <span
-      class="flex h-5 w-5 items-center justify-center rounded-full bg-surface-200 text-[10px] font-semibold text-muted"
+      class="flex h-5 w-5 items-center justify-center rounded-full bg-surface-emphasized text-[10px] font-semibold text-muted"
       aria-label={user.login}
     >
       {getAvatarInitials(user.displayName, user.login)}
@@ -512,7 +512,7 @@
 >
   {#if quickSwitcher.visible}
     <div
-      class="flex w-140 max-w-[90vw] flex-col gap-1 rounded-lg border border-text/10 bg-surface-100 p-1 text-sm shadow-xl"
+      class="flex w-140 max-w-[90vw] flex-col gap-1 rounded-lg border border-text/10 bg-surface p-1 text-sm shadow-xl"
     >
       <!-- Search section -->
       <div class="menu-section">
@@ -552,7 +552,7 @@
               <button
                 data-index={i}
                 type="button"
-                class={['sidebar-item text-left', i === selectedIndex ? 'bg-surface-100' : '']}
+                class={['sidebar-item text-left', i === selectedIndex ? 'bg-surface' : '']}
                 onclick={() => select(item)}
                 onpointerenter={() => (selectedIndex = i)}
               >
@@ -613,33 +613,3 @@
     </div>
   {/if}
 </dialog>
-
-<style>
-  dialog.quick-switcher[open] {
-    animation: qs-fade-in 100ms ease-out;
-  }
-
-  dialog.quick-switcher[open]::backdrop {
-    animation: qs-backdrop-in 100ms ease-out;
-  }
-
-  @keyframes qs-fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(-10px) scale(0.98);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  @keyframes qs-backdrop-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-</style>

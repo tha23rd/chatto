@@ -344,8 +344,8 @@ function roomAudioFile(filename: string) {
 
 describe('RoomSidebar', () => {
   beforeEach(async () => {
-    await loadLocaleMessages('en');
-    setReactiveLocale('en');
+    await loadLocaleMessages('en-GB');
+    setReactiveLocale('en-GB');
     queryMock.mockReset();
     memberDirectoryMocks.listRoomMembers.mockReset();
     attachmentMocks.listRoomAttachments.mockReset();
@@ -985,7 +985,7 @@ describe('RoomSidebar', () => {
     const localMuteButton = q(featured, '[data-testid="call-feed-local-mute-button"]') as HTMLButtonElement;
 
     expect(mediaActions.className).toContain('border-text/10');
-    expect(mediaActions.className).toContain('bg-surface-100');
+    expect(mediaActions.className).toContain('bg-surface');
     expect(mediaActions.className).toContain('flex');
     expect(mediaActions.className).not.toContain('absolute');
     expect(fullscreenButton).toBeTruthy();
@@ -1400,7 +1400,7 @@ describe('RoomSidebar', () => {
     });
 
     const maximizeButton = container.querySelector(
-      '[aria-label="Maximize call"]'
+      '[aria-label="Maximise call"]'
     ) as HTMLButtonElement | null;
     expect(maximizeButton).toBeTruthy();
     expect(maximizeButton!.querySelector('.mdi--arrow-expand-left')).toBeTruthy();
@@ -1425,7 +1425,7 @@ describe('RoomSidebar', () => {
     });
 
     const minimizeButton = container.querySelector(
-      '[aria-label="Minimize call"]'
+      '[aria-label="Minimise call"]'
     ) as HTMLButtonElement | null;
     expect(minimizeButton).toBeTruthy();
     expect(minimizeButton!.querySelector('.mdi--arrow-collapse-right')).toBeTruthy();
@@ -1451,7 +1451,7 @@ describe('RoomSidebar', () => {
       }
     });
 
-    expect(container.querySelector('[aria-label="Maximize call"]')).toBeFalsy();
+    expect(container.querySelector('[aria-label="Maximise call"]')).toBeFalsy();
     expect(container.querySelector('[aria-label="Fullscreen call"]')).toBeFalsy();
   });
 
@@ -1465,7 +1465,7 @@ describe('RoomSidebar', () => {
       }
     });
 
-    expect(container.querySelector('[aria-label="Maximize call"]')).toBeFalsy();
+    expect(container.querySelector('[aria-label="Maximise call"]')).toBeFalsy();
     expect(container.querySelector('[aria-label="Fullscreen call"]')).toBeFalsy();
 
     await rerender({
@@ -1473,7 +1473,7 @@ describe('RoomSidebar', () => {
       roomData: roomData([member(1)], 1, false),
       onToggleMaximized
     });
-    expect(container.querySelector('[aria-label="Maximize call"]')).toBeFalsy();
+    expect(container.querySelector('[aria-label="Maximise call"]')).toBeFalsy();
     expect(container.querySelector('[aria-label="Fullscreen call"]')).toBeFalsy();
 
     await rerender({
@@ -1484,7 +1484,7 @@ describe('RoomSidebar', () => {
       roomData: roomData([member(1)], 1, false),
       onToggleMaximized
     });
-    expect(container.querySelector('[aria-label="Maximize call"]')).toBeFalsy();
+    expect(container.querySelector('[aria-label="Maximise call"]')).toBeFalsy();
     expect(container.querySelector('[aria-label="Fullscreen call"]')).toBeTruthy();
   });
 
@@ -1657,8 +1657,8 @@ describe('RoomSidebar', () => {
   });
 
   it('localizes room file date groups with the active locale', async () => {
-    await loadLocaleMessages('de');
-    setReactiveLocale('de');
+    await loadLocaleMessages('de-DE');
+    setReactiveLocale('de-DE');
     const fileGroupingNow = new Date('2026-06-17T12:00:00Z');
 
     attachmentMocks.listRoomAttachments.mockResolvedValueOnce({

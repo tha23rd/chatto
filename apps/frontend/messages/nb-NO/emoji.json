@@ -1,0 +1,10 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "emoji": {
+    "search_placeholder": "Søk etter emojier...",
+    "no_results": "Ingen emojier funnet",
+    "custom_emoji": {
+      "category": "Egne"
+    }
+  }
+}

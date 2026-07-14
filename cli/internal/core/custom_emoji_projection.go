@@ -26,8 +26,13 @@ type CustomEmoji struct {
 // rebuilt from EVT replay.
 type CustomEmojiProjection struct {
 	events.MemoryProjection
-	byID        map[string]*CustomEmoji // emoji ID -> emoji
-	byName      map[string]string       // lowercased name -> emoji ID
+	byID   map[string]*CustomEmoji // emoji ID -> emoji
+	byName map[string]string       // lowercased name -> emoji ID
+	// assetIndex refcounts every request key (logical ID, NATS key, S3 key) that
+	// belongs to a live emoji in the catalog. It is the positive public
+	// declaration the unauthenticated asset route needs for emoji images that
+	// predate the explicit public/ object namespace, and keeps that check O(1).
+	assetIndex  map[string]int
 	replayGuard projectionReplayGuard
 }
 
@@ -36,6 +41,7 @@ func NewCustomEmojiProjection() *CustomEmojiProjection {
 	return &CustomEmojiProjection{
 		byID:        make(map[string]*CustomEmoji),
 		byName:      make(map[string]string),
+		assetIndex:  make(map[string]int),
 		replayGuard: newProjectionReplayGuard(),
 	}
 }
@@ -97,8 +103,28 @@ func (p *CustomEmojiProjection) applyCreated(e *corev1.CustomEmojiCreatedEvent, 
 		CreatedBy:   event.GetActorId(),
 		CreatedAtMs: createdAtMs,
 	}
+	// Drop any prior declaration for this ID before re-declaring, so a replaced
+	// emoji record cannot leak a stale public asset key.
+	if existing, ok := p.byID[emoji.ID]; ok {
+		p.releaseAssetKeysLocked(existing.Asset)
+	}
 	p.byID[emoji.ID] = emoji
 	p.byName[strings.ToLower(emoji.Name)] = emoji.ID
+	for key := range assetRecordKeys(emoji.Asset) {
+		p.assetIndex[key]++
+	}
+}
+
+// releaseAssetKeysLocked drops one refcount per request key of asset. The
+// caller must hold the write lock.
+func (p *CustomEmojiProjection) releaseAssetKeysLocked(asset *corev1.AssetRecord) {
+	for key := range assetRecordKeys(asset) {
+		if p.assetIndex[key] <= 1 {
+			delete(p.assetIndex, key)
+		} else {
+			p.assetIndex[key]--
+		}
+	}
 }
 
 func (p *CustomEmojiProjection) applyDeleted(e *corev1.CustomEmojiDeletedEvent) {
@@ -113,6 +139,17 @@ func (p *CustomEmojiProjection) applyDeleted(e *corev1.CustomEmojiDeletedEvent) 
 	if p.byName[strings.ToLower(existing.Name)] == existing.ID {
 		delete(p.byName, strings.ToLower(existing.Name))
 	}
+	p.releaseAssetKeysLocked(existing.Asset)
+}
+
+// IsPublicEmojiAsset reports whether assetID or a backend key belongs to a live
+// custom emoji. Custom emoji images are intentionally public server assets, so
+// this is the projection's positive declaration for the unauthenticated
+// /assets/emoji route. Deleting an emoji withdraws the declaration.
+func (p *CustomEmojiProjection) IsPublicEmojiAsset(assetID string) bool {
+	p.RLock()
+	defer p.RUnlock()
+	return assetID != "" && p.assetIndex[assetID] > 0
 }
 
 // List returns all custom emojis in the catalog, ordered by name.

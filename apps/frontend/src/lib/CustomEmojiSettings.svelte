@@ -167,7 +167,7 @@ stable identity shown here alongside the rendered image.
           subtitle={m['server_settings.custom_emoji.drop_subtitle']()}
         />
         <div
-          class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-200 text-muted"
+          class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-emphasized text-muted"
         >
           {#if previewUrl}
             <img

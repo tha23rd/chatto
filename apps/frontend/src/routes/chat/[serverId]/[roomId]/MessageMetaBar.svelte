@@ -258,7 +258,7 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
           // padding so the pill hugs the emoji instead of boxing it in.
           customEmoji ? 'gap-0.5 pr-2 pl-1' : 'px-2',
           canReact ? '' : '!cursor-default opacity-60',
-          reaction.hasReacted ? 'border-accent/50' : 'border-transparent'
+          reaction.hasReacted ? 'border-action/50' : 'border-transparent'
         ]}
         onclick={() => canReact && toggleReaction(reaction)}
         onfocus={(e) => showReactionTooltip(e, reaction)}

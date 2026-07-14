@@ -1,10 +1,11 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import { docsSiteUrl } from "./src/docsMetadata.ts";
 
 // https://astro.build/config
 export default defineConfig({
-  site: "https://docs.chatto.run",
+  site: docsSiteUrl,
   redirects: {
     "/getting-started/overview": "/getting-started/introduction",
     "/guides/deployment-read-this-first": "/guides/deployment/read-this-first",
@@ -28,6 +29,7 @@ export default defineConfig({
     "/guides/voice-calls": "/guides/infrastructure/voice-calls",
     "/guides/integrating-with-chatto": "/guides/integrations/chatto-api",
     "/guides/external-login-providers": "/guides/integrations/external-login-providers",
+    "/guides/community-shields": "/guides/integrations/community-shields",
   },
   integrations: [
     starlight({
@@ -35,6 +37,8 @@ export default defineConfig({
       customCss: ["./src/custom.css"],
       routeMiddleware: "./src/routeData.ts",
       components: {
+        Banner: "./src/components/DocsBanner.astro",
+        SiteTitle: "./src/components/DocsSiteTitle.astro",
         SocialIcons: "./src/components/SocialIcons.astro",
       },
       social: [
@@ -93,6 +97,7 @@ export default defineConfig({
           items: [
             "guides/integrations/chatto-api",
             "guides/integrations/external-login-providers",
+            "guides/integrations/community-shields",
             "guides/integrations/pocket-id",
           ],
         },

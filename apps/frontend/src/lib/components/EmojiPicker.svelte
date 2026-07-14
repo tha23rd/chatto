@@ -127,7 +127,7 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
       bind:value={query}
       type="text"
       placeholder={m['emoji.search_placeholder']()}
-      class="w-full rounded bg-surface-100 px-3 py-2.5 text-base outline-none placeholder:text-muted md:px-2.5 md:py-1.5 md:text-sm"
+      class="w-full rounded bg-surface px-3 py-2.5 text-base outline-none placeholder:text-muted md:px-2.5 md:py-1.5 md:text-sm"
     />
   </div>
 
@@ -142,7 +142,7 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
           <div class="grid grid-cols-7 md:grid-cols-8">
             {#each searchResults as result (result.name)}
               <button
-                class="flex aspect-square cursor-pointer items-center justify-center rounded text-3xl hover:bg-surface-100 active:bg-surface-100 md:h-8 md:w-8 md:text-base"
+                class="flex aspect-square cursor-pointer items-center justify-center rounded text-3xl hover:bg-surface active:bg-surface md:h-8 md:w-8 md:text-base"
                 onclick={() => selectEntry(result)}
                 title={result.name}
               >
@@ -165,7 +165,7 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
           <div class="grid grid-cols-7 md:grid-cols-8">
             {#each recent as emoji (emoji)}
               <button
-                class="flex aspect-square cursor-pointer items-center justify-center rounded text-3xl hover:bg-surface-100 active:bg-surface-100 md:h-8 md:w-8 md:text-base"
+                class="flex aspect-square cursor-pointer items-center justify-center rounded text-3xl hover:bg-surface active:bg-surface md:h-8 md:w-8 md:text-base"
                 onclick={() => selectEmoji(emoji)}
               >
                 {emoji}
@@ -182,7 +182,7 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
           <div class="grid grid-cols-7 md:grid-cols-8">
             {#each cat.emojis as entry (entry.name)}
               <button
-                class="flex aspect-square cursor-pointer items-center justify-center rounded text-3xl hover:bg-surface-100 active:bg-surface-100 md:h-8 md:w-8 md:text-base"
+                class="flex aspect-square cursor-pointer items-center justify-center rounded text-3xl hover:bg-surface active:bg-surface md:h-8 md:w-8 md:text-base"
                 onclick={() => selectEntry(entry)}
                 title={entry.name}
               >

@@ -18,6 +18,7 @@ import (
 	"hmans.de/chatto/internal/core"
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
 	"hmans.de/chatto/internal/testutil"
+	"hmans.de/chatto/pkg/signedurl"
 )
 
 func TestExtractImmutableETag(t *testing.T) {
@@ -191,6 +192,7 @@ func TestServiceWorkerETag(t *testing.T) {
 func TestDynamicPWAManifest(t *testing.T) {
 	staticManifest := []byte(`{
   "name": "Chatto",
+  "short_name": "Chatto",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
@@ -203,16 +205,23 @@ func TestDynamicPWAManifest(t *testing.T) {
   ]
 }`)
 
-	t.Run("keeps static manifest when no server logo is available", func(t *testing.T) {
-		got, err := dynamicPWAManifest(staticManifest, nil)
+	t.Run("uses server name without requiring a server logo", func(t *testing.T) {
+		got, err := dynamicPWAManifest(staticManifest, "Engineering", nil)
 		if err != nil {
 			t.Fatalf("dynamicPWAManifest: %v", err)
 		}
-		assert.Equal(t, string(staticManifest), string(got))
+
+		var manifest map[string]any
+		if err := json.Unmarshal(got, &manifest); err != nil {
+			t.Fatalf("unmarshal manifest: %v", err)
+		}
+		assert.Equal(t, "Engineering", manifest["name"])
+		assert.Equal(t, "Engineering", manifest["short_name"])
+		assert.Len(t, manifest["icons"], 2)
 	})
 
 	t.Run("replaces install and shortcut icons with server logo URLs", func(t *testing.T) {
-		got, err := dynamicPWAManifest(staticManifest, &pwaServerIconURLs{
+		got, err := dynamicPWAManifest(staticManifest, "Engineering", &pwaServerIconURLs{
 			Icon192: "/assets/server/logo/t/192",
 			Icon512: "/assets/server/logo/t/512",
 		})
@@ -224,29 +233,56 @@ func TestDynamicPWAManifest(t *testing.T) {
 		if err := json.Unmarshal(got, &manifest); err != nil {
 			t.Fatalf("unmarshal manifest: %v", err)
 		}
+		assert.Equal(t, "Engineering", manifest["name"])
+		assert.Equal(t, "Engineering", manifest["short_name"])
 
 		icons := manifest["icons"].([]any)
 		assert.Len(t, icons, 4)
 		assert.Equal(t, "/assets/server/logo/t/192", icons[0].(map[string]any)["src"])
 		assert.Equal(t, "192x192", icons[0].(map[string]any)["sizes"])
-		assert.Nil(t, icons[0].(map[string]any)["type"])
+		assert.Equal(t, "image/png", icons[0].(map[string]any)["type"])
 		assert.Equal(t, "/assets/server/logo/t/512", icons[1].(map[string]any)["src"])
+		assert.Equal(t, "image/png", icons[1].(map[string]any)["type"])
 		assert.Equal(t, "maskable", icons[2].(map[string]any)["purpose"])
+		assert.Equal(t, "image/png", icons[2].(map[string]any)["type"])
+		assert.Equal(t, "maskable", icons[3].(map[string]any)["purpose"])
+		assert.Equal(t, "image/png", icons[3].(map[string]any)["type"])
 
 		shortcuts := manifest["shortcuts"].([]any)
 		shortcutIcons := shortcuts[0].(map[string]any)["icons"].([]any)
 		assert.Equal(t, "/assets/server/logo/t/192", shortcutIcons[0].(map[string]any)["src"])
-		assert.Nil(t, shortcutIcons[0].(map[string]any)["type"])
+		assert.Equal(t, "image/png", shortcutIcons[0].(map[string]any)["type"])
 	})
 }
 
-func TestInjectAppleTouchIcon(t *testing.T) {
-	content := []byte(`<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />`)
+func TestSameOriginServerAssetURL(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{
+			name: "keeps relative server asset URL",
+			url:  "/assets/server/logo/t/signed",
+			want: "/assets/server/logo/t/signed",
+		},
+		{
+			name: "removes external asset origin",
+			url:  "https://assets.example.com/assets/server/logo/t/signed?variant=pwa",
+			want: "/assets/server/logo/t/signed?variant=pwa",
+		},
+		{
+			name: "rejects unrelated asset URL",
+			url:  "https://assets.example.com/assets/files/private",
+			want: "",
+		},
+	}
 
-	got := injectAppleTouchIcon(content, "/assets/server/logo/t/180?a=1&b=2")
-
-	assert.Contains(t, string(got), `href="/assets/server/logo/t/180?a=1&amp;b=2"`)
-	assert.NotContains(t, string(got), defaultAppleTouchIconHref)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, sameOriginServerAssetURL(tt.url))
+		})
+	}
 }
 
 func TestClientAcceptsEncoding(t *testing.T) {
@@ -366,29 +402,6 @@ func TestServeSPAFallback(t *testing.T) {
 		assert.NotContains(t, w.Body.String(), "OG_META_PLACEHOLDER")
 	})
 
-	t.Run("injects server logo apple touch icon when server logo exists", func(t *testing.T) {
-		mockFS := fstest.MapFS{
-			"200.html": &fstest.MapFile{
-				Data: []byte(`<!DOCTYPE html><html><head><!-- OG_META_PLACEHOLDER --><link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" /></head><body>SPA</body></html>`),
-			},
-		}
-
-		server := newTestServer()
-		server.core = setupFrontendTestCoreWithLogo(t)
-		router := gin.New()
-		router.GET("/test", func(c *gin.Context) {
-			server.serveSPAFallback(c, mockFS)
-		})
-
-		req := httptest.NewRequest("GET", "/test", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Body.String(), `href="/assets/server/logo-asset/t/`)
-		assert.NotContains(t, w.Body.String(), defaultAppleTouchIconHref)
-	})
-
 	t.Run("returns 500 when 200.html is missing", func(t *testing.T) {
 		// Empty filesystem - no 200.html
 		mockFS := fstest.MapFS{}
@@ -408,6 +421,78 @@ func TestServeSPAFallback(t *testing.T) {
 	})
 }
 
+func TestBrowserIconRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	newServer := func(t *testing.T, chattoCore *core.ChattoCore) *HTTPServer {
+		t.Helper()
+		server := &HTTPServer{
+			config: config.ChattoConfig{Webserver: config.WebserverConfig{URL: "https://example.com"}},
+			core:   chattoCore,
+			router: gin.New(),
+		}
+		if err := server.setupFrontendRoutes(); err != nil {
+			t.Fatalf("setupFrontendRoutes: %v", err)
+		}
+		return server
+	}
+
+	t.Run("redirects to distinct same-origin server logo transforms", func(t *testing.T) {
+		chattoCore := setupFrontendTestCoreWithLogo(t)
+		chattoCore.AssetBaseURL = "https://assets.example.com"
+		server := newServer(t, chattoCore)
+
+		expectedSizes := map[string]int{
+			"/favicon":          32,
+			"/apple-touch-icon": 180,
+		}
+		locations := make(map[string]string)
+		for iconPath, expectedSize := range expectedSizes {
+			req := httptest.NewRequest(http.MethodGet, iconPath, nil)
+			w := httptest.NewRecorder()
+			server.router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
+			assert.Equal(t, cacheControlNoCache, w.Header().Get("Cache-Control"))
+			location := w.Header().Get("Location")
+			assert.True(t, strings.HasPrefix(location, "/assets/server/logo-asset/t/"))
+			assert.NotContains(t, location, "assets.example.com")
+
+			signedPath := strings.TrimPrefix(location, "/assets/server/logo-asset/t/")
+			params, err := signedurl.ParseSignedTransformPath(
+				"test-signing-secret",
+				core.ServerAssetSignResource,
+				"logo-asset",
+				signedPath,
+			)
+			if err != nil {
+				t.Fatalf("parse transform for %s: %v", iconPath, err)
+			}
+			assert.Equal(t, expectedSize, params.Width)
+			assert.Equal(t, expectedSize, params.Height)
+			assert.Equal(t, "cover", params.Fit)
+			locations[iconPath] = location
+		}
+		assert.NotEqual(t, locations["/favicon"], locations["/apple-touch-icon"])
+	})
+
+	t.Run("redirects to embedded icons when no server logo exists", func(t *testing.T) {
+		server := newServer(t, nil)
+		tests := map[string]string{
+			"/favicon":          "/icons/favicon.png",
+			"/apple-touch-icon": "/icons/apple-touch-icon.png",
+		}
+		for iconPath, fallbackPath := range tests {
+			req := httptest.NewRequest(http.MethodGet, iconPath, nil)
+			w := httptest.NewRecorder()
+			server.router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
+			assert.Equal(t, fallbackPath, w.Header().Get("Location"))
+		}
+	})
+}
+
 func TestServePWAWebManifestUsesServerLogoWhenAvailable(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -422,9 +507,12 @@ func TestServePWAWebManifestUsesServerLogoWhenAvailable(t *testing.T) {
 }`),
 		},
 	}
+	chattoCore := setupFrontendTestCoreWithLogo(t)
+	setTestServerName(t, context.Background(), chattoCore, "Engineering")
+	chattoCore.AssetBaseURL = "https://assets.example.com"
 	server := &HTTPServer{
 		config: config.ChattoConfig{Webserver: config.WebserverConfig{URL: "https://example.com"}},
-		core:   setupFrontendTestCoreWithLogo(t),
+		core:   chattoCore,
 		router: gin.New(),
 	}
 	server.router.GET("/manifest.webmanifest", func(c *gin.Context) {
@@ -442,10 +530,15 @@ func TestServePWAWebManifestUsesServerLogoWhenAvailable(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &manifest); err != nil {
 		t.Fatalf("unmarshal manifest: %v", err)
 	}
+	assert.Equal(t, "Engineering", manifest["name"])
+	assert.Equal(t, "Engineering", manifest["short_name"])
 	icons := manifest["icons"].([]any)
 	assert.True(t, strings.HasPrefix(icons[0].(map[string]any)["src"].(string), "/assets/server/logo-asset/t/"))
+	assert.NotContains(t, icons[0].(map[string]any)["src"], "assets.example.com")
 	assert.Equal(t, "192x192", icons[0].(map[string]any)["sizes"])
-	assert.Nil(t, icons[0].(map[string]any)["type"])
+	assert.Equal(t, "image/png", icons[0].(map[string]any)["type"])
+	assert.Equal(t, "maskable", icons[2].(map[string]any)["purpose"])
+	assert.Equal(t, "image/png", icons[2].(map[string]any)["type"])
 }
 
 func TestFrontendFallbackDoesNotServeReservedBackendPrefixes(t *testing.T) {

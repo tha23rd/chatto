@@ -84,8 +84,11 @@ For ad-hoc tool invocations, use `mise x -- ...` rather than assuming `go`,
 - Avoid `$effect` unless synchronizing with the outside world. Prefer
   `$derived`, event handlers, context getters, and store methods for state flow.
 - Review visible frontend changes in the browser using Chrome DevTools MCP.
-- User-visible strings go through Paraglide message catalogs with both English
-  and German entries. Follow ADR-043 and [apps/frontend/AGENTS.md](apps/frontend/AGENTS.md).
+- User-visible strings go through the British English (`en-GB`) source and all
+  complete translated Paraglide catalogs, with sparse US English (`en-US`)
+  overrides where wording differs. Preserve message structure and placeholders.
+  Follow ADR-043 and
+  [apps/frontend/AGENTS.md](apps/frontend/AGENTS.md).
 - In user-facing copy, do not prefix end-user accounts, users, members, or
   usernames with the product name. People belong to the community powered by
   Chatto; use "account", "user", "member", or "username" as appropriate.

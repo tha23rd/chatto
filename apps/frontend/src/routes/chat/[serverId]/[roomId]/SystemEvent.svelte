@@ -28,9 +28,10 @@
     return { id: event?.actorId ?? 'unknown', name: 'Deleted User', user: null };
   });
 
+  const eventKind = $derived(event?.event ? roomEventKind(event.event) : null);
+
   const action = $derived.by(() => {
-    if (!event?.event) return null;
-    switch (roomEventKind(event.event)) {
+    switch (eventKind) {
       case RoomEventKind.UserJoinedRoom:
         return m['room.system_events.joined']({ count: 1 });
       case RoomEventKind.UserLeftRoom:
@@ -44,9 +45,13 @@
     }
   });
 
+  const isDeletedJoinLeave = $derived(
+    !subject.user &&
+      (eventKind === RoomEventKind.UserJoinedRoom || eventKind === RoomEventKind.UserLeftRoom)
+  );
 </script>
 
-{#if action}
+{#if action && !isDeletedJoinLeave}
   <div class="mt-4 flex items-center gap-4 px-2 md:px-4" data-event-id={event.id}>
     <!-- Avatar column (w-11 matches MessageEvent avatar width) -->
     <div class="flex w-11 shrink-0 items-center justify-center">
@@ -55,7 +60,7 @@
       {:else}
         <!-- Deleted user placeholder -->
         <div
-          class="flex h-5 w-5 items-center justify-center rounded-full bg-surface-200 text-muted"
+          class="flex h-5 w-5 items-center justify-center rounded-full bg-surface-emphasized text-muted"
         >
           <span class="iconify text-xs uil--user-times"></span>
         </div>

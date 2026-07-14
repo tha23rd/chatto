@@ -91,7 +91,7 @@ Reads available devices and current selection from `voiceCallState`.
             }}
           >
             {#if device.deviceId === section.selectedId}
-              <span class="sidebar-icon iconify text-accent uil--check"></span>
+              <span class="sidebar-icon iconify text-action uil--check"></span>
             {:else}
               <span class="sidebar-icon"></span>
             {/if}
@@ -124,7 +124,7 @@ Reads available devices and current selection from `voiceCallState`.
             }}
           >
             {#if option.mode === noiseSuppression.mode}
-              <span class="sidebar-icon iconify text-accent uil--check"></span>
+              <span class="sidebar-icon iconify text-action uil--check"></span>
             {:else}
               <span class="sidebar-icon"></span>
             {/if}

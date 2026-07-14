@@ -6,10 +6,10 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"html"
 	"io/fs"
 	"mime"
 	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
@@ -35,12 +35,9 @@ const (
 	contentSecurityPolicyReportOnly = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http: https:; media-src 'self' blob: http: https:; connect-src 'self' http: https: ws: wss:; frame-src https://www.youtube-nocookie.com; worker-src 'self'; require-trusted-types-for 'script'; trusted-types chatto-markdown-html"
 )
 
-const defaultAppleTouchIconHref = "/icons/apple-touch-icon.png"
-
 type pwaServerIconURLs struct {
-	AppleTouch180 string
-	Icon192       string
-	Icon512       string
+	Icon192 string
+	Icon512 string
 }
 
 func setFrontendSecurityHeaders(c *gin.Context) {
@@ -125,77 +122,93 @@ func setFrontendCacheHeaders(c *gin.Context) {
 	c.Next()
 }
 
-func (s *HTTPServer) currentPWAIconURLs(ctx context.Context) *pwaServerIconURLs {
+func (s *HTTPServer) currentServerIconURL(ctx context.Context, size int) string {
 	if s.core == nil {
-		return nil
+		return ""
 	}
 
-	sizeURL := func(size int) string {
-		width, height := size, size
-		url, err := s.core.GetServerLogoURL(ctx, &width, &height, "cover")
-		if err != nil {
-			s.logger.Warn("failed to get server logo URL for PWA metadata", "error", err, "size", size)
-			return ""
-		}
-		return url
+	width, height := size, size
+	iconURL, err := s.core.GetServerLogoURL(ctx, &width, &height, "cover")
+	if err != nil {
+		s.logger.Warn("failed to get server logo URL for browser metadata", "error", err, "size", size)
+		return ""
 	}
+	return sameOriginServerAssetURL(iconURL)
+}
 
+func (s *HTTPServer) currentPWAIconURLs(ctx context.Context) *pwaServerIconURLs {
 	icons := &pwaServerIconURLs{
-		AppleTouch180: sizeURL(180),
-		Icon192:       sizeURL(192),
-		Icon512:       sizeURL(512),
+		Icon192: s.currentServerIconURL(ctx, 192),
+		Icon512: s.currentServerIconURL(ctx, 512),
 	}
-	if icons.AppleTouch180 == "" || icons.Icon192 == "" || icons.Icon512 == "" {
+	if icons.Icon192 == "" || icons.Icon512 == "" {
 		return nil
 	}
 	return icons
 }
 
+func (s *HTTPServer) currentPWAServerName(ctx context.Context) string {
+	if s.core == nil || s.core.ConfigManager() == nil {
+		return "Chatto"
+	}
+
+	name, err := s.core.ConfigManager().GetEffectiveServerName(ctx)
+	if err != nil || strings.TrimSpace(name) == "" {
+		return "Chatto"
+	}
+	return name
+}
+
+// sameOriginServerAssetURL keeps browser metadata on the frontend origin. General
+// asset URLs may use a configured asset base, but each Chatto frontend serves
+// its own public server assets and browsers must be able to fetch metadata
+// images from the frontend's origin.
+func sameOriginServerAssetURL(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Opaque != "" || !strings.HasPrefix(parsed.Path, "/assets/server/") {
+		return ""
+	}
+
+	result := parsed.EscapedPath()
+	if parsed.RawQuery != "" {
+		result += "?" + parsed.RawQuery
+	}
+	return result
+}
+
 func pwaManifestIcons(icon192, icon512 string) []map[string]string {
 	return []map[string]string{
-		{"src": icon192, "sizes": "192x192"},
-		{"src": icon512, "sizes": "512x512"},
-		{"src": icon192, "sizes": "192x192", "purpose": "maskable"},
-		{"src": icon512, "sizes": "512x512", "purpose": "maskable"},
+		{"src": icon192, "sizes": "192x192", "type": "image/png"},
+		{"src": icon512, "sizes": "512x512", "type": "image/png"},
+		{"src": icon192, "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+		{"src": icon512, "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
 	}
 }
 
-func dynamicPWAManifest(staticManifest []byte, icons *pwaServerIconURLs) ([]byte, error) {
-	if icons == nil {
-		return staticManifest, nil
-	}
-
+func dynamicPWAManifest(staticManifest []byte, serverName string, icons *pwaServerIconURLs) ([]byte, error) {
 	var manifest map[string]any
 	if err := json.Unmarshal(staticManifest, &manifest); err != nil {
 		return nil, err
 	}
 
-	manifest["icons"] = pwaManifestIcons(icons.Icon192, icons.Icon512)
-	if shortcuts, ok := manifest["shortcuts"].([]any); ok {
-		for _, shortcut := range shortcuts {
-			shortcutMap, ok := shortcut.(map[string]any)
-			if !ok {
-				continue
-			}
-			shortcutMap["icons"] = []map[string]string{
-				{"src": icons.Icon192, "sizes": "192x192"},
+	manifest["name"] = serverName
+	manifest["short_name"] = serverName
+	if icons != nil {
+		manifest["icons"] = pwaManifestIcons(icons.Icon192, icons.Icon512)
+		if shortcuts, ok := manifest["shortcuts"].([]any); ok {
+			for _, shortcut := range shortcuts {
+				shortcutMap, ok := shortcut.(map[string]any)
+				if !ok {
+					continue
+				}
+				shortcutMap["icons"] = []map[string]string{
+					{"src": icons.Icon192, "sizes": "192x192", "type": "image/png"},
+				}
 			}
 		}
 	}
 
 	return json.MarshalIndent(manifest, "", "  ")
-}
-
-func injectAppleTouchIcon(content []byte, iconURL string) []byte {
-	if iconURL == "" {
-		return content
-	}
-	escaped := html.EscapeString(iconURL)
-	return []byte(strings.ReplaceAll(
-		string(content),
-		`href="`+defaultAppleTouchIconHref+`"`,
-		`href="`+escaped+`"`,
-	))
 }
 
 // clientAcceptsEncoding checks if the client accepts a specific encoding.
@@ -232,12 +245,17 @@ func (s *HTTPServer) serveSPAFallback(c *gin.Context, clientFS fs.FS) bool {
 	defer cancel()
 
 	content = s.injectOpenGraphTags(ctx, content, c.Request.URL.Path)
-	if icons := s.currentPWAIconURLs(ctx); icons != nil {
-		content = injectAppleTouchIcon(content, icons.AppleTouch180)
-	}
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", content)
 	return true
+}
+
+func (s *HTTPServer) redirectBrowserIcon(c *gin.Context, size int, fallbackURL string) {
+	iconURL := s.currentServerIconURL(c.Request.Context(), size)
+	if iconURL == "" {
+		iconURL = fallbackURL
+	}
+	c.Redirect(http.StatusTemporaryRedirect, iconURL)
 }
 
 func (s *HTTPServer) servePWAWebManifest(c *gin.Context, clientFS fs.FS) {
@@ -246,7 +264,11 @@ func (s *HTTPServer) servePWAWebManifest(c *gin.Context, clientFS fs.FS) {
 		c.Status(http.StatusInternalServerError)
 		return
 	}
-	content, err = dynamicPWAManifest(content, s.currentPWAIconURLs(c.Request.Context()))
+	content, err = dynamicPWAManifest(
+		content,
+		s.currentPWAServerName(c.Request.Context()),
+		s.currentPWAIconURLs(c.Request.Context()),
+	)
 	if err != nil {
 		s.logger.Warn("failed to generate dynamic PWA manifest", "error", err)
 		c.Status(http.StatusInternalServerError)
@@ -329,6 +351,16 @@ func (s *HTTPServer) setupFrontendRoutes() error {
 	// Other files under /_app/ (like version.json, env.js) are NOT content-hashed
 	// and must not be cached immutably.
 	s.router.Use(setFrontendCacheHeaders)
+
+	// Browser icon metadata uses stable semantic URLs. Each request resolves the
+	// current server logo so changing or removing branding does not require a
+	// frontend rebuild. The cache middleware keeps these redirects temporary.
+	s.router.Match([]string{"GET", "HEAD"}, "/favicon", func(c *gin.Context) {
+		s.redirectBrowserIcon(c, 32, "/icons/favicon.png")
+	})
+	s.router.Match([]string{"GET", "HEAD"}, "/apple-touch-icon", func(c *gin.Context) {
+		s.redirectBrowserIcon(c, 180, "/icons/apple-touch-icon.png")
+	})
 
 	// refreshSessionIfAuthenticated validates and rotates authenticated
 	// cookie-session records for active SPA browsing. KV TTL is set only when
