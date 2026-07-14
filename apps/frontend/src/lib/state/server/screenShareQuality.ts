@@ -37,7 +37,7 @@
  */
 
 /** Resolution tiers offered in the picker. Discord's ladder, minus "Source" (see below). */
-export type ScreenShareResolution = '480p' | '720p' | '1080p' | '1440p';
+export type ScreenShareResolution = '480p' | '720p' | '1080p' | '1440p' | '2160p';
 
 /** Frame-rate tiers offered in the picker. Matches Discord's 15 / 30 / 60. */
 export type ScreenShareFramerate = 15 | 30 | 60;
@@ -81,18 +81,24 @@ const RESOLUTION_DIMENSIONS: Record<ScreenShareResolution, { width: number; heig
   '480p': { width: 854, height: 480 },
   '720p': { width: 1280, height: 720 },
   '1080p': { width: 1920, height: 1080 },
-  '1440p': { width: 2560, height: 1440 }
+  '1440p': { width: 2560, height: 1440 },
+  '2160p': { width: 3840, height: 2160 }
 };
 
 /**
  * Bitrate each tier needs at 30fps, in bits/sec. The 720p and 1080p rows are Discord's
- * published figures; 480p and 1440p extend the same curve.
+ * published figures; 480p, 1440p, and 2160p extend the same curve by pixel count.
+ *
+ * Whether a tier is *offered* depends on the server ceiling, not this table:
+ * `availableResolutions()` hides tiers the ceiling cannot fit. 2160p therefore stays hidden
+ * under the default 1440p ceiling and appears only if a self-hoster raises it.
  */
 const RESOLUTION_BITRATE_AT_30FPS: Record<ScreenShareResolution, number> = {
   '480p': 1_000_000,
   '720p': 2_500_000,
   '1080p': 5_000_000,
-  '1440p': 9_000_000
+  '1440p': 9_000_000,
+  '2160p': 20_000_000
 };
 
 /**
@@ -109,7 +115,8 @@ export const RESOLUTION_ORDER: readonly ScreenShareResolution[] = [
   '480p',
   '720p',
   '1080p',
-  '1440p'
+  '1440p',
+  '2160p'
 ];
 
 export const FRAMERATE_ORDER: readonly ScreenShareFramerate[] = [15, 30, 60];

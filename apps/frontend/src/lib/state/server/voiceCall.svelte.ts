@@ -175,14 +175,15 @@ const screenShareQualityCodec = Codecs.json<ScreenShareQualityPrefs>(isScreenSha
 /**
  * Fallback screen-share ceiling when the server does not advertise one.
  *
- * 8 Mbps matches Discord's Nitro-tier Go Live cap and is what 1080p60 actually needs; a
- * lower ceiling would clamp the default quality away on its first use.
+ * Kept in sync with the Go defaults in `cli/internal/config/config.go`: 1440p60, with enough
+ * bitrate headroom (15 Mbps) for the top offered tier to reach what it needs. The ceiling only
+ * bounds what a user may pick; the default *selection* is still 1080p60 @ 8 Mbps.
  */
 export const DEFAULT_SCREEN_SHARE_CEILING: ScreenShareCeiling = {
-  maxWidth: 1920,
-  maxHeight: 1080,
+  maxWidth: 2560,
+  maxHeight: 1440,
   maxFramerate: 60,
-  maxBitrate: 8_000_000
+  maxBitrate: 15_000_000
 };
 
 // Codec only checks "is an object"; individual entries are clamped on read.

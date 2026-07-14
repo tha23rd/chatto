@@ -12,12 +12,12 @@ import {
   type ScreenShareQualityPrefs
 } from './screenShareQuality';
 
-/** The Go default ceiling: 1080p60 @ 8 Mbps. */
+/** The Go default ceiling: 1440p60 @ 15 Mbps. */
 const CEILING: ScreenShareCeiling = {
-  maxWidth: 1920,
-  maxHeight: 1080,
+  maxWidth: 2560,
+  maxHeight: 1440,
   maxFramerate: 60,
-  maxBitrate: 8_000_000
+  maxBitrate: 15_000_000
 };
 
 function prefs(overrides: Partial<ScreenShareQualityPrefs> = {}): ScreenShareQualityPrefs {
@@ -101,20 +101,26 @@ describe('resolveScreenShareOptions', () => {
 });
 
 describe('ceiling-aware picker options', () => {
-  it('offers only tiers the ceiling permits', () => {
-    expect(availableResolutions(CEILING)).toEqual(['480p', '720p', '1080p']);
+  it('offers up to 1440p under the default ceiling, but not 4K', () => {
+    expect(availableResolutions(CEILING)).toEqual(['480p', '720p', '1080p', '1440p']);
     expect(availableFramerates(CEILING)).toEqual([15, 30, 60]);
   });
 
-  it('unlocks 1440p when a self-hoster raises the ceiling', () => {
+  it('unlocks 4K when a self-hoster raises the ceiling', () => {
     const generous: ScreenShareCeiling = {
-      maxWidth: 2560,
-      maxHeight: 1440,
+      maxWidth: 3840,
+      maxHeight: 2160,
       maxFramerate: 60,
-      maxBitrate: 15_000_000
+      maxBitrate: 32_000_000
     };
 
-    expect(availableResolutions(generous)).toContain('1440p');
+    expect(availableResolutions(generous)).toContain('2160p');
+  });
+
+  it('hides tiers a lowered ceiling forbids', () => {
+    const capped: ScreenShareCeiling = { ...CEILING, maxWidth: 1920, maxHeight: 1080 };
+
+    expect(availableResolutions(capped)).toEqual(['480p', '720p', '1080p']);
   });
 
   it('hides 60fps when the ceiling forbids it', () => {
@@ -136,14 +142,29 @@ describe('ceiling-aware picker options', () => {
 
 describe('clampQualityPrefs', () => {
   it('degrades a stored preference the server no longer allows', () => {
-    // A self-hoster lowered their ceiling after the user had already picked 1440p60.
+    // A self-hoster lowered their ceiling to 1080p30 after the user had already picked 1440p60.
     const stored = prefs({ resolution: '1440p', framerate: 60 });
+    const lowered: ScreenShareCeiling = {
+      maxWidth: 1920,
+      maxHeight: 1080,
+      maxFramerate: 30,
+      maxBitrate: 5_000_000
+    };
 
-    expect(clampQualityPrefs(stored, { ...CEILING, maxFramerate: 30 })).toEqual({
+    expect(clampQualityPrefs(stored, lowered)).toEqual({
       resolution: '1080p',
       framerate: 30,
       shareAudio: false
     });
+  });
+
+  it('keeps 1440p60 under the default ceiling, which has the bitrate for it', () => {
+    const stored = prefs({ resolution: '1440p', framerate: 60 });
+
+    expect(clampQualityPrefs(stored, CEILING)).toEqual(stored);
+    // 1440p60 needs ~14.4 Mbps, which fits the 15 Mbps default ceiling without clamping.
+    const { effectiveBitrate } = resolveScreenShareOptions(stored, CEILING);
+    expect(effectiveBitrate).toBe(14_400_000);
   });
 
   it('leaves a permitted preference untouched', () => {
