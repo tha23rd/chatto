@@ -54,6 +54,9 @@
     "screen_share_failed": "Could not start screen sharing.",
     "speaker_switch_failed": "Could not switch speakers. This browser or device may not support speaker selection.",
     "device_switch_failed": "Could not switch to that device.",
+    "participant_volume": "Volume",
+    "participant_volume_value": "{percent}% volume",
+    "participant_volume_muted_hint": "Muted locally — unmute to hear this participant.",
     "media_device_failed": "Could not access a media device."
   }
 }

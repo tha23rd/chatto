@@ -34,6 +34,7 @@ Room sidebar panel for voice/video calls.
   import AudioDeviceMenu from './AudioDeviceMenu.svelte';
   import CallTileActionButton from './CallTileActionButton.svelte';
   import CallTileActionToolbar from './CallTileActionToolbar.svelte';
+  import ParticipantVolumePopover from './ParticipantVolumePopover.svelte';
   import UserContextMenu from '$lib/components/menus/UserContextMenu.svelte';
   import { getVoiceCallJoinErrorMessage } from '$lib/state/server/voiceCall.svelte';
   import type { Track } from 'livekit-client';
@@ -134,6 +135,7 @@ Room sidebar panel for voice/video calls.
     isMuted: boolean;
     isLocal: boolean;
     isLocallyMuted: boolean;
+    volume: number;
     connectionQuality: string;
     isCameraEnabled: boolean;
     videoTrack: Track | null;
@@ -156,6 +158,7 @@ Room sidebar panel for voice/video calls.
         isMuted: p.isMuted,
         isLocal: p.isLocal,
         isLocallyMuted: p.isLocallyMuted ?? false,
+        volume: p.localVolume ?? 100,
         connectionQuality: p.connectionQuality,
         isCameraEnabled: p.isCameraEnabled,
         videoTrack: p.videoTrack,
@@ -177,6 +180,7 @@ Room sidebar panel for voice/video calls.
       isMuted: false,
       isLocal: false,
       isLocallyMuted: false,
+      volume: 100,
       connectionQuality: 'unknown',
       isCameraEnabled: false,
       videoTrack: null,
@@ -325,6 +329,36 @@ Room sidebar panel for voice/video calls.
     popoverAnchorRect = null;
   }
 
+  // Per-participant volume popover. Track by key and derive the live participant
+  // so the popover's percentage readout and slider follow store updates while
+  // dragging (a captured snapshot would freeze at the value it was opened with),
+  // and the popover auto-dismisses if the participant leaves mid-adjust.
+  let volumePopoverKey = $state<string | null>(null);
+  let volumeAnchorRect = $state<{ top: number; bottom: number; left: number } | null>(null);
+  let volumePopoverParticipant = $derived(
+    volumePopoverKey === null
+      ? null
+      : (participants.find((p) => p.key === volumePopoverKey) ?? null)
+  );
+
+  function openVolumePopover(participant: DisplayParticipant, event: MouseEvent) {
+    event.stopPropagation();
+    const button = event.currentTarget as HTMLElement;
+    const rect = button.getBoundingClientRect();
+    volumePopoverKey = participant.key;
+    volumeAnchorRect = { top: rect.top, bottom: rect.bottom, left: rect.left };
+  }
+
+  function closeVolumePopover() {
+    volumePopoverKey = null;
+    volumeAnchorRect = null;
+  }
+
+  function onVolumeInput(participant: DisplayParticipant, event: Event) {
+    const value = Number((event.currentTarget as HTMLInputElement).value);
+    voiceCallState.setParticipantVolume(participant.key, value);
+  }
+
   function openDeviceMenu(e: MouseEvent) {
     const button = e.currentTarget as HTMLElement;
     const rect = button.getBoundingClientRect();
@@ -400,6 +434,15 @@ Room sidebar panel for voice/video calls.
     />
     {#if isInThisCall}
       {@render localMuteButton(participant)}
+      {#if !participant.isLocal}
+        <CallTileActionButton
+          icon="uil--volume"
+          label={m['voice.participant_volume']()}
+          active={volumePopoverParticipant?.key === participant.key}
+          testId="call-feed-volume-button"
+          onclick={(event) => openVolumePopover(participant, event)}
+        />
+      {/if}
     {/if}
   </CallTileActionToolbar>
 {/snippet}
@@ -408,6 +451,15 @@ Room sidebar panel for voice/video calls.
   {#if isInThisCall}
     <CallTileActionToolbar testId="call-voice-actions">
       {@render localMuteButton(participant)}
+      {#if !participant.isLocal}
+        <CallTileActionButton
+          icon="uil--volume"
+          label={m['voice.participant_volume']()}
+          active={volumePopoverParticipant?.key === participant.key}
+          testId="call-feed-volume-button"
+          onclick={(event) => openVolumePopover(participant, event)}
+        />
+      {/if}
     </CallTileActionToolbar>
   {/if}
 {/snippet}
@@ -825,6 +877,15 @@ Room sidebar panel for voice/video calls.
     canSendMessage={canStartDMs}
     onSendMessage={() => startDMWith(getActiveServer(), popoverParticipant!.avatarUser.id)}
     onClose={closeUserMenu}
+  />
+{/if}
+
+{#if volumePopoverParticipant && volumeAnchorRect}
+  <ParticipantVolumePopover
+    anchor={volumeAnchorRect}
+    participant={volumePopoverParticipant}
+    onclose={closeVolumePopover}
+    oninput={(event) => onVolumeInput(volumePopoverParticipant!, event)}
   />
 {/if}
 
