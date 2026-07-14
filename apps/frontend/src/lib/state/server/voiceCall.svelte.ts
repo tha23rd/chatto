@@ -848,8 +848,12 @@ export class VoiceCallState {
         frameRate: quality.maxFramerate
       }
     };
+    // Screen-share tracks read `screenShareEncoding`, not `videoEncoding`: LiveKit's
+    // computeVideoEncodings() discards `videoEncoding` when isScreenShare is true. Passing the
+    // wrong key silently leaves the SDK default (ScreenSharePresets.h1080fps15 -> 15fps @ 2.5 Mbps)
+    // in place, capping every screen share at 15fps regardless of the configured ceiling.
     const screenSharePublish = {
-      videoEncoding: { maxBitrate: quality.maxBitrate, maxFramerate: quality.maxFramerate }
+      screenShareEncoding: { maxBitrate: quality.maxBitrate, maxFramerate: quality.maxFramerate }
     };
     try {
       await this.runExplicitMediaDeviceOperation(() =>

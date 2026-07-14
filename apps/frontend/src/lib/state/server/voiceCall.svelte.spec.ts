@@ -509,11 +509,16 @@ describe('VoiceCallState', () => {
 
     await state.toggleScreenShare();
 
+    // Must be `screenShareEncoding`: LiveKit's computeVideoEncodings() discards `videoEncoding` on
+    // screen-share tracks, silently falling back to ScreenSharePresets.h1080fps15 (15fps @ 2.5Mbps).
     expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(
       true,
       { resolution: { width: 1920, height: 1080, frameRate: 60 } },
-      { videoEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
+      { screenShareEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
     );
+    const publishOptions = vi.mocked(lastRoom!.localParticipant.setScreenShareEnabled).mock
+      .calls[0][2];
+    expect(publishOptions).not.toHaveProperty('videoEncoding');
     expect(state.isScreenShareEnabled).toBe(true);
     expect(state.participants[0]).toMatchObject({
       identity: 'local-user',
@@ -604,7 +609,7 @@ describe('VoiceCallState', () => {
     expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenLastCalledWith(
       true,
       { resolution: { width: 1920, height: 1080, frameRate: 60 } },
-      { videoEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
+      { screenShareEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
     );
 
     screenShareGate.resolve();
@@ -625,7 +630,7 @@ describe('VoiceCallState', () => {
     expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(
       true,
       { resolution: { width: 1920, height: 1080, frameRate: 60 } },
-      { videoEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
+      { screenShareEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
     );
     expect(state.isScreenShareEnabled).toBe(false);
     expect(state.isInAnyCall).toBe(true);
