@@ -134,6 +134,7 @@ Room sidebar panel for voice/video calls.
       presenceStatus: PresenceStatus;
     };
     isMuted: boolean;
+    isDeafened: boolean;
     isLocal: boolean;
     isLocallyMuted: boolean;
     volume: number;
@@ -157,6 +158,7 @@ Room sidebar panel for voice/video calls.
           presenceStatus: 'ONLINE' as PresenceStatus
         },
         isMuted: p.isMuted,
+        isDeafened: p.isDeafened,
         isLocal: p.isLocal,
         isLocallyMuted: p.isLocallyMuted ?? false,
         volume: p.localVolume ?? 100,
@@ -179,6 +181,7 @@ Room sidebar panel for voice/video calls.
         presenceStatus: 'ONLINE' as PresenceStatus
       },
       isMuted: false,
+      isDeafened: false,
       isLocal: false,
       isLocallyMuted: false,
       volume: 100,
@@ -512,6 +515,13 @@ Room sidebar panel for voice/video calls.
         class="iconify text-danger uil--microphone-slash"
         aria-label={m['voice.muted']()}
         data-testid="call-muted-indicator"
+      ></span>
+    {/if}
+    {#if participant.isDeafened}
+      <span
+        class="iconify text-danger uil--headphone-slash"
+        aria-label={m['voice.deafened']()}
+        data-testid="call-deafened-indicator"
       ></span>
     {/if}
     {#if participant.isLocallyMuted}

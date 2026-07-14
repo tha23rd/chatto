@@ -39,6 +39,13 @@ export type CallParticipantInfo = {
   login: string;
   avatarUrl: string | null;
   isMuted: boolean;
+  /**
+   * Whether this participant has deafened (silenced all incoming call audio).
+   * Propagated between participants via the LiveKit `deafened` attribute; the
+   * local participant reflects its own live deafen state. Deafen implies muted,
+   * so a deafened tile also shows the muted indicator, matching Discord.
+   */
+  isDeafened: boolean;
   isLocal: boolean;
   connectionQuality: 'excellent' | 'good' | 'poor' | 'lost' | 'unknown';
   isCameraEnabled: boolean;
@@ -66,6 +73,12 @@ type ParticipantMetadata = {
 
 const RECENTLY_DISCONNECTED_CALL_SOUND_MS = 5_000;
 const MEDIA_DEVICE_TOAST_DEDUPLICATION_MS = 1_500;
+
+/**
+ * LiveKit participant attribute key used to broadcast deafen state to other
+ * participants. Present with value `'1'` while deafened; cleared otherwise.
+ */
+const DEAFENED_ATTRIBUTE = 'deafened';
 
 type VoiceCallMediaDeviceTarget = 'microphone' | 'camera' | 'screen' | 'speaker' | 'device';
 type VoiceCallMediaDeviceContext = 'join' | 'enable' | 'switch' | 'event';
@@ -786,6 +799,7 @@ export class VoiceCallState {
     if (!newMuted && this.isDeafened) {
       this.isDeafened = false;
       this.applyAllParticipantAudioVolumes();
+      this.syncDeafenAttribute(room);
     }
 
     this.updateParticipants();
@@ -825,6 +839,7 @@ export class VoiceCallState {
     // joins while the mic operation is still in flight.
     this.isDeafened = newDeafened;
     this.applyAllParticipantAudioVolumes();
+    this.syncDeafenAttribute(room);
 
     // The mic is shared with toggleMute; wait for any in-flight mic toggle to
     // settle so we capture and mutate a committed mic state, never a stale one.
@@ -889,6 +904,20 @@ export class VoiceCallState {
         this.isMicrophonePending = false;
       }
     }
+  }
+
+  /**
+   * Broadcast the local deafen state to other participants via a LiveKit
+   * participant attribute so their tiles can show a deafen indicator.
+   *
+   * Best-effort: this needs the `canUpdateOwnMetadata` grant, which older
+   * servers do not issue. A rejected update is swallowed — deafen still works
+   * locally, remote tiles simply won't show the indicator.
+   */
+  private syncDeafenAttribute(room: Room): void {
+    room.localParticipant
+      .setAttributes({ [DEAFENED_ATTRIBUTE]: this.isDeafened ? '1' : '' })
+      .catch(() => {});
   }
 
   /**
@@ -1130,6 +1159,12 @@ export class VoiceCallState {
       this.updateParticipants();
     });
 
+    // A remote participant toggled deafen (or another attribute) — rebuild so
+    // their tile picks up the deafen indicator.
+    this.room.on(RoomEvent.ParticipantAttributesChanged, () => {
+      this.updateParticipants();
+    });
+
     // Attach remote audio tracks so we actually hear other participants.
     // LiveKit delivers audio data over WebRTC, but the browser won't play it
     // until the track is attached to an <audio> element.
@@ -1200,6 +1235,9 @@ export class VoiceCallState {
         login: md.login ?? p.identity,
         avatarUrl: md.avatarUrl ?? null,
         isMuted: isParticipantMuted(p),
+        // Local deafen is authoritative from our own state (immediate); remote
+        // deafen is read from the broadcast LiveKit attribute.
+        isDeafened: isLocal ? this.isDeafened : p.attributes?.[DEAFENED_ATTRIBUTE] === '1',
         isLocal,
         connectionQuality: p.connectionQuality as CallParticipantInfo['connectionQuality'],
         isCameraEnabled: isParticipantCameraEnabled(p),

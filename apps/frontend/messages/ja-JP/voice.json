@@ -14,6 +14,7 @@
     "user_settings": "ユーザー設定",
     "speaking": "スピーキング",
     "muted": "ミュートされました",
+    "deafened": "スピーカーミュート中",
     "poor_connection": "接続不良",
     "screen_share": "画面共有",
     "screen_title": "{name}の画面",

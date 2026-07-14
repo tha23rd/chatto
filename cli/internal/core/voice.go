@@ -117,6 +117,10 @@ func GenerateVoiceCallToken(apiKey, apiSecret, roomName, userID, displayName, lo
 		RoomJoin: true,
 		Room:     roomName,
 	}
+	// Allow the participant to update their own LiveKit attributes. The frontend
+	// uses this to broadcast transient in-call presence (e.g. deafen state) to
+	// other participants; older frontends simply do not set any.
+	grant.SetCanUpdateOwnMetadata(true)
 	at.SetVideoGrant(grant).
 		SetIdentity(userID).
 		SetName(displayName).

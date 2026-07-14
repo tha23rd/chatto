@@ -94,6 +94,7 @@
 			login: identity,
 			avatarUrl: null,
 			isMuted: false,
+			isDeafened: false,
 			isLocal: false,
 			connectionQuality: 'excellent',
 			isCameraEnabled: false,
@@ -109,6 +110,9 @@
 	function participantsForScenario(): CallParticipantInfo[] {
 		const viewer = participant('viewer', 'Alice', {
 			isLocal: true,
+			// Deafen implies muted (Discord parity), so the local tile shows both.
+			isMuted: deafened,
+			isDeafened: deafened,
 			isCameraEnabled: scenario !== 'voice',
 			videoTrack: scenario !== 'voice' ? cameraTrack : null
 		});

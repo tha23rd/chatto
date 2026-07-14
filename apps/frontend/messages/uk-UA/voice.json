@@ -14,6 +14,7 @@
     "user_settings": "Налаштування користувача",
     "speaking": "Говорю",
     "muted": "Вимкнено",
+    "deafened": "Звук вимкнено",
     "poor_connection": "Погане з’єднання",
     "screen_share": "Показ екрана",
     "screen_title": "Екран {name}",

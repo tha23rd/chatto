@@ -950,6 +950,7 @@ const msg_voice_stop_share_screen = (): LocalizedString => messages().voice_stop
 const msg_voice_user_settings = (): LocalizedString => messages().voice_user_settings(empty());
 const msg_voice_speaking = (): LocalizedString => messages().voice_speaking(empty());
 const msg_voice_muted = (): LocalizedString => messages().voice_muted(empty());
+const msg_voice_deafened = (): LocalizedString => messages().voice_deafened(empty());
 const msg_voice_poor_connection = (): LocalizedString => messages().voice_poor_connection(empty());
 const msg_voice_screen_share = (): LocalizedString => messages().voice_screen_share(empty());
 const msg_voice_screen_title = (
@@ -2358,6 +2359,7 @@ export { msg_voice_stop_share_screen as 'voice.stop_share_screen' };
 export { msg_voice_user_settings as 'voice.user_settings' };
 export { msg_voice_speaking as 'voice.speaking' };
 export { msg_voice_muted as 'voice.muted' };
+export { msg_voice_deafened as 'voice.deafened' };
 export { msg_voice_poor_connection as 'voice.poor_connection' };
 export { msg_voice_screen_share as 'voice.screen_share' };
 export { msg_voice_screen_title as 'voice.screen_title' };
