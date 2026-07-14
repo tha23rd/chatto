@@ -56,6 +56,15 @@ const callStore = vi.hoisted(() => ({
     toggleMute: vi.fn().mockResolvedValue(undefined),
     toggleCamera: vi.fn().mockResolvedValue(undefined),
     toggleScreenShare: vi.fn().mockResolvedValue(undefined),
+    screenShareQuality: { resolution: '1080p', framerate: 60, shareAudio: false },
+    screenShareCeiling: {
+      maxWidth: 1920,
+      maxHeight: 1080,
+      maxFramerate: 60,
+      maxBitrate: 8_000_000
+    },
+    screenShareRetuneFailed: false,
+    setScreenShareQuality: vi.fn().mockResolvedValue(undefined),
     toggleParticipantLocalMute: vi.fn(),
     refreshDevices: vi.fn().mockResolvedValue(undefined),
     getAudioLevel: vi.fn((_identity?: string) => ({ isSpeaking: false, audioLevel: 0 })),
@@ -632,16 +641,29 @@ describe('RoomSidebar', () => {
 
     muteButton.click();
     cameraButton.click();
-    screenShareButton.click();
     voiceLocalMuteButton.click();
     leaveButton.click();
     await tick();
 
     expect(callStore.voiceCall.toggleMute).toHaveBeenCalledOnce();
     expect(callStore.voiceCall.toggleCamera).toHaveBeenCalledOnce();
-    expect(callStore.voiceCall.toggleScreenShare).toHaveBeenCalledOnce();
     expect(callStore.voiceCall.toggleParticipantLocalMute).toHaveBeenCalledWith('user-2');
     expect(callStore.voiceCall.leave).toHaveBeenCalledOnce();
+
+    // Screen sharing is now a two-step flow, like Discord's Go Live: the button opens the
+    // stream-quality picker and capture only starts once Go Live is confirmed. A browser cannot
+    // put these controls inside Chrome's own window picker, so they precede it.
+    expect(callStore.voiceCall.toggleScreenShare).not.toHaveBeenCalled();
+
+    screenShareButton.click();
+    await tick();
+
+    const goLive = q(container, '[data-testid="stream-quality-go-live"]') as HTMLButtonElement;
+    expect(goLive).toBeTruthy();
+    goLive.click();
+    await tick();
+
+    expect(callStore.voiceCall.toggleScreenShare).toHaveBeenCalledOnce();
   });
 
   it('uses green only for active call media controls', async () => {

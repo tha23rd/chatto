@@ -19,11 +19,16 @@ vi.mock('$lib/ui/toast', () => ({
 }));
 
 import {
+  DEFAULT_SCREEN_SHARE_CEILING,
   getVoiceCallMediaDeviceErrorMessage,
   getVoiceCallJoinErrorMessage,
   VoiceCallJoinError,
   VoiceCallState
 } from './voiceCall.svelte';
+import {
+  DEFAULT_SCREEN_SHARE_QUALITY,
+  resolveScreenShareOptions
+} from './screenShareQuality';
 import { Room } from 'livekit-client';
 
 const calls: string[] = [];
@@ -35,6 +40,9 @@ let lastRoom: {
     setMicrophoneEnabled: ReturnType<typeof vi.fn>;
     setScreenShareEnabled: ReturnType<typeof vi.fn>;
     setCameraEnabled: ReturnType<typeof vi.fn>;
+    // Overridden per-test to stand in for the live screen-share publication whose capture
+    // track and RTCRtpSender get retuned by setScreenShareQuality().
+    getTrackPublication: ReturnType<typeof vi.fn>;
   };
   switchActiveDevice: ReturnType<typeof vi.fn>;
 } | null = null;
@@ -219,6 +227,18 @@ function createVoiceCallClient(overrides: Partial<VoiceCallAPI> = {}): VoiceCall
     ...overrides
   };
 }
+
+// The options a default (1080p60, no audio) share publishes against the default 8 Mbps
+// ceiling. Derived from the mapper rather than hand-written so these stay in lockstep with
+// screenShareQuality.ts, which owns the encoder decisions and tests them in detail.
+const EXPECTED_SCREEN_SHARE_CAPTURE = resolveScreenShareOptions(
+  DEFAULT_SCREEN_SHARE_QUALITY,
+  DEFAULT_SCREEN_SHARE_CEILING
+).capture;
+const EXPECTED_SCREEN_SHARE_PUBLISH = resolveScreenShareOptions(
+  DEFAULT_SCREEN_SHARE_QUALITY,
+  DEFAULT_SCREEN_SHARE_CEILING
+).publish;
 
 function deferredVoid(): { promise: Promise<void>; resolve: () => void } {
   let resolve!: () => void;
@@ -509,11 +529,16 @@ describe('VoiceCallState', () => {
 
     await state.toggleScreenShare();
 
+    // Must be `screenShareEncoding`: LiveKit's computeVideoEncodings() discards `videoEncoding` on
+    // screen-share tracks, silently falling back to ScreenSharePresets.h1080fps15 (15fps @ 2.5Mbps).
     expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(
       true,
-      { resolution: { width: 1920, height: 1080, frameRate: 60 } },
-      { videoEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
+      EXPECTED_SCREEN_SHARE_CAPTURE,
+      EXPECTED_SCREEN_SHARE_PUBLISH
     );
+    const publishOptions = vi.mocked(lastRoom!.localParticipant.setScreenShareEnabled).mock
+      .calls[0][2];
+    expect(publishOptions).not.toHaveProperty('videoEncoding');
     expect(state.isScreenShareEnabled).toBe(true);
     expect(state.participants[0]).toMatchObject({
       identity: 'local-user',
@@ -528,6 +553,87 @@ describe('VoiceCallState', () => {
     expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(false);
     expect(state.isScreenShareEnabled).toBe(false);
     expect(state.participants[0].screenShareTrack).toBeNull();
+  });
+
+  it('retunes a live screen share in place instead of republishing it', async () => {
+    const applyConstraints = vi.fn(async () => {});
+    const setParameters = vi.fn(async () => {});
+    const params: RTCRtpSendParameters = {
+      encodings: [{}],
+      transactionId: 't',
+      codecs: [],
+      headerExtensions: [],
+      rtcp: {}
+    };
+    const client = createVoiceCallClient();
+    const state = new VoiceCallState(client);
+    await state.join('wss://livekit.example.test', 'R1');
+    lastRoom!.localParticipant.getTrackPublication = vi.fn(() => ({
+      track: {
+        mediaStreamTrack: { applyConstraints },
+        sender: { getParameters: () => params, setParameters }
+      }
+    }));
+    await state.toggleScreenShare();
+    const publishCallsBefore = vi.mocked(lastRoom!.localParticipant.setScreenShareEnabled).mock
+      .calls.length;
+
+    await state.setScreenShareQuality({ resolution: '720p', framerate: 30, shareAudio: false });
+
+    // The share must NOT be republished: that would call getDisplayMedia() again and force the
+    // user to re-pick their window every time they changed the frame rate.
+    expect(vi.mocked(lastRoom!.localParticipant.setScreenShareEnabled).mock.calls.length).toBe(
+      publishCallsBefore
+    );
+    expect(applyConstraints).toHaveBeenCalledWith({ width: 1280, height: 720, frameRate: 30 });
+    expect(setParameters).toHaveBeenCalledTimes(1);
+    // 720p30 -> 2.5 Mbps on Discord's ladder.
+    expect(params.encodings[0]).toMatchObject({ maxBitrate: 2_500_000, maxFramerate: 30 });
+    expect(params.degradationPreference).toBe('maintain-framerate');
+    expect(state.screenShareQuality).toEqual({
+      resolution: '720p',
+      framerate: 30,
+      shareAudio: false
+    });
+    expect(state.screenShareRetuneFailed).toBe(false);
+  });
+
+  it('keeps the quality preference and flags it when a live share cannot be retuned', async () => {
+    const client = createVoiceCallClient();
+    const state = new VoiceCallState(client);
+    await state.join('wss://livekit.example.test', 'R1');
+    // No sender attached — e.g. LiveKit has not negotiated the track yet.
+    lastRoom!.localParticipant.getTrackPublication = vi.fn(() => ({
+      track: { mediaStreamTrack: { applyConstraints: vi.fn(async () => {}) }, sender: undefined }
+    }));
+    await state.toggleScreenShare();
+
+    await state.setScreenShareQuality({ resolution: '720p', framerate: 30, shareAudio: false });
+
+    // Saved for next time, and the UI is told rather than silently doing nothing.
+    expect(state.screenShareQuality.resolution).toBe('720p');
+    expect(state.screenShareRetuneFailed).toBe(true);
+    expect(state.isScreenShareEnabled).toBe(true);
+  });
+
+  it('clamps a quality choice the server ceiling forbids', async () => {
+    const client = createVoiceCallClient();
+    // Self-hoster capped screen sharing at 720p30.
+    const state = new VoiceCallState(client, () => ({
+      maxWidth: 1280,
+      maxHeight: 720,
+      maxFramerate: 30,
+      maxBitrate: 3_000_000
+    }));
+    await state.join('wss://livekit.example.test', 'R1');
+
+    await state.setScreenShareQuality({ resolution: '1080p', framerate: 60, shareAudio: false });
+
+    expect(state.screenShareQuality).toEqual({
+      resolution: '720p',
+      framerate: 30,
+      shareAudio: false
+    });
   });
 
   it('keeps microphone pending until LiveKit applies the toggle', async () => {
@@ -603,8 +709,8 @@ describe('VoiceCallState', () => {
     expect(state.isScreenShareEnabled).toBe(false);
     expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenLastCalledWith(
       true,
-      { resolution: { width: 1920, height: 1080, frameRate: 60 } },
-      { videoEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
+      EXPECTED_SCREEN_SHARE_CAPTURE,
+      EXPECTED_SCREEN_SHARE_PUBLISH
     );
 
     screenShareGate.resolve();
@@ -624,8 +730,8 @@ describe('VoiceCallState', () => {
 
     expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(
       true,
-      { resolution: { width: 1920, height: 1080, frameRate: 60 } },
-      { videoEncoding: { maxBitrate: 6_000_000, maxFramerate: 60 } }
+      EXPECTED_SCREEN_SHARE_CAPTURE,
+      EXPECTED_SCREEN_SHARE_PUBLISH
     );
     expect(state.isScreenShareEnabled).toBe(false);
     expect(state.isInAnyCall).toBe(true);
