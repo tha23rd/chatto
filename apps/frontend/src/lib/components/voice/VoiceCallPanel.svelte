@@ -35,6 +35,7 @@ Room sidebar panel for voice/video calls.
   import CallTileActionButton from './CallTileActionButton.svelte';
   import CallTileActionToolbar from './CallTileActionToolbar.svelte';
   import ParticipantVolumePopover from './ParticipantVolumePopover.svelte';
+  import StreamQualityPopover from './StreamQualityPopover.svelte';
   import UserContextMenu from '$lib/components/menus/UserContextMenu.svelte';
   import { getVoiceCallJoinErrorMessage } from '$lib/state/server/voiceCall.svelte';
   import type { Track } from 'livekit-client';
@@ -362,6 +363,39 @@ Room sidebar panel for voice/video calls.
   function onVolumeInput(participant: DisplayParticipant, event: Event) {
     const value = Number((event.currentTarget as HTMLInputElement).value);
     voiceCallState.setParticipantVolume(participant.key, value);
+  }
+
+  // Stream-quality popover. Two entry points share one component:
+  //  - 'preflight' from the Share Screen button, shown *before* getDisplayMedia() so the user
+  //    picks quality then confirms, mirroring Discord's Go Live dialog. A browser cannot put
+  //    these controls inside Chrome's own window picker, so they sit immediately before it.
+  //  - 'live' from the gear on the local screen-share tile, which retunes the running share.
+  let streamQualityAnchor = $state<{ top: number; bottom: number; left: number } | null>(null);
+  let streamQualityMode = $state<'preflight' | 'live'>('preflight');
+
+  function openStreamQuality(event: MouseEvent, mode: 'preflight' | 'live') {
+    event.stopPropagation();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    streamQualityMode = mode;
+    streamQualityAnchor = { top: rect.top, bottom: rect.bottom, left: rect.left };
+  }
+
+  function closeStreamQuality() {
+    streamQualityAnchor = null;
+  }
+
+  function onScreenShareClick(event: MouseEvent) {
+    // Already sharing: the button stops the share. Not sharing: choose quality, then go live.
+    if (voiceCallState.isScreenShareEnabled) {
+      voiceCallState.toggleScreenShare();
+      return;
+    }
+    openStreamQuality(event, 'preflight');
+  }
+
+  function onStreamQualityGoLive() {
+    closeStreamQuality();
+    voiceCallState.toggleScreenShare();
   }
 
   function openDeviceMenu(e: MouseEvent) {
@@ -788,7 +822,7 @@ Room sidebar panel for voice/video calls.
             ? m['voice.stop_share_screen']()
             : m['voice.share_screen']()}
           data-testid="call-screen-share-toggle"
-          onclick={() => voiceCallState.toggleScreenShare()}
+          onclick={onScreenShareClick}
           disabled={voiceCallState.isScreenSharePending}
           aria-busy={voiceCallState.isScreenSharePending || undefined}
         >
@@ -798,6 +832,22 @@ Room sidebar panel for voice/video calls.
             <span class="iconify text-lg uil--desktop" aria-hidden="true"></span>
           {/if}
         </button>
+
+        {#if voiceCallState.isScreenShareEnabled}
+          <!-- Retune the running share. Discord hangs this off the stream tile itself; the
+               control bar keeps it next to the share button it belongs to, and it only exists
+               while a share is live. -->
+          <button
+            type="button"
+            class={controlButtonClass}
+            title={m['voice.stream_quality_settings']()}
+            aria-label={m['voice.stream_quality_settings']()}
+            data-testid="call-stream-quality-button"
+            onclick={(event) => openStreamQuality(event, 'live')}
+          >
+            <span class="iconify text-lg uil--setting" aria-hidden="true"></span>
+          </button>
+        {/if}
 
         <button
           type="button"
@@ -921,6 +971,19 @@ Room sidebar panel for voice/video calls.
     participant={volumePopoverParticipant}
     onclose={closeVolumePopover}
     oninput={(event) => onVolumeInput(volumePopoverParticipant!, event)}
+  />
+{/if}
+
+{#if streamQualityAnchor}
+  <StreamQualityPopover
+    anchor={streamQualityAnchor}
+    quality={voiceCallState.screenShareQuality}
+    ceiling={voiceCallState.screenShareCeiling}
+    mode={streamQualityMode}
+    retuneFailed={voiceCallState.screenShareRetuneFailed}
+    onchange={(prefs) => voiceCallState.setScreenShareQuality(prefs)}
+    ongolive={onStreamQualityGoLive}
+    onclose={closeStreamQuality}
   />
 {/if}
 

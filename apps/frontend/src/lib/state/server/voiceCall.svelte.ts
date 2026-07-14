@@ -24,6 +24,14 @@ import * as m from '$lib/i18n/messages';
 import type { VoiceCallAPI } from '$lib/api-client/voiceCalls';
 import { serverSlot, Codecs, type StorageSlot } from '$lib/storage/slot';
 import { NoiseSuppressionController } from '$lib/voice/noiseSuppression.svelte';
+import {
+  DEFAULT_SCREEN_SHARE_QUALITY,
+  clampQualityPrefs,
+  isScreenShareQualityPrefs,
+  resolveScreenShareOptions,
+  type ScreenShareCeiling,
+  type ScreenShareQualityPrefs
+} from './screenShareQuality';
 
 export type CallParticipantInfo = {
   identity: string;
@@ -160,6 +168,23 @@ export function getVoiceCallMediaDeviceErrorMessage(
 }
 
 const CALL_VOLUMES_SUFFIX = 'callParticipantVolumes';
+const SCREEN_SHARE_QUALITY_SUFFIX = 'screenShareQuality';
+
+const screenShareQualityCodec = Codecs.json<ScreenShareQualityPrefs>(isScreenShareQualityPrefs);
+
+/**
+ * Fallback screen-share ceiling when the server does not advertise one.
+ *
+ * Kept in sync with the Go defaults in `cli/internal/config/config.go`: 1440p60, with enough
+ * bitrate headroom (15 Mbps) for the top offered tier to reach what it needs. The ceiling only
+ * bounds what a user may pick; the default *selection* is still 1080p60 @ 8 Mbps.
+ */
+export const DEFAULT_SCREEN_SHARE_CEILING: ScreenShareCeiling = {
+  maxWidth: 2560,
+  maxHeight: 1440,
+  maxFramerate: 60,
+  maxBitrate: 15_000_000
+};
 
 // Codec only checks "is an object"; individual entries are clamped on read.
 const volumeMapCodec = Codecs.json<Record<string, number>>(
@@ -218,6 +243,17 @@ export class VoiceCallState {
 
   // Persistence slot for participantVolumes; null when no serverId was provided (tests/in-memory only).
   #volumesSlot: StorageSlot<Record<string, number>> | null = null;
+
+  // Screen-share quality choice (resolution / framerate / audio), persisted per server.
+  // Always kept clamped to the server's advertised ceiling.
+  screenShareQuality = $state<ScreenShareQualityPrefs>(DEFAULT_SCREEN_SHARE_QUALITY);
+
+  // Persistence slot for screenShareQuality; null when no serverId was provided.
+  #screenShareQualitySlot: StorageSlot<ScreenShareQualityPrefs> | null = null;
+
+  // True when the last quality change could not be applied to the live share and will only
+  // take effect on the next one. Lets the UI be honest instead of silently doing nothing.
+  screenShareRetuneFailed = $state(false);
 
   // Audio input devices
   audioDevices = $state<MediaDeviceInfo[]>([]);
@@ -307,6 +343,96 @@ export class VoiceCallState {
     if (serverId) {
       this.#volumesSlot = serverSlot(serverId, CALL_VOLUMES_SUFFIX, {}, volumeMapCodec);
       this.participantVolumes = sanitizeVolumeMap(this.#volumesSlot.get());
+
+      this.#screenShareQualitySlot = serverSlot(
+        serverId,
+        SCREEN_SHARE_QUALITY_SUFFIX,
+        DEFAULT_SCREEN_SHARE_QUALITY,
+        screenShareQualityCodec
+      );
+      // Clamp on read: the stored preference may predate a self-hoster lowering the ceiling.
+      this.screenShareQuality = clampQualityPrefs(
+        this.#screenShareQualitySlot.get(),
+        this.screenShareCeiling
+      );
+    }
+  }
+
+  /**
+   * The server's advertised screen-share quality ceiling, or a Discord-Nitro-equivalent
+   * default (1080p60 @ 8 Mbps) when the server does not advertise one.
+   *
+   * Advisory only — see `ScreenShareCeiling`.
+   */
+  get screenShareCeiling(): ScreenShareCeiling {
+    return this.#screenShareConfigProvider?.() ?? DEFAULT_SCREEN_SHARE_CEILING;
+  }
+
+  /**
+   * Update the screen-share quality preference, persist it, and retune a live share in place.
+   *
+   * Deliberately does NOT republish the track. Restarting a screen share means calling
+   * `getDisplayMedia()` again, which re-opens the browser's window picker — the user would
+   * have to re-choose their window every time they nudged the frame rate. Instead both axes
+   * are retuned on the existing track:
+   *
+   * - capture: `applyConstraints()` on the underlying `MediaStreamTrack`
+   * - publish: `setParameters()` on the `RTCRtpSender`'s single encoding
+   *
+   * Neither re-prompts, so quality changes are seamless for the sharer and appear to viewers
+   * as an ordinary bitrate/resolution shift rather than the stream dropping and returning.
+   *
+   * Best-effort by design: if the sender or capture track is not retunable (older browser,
+   * or LiveKit has not attached a sender yet) the preference is still saved and takes effect
+   * on the next share. `screenShareRetuneFailed` reports that so the UI can say so rather
+   * than claiming a change that did not land.
+   */
+  async setScreenShareQuality(prefs: ScreenShareQualityPrefs): Promise<void> {
+    const clamped = clampQualityPrefs(prefs, this.screenShareCeiling);
+    this.screenShareQuality = clamped;
+    this.#screenShareQualitySlot?.set(clamped);
+    this.screenShareRetuneFailed = false;
+
+    if (!this.isScreenShareEnabled || !this.room) return;
+
+    const { capture, publish } = resolveScreenShareOptions(clamped, this.screenShareCeiling);
+    const publication = this.room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+    const track = publication?.track;
+    if (!track) {
+      this.screenShareRetuneFailed = true;
+      return;
+    }
+
+    try {
+      await track.mediaStreamTrack?.applyConstraints({
+        width: capture.resolution.width,
+        height: capture.resolution.height,
+        frameRate: capture.resolution.frameRate
+      });
+
+      const sender = track.sender;
+      if (!sender) {
+        this.screenShareRetuneFailed = true;
+        return;
+      }
+
+      const params = sender.getParameters();
+      // simulcast is off for screen share, so there is exactly one encoding to retune.
+      if (params.encodings.length === 0) {
+        this.screenShareRetuneFailed = true;
+        return;
+      }
+      for (const encoding of params.encodings) {
+        encoding.maxBitrate = publish.screenShareEncoding.maxBitrate;
+        encoding.maxFramerate = publish.screenShareEncoding.maxFramerate;
+      }
+      params.degradationPreference = publish.degradationPreference;
+      await sender.setParameters(params);
+    } catch (err) {
+      // Retuning is an optimization over "applies next time", never a reason to kill the
+      // live share — leave it running at its current quality and say so.
+      console.warn('screen share retune failed', err);
+      this.screenShareRetuneFailed = true;
     }
   }
 
@@ -834,25 +960,12 @@ export class VoiceCallState {
 
   private async performToggleScreenShare(room: Room): Promise<void> {
     const newEnabled = !this.isScreenShareEnabled;
-    // Server-configured screen-share quality ceiling (defaults to 1080p60).
-    // This is an adaptive ceiling, not a forced floor: adaptiveStream + dynacast
-    // (enabled on the Room) still downshift for small tiles or weak links.
-    const quality = this.#screenShareConfigProvider?.() ?? {
-      maxWidth: 1920,
-      maxHeight: 1080,
-      maxFramerate: 60,
-      maxBitrate: 6_000_000
-    };
-    const screenShareCapture = {
-      resolution: {
-        width: quality.maxWidth,
-        height: quality.maxHeight,
-        frameRate: quality.maxFramerate
-      }
-    };
-    const screenSharePublish = {
-      videoEncoding: { maxBitrate: quality.maxBitrate, maxFramerate: quality.maxFramerate }
-    };
+    // The user's quality choice, clamped to the server's advisory ceiling. See
+    // ./screenShareQuality.ts for what each option maps to and why.
+    const { capture: screenShareCapture, publish: screenSharePublish } = resolveScreenShareOptions(
+      this.screenShareQuality,
+      this.screenShareCeiling
+    );
     try {
       await this.runExplicitMediaDeviceOperation(() =>
         newEnabled

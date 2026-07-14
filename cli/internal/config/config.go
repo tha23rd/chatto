@@ -822,19 +822,27 @@ type LiveKitConfig struct {
 	// Screen-share quality ceiling sent to clients. These are an adaptive ceiling:
 	// clients still downshift for small render tiles and weak links. Tunable at
 	// runtime (change the value and restart; no client redeploy needed).
-	ScreenShareMaxWidth     int   `toml:"screenshare_max_width,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_WIDTH" comment:"Max screen-share capture width in pixels. Default: 1920."`
-	ScreenShareMaxHeight    int   `toml:"screenshare_max_height,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_HEIGHT" comment:"Max screen-share capture height in pixels. Default: 1080."`
+	ScreenShareMaxWidth     int   `toml:"screenshare_max_width,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_WIDTH" comment:"Max screen-share capture width in pixels. Clients only offer quality tiers that fit this. Default: 2560 (1440p)."`
+	ScreenShareMaxHeight    int   `toml:"screenshare_max_height,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_HEIGHT" comment:"Max screen-share capture height in pixels. Raise to 2160 to offer a 4K tier. Default: 1440."`
 	ScreenShareMaxFramerate int   `toml:"screenshare_max_framerate,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_FRAMERATE" comment:"Max screen-share framerate. Default: 60."`
-	ScreenShareMaxBitrate   int64 `toml:"screenshare_max_bitrate,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_BITRATE" comment:"Max screen-share publish bitrate in bits/sec. Default: 6000000."`
+	ScreenShareMaxBitrate   int64 `toml:"screenshare_max_bitrate,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_BITRATE" comment:"Max screen-share publish bitrate in bits/sec. 1080p60 needs ~8000000, 1440p60 ~14400000. Lower this to protect a thin uplink. Default: 15000000."`
 }
 
 // Default screen-share quality ceiling used when the corresponding config value
 // is unset (<= 0). Kept in sync with the client-side fallback.
 const (
-	defaultScreenShareMaxWidth     = 1920
-	defaultScreenShareMaxHeight    = 1080
+	// 1440p, so clients offer a 1440p tier alongside 1080p. Discord's own cap is higher
+	// still (Nitro streams up to 4K60), and a self-hoster wanting a 4K tier can raise this
+	// to 3840x2160. The ceiling only bounds what clients may pick; the default selection
+	// stays 1080p60, so raising it costs nothing until someone opts into a higher tier.
+	defaultScreenShareMaxWidth     = 2560
+	defaultScreenShareMaxHeight    = 1440
 	defaultScreenShareMaxFramerate = 60
-	defaultScreenShareMaxBitrate   = 6_000_000
+	// Enough headroom for the top offered tier to reach the bitrate it needs: 1080p60 wants
+	// ~8 Mbps and 1440p60 ~14.4 Mbps. Below this, a client picking 1440p60 gets clamped and
+	// the encoder sheds resolution to hold the frame rate. Self-hosters on a thin uplink
+	// should lower it (or lower the resolution ceiling) rather than rely on the clamp.
+	defaultScreenShareMaxBitrate = 15_000_000
 )
 
 // ScreenShareMaxWidthOrDefault returns the configured max screen-share width, or the default.
