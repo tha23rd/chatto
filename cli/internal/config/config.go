@@ -795,7 +795,7 @@ type LiveKitConfig struct {
 	ScreenShareMaxWidth     int   `toml:"screenshare_max_width,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_WIDTH" comment:"Max screen-share capture width in pixels. Default: 1920."`
 	ScreenShareMaxHeight    int   `toml:"screenshare_max_height,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_HEIGHT" comment:"Max screen-share capture height in pixels. Default: 1080."`
 	ScreenShareMaxFramerate int   `toml:"screenshare_max_framerate,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_FRAMERATE" comment:"Max screen-share framerate. Default: 60."`
-	ScreenShareMaxBitrate   int64 `toml:"screenshare_max_bitrate,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_BITRATE" comment:"Max screen-share publish bitrate in bits/sec. Default: 6000000."`
+	ScreenShareMaxBitrate   int64 `toml:"screenshare_max_bitrate,commented" env:"CHATTO_LIVEKIT_SCREENSHARE_MAX_BITRATE" comment:"Max screen-share publish bitrate in bits/sec. 1080p60 needs ~8000000. Default: 8000000."`
 }
 
 // Default screen-share quality ceiling used when the corresponding config value
@@ -804,7 +804,9 @@ const (
 	defaultScreenShareMaxWidth     = 1920
 	defaultScreenShareMaxHeight    = 1080
 	defaultScreenShareMaxFramerate = 60
-	defaultScreenShareMaxBitrate   = 6_000_000
+	// 8 Mbps is what 1080p60 screen sharing actually needs, and matches Discord's
+	// highest Go Live tier. A lower ceiling clamps the client's default quality away.
+	defaultScreenShareMaxBitrate   = 8_000_000
 )
 
 // ScreenShareMaxWidthOrDefault returns the configured max screen-share width, or the default.

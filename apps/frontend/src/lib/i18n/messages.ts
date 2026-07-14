@@ -970,6 +970,22 @@ const msg_voice_screen_share_blocked = (): LocalizedString => messages().voice_s
 const msg_voice_screen_share_failed = (): LocalizedString => messages().voice_screen_share_failed(empty());
 const msg_voice_speaker_switch_failed = (): LocalizedString => messages().voice_speaker_switch_failed(empty());
 const msg_voice_device_switch_failed = (): LocalizedString => messages().voice_device_switch_failed(empty());
+const msg_voice_stream_quality = (): LocalizedString => messages().voice_stream_quality(empty());
+const msg_voice_stream_quality_settings = (): LocalizedString => messages().voice_stream_quality_settings(empty());
+const msg_voice_stream_resolution = (): LocalizedString => messages().voice_stream_resolution(empty());
+const msg_voice_stream_framerate = (): LocalizedString => messages().voice_stream_framerate(empty());
+const msg_voice_stream_fps = (
+  inputs: Parameters<LocaleMessages['voice_stream_fps']>[0]
+): LocalizedString => messages().voice_stream_fps(inputs);
+const msg_voice_stream_bitrate_estimate = (
+  inputs: Parameters<LocaleMessages['voice_stream_bitrate_estimate']>[0]
+): LocalizedString => messages().voice_stream_bitrate_estimate(inputs);
+const msg_voice_stream_bitrate_capped = (
+  inputs: Parameters<LocaleMessages['voice_stream_bitrate_capped']>[0]
+): LocalizedString => messages().voice_stream_bitrate_capped(inputs);
+const msg_voice_stream_share_audio = (): LocalizedString => messages().voice_stream_share_audio(empty());
+const msg_voice_stream_go_live = (): LocalizedString => messages().voice_stream_go_live(empty());
+const msg_voice_stream_quality_next_share = (): LocalizedString => messages().voice_stream_quality_next_share(empty());
 const msg_voice_participant_volume = (): LocalizedString => messages().voice_participant_volume(empty());
 const msg_voice_participant_volume_value = (
   inputs: Parameters<LocaleMessages['voice_participant_volume_value']>[0]
@@ -2351,6 +2367,16 @@ export { msg_voice_screen_share_blocked as 'voice.screen_share_blocked' };
 export { msg_voice_screen_share_failed as 'voice.screen_share_failed' };
 export { msg_voice_speaker_switch_failed as 'voice.speaker_switch_failed' };
 export { msg_voice_device_switch_failed as 'voice.device_switch_failed' };
+export { msg_voice_stream_quality as 'voice.stream_quality' };
+export { msg_voice_stream_quality_settings as 'voice.stream_quality_settings' };
+export { msg_voice_stream_resolution as 'voice.stream_resolution' };
+export { msg_voice_stream_framerate as 'voice.stream_framerate' };
+export { msg_voice_stream_fps as 'voice.stream_fps' };
+export { msg_voice_stream_bitrate_estimate as 'voice.stream_bitrate_estimate' };
+export { msg_voice_stream_bitrate_capped as 'voice.stream_bitrate_capped' };
+export { msg_voice_stream_share_audio as 'voice.stream_share_audio' };
+export { msg_voice_stream_go_live as 'voice.stream_go_live' };
+export { msg_voice_stream_quality_next_share as 'voice.stream_quality_next_share' };
 export { msg_voice_participant_volume as 'voice.participant_volume' };
 export { msg_voice_participant_volume_value as 'voice.participant_volume_value' };
 export { msg_voice_participant_volume_muted_hint as 'voice.participant_volume_muted_hint' };
