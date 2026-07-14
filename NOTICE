@@ -56,6 +56,14 @@ Frontend and Documentation Components:
   (https://github.com/bufbuild/protobuf-es) - Apache License 2.0
 - ConnectRPC for Web and Connect-ES code generation
   (https://connectrpc.com/) - Apache License 2.0
+- DeepFilterNet3 noise filter for LiveKit
+  (https://github.com/mezonai/mezon-noise-suppression) - dual MIT OR
+  Apache-2.0; Chatto selects Apache License 2.0 for the wrapper code. Builds
+  with enhanced noise suppression enabled additionally ship the DeepFilterNet3
+  ONNX model and WASM runtime, downloaded at build time with pinned checksums;
+  the underlying DeepFilterNet model (https://github.com/Rikorose/DeepFilterNet)
+  and its weights are distributed under the MIT and Apache License 2.0. The
+  full Apache License 2.0 text is in LICENSES/Apache-2.0.txt.
 - ESLint packages (https://eslint.org/) - MIT License and Apache License 2.0
 - Fontsource IBM Plex Sans and IBM Plex Mono
   (https://fontsource.org/fonts/ibm-plex-sans,

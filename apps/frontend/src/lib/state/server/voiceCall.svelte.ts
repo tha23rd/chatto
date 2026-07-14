@@ -23,6 +23,7 @@ import { playCallSound } from '$lib/audio/callSounds';
 import * as m from '$lib/i18n/messages';
 import type { VoiceCallAPI } from '$lib/api-client/voiceCalls';
 import { serverSlot, Codecs, type StorageSlot } from '$lib/storage/slot';
+import { NoiseSuppressionController } from '$lib/voice/noiseSuppression.svelte';
 
 export type CallParticipantInfo = {
   identity: string;
@@ -265,6 +266,15 @@ export class VoiceCallState {
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- deliberately non-reactive, polled imperatively at 60Hz
   private audioLevelCache = new Map<string, AudioLevelInfo>();
 
+  // Fork-owned enhanced noise suppression for the outbound microphone track.
+  // The analyser callback keeps the local speaking indicator connected to
+  // LiveKit's current processed/raw track after processor changes.
+  readonly noiseSuppression = new NoiseSuppressionController(() => {
+    if (!this.isMuted) {
+      this.setupLocalAudioAnalyser();
+    }
+  });
+
   // Local microphone audio analysis (Web Audio API) for instant level feedback.
   // LiveKit's audioLevel for the local participant comes from the server
   // (round-trip latency), so we read the mic input directly instead.
@@ -469,7 +479,8 @@ export class VoiceCallState {
         audioCaptureDefaults: {
           autoGainControl: true,
           echoCancellation: true,
-          noiseSuppression: true
+          noiseSuppression: true,
+          ...this.noiseSuppression.captureConstraints()
         },
         videoCaptureDefaults: {
           resolution: VideoPresets.h720.resolution
@@ -498,6 +509,8 @@ export class VoiceCallState {
         );
         this.isMuted = false;
         this.setupLocalAudioAnalyser();
+        // Best-effort: failures fall back to baseline browser processing.
+        void this.noiseSuppression.applyToCall(this.room);
       } catch (err) {
         this.isMuted = true;
         this.notifyMediaDeviceError(getVoiceCallMediaDeviceErrorMessage('microphone', err, 'join'));
@@ -633,6 +646,9 @@ export class VoiceCallState {
 
     if (!newMuted) {
       this.setupLocalAudioAnalyser();
+      // Covers joining muted (no mic at join time): the suppression
+      // preference is applied on the first successful unmute instead.
+      void this.noiseSuppression.applyToCall(room);
     } else {
       this.teardownLocalAudioAnalyser();
     }
@@ -912,7 +928,16 @@ export class VoiceCallState {
       return;
     }
 
-    // Reconnect analyser to the new mic track
+    // A device switch restarts the capture track from LiveKit's stored
+    // constraints, which drops any voiceIsolation set via applyConstraints
+    // and can re-request it underneath the enhanced processor. Re-apply the
+    // suppression mode so the new track matches the selected mode; the
+    // controller's callback reconnects the analyser to the reconciled track.
+    if (this.room) {
+      await this.noiseSuppression.applyToCall(this.room);
+    }
+    // Reconnect analyser to the new mic track if the controller did not
+    // (e.g. suppression disabled, or currently muted-then-unmuted paths).
     if (!this.isMuted) {
       this.setupLocalAudioAnalyser();
     }
@@ -1182,6 +1207,7 @@ export class VoiceCallState {
       clearInterval(this.audioLevelInterval);
       this.audioLevelInterval = null;
     }
+    this.noiseSuppression.handleCallEnded();
     this.teardownLocalAudioAnalyser();
     if (this.room) {
       // Detach all remote audio tracks to clean up <audio> elements
