@@ -22,6 +22,7 @@ import { toast } from '$lib/ui/toast';
 import { playCallSound } from '$lib/audio/callSounds';
 import * as m from '$lib/i18n/messages';
 import type { VoiceCallAPI } from '$lib/api-client/voiceCalls';
+import { serverSlot, Codecs, type StorageSlot } from '$lib/storage/slot';
 
 export type CallParticipantInfo = {
   identity: string;
@@ -36,6 +37,8 @@ export type CallParticipantInfo = {
   isScreenShareEnabled: boolean;
   screenShareTrack: Track | null;
   isLocallyMuted: boolean;
+  /** Per-viewer playback volume for this remote participant, percent 0-100. Local participant is always 100. */
+  localVolume: number;
 };
 
 /** Non-reactive audio level snapshot, read imperatively by the UI at ~60ms. */
@@ -155,6 +158,23 @@ export function getVoiceCallMediaDeviceErrorMessage(
   return m['voice.media_device_failed']();
 }
 
+const CALL_VOLUMES_SUFFIX = 'callParticipantVolumes';
+
+// Codec only checks "is an object"; individual entries are clamped on read.
+const volumeMapCodec = Codecs.json<Record<string, number>>(
+  (v): v is Record<string, number> => typeof v === 'object' && v !== null
+);
+
+function sanitizeVolumeMap(raw: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [id, val] of Object.entries(raw)) {
+    if (typeof val === 'number' && Number.isFinite(val) && val >= 0 && val <= 100) {
+      out[id] = Math.round(val);
+    }
+  }
+  return out;
+}
+
 export class VoiceCallState {
   #api: VoiceCallAPI;
 
@@ -183,6 +203,13 @@ export class VoiceCallState {
 
   // Remote participants locally muted by this browser session only.
   locallyMutedParticipantIds = $state<Record<string, boolean>>({});
+
+  // Per-participant playback volume (percent 0-100) for this viewer. Absent key == default 100.
+  // Persisted per-server across leave/rejoin; keyed by LiveKit participant identity.
+  participantVolumes = $state<Record<string, number>>({});
+
+  // Persistence slot for participantVolumes; null when no serverId was provided (tests/in-memory only).
+  #volumesSlot: StorageSlot<Record<string, number>> | null = null;
 
   // Audio input devices
   audioDevices = $state<MediaDeviceInfo[]>([]);
@@ -252,10 +279,15 @@ export class VoiceCallState {
       maxHeight: number;
       maxFramerate: number;
       maxBitrate: number;
-    }
+    },
+    serverId?: string
   ) {
     this.#api = api;
     this.#screenShareConfigProvider = screenShareConfigProvider;
+    if (serverId) {
+      this.#volumesSlot = serverSlot(serverId, CALL_VOLUMES_SUFFIX, {}, volumeMapCodec);
+      this.participantVolumes = sanitizeVolumeMap(this.#volumesSlot.get());
+    }
   }
 
   /**
@@ -337,6 +369,27 @@ export class VoiceCallState {
       void _removed;
       this.locallyMutedParticipantIds = remaining;
     }
+    this.applyParticipantAudioVolume(identity);
+    this.updateParticipants();
+  }
+
+  getParticipantVolume(identity: string): number {
+    return this.participantVolumes[identity] ?? 100;
+  }
+
+  setParticipantVolume(identity: string, volumePercent: number): void {
+    if (!this.room || identity === this.room.localParticipant.identity) return;
+
+    const clamped = Math.max(0, Math.min(100, Math.round(volumePercent)));
+    if (clamped === 100) {
+      // Keep the map sparse: absent key == default 100.
+      const { [identity]: _removed, ...remaining } = this.participantVolumes;
+      void _removed;
+      this.participantVolumes = remaining;
+    } else {
+      this.participantVolumes = { ...this.participantVolumes, [identity]: clamped };
+    }
+    this.#volumesSlot?.set(this.participantVolumes);
     this.applyParticipantAudioVolume(identity);
     this.updateParticipants();
   }
@@ -896,7 +949,8 @@ export class VoiceCallState {
         videoTrack: getParticipantCameraTrack(p),
         isScreenShareEnabled: isParticipantScreenShareEnabled(p),
         screenShareTrack: getParticipantScreenShareTrack(p),
-        isLocallyMuted: !isLocal && this.isParticipantLocallyMuted(p.identity)
+        isLocallyMuted: !isLocal && this.isParticipantLocallyMuted(p.identity),
+        localVolume: isLocal ? 100 : this.getParticipantVolume(p.identity)
       };
     });
   }
@@ -914,7 +968,9 @@ export class VoiceCallState {
   }
 
   private applyRemoteParticipantAudioVolume(participant: RemoteParticipant): void {
-    participant.setVolume(this.isParticipantLocallyMuted(participant.identity) ? 0 : 1);
+    const muted = this.isParticipantLocallyMuted(participant.identity);
+    const gain = muted ? 0 : this.getParticipantVolume(participant.identity) / 100;
+    participant.setVolume(gain);
   }
 
   /**
@@ -1048,6 +1104,7 @@ export class VoiceCallState {
     this.isScreenSharePending = false;
     this.participants = [];
     this.locallyMutedParticipantIds = {};
+    // participantVolumes intentionally persists across leave/rejoin (see serverSlot).
     this.audioDevices = [];
     this.selectedDeviceId = null;
     this.audioOutputDevices = [];

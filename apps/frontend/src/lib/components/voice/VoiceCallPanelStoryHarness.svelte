@@ -99,6 +99,7 @@
 			isScreenShareEnabled: false,
 			screenShareTrack: null,
 			isLocallyMuted: false,
+			localVolume: 100,
 			...overrides
 		};
 	}
@@ -112,7 +113,8 @@
 		const bob = participant('bob', 'Bob', {
 			isCameraEnabled: scenario === 'screen',
 			videoTrack: scenario === 'screen' ? cameraTrack : null,
-			isLocallyMuted: true
+			isLocallyMuted: true,
+			localVolume: 40
 		});
 		const chloe = participant('chloe', 'Chloe', {
 			isMuted: true,

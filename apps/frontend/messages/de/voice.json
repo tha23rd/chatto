@@ -54,6 +54,9 @@
     "screen_share_failed": "Die Bildschirmfreigabe konnte nicht gestartet werden.",
     "speaker_switch_failed": "Der Lautsprecher konnte nicht gewechselt werden. Dieser Browser oder dieses Gerät unterstützt die Lautsprecherauswahl möglicherweise nicht.",
     "device_switch_failed": "Zu diesem Gerät konnte nicht gewechselt werden.",
+    "participant_volume": "Lautstärke",
+    "participant_volume_value": "{percent} % Lautstärke",
+    "participant_volume_muted_hint": "Lokal stummgeschaltet – Stummschaltung aufheben, um diese Person zu hören.",
     "media_device_failed": "Auf ein Mediengerät konnte nicht zugegriffen werden."
   }
 }

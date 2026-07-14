@@ -783,4 +783,82 @@ describe('VoiceCallState', () => {
     expect(state.isParticipantLocallyMuted('remote-user')).toBe(false);
     expect(state.locallyMutedParticipantIds).toEqual({});
   });
+
+  it('applies per-participant volume as gain and lets local mute override it', async () => {
+    const setVolume = vi.fn();
+    mockRemoteParticipants.set('remote-user', {
+      identity: 'remote-user',
+      name: 'Remote User',
+      metadata: '',
+      connectionQuality: 'good',
+      isSpeaking: false,
+      audioLevel: 0,
+      setVolume,
+      trackPublications: new Map(),
+      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    setVolume.mockClear();
+
+    // Default is 100% => unity gain.
+    expect(state.getParticipantVolume('remote-user')).toBe(100);
+
+    state.setParticipantVolume('remote-user', 50);
+    expect(state.getParticipantVolume('remote-user')).toBe(50);
+    expect(setVolume).toHaveBeenLastCalledWith(0.5);
+    expect(state.participants.find((p) => p.identity === 'remote-user')).toMatchObject({
+      localVolume: 50
+    });
+
+    // Clamping + rounding.
+    state.setParticipantVolume('remote-user', 150);
+    expect(state.getParticipantVolume('remote-user')).toBe(100);
+    expect(setVolume).toHaveBeenLastCalledWith(1);
+
+    state.setParticipantVolume('remote-user', 80);
+    setVolume.mockClear();
+
+    // Mute overrides stored volume (gain 0) but does not clear it.
+    state.toggleParticipantLocalMute('remote-user');
+    expect(setVolume).toHaveBeenLastCalledWith(0);
+    expect(state.getParticipantVolume('remote-user')).toBe(80);
+
+    // Unmute restores the stored 80% => 0.8.
+    state.toggleParticipantLocalMute('remote-user');
+    expect(setVolume).toHaveBeenLastCalledWith(0.8);
+  });
+
+  it('ignores setParticipantVolume for the local participant', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    state.setParticipantVolume('local-user', 20);
+    expect(state.getParticipantVolume('local-user')).toBe(100);
+  });
+
+  it('persists participant volume per server across re-instantiation', async () => {
+    mockRemoteParticipants.set('remote-user', {
+      identity: 'remote-user',
+      name: 'Remote User',
+      metadata: '',
+      connectionQuality: 'good',
+      isSpeaking: false,
+      audioLevel: 0,
+      setVolume: vi.fn(),
+      trackPublications: new Map(),
+      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+    });
+    localStorage.removeItem('chatto:i:server-1:callParticipantVolumes');
+    localStorage.removeItem('chatto:i:server-2:callParticipantVolumes');
+
+    const state1 = new VoiceCallState(createVoiceCallClient(), undefined, 'server-1');
+    await state1.join('wss://livekit.example.test', 'R1');
+    state1.setParticipantVolume('remote-user', 30);
+
+    const state2 = new VoiceCallState(createVoiceCallClient(), undefined, 'server-1');
+    expect(state2.getParticipantVolume('remote-user')).toBe(30);
+
+    const other = new VoiceCallState(createVoiceCallClient(), undefined, 'server-2');
+    expect(other.getParticipantVolume('remote-user')).toBe(100);
+  });
 });

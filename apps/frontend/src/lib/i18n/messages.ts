@@ -962,6 +962,11 @@ const msg_voice_screen_share_blocked = (): LocalizedString => messages().voice_s
 const msg_voice_screen_share_failed = (): LocalizedString => messages().voice_screen_share_failed(empty());
 const msg_voice_speaker_switch_failed = (): LocalizedString => messages().voice_speaker_switch_failed(empty());
 const msg_voice_device_switch_failed = (): LocalizedString => messages().voice_device_switch_failed(empty());
+const msg_voice_participant_volume = (): LocalizedString => messages().voice_participant_volume(empty());
+const msg_voice_participant_volume_value = (
+  inputs: Parameters<LocaleMessages['voice_participant_volume_value']>[0]
+): LocalizedString => messages().voice_participant_volume_value(inputs);
+const msg_voice_participant_volume_muted_hint = (): LocalizedString => messages().voice_participant_volume_muted_hint(empty());
 const msg_voice_media_device_failed = (): LocalizedString => messages().voice_media_device_failed(empty());
 const msg_composer_attach_file = (): LocalizedString => messages().composer_attach_file(empty());
 const msg_composer_send = (): LocalizedString => messages().composer_send(empty());
@@ -2330,6 +2335,9 @@ export { msg_voice_screen_share_blocked as 'voice.screen_share_blocked' };
 export { msg_voice_screen_share_failed as 'voice.screen_share_failed' };
 export { msg_voice_speaker_switch_failed as 'voice.speaker_switch_failed' };
 export { msg_voice_device_switch_failed as 'voice.device_switch_failed' };
+export { msg_voice_participant_volume as 'voice.participant_volume' };
+export { msg_voice_participant_volume_value as 'voice.participant_volume_value' };
+export { msg_voice_participant_volume_muted_hint as 'voice.participant_volume_muted_hint' };
 export { msg_voice_media_device_failed as 'voice.media_device_failed' };
 export { msg_composer_attach_file as 'composer.attach_file' };
 export { msg_composer_send as 'composer.send' };
