@@ -22,6 +22,8 @@
     "turn_on_camera": "Kamera einschalten",
     "mute": "Stummschalten",
     "unmute": "Stummschaltung aufheben",
+    "deafen": "Ton aus",
+    "undeafen": "Ton an",
     "microphone": "Mikrofon",
     "speaker": "Lautsprecher",
     "camera": "Kamera",

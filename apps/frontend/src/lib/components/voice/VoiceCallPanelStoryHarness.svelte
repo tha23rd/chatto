@@ -16,10 +16,12 @@
 
 	let {
 		layout = 'stage',
-		scenario = 'screen'
+		scenario = 'screen',
+		deafened = false
 	}: {
 		layout?: 'sidebar' | 'stage';
 		scenario?: 'screen' | 'screen-single-secondary' | 'camera' | 'voice';
+		deafened?: boolean;
 	} = $props();
 
 	const roomId = 'storybook-call-room';
@@ -187,7 +189,9 @@
 		store.voiceCall.roomId = roomId;
 		store.voiceCall.connected = true;
 		store.voiceCall.connecting = false;
-		store.voiceCall.isMuted = false;
+		// Deafen implies muted (Discord parity), so seed both together.
+		store.voiceCall.isDeafened = deafened;
+		store.voiceCall.isMuted = deafened;
 		store.voiceCall.isCameraEnabled = scenario !== 'voice';
 		store.voiceCall.isScreenShareEnabled = scenario === 'screen';
 		store.voiceCall.participants = participantsForScenario();

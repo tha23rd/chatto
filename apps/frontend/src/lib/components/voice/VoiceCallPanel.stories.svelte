@@ -46,3 +46,9 @@
 		<VoiceCallPanelStoryHarness layout="sidebar" scenario="screen" />
 	</div>
 </Story>
+
+<Story name="Sidebar deafened" asChild>
+	<div class="flex h-[720px] w-[360px] overflow-hidden rounded-md border border-border bg-background">
+		<VoiceCallPanelStoryHarness layout="sidebar" scenario="screen" deafened />
+	</div>
+</Story>
