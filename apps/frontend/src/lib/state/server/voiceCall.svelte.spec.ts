@@ -265,6 +265,36 @@ describe('VoiceCallState', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('passes explicit voiceIsolation capture constraints when noise suppression is enabled', async () => {
+    vi.stubEnv('VITE_ENABLE_NOISE_SUPPRESSION', 'true');
+    const client = createVoiceCallClient();
+    const state = new VoiceCallState(client);
+    // Pin the shared preference so leftovers from other tests cannot leak in.
+    await state.noiseSuppression.setMode('off');
+
+    await state.join('wss://livekit.example.test', 'R1');
+
+    // livekit-client's own audioDefaults request voiceIsolation: true, so the
+    // effective Room options must carry an explicit false for the off mode.
+    expect(lastRoomOptions?.audioCaptureDefaults).toMatchObject({
+      autoGainControl: true,
+      echoCancellation: true,
+      noiseSuppression: true,
+      voiceIsolation: false
+    });
+  });
+
+  it('leaves capture defaults byte-identical to upstream when noise suppression is disabled', async () => {
+    const client = createVoiceCallClient();
+    const state = new VoiceCallState(client);
+
+    await state.join('wss://livekit.example.test', 'R1');
+
+    const defaults = (lastRoomOptions?.audioCaptureDefaults ?? {}) as Record<string, unknown>;
+    expect('voiceIsolation' in defaults).toBe(false);
   });
 
   it('sets up LiveKit E2EE before connecting', async () => {
