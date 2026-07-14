@@ -681,7 +681,7 @@ Room sidebar panel for voice/video calls.
 {#snippet callControls()}
   {#if isInThisCall}
     <div class={isStageLayout ? 'mx-auto max-w-2xl' : ''}>
-      <div class="grid grid-cols-5 gap-2">
+      <div class="grid grid-cols-6 gap-2">
         <button
           type="button"
           class={controlButtonClass}
@@ -737,6 +737,30 @@ Room sidebar panel for voice/video calls.
               class={[
                 'iconify text-lg',
                 voiceCallState.isMuted ? 'uil--microphone-slash' : 'uil--microphone'
+              ]}
+              aria-hidden="true"
+            ></span>
+          {/if}
+        </button>
+
+        <button
+          type="button"
+          class={voiceCallState.isDeafened ? controlButtonClass : activeControlButtonClass}
+          title={voiceCallState.isDeafened ? m['voice.undeafen']() : m['voice.deafen']()}
+          aria-label={voiceCallState.isDeafened ? m['voice.undeafen']() : m['voice.deafen']()}
+          aria-pressed={voiceCallState.isDeafened}
+          data-testid="call-deafen-toggle"
+          onclick={() => voiceCallState.toggleDeafen()}
+          disabled={voiceCallState.isDeafenPending}
+          aria-busy={voiceCallState.isDeafenPending || undefined}
+        >
+          {#if voiceCallState.isDeafenPending}
+            <span class="iconify animate-spin text-lg uil--spinner" aria-hidden="true"></span>
+          {:else}
+            <span
+              class={[
+                'iconify text-lg',
+                voiceCallState.isDeafened ? 'uil--headphone-slash' : 'uil--headphones'
               ]}
               aria-hidden="true"
             ></span>

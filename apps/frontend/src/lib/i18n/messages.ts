@@ -930,6 +930,8 @@ const msg_voice_turn_off_camera = (): LocalizedString => messages().voice_turn_o
 const msg_voice_turn_on_camera = (): LocalizedString => messages().voice_turn_on_camera(empty());
 const msg_voice_mute = (): LocalizedString => messages().voice_mute(empty());
 const msg_voice_unmute = (): LocalizedString => messages().voice_unmute(empty());
+const msg_voice_deafen = (): LocalizedString => messages().voice_deafen(empty());
+const msg_voice_undeafen = (): LocalizedString => messages().voice_undeafen(empty());
 const msg_voice_microphone = (): LocalizedString => messages().voice_microphone(empty());
 const msg_voice_speaker = (): LocalizedString => messages().voice_speaker(empty());
 const msg_voice_camera = (): LocalizedString => messages().voice_camera(empty());
@@ -2303,6 +2305,8 @@ export { msg_voice_turn_off_camera as 'voice.turn_off_camera' };
 export { msg_voice_turn_on_camera as 'voice.turn_on_camera' };
 export { msg_voice_mute as 'voice.mute' };
 export { msg_voice_unmute as 'voice.unmute' };
+export { msg_voice_deafen as 'voice.deafen' };
+export { msg_voice_undeafen as 'voice.undeafen' };
 export { msg_voice_microphone as 'voice.microphone' };
 export { msg_voice_speaker as 'voice.speaker' };
 export { msg_voice_camera as 'voice.camera' };

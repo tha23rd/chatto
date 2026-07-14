@@ -22,6 +22,8 @@
     "turn_on_camera": "Turn on camera",
     "mute": "Mute",
     "unmute": "Unmute",
+    "deafen": "Deafen",
+    "undeafen": "Undeafen",
     "microphone": "Microphone",
     "speaker": "Speaker",
     "camera": "Camera",

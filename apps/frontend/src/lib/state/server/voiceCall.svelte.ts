@@ -190,6 +190,13 @@ export class VoiceCallState {
   // True while LiveKit is applying local device enable/disable changes.
   isMicrophonePending = $state(false);
 
+  // Deafen: mutes your own mic AND silences all incoming call audio together.
+  // Discord parity — deafening implies muted; undeafening restores the mic to
+  // whatever state it had before you deafened.
+  isDeafened = $state(false);
+  // True while LiveKit is applying the deafen-driven mic enable/disable change.
+  isDeafenPending = $state(false);
+
   // Video state — camera is always disabled by default
   isCameraEnabled = $state(false);
   // True while LiveKit is applying local camera enable/disable changes.
@@ -241,6 +248,9 @@ export class VoiceCallState {
   private microphoneToggleInFlight: Promise<void> | null = null;
   private cameraToggleInFlight: Promise<void> | null = null;
   private screenShareToggleInFlight: Promise<void> | null = null;
+  private deafenToggleInFlight: Promise<void> | null = null;
+  // Mic mute state captured when deafening, restored on undeafen.
+  private mutedBeforeDeafen = false;
   private e2eeWorker: Worker | null = null;
   private audioLevelInterval: ReturnType<typeof setInterval> | null = null;
   private suppressDisconnectToast = false;
@@ -627,7 +637,114 @@ export class VoiceCallState {
       this.teardownLocalAudioAnalyser();
     }
 
+    // Turning your mic back on while deafened is contradictory — undeafen so
+    // you can hear again, matching Discord.
+    if (!newMuted && this.isDeafened) {
+      this.isDeafened = false;
+      this.applyAllParticipantAudioVolumes();
+    }
+
     this.updateParticipants();
+  }
+
+  /**
+   * Toggle deafen: silence all incoming audio and force-mute your own mic.
+   * Undeafening restores incoming audio and returns the mic to its pre-deafen
+   * state (still muted if you were already muted before you deafened).
+   */
+  async toggleDeafen(): Promise<void> {
+    if (this.deafenToggleInFlight) return this.deafenToggleInFlight;
+
+    const room = this.room;
+    if (!room) return;
+
+    const togglePromise = this.performToggleDeafen(room);
+    this.deafenToggleInFlight = togglePromise;
+    this.isDeafenPending = true;
+    try {
+      await togglePromise;
+    } finally {
+      if (this.deafenToggleInFlight === togglePromise) {
+        this.deafenToggleInFlight = null;
+        this.isDeafenPending = false;
+      }
+    }
+  }
+
+  private async performToggleDeafen(room: Room): Promise<void> {
+    const newDeafened = !this.isDeafened;
+
+    // Silence (or restore) INCOMING audio immediately. This is independent of the
+    // outgoing mic, so it must not wait on the local device operation below —
+    // otherwise a slow setMicrophoneEnabled would keep you hearing everyone after
+    // you pressed Deafen. Setting isDeafened first also mutes any participant who
+    // joins while the mic operation is still in flight.
+    this.isDeafened = newDeafened;
+    this.applyAllParticipantAudioVolumes();
+
+    // The mic is shared with toggleMute; wait for any in-flight mic toggle to
+    // settle so we capture and mutate a committed mic state, never a stale one.
+    const inFlightMic = this.microphoneToggleInFlight;
+    if (inFlightMic) {
+      try {
+        await inFlightMic;
+      } catch {
+        // Ignore; committed state is re-read below.
+      }
+      // A racing leave or unmute-driven undeafen may have run while we waited.
+      if (this.room !== room || this.isDeafened !== newDeafened) return;
+    }
+
+    if (newDeafened) {
+      // Remember the committed mic state so undeafen can restore it, then
+      // force-mute the mic if it isn't already muted.
+      this.mutedBeforeDeafen = this.isMuted;
+      if (!this.isMuted) {
+        await this.applyDeafenMicState(room, false);
+      }
+    } else if (!this.mutedBeforeDeafen && this.isMuted) {
+      // Restore the mic only if deafen was what muted it.
+      await this.applyDeafenMicState(room, true);
+    }
+
+    this.updateParticipants();
+  }
+
+  /**
+   * Applies a deafen-driven microphone enable/disable through the shared
+   * microphone in-flight guard so a concurrent toggleMute cannot race the same
+   * device. isMuted is committed only on success: a failed disable must never
+   * report the mic muted while it is still transmitting.
+   */
+  private async applyDeafenMicState(room: Room, enabled: boolean): Promise<void> {
+    const micToggle: Promise<void> = this.runExplicitMediaDeviceOperation(() =>
+      room.localParticipant.setMicrophoneEnabled(enabled)
+    ).then(() => {});
+    this.microphoneToggleInFlight = micToggle;
+    this.isMicrophonePending = true;
+    try {
+      await micToggle;
+      if (this.room !== room) return;
+      this.isMuted = !enabled;
+      if (enabled) {
+        this.setupLocalAudioAnalyser();
+      } else {
+        this.teardownLocalAudioAnalyser();
+      }
+    } catch (err) {
+      // Re-enabling failure is user-visible (they asked to speak again). A failed
+      // disable leaves the mic live, so isMuted is deliberately left unchanged.
+      if (this.room === room && enabled) {
+        this.notifyMediaDeviceError(
+          getVoiceCallMediaDeviceErrorMessage('microphone', err, 'enable')
+        );
+      }
+    } finally {
+      if (this.microphoneToggleInFlight === micToggle) {
+        this.microphoneToggleInFlight = null;
+        this.isMicrophonePending = false;
+      }
+    }
   }
 
   /**
@@ -968,7 +1085,7 @@ export class VoiceCallState {
   }
 
   private applyRemoteParticipantAudioVolume(participant: RemoteParticipant): void {
-    const muted = this.isParticipantLocallyMuted(participant.identity);
+    const muted = this.isDeafened || this.isParticipantLocallyMuted(participant.identity);
     const gain = muted ? 0 : this.getParticipantVolume(participant.identity) / 100;
     participant.setVolume(gain);
   }
@@ -1092,12 +1209,16 @@ export class VoiceCallState {
     this.microphoneToggleInFlight = null;
     this.cameraToggleInFlight = null;
     this.screenShareToggleInFlight = null;
+    this.deafenToggleInFlight = null;
+    this.mutedBeforeDeafen = false;
     this.suppressDisconnectToast = false;
     this.connected = false;
     this.connecting = false;
     this.roomId = null;
     this.isMuted = false;
     this.isMicrophonePending = false;
+    this.isDeafened = false;
+    this.isDeafenPending = false;
     this.isCameraEnabled = false;
     this.isCameraPending = false;
     this.isScreenShareEnabled = false;

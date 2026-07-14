@@ -861,4 +861,199 @@ describe('VoiceCallState', () => {
     const other = new VoiceCallState(createVoiceCallClient(), undefined, 'server-2');
     expect(other.getParticipantVolume('remote-user')).toBe(100);
   });
+
+  describe('deafen', () => {
+    function addRemoteParticipant(identity: string, setVolume: ReturnType<typeof vi.fn>): void {
+      mockRemoteParticipants.set(identity, {
+        identity,
+        name: identity,
+        metadata: '',
+        connectionQuality: 'good',
+        isSpeaking: false,
+        audioLevel: 0,
+        setVolume,
+        trackPublications: new Map(),
+        getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+      });
+    }
+
+    it('deafening force-mutes the mic and silences all incoming audio', async () => {
+      const setVolume = vi.fn();
+      addRemoteParticipant('remote-user', setVolume);
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+      setVolume.mockClear();
+      expect(state.isMuted).toBe(false);
+
+      await state.toggleDeafen();
+
+      expect(state.isDeafened).toBe(true);
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(false);
+      expect(setVolume).toHaveBeenLastCalledWith(0);
+    });
+
+    it('undeafening restores the mic and incoming audio', async () => {
+      const setVolume = vi.fn();
+      addRemoteParticipant('remote-user', setVolume);
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      await state.toggleDeafen();
+      setVolume.mockClear();
+
+      await state.toggleDeafen();
+
+      expect(state.isDeafened).toBe(false);
+      expect(state.isMuted).toBe(false);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(true);
+      expect(setVolume).toHaveBeenLastCalledWith(1);
+    });
+
+    it('stays muted after undeafen when already muted before deafening', async () => {
+      const setVolume = vi.fn();
+      addRemoteParticipant('remote-user', setVolume);
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      await state.toggleMute();
+      expect(state.isMuted).toBe(true);
+
+      await state.toggleDeafen();
+      expect(state.isDeafened).toBe(true);
+      expect(state.isMuted).toBe(true);
+
+      lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+
+      await state.toggleDeafen();
+
+      expect(state.isDeafened).toBe(false);
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).not.toHaveBeenCalled();
+    });
+
+    it('unmuting via toggleMute while deafened clears deafen and restores audio', async () => {
+      const setVolume = vi.fn();
+      addRemoteParticipant('remote-user', setVolume);
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      await state.toggleDeafen();
+      expect(state.isDeafened).toBe(true);
+      expect(state.isMuted).toBe(true);
+      setVolume.mockClear();
+
+      await state.toggleMute();
+
+      expect(state.isMuted).toBe(false);
+      expect(state.isDeafened).toBe(false);
+      expect(setVolume).toHaveBeenLastCalledWith(1);
+    });
+
+    it('silences a remote participant that joins while deafened', async () => {
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      await state.toggleDeafen();
+
+      const setVolume = vi.fn();
+      addRemoteParticipant('late-user', setVolume);
+      roomEventHandlers.get('ParticipantConnected')?.();
+
+      expect(setVolume).toHaveBeenLastCalledWith(0);
+    });
+
+    it('resets deafen state on leave', async () => {
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+      await state.toggleDeafen();
+      expect(state.isDeafened).toBe(true);
+
+      await state.leave();
+
+      expect(state.isDeafened).toBe(false);
+      expect(state.isDeafenPending).toBe(false);
+    });
+
+    it('silences incoming audio immediately, before the mic mute is applied', async () => {
+      const setVolume = vi.fn();
+      addRemoteParticipant('remote-user', setVolume);
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+      setVolume.mockClear();
+
+      microphoneGate = deferredVoid();
+      const deafen = state.toggleDeafen();
+      await flushPromises();
+
+      // Incoming audio is already muted even though the mic operation is pending.
+      expect(state.isDeafened).toBe(true);
+      expect(setVolume).toHaveBeenLastCalledWith(0);
+      expect(state.isMuted).toBe(false);
+      expect(state.isDeafenPending).toBe(true);
+
+      microphoneGate.resolve();
+      await deafen;
+
+      expect(state.isMuted).toBe(true);
+      expect(state.isDeafenPending).toBe(false);
+    });
+
+    it('keeps you muted and reports an error if the mic fails to re-enable on undeafen', async () => {
+      const setVolume = vi.fn();
+      addRemoteParticipant('remote-user', setVolume);
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      await state.toggleDeafen();
+      expect(state.isMuted).toBe(true);
+      setVolume.mockClear();
+      toastMocks.error.mockClear();
+
+      microphoneFailure = new Error('microphone unavailable');
+      await state.toggleDeafen();
+
+      // Deafen cleared and incoming audio restored, but the mic could not return —
+      // isMuted must stay true rather than falsely claiming the mic is live.
+      expect(state.isDeafened).toBe(false);
+      expect(state.isMuted).toBe(true);
+      expect(setVolume).toHaveBeenLastCalledWith(1);
+      expect(toastMocks.error).toHaveBeenCalled();
+    });
+
+    it('serializes with an in-flight mute so deafen captures committed mic state', async () => {
+      const setVolume = vi.fn();
+      addRemoteParticipant('remote-user', setVolume);
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+      lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+
+      microphoneGate = deferredVoid();
+      const mute = state.toggleMute();
+      await flushPromises();
+      expect(state.isMuted).toBe(false); // mute not committed while the gate is held
+
+      const deafen = state.toggleDeafen();
+      await flushPromises();
+
+      // Incoming audio is silenced immediately, but deafen must not start its own
+      // mic operation while the mute is still in flight.
+      expect(state.isDeafened).toBe(true);
+      expect(setVolume).toHaveBeenLastCalledWith(0);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenCalledTimes(1);
+
+      microphoneGate.resolve();
+      await Promise.all([mute, deafen]);
+
+      expect(state.isMuted).toBe(true);
+      expect(state.isDeafened).toBe(true);
+
+      // Undeafen keeps the user muted, proving mutedBeforeDeafen captured the
+      // committed muted state rather than the stale pre-mute value.
+      lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+      await state.toggleDeafen();
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).not.toHaveBeenCalled();
+    });
+  });
 });
