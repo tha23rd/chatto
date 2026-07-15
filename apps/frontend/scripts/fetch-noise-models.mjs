@@ -1,39 +1,30 @@
 #!/usr/bin/env node
 /**
- * Fetches the DeepFilterNet3 model assets used by the fork's experimental
- * noise suppression feature (VITE_ENABLE_NOISE_SUPPRESSION) into the
- * `static/` path matching VITE_NOISE_SUPPRESSION_ASSETS_URL, verifying
- * pinned SHA-256 checksums.
+ * Fetches the DeepFilterNet3 model assets for the fork's enhanced noise
+ * suppression modes into the fixed `static/` path, verifying pinned SHA-256
+ * checksums. Runs on every `pnpm build` (and manually for `vite dev` and the
+ * benchmark harness), so the assets ship in every built frontend; the
+ * feature itself is a per-client runtime setting in the call audio menu.
  *
- * The files are ~24 MB combined and are deliberately NOT committed to git.
- * `pnpm build` runs this with `--if-enabled`; a plain manual invocation
- * always fetches (useful for `vite dev` and the benchmark harness).
- *
- * Env handling matches Vite: values are read from process.env first, then
- * from the same `.env` files Vite loads, so a `.env`-enabled build cannot
- * compile the feature as enabled while this script thinks it is disabled.
+ * The files are ~24 MB combined (~12 MB compressed transfer) and are
+ * deliberately NOT committed to git. Already-valid files are skipped by
+ * checksum, so CI caching of `static/models/` makes refetches rare.
  *
  * Assets are served from a SINGLE fixed same-origin path
- * (`/models/deepfilternet3`); `VITE_NOISE_SUPPRESSION_ASSETS_URL` must equal
- * it exactly. A free-form URL invited protocol-relative (`//host`),
- * backslash, and query/fragment values that resolve cross-origin or to a
- * different fetch target than the browser requests, and left cleanup unable
- * to find prior custom paths. A fixed path removes all of that.
+ * (`/models/deepfilternet3`, a constant — never configuration). A free-form
+ * URL invited protocol-relative (`//host`), backslash, and query/fragment
+ * values that resolve cross-origin or to a different fetch target than the
+ * browser requests. A fixed path removes all of that.
  *
- * Fail-closed rules under `--if-enabled`:
- * - flag off: remove the fixed assets directory so a disabled build cannot
- *   ship it, then exit successfully.
- * - flag on without the exact assets path: fail the build.
- * - checksum mismatch: fail the build so a changed upstream artifact can
- *   never enter an image silently.
+ * Fail-closed rule: on checksum mismatch the build fails, so a changed
+ * upstream artifact can never enter an image silently.
  */
 
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadEnv } from 'vite';
 
 const FRONTEND_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const STATIC_DIR = path.join(FRONTEND_DIR, 'static');
@@ -55,39 +46,6 @@ const ASSETS = [
     sha256: 'c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616'
   }
 ];
-
-// Vite-equivalent env resolution: .env files as the base, real environment
-// variables taking precedence (matching Vite, where process.env wins).
-const fileEnv = loadEnv('production', FRONTEND_DIR, 'VITE_');
-function env(name) {
-  return process.env[name] ?? fileEnv[name];
-}
-
-const flagEnabled = env('VITE_ENABLE_NOISE_SUPPRESSION') === 'true';
-const assetsUrl = env('VITE_NOISE_SUPPRESSION_ASSETS_URL');
-
-if (process.argv.includes('--if-enabled')) {
-  if (!flagEnabled) {
-    // A disabled build must not ship previously fetched assets: Vite copies
-    // everything under static/ into the build output.
-    if (existsSync(TARGET_DIR)) {
-      await rm(TARGET_DIR, { recursive: true, force: true });
-      console.log(`noise suppression disabled; removed assets at ${TARGET_DIR}`);
-    } else {
-      console.log('noise suppression disabled; skipping model fetch');
-    }
-    process.exit(0);
-  }
-  if (assetsUrl !== ASSETS_PATH) {
-    console.error(
-      `VITE_ENABLE_NOISE_SUPPRESSION=true requires ` +
-        `VITE_NOISE_SUPPRESSION_ASSETS_URL=${ASSETS_PATH} exactly ` +
-        `(got: ${assetsUrl ?? '<unset>'}), so built clients load models only ` +
-        `from that fixed same-origin path.`
-    );
-    process.exit(1);
-  }
-}
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');

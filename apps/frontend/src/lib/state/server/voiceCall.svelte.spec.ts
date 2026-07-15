@@ -285,11 +285,9 @@ describe('VoiceCallState', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
   });
 
-  it('passes explicit voiceIsolation capture constraints when noise suppression is enabled', async () => {
-    vi.stubEnv('VITE_ENABLE_NOISE_SUPPRESSION', 'true');
+  it('passes explicit voiceIsolation capture constraints from the noise suppression mode', async () => {
     const client = createVoiceCallClient();
     const state = new VoiceCallState(client);
     // Pin the shared preference so leftovers from other tests cannot leak in.
@@ -307,14 +305,20 @@ describe('VoiceCallState', () => {
     });
   });
 
-  it('leaves capture defaults byte-identical to upstream when noise suppression is disabled', async () => {
+  it('requests voiceIsolation at capture when the voice isolation mode is selected', async () => {
     const client = createVoiceCallClient();
     const state = new VoiceCallState(client);
+    await state.noiseSuppression.setMode('voice-isolation');
+    try {
+      await state.join('wss://livekit.example.test', 'R1');
 
-    await state.join('wss://livekit.example.test', 'R1');
-
-    const defaults = (lastRoomOptions?.audioCaptureDefaults ?? {}) as Record<string, unknown>;
-    expect('voiceIsolation' in defaults).toBe(false);
+      expect(lastRoomOptions?.audioCaptureDefaults).toMatchObject({
+        voiceIsolation: true
+      });
+    } finally {
+      // The preference is module-global; restore for unrelated tests.
+      await state.noiseSuppression.setMode('off');
+    }
   });
 
   it('sets up LiveKit E2EE before connecting', async () => {

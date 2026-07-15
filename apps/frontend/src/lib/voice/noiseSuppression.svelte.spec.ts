@@ -101,7 +101,6 @@ describe('NoiseSuppressionController', () => {
   }
 
   beforeEach(async () => {
-    vi.stubEnv('VITE_ENABLE_NOISE_SUPPRESSION', 'true');
     // Shared module-level preference; reset via the public API between tests.
     await new NoiseSuppressionController(() => {}).setMode('off');
     localStorage.removeItem(MODE_STORAGE_KEY);
@@ -112,35 +111,6 @@ describe('NoiseSuppressionController', () => {
     for (const controller of made) controller.handleCallEnded();
     made.length = 0;
     vi.unstubAllGlobals();
-    vi.unstubAllEnvs();
-  });
-
-  it('stays inert when the feature flag is not enabled', async () => {
-    vi.stubEnv('VITE_ENABLE_NOISE_SUPPRESSION', '');
-    const { factory } = makeProcessorFactory();
-    const controller = makeController(() => {}, factory);
-    const track = makeFakeMicTrack();
-
-    await controller.setMode('enhanced');
-    expect(controller.mode).toBe('off');
-    expect(localStorage.getItem(MODE_STORAGE_KEY)).toBeNull();
-
-    await controller.applyToCall(makeFakeRoom(track));
-    expect(track.setProcessor).not.toHaveBeenCalled();
-    expect(controller.status).toBe('off');
-    expect(controller.captureConstraints()).toEqual({});
-  });
-
-  it('keeps capture defaults untouched when the flag is off, even with a persisted mode', async () => {
-    const controller = makeController();
-    await controller.setMode('voice-isolation');
-    vi.stubEnv('VITE_ENABLE_NOISE_SUPPRESSION', '');
-
-    expect(controller.captureConstraints()).toEqual({});
-    const track = makeFakeMicTrack();
-    await controller.applyToCall(makeFakeRoom(track));
-    expect(track.restartTrack).not.toHaveBeenCalled();
-    expect(controller.status).toBe('off');
   });
 
   it('round-trips valid modes and rejects corrupt values in the storage codec', () => {
