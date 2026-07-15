@@ -43,6 +43,7 @@ let lastRoom: {
     // Overridden per-test to stand in for the live screen-share publication whose capture
     // track and RTCRtpSender get retuned by setScreenShareQuality().
     getTrackPublication: ReturnType<typeof vi.fn>;
+    setAttributes: ReturnType<typeof vi.fn>;
   };
   switchActiveDevice: ReturnType<typeof vi.fn>;
 } | null = null;
@@ -133,9 +134,13 @@ vi.mock('livekit-client', () => {
         }
       }),
       getTrackPublication: vi.fn(),
+      setAttributes: vi.fn(async (attrs: Record<string, string>) => {
+        calls.push(`setAttributes:${JSON.stringify(attrs)}`);
+      }),
       identity: 'local-user',
       name: 'Local User',
       metadata: '',
+      attributes: {} as Record<string, string>,
       connectionQuality: 'excellent',
       isSpeaking: false,
       audioLevel: 0,
@@ -183,6 +188,7 @@ vi.mock('livekit-client', () => {
     RoomEvent: {
       ParticipantConnected: 'ParticipantConnected',
       ParticipantDisconnected: 'ParticipantDisconnected',
+      ParticipantAttributesChanged: 'ParticipantAttributesChanged',
       TrackMuted: 'TrackMuted',
       TrackUnmuted: 'TrackUnmuted',
       Disconnected: 'Disconnected',
@@ -1013,11 +1019,16 @@ describe('VoiceCallState', () => {
   });
 
   describe('deafen', () => {
-    function addRemoteParticipant(identity: string, setVolume: ReturnType<typeof vi.fn>): void {
+    function addRemoteParticipant(
+      identity: string,
+      setVolume: ReturnType<typeof vi.fn>,
+      attributes: Record<string, string> = {}
+    ): void {
       mockRemoteParticipants.set(identity, {
         identity,
         name: identity,
         metadata: '',
+        attributes,
         connectionQuality: 'good',
         isSpeaking: false,
         audioLevel: 0,
@@ -1098,6 +1109,50 @@ describe('VoiceCallState', () => {
       expect(state.isMuted).toBe(false);
       expect(state.isDeafened).toBe(false);
       expect(setVolume).toHaveBeenLastCalledWith(1);
+    });
+
+    it('broadcasts deafen state via the LiveKit participant attribute', async () => {
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      await state.toggleDeafen();
+      expect(lastRoom?.localParticipant.setAttributes).toHaveBeenLastCalledWith({ deafened: '1' });
+
+      await state.toggleDeafen();
+      expect(lastRoom?.localParticipant.setAttributes).toHaveBeenLastCalledWith({ deafened: '' });
+    });
+
+    it('clears the deafen attribute when unmuting via toggleMute clears deafen', async () => {
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      await state.toggleDeafen();
+      await state.toggleMute();
+
+      expect(state.isDeafened).toBe(false);
+      expect(lastRoom?.localParticipant.setAttributes).toHaveBeenLastCalledWith({ deafened: '' });
+    });
+
+    it('reflects the local deafen state on the local participant tile', async () => {
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      expect(state.participants.find((p) => p.isLocal)?.isDeafened).toBe(false);
+
+      await state.toggleDeafen();
+
+      expect(state.participants.find((p) => p.isLocal)?.isDeafened).toBe(true);
+    });
+
+    it('surfaces a remote participant deafen attribute on their tile', async () => {
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      addRemoteParticipant('remote-user', vi.fn(), { deafened: '1' });
+      roomEventHandlers.get('ParticipantAttributesChanged')?.();
+
+      const remote = state.participants.find((p) => p.identity === 'remote-user');
+      expect(remote?.isDeafened).toBe(true);
     });
 
     it('silences a remote participant that joins while deafened', async () => {

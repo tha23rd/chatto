@@ -462,6 +462,11 @@ func TestGenerateVoiceCallToken(t *testing.T) {
 	if room, ok := video["room"].(string); !ok || room != roomName {
 		t.Errorf("Token video.room = %v, want %q", video["room"], roomName)
 	}
+	// canUpdateOwnMetadata lets the frontend publish its own LiveKit attributes
+	// (e.g. deafen state) so other participants can render an indicator.
+	if canUpdate, ok := video["canUpdateOwnMetadata"].(bool); !ok || !canUpdate {
+		t.Error("Token video.canUpdateOwnMetadata should be true")
+	}
 
 	exp, ok := claims["exp"].(float64)
 	if !ok {
