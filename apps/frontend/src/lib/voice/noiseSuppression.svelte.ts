@@ -4,9 +4,9 @@
  * Chatto's baseline is the browser's WebRTC processing (AGC, echo
  * cancellation, noise suppression), requested in `VoiceCallState`'s
  * `audioCaptureDefaults`. Note that livekit-client's own audio defaults also
- * request `voiceIsolation: true`; when this feature is enabled the
- * controller overrides that explicitly per mode. This module adds two
- * optional, experimental modes on top of that baseline:
+ * request `voiceIsolation: true`; the controller overrides that explicitly
+ * per mode. This module adds two optional, experimental modes on top of that
+ * baseline:
  *
  * - `voice-isolation`: requests the experimental `voiceIsolation` media
  *   constraint (a stronger, browser-implemented suppression tier; ignored by
@@ -102,33 +102,20 @@ export type EnhancedProcessorFactory = () => Promise<{
 }>;
 
 /**
- * The one accepted same-origin path for the DeepFilterNet3 WASM/model assets.
- * Fixed rather than free-form (`VITE_NOISE_SUPPRESSION_ASSETS_URL` must equal
- * this exact value) so there is no URL parsing to get wrong: `startsWith('/')`
- * would still admit protocol-relative (`//host`), backslash (`/\host`), and
- * query/fragment variants that resolve cross-origin or to a different fetch
- * target than the browser requests. The build script writes the checksum-
- * pinned files to the matching `static/` path.
+ * The one same-origin path for the DeepFilterNet3 WASM/model assets. Fixed
+ * (a constant, never configuration) so there is no URL parsing to get wrong:
+ * a configurable value checked with `startsWith('/')` would still admit
+ * protocol-relative (`//host`), backslash (`/\host`), and query/fragment
+ * variants that resolve cross-origin or to a different fetch target than the
+ * browser requests. The build script (`scripts/fetch-noise-models.mjs`)
+ * writes the checksum-pinned files to the matching `static/` path on every
+ * build, so the assets are always present here. The package's vendor CDN
+ * fallback is never used: it does not send CORS headers to third-party
+ * origins, and same-origin keeps users' browsers off third-party hosts.
  */
 export const NOISE_SUPPRESSION_ASSETS_PATH = '/models/deepfilternet3';
 
-/**
- * Whether the configured assets URL is the exact accepted same-origin path.
- * Anything else (including the package's vendor CDN fallback) is refused: the
- * enhanced mode reports `unavailable` rather than loading models from an
- * unexpected origin.
- */
-function noiseSuppressionAssetsConfigured(): boolean {
-  return import.meta.env.VITE_NOISE_SUPPRESSION_ASSETS_URL === NOISE_SUPPRESSION_ASSETS_PATH;
-}
-
 const defaultEnhancedProcessorFactory: EnhancedProcessorFactory = async () => {
-  if (!noiseSuppressionAssetsConfigured()) {
-    throw new Error(
-      `noise suppression assets must be served same-origin from ` +
-        `${NOISE_SUPPRESSION_ASSETS_PATH}; refusing unconfigured or non-matching assets URL`
-    );
-  }
   const { DeepFilterNoiseFilterProcessor } = await import('deepfilternet3-noise-filter');
   return {
     isSupported: () => DeepFilterNoiseFilterProcessor.isSupported(),
@@ -139,20 +126,6 @@ const defaultEnhancedProcessorFactory: EnhancedProcessorFactory = async () => {
       }) as unknown as AudioTrackProcessor
   };
 };
-
-/**
- * Build-time feature flag for the whole noise suppression prototype.
- *
- * Set `VITE_ENABLE_NOISE_SUPPRESSION=true` when building (or in an `.env`
- * file for `vite dev`) to expose the preference UI and allow the controller
- * to act. Off by default: without the flag the menu section is hidden and
- * the controller stays inert even if a mode was persisted earlier.
- *
- * Read lazily (not as a module constant) so tests can stub the env var.
- */
-export function isNoiseSuppressionFeatureEnabled(): boolean {
-  return import.meta.env.VITE_ENABLE_NOISE_SUPPRESSION === 'true';
-}
 
 function supportsVoiceIsolationConstraint(): boolean {
   if (typeof navigator === 'undefined' || !navigator.mediaDevices) return false;
@@ -214,20 +187,17 @@ export class NoiseSuppressionController {
    * Extra microphone capture constraints for room construction.
    *
    * livekit-client's own `audioDefaults` request `voiceIsolation: true` and
-   * are merged into every Room, so the flag-enabled build must state the
-   * constraint explicitly for every mode — returning `{}` for `off` would
-   * silently inherit LiveKit's voice isolation. With the feature flag off we
-   * deliberately return `{}` so capture behavior stays byte-identical to
-   * upstream Chatto (which inherits the LiveKit default).
+   * are merged into every Room, so the constraint must be stated explicitly
+   * for every mode — returning `{}` for `off` would silently inherit
+   * LiveKit's voice isolation, and the user-selected mode is the single
+   * source of truth for it.
    */
   captureConstraints(): { voiceIsolation?: boolean } {
-    if (!isNoiseSuppressionFeatureEnabled()) return {};
     return { voiceIsolation: this.mode === 'voice-isolation' };
   }
 
   /** Called by `VoiceCallState` once the microphone is live in a call. */
   async applyToCall(room: Room): Promise<void> {
-    if (!isNoiseSuppressionFeatureEnabled()) return;
     this.room = room;
     activeControllers.add(this);
     await this.apply();
@@ -249,7 +219,6 @@ export class NoiseSuppressionController {
    * re-applies it, which doubles as a manual retry after a failure.
    */
   async setMode(mode: NoiseSuppressionMode): Promise<void> {
-    if (!isNoiseSuppressionFeatureEnabled()) return;
     preference.mode = mode;
     modeSlot.set(mode);
     const targets = activeControllers.has(this)

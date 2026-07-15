@@ -13,10 +13,7 @@ Reads available devices and current selection from `voiceCallState`.
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
   import * as m from '$lib/i18n/messages';
-  import {
-    isNoiseSuppressionFeatureEnabled,
-    type NoiseSuppressionMode
-  } from '$lib/voice/noiseSuppression.svelte';
+  import { type NoiseSuppressionMode } from '$lib/voice/noiseSuppression.svelte';
 
   const voiceCallState = serverRegistry.getStore(getActiveServer()).voiceCall;
   import ContextMenu from '$lib/ui/ContextMenu.svelte';
@@ -106,35 +103,33 @@ Reads available devices and current selection from `voiceCallState`.
     </div>
   {/each}
 
-  {#if isNoiseSuppressionFeatureEnabled()}
-    <div class="menu-section">
-      <div class="px-3 py-1.5 text-xs font-medium text-muted">
-        {m['voice.noise_suppression']()}
-      </div>
-      <nav class="sidebar-nav">
-        {#each noiseSuppressionOptions as option (option.mode)}
-          <button
-            class="sidebar-item"
-            role="menuitemradio"
-            aria-checked={option.mode === noiseSuppression.mode}
-            onclick={() => {
-              // Keep the menu open: loading/unavailable feedback for the
-              // selected mode renders right below these options.
-              void noiseSuppression.setMode(option.mode);
-            }}
-          >
-            {#if option.mode === noiseSuppression.mode}
-              <span class="sidebar-icon iconify text-action uil--check"></span>
-            {:else}
-              <span class="sidebar-icon"></span>
-            {/if}
-            <span class="truncate">{option.label}</span>
-          </button>
-        {/each}
-        {#if noiseSuppressionStatusLabel !== null}
-          <div class="px-3 py-2 text-sm text-muted">{noiseSuppressionStatusLabel}</div>
-        {/if}
-      </nav>
+  <div class="menu-section">
+    <div class="px-3 py-1.5 text-xs font-medium text-muted">
+      {m['voice.noise_suppression']()}
     </div>
-  {/if}
+    <nav class="sidebar-nav">
+      {#each noiseSuppressionOptions as option (option.mode)}
+        <button
+          class="sidebar-item"
+          role="menuitemradio"
+          aria-checked={option.mode === noiseSuppression.mode}
+          onclick={() => {
+            // Keep the menu open: loading/unavailable feedback for the
+            // selected mode renders right below these options.
+            void noiseSuppression.setMode(option.mode);
+          }}
+        >
+          {#if option.mode === noiseSuppression.mode}
+            <span class="sidebar-icon iconify text-action uil--check"></span>
+          {:else}
+            <span class="sidebar-icon"></span>
+          {/if}
+          <span class="truncate">{option.label}</span>
+        </button>
+      {/each}
+      {#if noiseSuppressionStatusLabel !== null}
+        <div class="px-3 py-2 text-sm text-muted">{noiseSuppressionStatusLabel}</div>
+      {/if}
+    </nav>
+  </div>
 </ContextMenu>
