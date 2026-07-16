@@ -48,7 +48,7 @@ See the "UI" section of `docs/GLOSSARY.md`.
   data-app-sidebar="true"
   data-testid="server-sidebar"
   class={[
-    'server-sidebar relative z-50 flex min-w-0 flex-col overflow-hidden border-r border-border bg-background',
+    'server-sidebar relative z-50 flex min-w-0 flex-col overflow-hidden border-r border-border bg-surface-nav',
     width,
     mobileWidth,
     'md:flex-initial',

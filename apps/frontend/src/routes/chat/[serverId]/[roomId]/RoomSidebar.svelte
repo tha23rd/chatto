@@ -253,7 +253,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
 <aside
   bind:this={sidebarElement}
   class={[
-    'relative flex min-h-0 flex-col bg-background',
+    'relative flex min-h-0 flex-col bg-surface-nav',
     presentation === 'desktop'
       ? ['border-l border-border', maximized ? 'min-w-0 flex-1' : '']
       : 'w-full min-w-0 flex-1 overflow-hidden'

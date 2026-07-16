@@ -50,6 +50,14 @@
   --color-surface-strong: var(--color-gray-300);
   --color-surface-selected: var(--color-gray-300);
 
+  /* Persistent side navigation chrome — server gutter, channel sidebar, room
+     extras pane. The only surface that sits *below* `background` rather than
+     above it, so nav chrome recedes and the room reads as the work plane.
+     Light mode deliberately keeps this flush with `background`: its pale plane
+     has nothing below it that isn't already `surface`'s cool gray, and sinking
+     the chrome there is a separate design decision from the dark theme's. */
+  --color-surface-nav: var(--color-background);
+
   /* Form-field surface — distinct from any container surface so inputs
      never disappear into a dialog or panel. Pure white in light mode
      (raised paper), deeper-than-surface in dark mode (inset well). */
@@ -131,6 +139,15 @@
   --color-surface-strong: #4e5058; /* Discord --background-accent */
   --color-surface-selected: #4e5058;
 
+  /* See light-mode comment. This is where the theme *does* follow Discord's
+     region ordering: side chrome sinks below the chat plane rather than rising
+     above it, which is what makes the channel column read as Discord's.
+     Darkening a surface only raises contrast for the light foregrounds on it, so
+     unlike the background lift this direction carries no AA risk. It also gives
+     the selected channel row (`sidebar-item` -> `bg-surface` #383a40) a wider
+     step to sit on, closer to Discord's active-channel affordance. */
+  --color-surface-nav: #2b2d31; /* Discord --background-secondary */
+
   /* See light-mode comment — sits below all surfaces for an inset well look.
      Discord uses this same tone for its own search/textarea wells. */
   --color-input: #1e1f22; /* Discord --background-tertiary */
@@ -191,6 +208,7 @@
   --color-surface-emphasized: var(--color-surface-emphasized);
   --color-surface-strong: var(--color-surface-strong);
   --color-surface-selected: var(--color-surface-selected);
+  --color-surface-nav: var(--color-surface-nav);
 
   --color-input: var(--color-input);
   --color-input-border: var(--color-input-border);
