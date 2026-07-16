@@ -156,3 +156,17 @@ func (c *ChattoCore) requireCanManageServer(ctx context.Context, actorID string)
 	}
 	return nil
 }
+
+func (c *ChattoCore) requireCanManageCustomEmoji(ctx context.Context, actorID string) error {
+	if err := requireAuthenticatedActor(actorID); err != nil {
+		return err
+	}
+	canManage, err := c.CanManageCustomEmoji(ctx, actorID)
+	if err != nil {
+		return fmt.Errorf("check emoji.manage: %w", err)
+	}
+	if !canManage {
+		return ErrPermissionDenied
+	}
+	return nil
+}

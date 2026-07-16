@@ -4,6 +4,7 @@ import * as m from '$lib/i18n/messages';
 export type AdminNavChromePermissions = {
   canViewAdmin: boolean;
   canManage: boolean;
+  canManageEmoji: boolean;
   canManageRooms: boolean;
   canManageRoles: boolean;
   canAssignRoles: boolean;
@@ -35,7 +36,9 @@ export function getAdminNavItems({
   server: AdminNavServerPermissions;
 }): AdminNavItem[] {
   if (!chrome) return [];
-  if (!chrome.canViewAdmin && !server.canViewAdmin) return [];
+  // Emoji managers may hold no other admin capability, so admit them here too;
+  // the per-item guards below still limit them to the Custom Emoji entry.
+  if (!chrome.canViewAdmin && !server.canViewAdmin && !chrome.canManageEmoji) return [];
 
   const items: AdminNavItem[] = [];
 
@@ -63,7 +66,7 @@ export function getAdminNavItems({
     });
   }
 
-  if (chrome.canManage) {
+  if (chrome.canManageEmoji) {
     items.push({
       href: resolve('/chat/[serverId]/server-admin/custom-emoji', { serverId: serverSegment }),
       label: m['server_settings.custom_emoji.nav'](),

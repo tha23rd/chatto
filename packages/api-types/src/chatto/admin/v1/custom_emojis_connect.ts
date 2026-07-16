@@ -8,8 +8,10 @@ import { MethodKind } from "@bufbuild/protobuf";
 
 /**
  * AdminCustomEmojiService is the administrative surface for managing the server
- * custom emoji catalog. Every RPC requires the `server.manage` permission,
- * which is held by the owner and admin roles.
+ * custom emoji catalog. Mutating RPCs require the `emoji.manage` permission or
+ * the broader `server.manage` permission; both are held by the owner and admin
+ * roles by default, and `emoji.manage` can be granted on its own to a narrower
+ * role.
  *
  * @generated from service chatto.admin.v1.AdminCustomEmojiService
  */
@@ -17,7 +19,8 @@ export const AdminCustomEmojiService = {
   typeName: "chatto.admin.v1.AdminCustomEmojiService",
   methods: {
     /**
-     * Creates a custom emoji from an uploaded image. Requires `server.manage`.
+     * Creates a custom emoji from an uploaded image. Requires `emoji.manage` or
+     * `server.manage`.
      *
      * @generated from rpc chatto.admin.v1.AdminCustomEmojiService.CreateCustomEmoji
      */
@@ -28,7 +31,7 @@ export const AdminCustomEmojiService = {
       kind: MethodKind.Unary,
     },
     /**
-     * Deletes a custom emoji by ID. Requires `server.manage`.
+     * Deletes a custom emoji by ID. Requires `emoji.manage` or `server.manage`.
      *
      * @generated from rpc chatto.admin.v1.AdminCustomEmojiService.DeleteCustomEmoji
      */
@@ -39,7 +42,8 @@ export const AdminCustomEmojiService = {
       kind: MethodKind.Unary,
     },
     /**
-     * Lists all custom emojis for management. Requires `server.manage`.
+     * Lists all custom emojis for management. Requires `emoji.manage` or
+     * `server.manage`.
      *
      * @generated from rpc chatto.admin.v1.AdminCustomEmojiService.ListCustomEmojis
      */

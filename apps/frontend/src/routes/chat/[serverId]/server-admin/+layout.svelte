@@ -23,6 +23,7 @@
     const generalBase = resolve('/chat/[serverId]/server-admin/general', params);
     const membersBase = resolve('/chat/[serverId]/server-admin/members', params);
     const roomsBase = adminBase + '/rooms';
+    const customEmojiBase = adminBase + '/custom-emoji';
     const moderationBase = adminBase + '/moderation';
     const permissionsBase = adminBase + '/permissions';
     const securityBase = adminBase + '/security';
@@ -43,6 +44,11 @@
     // Rooms pages require room.manage permission
     if (pathname.startsWith(roomsBase)) {
       return () => chromePermissions.current.canManageRooms;
+    }
+
+    // Custom emoji management — emoji.manage (or the broader server.manage).
+    if (pathname.startsWith(customEmojiBase)) {
+      return () => chromePermissions.current.canManageEmoji;
     }
 
     // Moderation pages: the resolver enforces server-scope room.ban-member.

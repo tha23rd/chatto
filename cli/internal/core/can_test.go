@@ -295,6 +295,65 @@ func TestPermissionsWithCustomRoles(t *testing.T) {
 	})
 }
 
+// TestCanManageCustomEmoji verifies that custom emoji management is granted by
+// the dedicated emoji.manage permission on its own, by the broader
+// server.manage permission, and denied when a user holds neither.
+func TestCanManageCustomEmoji(t *testing.T) {
+	core, _ := setupTestCore(t)
+	ctx := testContext(t)
+
+	mustGrant := func(role string, perm Permission) {
+		t.Helper()
+		if _, err := core.CreateServerRole(ctx, SystemActorID, role, role, ""); err != nil {
+			t.Fatalf("create role %s: %v", role, err)
+		}
+		if err := core.GrantServerPermission(ctx, SystemActorID, role, perm); err != nil {
+			t.Fatalf("grant %s to %s: %v", perm, role, err)
+		}
+	}
+	mustUser := func(login, role string) string {
+		t.Helper()
+		u, err := core.CreateUser(ctx, SystemActorID, login, login, "password123")
+		if err != nil {
+			t.Fatalf("create user %s: %v", login, err)
+		}
+		if role != "" {
+			if err := core.AssignServerRole(ctx, SystemActorID, u.Id, role); err != nil {
+				t.Fatalf("assign role %s: %v", role, err)
+			}
+		}
+		return u.Id
+	}
+
+	mustGrant("emoji-only", PermEmojiManage)
+	mustGrant("server-mgr", PermServerManage)
+
+	emojiUser := mustUser("emojiuser", "emoji-only")
+	serverUser := mustUser("serveruser", "server-mgr")
+	plainUser := mustUser("plainuser", "")
+
+	cases := []struct {
+		name   string
+		userID string
+		want   bool
+	}{
+		{"emoji.manage grants emoji management", emojiUser, true},
+		{"server.manage grants emoji management", serverUser, true},
+		{"no relevant permission is denied", plainUser, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := core.CanManageCustomEmoji(ctx, tc.userID)
+			if err != nil {
+				t.Fatalf("CanManageCustomEmoji error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("CanManageCustomEmoji = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 // TestCanHelpers verifies that the semantic Can* helper functions correctly
 // wrap the underlying HasPermission checks.
 func TestCanHelpers(t *testing.T) {

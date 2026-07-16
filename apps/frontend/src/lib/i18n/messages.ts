@@ -1191,6 +1191,7 @@ const msg_rbac_permissions_categories_dm_description = (): LocalizedString => me
 const msg_rbac_permissions_categories_user_title = (): LocalizedString => messages().rbac_permissions_categories_user_title(empty());
 const msg_rbac_permissions_categories_user_description = (): LocalizedString => messages().rbac_permissions_categories_user_description(empty());
 const msg_rbac_permission_descriptions_server_manage = (): LocalizedString => messages().rbac_permission_descriptions_server_manage(empty());
+const msg_rbac_permission_descriptions_emoji_manage = (): LocalizedString => messages().rbac_permission_descriptions_emoji_manage(empty());
 const msg_rbac_permission_descriptions_room_create = (): LocalizedString => messages().rbac_permission_descriptions_room_create(empty());
 const msg_rbac_permission_descriptions_room_join = (): LocalizedString => messages().rbac_permission_descriptions_room_join(empty());
 const msg_rbac_permission_descriptions_room_list = (): LocalizedString => messages().rbac_permission_descriptions_room_list(empty());
@@ -2636,6 +2637,7 @@ export { msg_rbac_permissions_categories_dm_description as 'rbac.permissions.cat
 export { msg_rbac_permissions_categories_user_title as 'rbac.permissions.categories.user.title' };
 export { msg_rbac_permissions_categories_user_description as 'rbac.permissions.categories.user.description' };
 export { msg_rbac_permission_descriptions_server_manage as 'rbac.permission_descriptions.server_manage' };
+export { msg_rbac_permission_descriptions_emoji_manage as 'rbac.permission_descriptions.emoji_manage' };
 export { msg_rbac_permission_descriptions_room_create as 'rbac.permission_descriptions.room_create' };
 export { msg_rbac_permission_descriptions_room_join as 'rbac.permission_descriptions.room_join' };
 export { msg_rbac_permission_descriptions_room_list as 'rbac.permission_descriptions.room_list' };

@@ -19,14 +19,17 @@ Use this reference when building clients against Chatto's public ConnectRPC API.
 ## AdminCustomEmojiService
 
 AdminCustomEmojiService is the administrative surface for managing the server
-custom emoji catalog. Every RPC requires the `server.manage` permission,
-which is held by the owner and admin roles.
+custom emoji catalog. Mutating RPCs require the `emoji.manage` permission or
+the broader `server.manage` permission; both are held by the owner and admin
+roles by default, and `emoji.manage` can be granted on its own to a narrower
+role.
 
 <a id="chatto-admin-v1-AdminCustomEmojiService-CreateCustomEmoji"></a>
 
 ### CreateCustomEmoji
 
-Creates a custom emoji from an uploaded image. Requires `server.manage`.
+Creates a custom emoji from an uploaded image. Requires `emoji.manage` or
+`server.manage`.
 
 ```http
 POST /api/connect/chatto.admin.v1.AdminCustomEmojiService/CreateCustomEmoji
@@ -59,7 +62,7 @@ Result of creating a custom emoji.
 
 ### DeleteCustomEmoji
 
-Deletes a custom emoji by ID. Requires `server.manage`.
+Deletes a custom emoji by ID. Requires `emoji.manage` or `server.manage`.
 
 ```http
 POST /api/connect/chatto.admin.v1.AdminCustomEmojiService/DeleteCustomEmoji
@@ -87,7 +90,8 @@ Result of deleting a custom emoji.
 
 ### ListCustomEmojis
 
-Lists all custom emojis for management. Requires `server.manage`.
+Lists all custom emojis for management. Requires `emoji.manage` or
+`server.manage`.
 
 ```http
 POST /api/connect/chatto.admin.v1.AdminCustomEmojiService/ListCustomEmojis

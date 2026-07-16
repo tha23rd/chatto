@@ -21,6 +21,9 @@ export const PERMISSION_METADATA: Record<string, PermissionMetadata> = {
   'server.manage': {
     description: m['rbac.permission_descriptions.server_manage']
   },
+  'emoji.manage': {
+    description: m['rbac.permission_descriptions.emoji_manage']
+  },
 
   // Room permissions
   'room.create': {
