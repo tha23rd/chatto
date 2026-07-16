@@ -67,16 +67,16 @@ describe('getAdminNavItems', () => {
     expect(items.some((item) => item.label === 'Permissions')).toBe(true);
   });
 
-  it('shows Custom Emoji for emoji managers without full server management', () => {
+  it('shows only Custom Emoji for emoji managers with no other admin access', () => {
+    // An emoji-only role holds neither canViewAdmin nor server management, yet
+    // must still get the Custom Emoji entry (and nothing else).
     const items = getAdminNavItems({
       serverSegment: 'local',
-      chrome: chrome({ canViewAdmin: true, canManageEmoji: true, canManage: false }),
+      chrome: chrome({ canViewAdmin: false, canManageEmoji: true, canManage: false }),
       server: server()
     });
 
-    expect(items.some((item) => item.label === 'Custom Emoji')).toBe(true);
-    // Emoji access alone must not reveal other server-management pages.
-    expect(items.some((item) => item.label === 'General')).toBe(false);
+    expect(items.map((item) => item.label)).toEqual(['Custom Emoji']);
   });
 
   it('hides Custom Emoji without emoji management', () => {

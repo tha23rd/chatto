@@ -36,7 +36,9 @@ export function getAdminNavItems({
   server: AdminNavServerPermissions;
 }): AdminNavItem[] {
   if (!chrome) return [];
-  if (!chrome.canViewAdmin && !server.canViewAdmin) return [];
+  // Emoji managers may hold no other admin capability, so admit them here too;
+  // the per-item guards below still limit them to the Custom Emoji entry.
+  if (!chrome.canViewAdmin && !server.canViewAdmin && !chrome.canManageEmoji) return [];
 
   const items: AdminNavItem[] = [];
 
