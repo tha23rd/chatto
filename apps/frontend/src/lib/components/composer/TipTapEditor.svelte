@@ -1437,10 +1437,12 @@ and exposes a typed API for text manipulation (mentions, emoji, drafts).
     --composer-code-attribute: #953800;
   }
 
+  /* `comment`/`keyword` use GitHub's dark *high-contrast* variants — see the
+     matching block in prose.css for why. Keep the two in sync. */
   :global(:root[data-theme='dark'] .tiptap-editor) {
     --composer-code-text: #d0d7de;
-    --composer-code-comment: #8b949e;
-    --composer-code-keyword: #ff7b72;
+    --composer-code-comment: #bdc4cc;
+    --composer-code-keyword: #ff9492;
     --composer-code-string: #a5d6ff;
     --composer-code-title: #d2a8ff;
     --composer-code-literal: #79c0ff;

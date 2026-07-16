@@ -37,8 +37,10 @@
           const effective =
             stored === 'light' || stored === 'dark' ? stored : mq.matches ? 'dark' : 'light';
           root.dataset.theme = effective;
-          // Pre-CSS background hint, mirrors --color-background.
-          root.style.backgroundColor = effective === 'dark' ? '#171717' : '#f3f4f6';
+          // Pre-CSS background hint, mirrors --color-background in app.css.
+          // Keep both values in sync with the :root / :root[data-theme='dark']
+          // blocks there — a mismatch shows up as a repaint flash on first load.
+          root.style.backgroundColor = effective === 'dark' ? '#313338' : '#f3f4f6';
           root.style.colorScheme = effective;
         }
 
@@ -123,7 +125,7 @@
     />
     <meta name="description" content="Real-time chat application" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#e5e7eb" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#262626" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#313338" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="/manifest.webmanifest" />

@@ -91,40 +91,88 @@
   );
 }
 
+/* Dark theme — Discord-aligned palette.
+ *
+ * Tones that track a specific Discord token are literal hex, since Discord's
+ * palette has no Tailwind equivalent; the Discord role is named inline so the
+ * mapping stays auditable. Tokens that did not need to move stay on their
+ * Tailwind palette vars, to keep this block a small diff against upstream.
+ *
+ * Upstream's dark theme anchored `background` at `neutral-950` (#0a0a0a), which
+ * reads as pure black. This anchors it at Discord's chat plane instead. The
+ * surface ladder still rises from `background` — deliberately NOT Discord's
+ * arrangement, where the sidebar is *darker* than the chat plane. Inverting the
+ * ladder would make Chatto's ~105 `surface` consumers (panels, dialogs, menus)
+ * render below the page and read as holes rather than raised cards.
+ *
+ * Contrast is load-bearing here: raising the background costs every foreground
+ * ~2-3 stops versus #0a0a0a, which is what forced the muted/action/server values
+ * below. Check a foreground against every surface it renders on, not just
+ * `background` — `text-muted` reaching `surface-emphasized` is why that token
+ * moved. `e2e/accessibility.test.ts` scans this theme; run it after any change
+ * here, because the light-mode scans cannot see a dark-only regression.
+ */
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-background: var(--color-neutral-950);
-  --color-text: var(--color-neutral-300);
-  --color-text-top: var(--color-white);
-  --color-muted: var(--color-neutral-400);
+  --color-background: #313338; /* Discord --background-primary */
+  --color-text: #dbdee1; /* Discord --text-normal — 9.36:1 */
+  --color-text-top: #f2f3f5; /* Discord --header-primary — 11.39:1 */
+  /* Discord's --interactive-normal, not its --text-muted (#949ba4). Muted renders
+     on `background`, `surface` AND `surface-emphasized`, so it has to clear 4.5:1
+     against the *lightest* of those (#404249), not just the background. #949ba4
+     manages only 3.55:1 there and #a5acb5 only 4.38:1; this gives 5.14:1 on the
+     worst case and 6.48:1 on the background. ~448 uses, so this one matters. */
+  --color-muted: #b5bac1;
 
-  --color-border: var(--color-neutral-800);
-  --color-surface: var(--color-neutral-900);
-  --color-surface-emphasized: var(--color-neutral-800);
-  --color-surface-strong: var(--color-neutral-700);
-  --color-surface-selected: var(--color-neutral-700);
+  --color-border: #3f4147;
+  --color-surface: #383a40; /* Discord --background-secondary-alt / elevated */
+  --color-surface-emphasized: #404249;
+  --color-surface-strong: #4e5058; /* Discord --background-accent */
+  --color-surface-selected: #4e5058;
 
-  /* See light-mode comment — sits below all surfaces for an inset well look. */
-  --color-input: var(--color-neutral-950);
-  --color-input-border: var(--color-neutral-700);
+  /* See light-mode comment — sits below all surfaces for an inset well look.
+     Discord uses this same tone for its own search/textarea wells. */
+  --color-input: #1e1f22; /* Discord --background-tertiary */
+  --color-input-border: #3f4147;
 
-  --color-action: var(--color-sky-400);
-  --color-action-hover: var(--color-sky-300);
+  /* Blurple, at the light end of the family rather than Discord's exact #5865f2.
+     `--color-action` does double duty: it fills buttons (`bg-action`) *and* paints
+     accent text and icons (`text-action`, 24 sites). Discord's #5865f2 is a dark
+     accent, so it can carry white as a fill but only reaches 2.74:1 as text —
+     unreadable. Upstream's sky-400 worked because it was light, and this keeps
+     that structure: a light accent with a dark foreground on top.
+     Discord itself resolves the same tension by splitting the two roles (blurple
+     fill, separate lighter text accent); doing that here means a new token plus
+     migrating all 24 sites, which is deliberately left as follow-up. */
+  --color-action: #a5b4fc; /* 6.34:1 as text; near-black on it is 9.93:1 */
+  --color-action-hover: #b4bbfd; /* lighter on hover, matching the sky-400 model */
   --color-on-action: var(--color-neutral-950);
-  --color-neutral-action: var(--color-neutral-600);
-  --color-neutral-action-hover: var(--color-neutral-500);
+  --color-neutral-action: #4e5058; /* Discord --background-accent; white on it 8.04:1 */
+  --color-neutral-action-hover: #5c5e66;
   --color-on-neutral-action: var(--color-white);
+  /* Deliberately still tied to --color-action. Discord's own link colour
+     (#00a8fc) was tried and rejected: it clears the background at 4.82:1 but
+     drops to 4.33:1 on `surface`, where links do render. */
   --color-link: var(--color-action);
   --color-link-hover: color-mix(in srgb, var(--color-action), white 20%);
-  --color-success: var(--color-green-500);
+  --color-success: var(--color-green-500); /* 5.55:1 — within Discord's green */
   --color-on-success: var(--color-neutral-950);
-  --color-warning: var(--color-amber-500);
+  --color-warning: var(--color-amber-500); /* 5.89:1 */
   --color-on-warning: var(--color-neutral-950);
-  --color-danger: var(--color-red-400);
+  --color-danger: var(--color-red-400); /* 4.57:1 */
   --color-on-danger: var(--color-neutral-950);
-  --color-error: var(--color-red-400);
-  --color-server: var(--color-indigo-400);
+  --color-error: var(--color-red-400); /* 4.57:1 */
+  /* indigo-400 drops to 4.24:1 on this background, and indigo-300 is now exactly
+     --color-action, which would collapse the server pill into the action accent.
+     violet-300 keeps the cool-accent identity, clears AA (6.85:1), and holds
+     roughly the hue separation from action that sky-vs-indigo gave upstream. */
+  --color-server: var(--color-violet-300);
+
+  /* Presence is otherwise inherited from the light block. Only offline needs a
+     dark override: gray-500 is 2.61:1 here, failing even the 3:1 non-text bar
+     that a status indicator has to clear. */
+  --color-presence-offline: #80848e; /* Discord offline — 3.38:1 */
 
   --color-image-outline: rgba(255, 255, 255, 0.1);
 }

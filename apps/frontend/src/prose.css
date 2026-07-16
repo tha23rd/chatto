@@ -222,10 +222,16 @@
   }
 }
 
+/* GitHub-dark syntax palette. `comment` and `keyword` use GitHub's dark
+   *high-contrast* variants rather than its standard ones: code blocks render on
+   `surface-emphasized` (#404249) or, for `pre.hljs` which is transparent, on
+   `background` (#313338). Both are far lighter than the old #262626/#0a0a0a, and
+   the standard #8b949e/#ff7b72 drop to 3.26:1/3.98:1 there — below AA. Keep this
+   block in sync with the dark block in composer/TipTapEditor.svelte. */
 :root[data-theme='dark'] .prose {
   --composer-code-text: #d0d7de;
-  --composer-code-comment: #8b949e;
-  --composer-code-keyword: #ff7b72;
+  --composer-code-comment: #bdc4cc;
+  --composer-code-keyword: #ff9492;
   --composer-code-string: #a5d6ff;
   --composer-code-title: #d2a8ff;
   --composer-code-literal: #79c0ff;
