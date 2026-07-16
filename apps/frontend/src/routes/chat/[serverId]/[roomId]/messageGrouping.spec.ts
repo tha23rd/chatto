@@ -24,6 +24,7 @@ function createMockEvent(
     kind: RoomEventKind;
     body: string | null;
     attachments: unknown[];
+    webhookOverride: { displayName?: string | null; avatarUrl?: string | null } | null;
   }> = {}
 ): RoomEventView {
   const kind = overrides.kind ?? RoomEventKind.MessagePosted;
@@ -59,7 +60,8 @@ function createMockEvent(
         replyCount: 0,
         lastReplyAt: null,
         threadParticipants: [],
-        viewerIsFollowingThread: null
+        viewerIsFollowingThread: null,
+        webhookOverride: overrides.webhookOverride ?? null
       }
     } as RoomEventView;
   }
@@ -126,6 +128,51 @@ describe('computeEventMetadata', () => {
       expect(result[0].isFirstInGroup).toBe(true);
       expect(result[1].isFirstInGroup).toBe(false);
       expect(result[2].isFirstInGroup).toBe(false);
+    });
+
+    it('does not group consecutive webhook messages with different override identities', () => {
+      const events = [
+        createMockEvent({
+          id: 'evt_1',
+          actorId: 'u_webhook',
+          createdAt: '2025-11-28T10:00:00Z',
+          webhookOverride: { displayName: 'Deploy Bot', avatarUrl: null }
+        }),
+        createMockEvent({
+          id: 'evt_2',
+          actorId: 'u_webhook',
+          createdAt: '2025-11-28T10:01:00Z',
+          webhookOverride: { displayName: 'CI Bot', avatarUrl: null }
+        })
+      ];
+
+      const result = computeEventMetadata(events, defaultSettings);
+
+      expect(result[0].isFirstInGroup).toBe(true);
+      // Different per-message identity must start its own author block (FDR-032).
+      expect(result[1].isFirstInGroup).toBe(true);
+    });
+
+    it('groups consecutive webhook messages with the same override identity', () => {
+      const events = [
+        createMockEvent({
+          id: 'evt_1',
+          actorId: 'u_webhook',
+          createdAt: '2025-11-28T10:00:00Z',
+          webhookOverride: { displayName: 'CI Bot', avatarUrl: null }
+        }),
+        createMockEvent({
+          id: 'evt_2',
+          actorId: 'u_webhook',
+          createdAt: '2025-11-28T10:01:00Z',
+          webhookOverride: { displayName: 'CI Bot', avatarUrl: null }
+        })
+      ];
+
+      const result = computeEventMetadata(events, defaultSettings);
+
+      expect(result[0].isFirstInGroup).toBe(true);
+      expect(result[1].isFirstInGroup).toBe(false);
     });
 
     it('groups kind-discriminated messages from the same user', () => {

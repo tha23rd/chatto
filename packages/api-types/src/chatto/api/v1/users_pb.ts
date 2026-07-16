@@ -9,6 +9,35 @@ import { PresenceStatus } from "./presence_pb.js";
 import { CustomUserStatus } from "./user_status_pb.js";
 
 /**
+ * UserKind discriminates human accounts from synthetic, non-human identities
+ * such as channel webhook authors (FDR-032).
+ *
+ * @generated from enum chatto.api.v1.UserKind
+ */
+export enum UserKind {
+  /**
+   * @generated from enum value: USER_KIND_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: USER_KIND_HUMAN = 1;
+   */
+  HUMAN = 1,
+
+  /**
+   * @generated from enum value: USER_KIND_WEBHOOK = 2;
+   */
+  WEBHOOK = 2,
+}
+// Retrieve enum metadata with: proto3.getEnumType(UserKind)
+proto3.util.setEnumType(UserKind, "chatto.api.v1.UserKind", [
+  { no: 0, name: "USER_KIND_UNSPECIFIED" },
+  { no: 1, name: "USER_KIND_HUMAN" },
+  { no: 2, name: "USER_KIND_WEBHOOK" },
+]);
+
+/**
  * Public user fields.
  *
  * @generated from message chatto.api.v1.User
@@ -63,6 +92,14 @@ export class User extends Message<User> {
    */
   customStatus?: CustomUserStatus;
 
+  /**
+   * Account kind. When automated (e.g. a channel webhook identity), clients
+   * may render an "automated" marker. Empty/unspecified means a human account.
+   *
+   * @generated from field: chatto.api.v1.UserKind kind = 8;
+   */
+  kind = UserKind.UNSPECIFIED;
+
   constructor(data?: PartialMessage<User>) {
     super();
     proto3.util.initPartial(data, this);
@@ -78,6 +115,7 @@ export class User extends Message<User> {
     { no: 5, name: "avatar_url", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 6, name: "presence_status", kind: "enum", T: proto3.getEnumType(PresenceStatus) },
     { no: 7, name: "custom_status", kind: "message", T: CustomUserStatus },
+    { no: 8, name: "kind", kind: "enum", T: proto3.getEnumType(UserKind) },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): User {

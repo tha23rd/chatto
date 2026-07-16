@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package chatto.admin.v1;
+
+import "buf/validate/validate.proto";
+import "chatto/api/v1/common.proto";
+
+option go_package = "hmans.de/chatto/internal/pb/chatto/admin/v1;adminv1";
+
+// A channel webhook: a token-authorized endpoint that posts messages into a
+// specific room under a synthetic, non-human webhook identity (FDR-032). The
+// secret token is embedded in the post URL and is only ever returned once, at
+// creation and regeneration time.
+message Webhook {
+  // Webhook identifier.
+  string id = 1;
+  // Room this webhook posts into.
+  string room_id = 2;
+  // Human-facing webhook name and default author display name.
+  string name = 3;
+  // Default avatar image URL for the webhook identity, when set.
+  optional string avatar_url = 4;
+  // User ID of the administrator who created the webhook.
+  string created_by = 5;
+  // Creation time in Unix milliseconds.
+  int64 created_at_ms = 6;
+  // When true, the webhook is retained but rejects inbound posts.
+  bool disabled = 7;
+  // User ID of the synthetic webhook user that authors this webhook's messages.
+  string user_id = 8;
+}
+
+// Request to create a webhook against a room.
+message CreateWebhookRequest {
+  // Required. Room the webhook posts into.
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Required. Webhook name / default author display name.
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 80
+  }];
+  // Optional default avatar image, processed into a stored asset.
+  chatto.api.v1.ImageUpload avatar = 3;
+}
+
+// Result of creating a webhook, including the one-time secret.
+message CreateWebhookResponse {
+  // The created webhook.
+  Webhook webhook = 1;
+  // Raw secret token. Shown once; only its hash is stored server-side.
+  string token = 2;
+  // Full post URL (base URL + webhook id + token). Shown once.
+  string url = 3;
+}
+
+// Request to update a webhook's mutable fields. Unset fields are unchanged.
+message UpdateWebhookRequest {
+  // Required. Webhook to update.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  // New name, when changing it.
+  optional string name = 2 [(buf.validate.field).string.max_len = 80];
+  // New avatar image, when replacing it.
+  chatto.api.v1.ImageUpload avatar = 3;
+  // When true, remove the current avatar (mutually exclusive with `avatar`).
+  optional bool clear_avatar = 4;
+  // New disabled state, when changing it.
+  optional bool disabled = 5;
+}
+
+// Result of updating a webhook.
+message UpdateWebhookResponse {
+  // The updated webhook.
+  Webhook webhook = 1;
+}
+
+// Request to delete a webhook by ID.
+message DeleteWebhookRequest {
+  // Required. Webhook to delete.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// Result of deleting a webhook.
+message DeleteWebhookResponse {}
+
+// Request to list webhooks, optionally filtered to one room.
+message ListWebhooksRequest {
+  // When set, only webhooks posting into this room are returned.
+  optional string room_id = 1;
+}
+
+// Response carrying the matching webhooks.
+message ListWebhooksResponse {
+  // Webhooks, ordered by creation time.
+  repeated Webhook webhooks = 1;
+}
+
+// Request to regenerate a webhook's secret token, invalidating the previous one.
+message RegenerateWebhookTokenRequest {
+  // Required. Webhook whose token is regenerated.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// Result of regenerating a webhook token, including the new one-time secret.
+message RegenerateWebhookTokenResponse {
+  // The webhook.
+  Webhook webhook = 1;
+  // New raw secret token. Shown once.
+  string token = 2;
+  // New full post URL. Shown once.
+  string url = 3;
+}
+
+// AdminWebhookService manages channel webhooks. Every RPC requires the
+// `server.manage` permission, held by the owner and admin roles by default.
+service AdminWebhookService {
+  // Creates a webhook against a room and returns its one-time secret URL.
+  // Requires `server.manage`.
+  rpc CreateWebhook(CreateWebhookRequest) returns (CreateWebhookResponse);
+  // Updates a webhook's name, avatar, or disabled state. Requires
+  // `server.manage`.
+  rpc UpdateWebhook(UpdateWebhookRequest) returns (UpdateWebhookResponse);
+  // Deletes a webhook and disables its backing identity. Requires
+  // `server.manage`.
+  rpc DeleteWebhook(DeleteWebhookRequest) returns (DeleteWebhookResponse);
+  // Lists webhooks, optionally filtered to one room. Requires `server.manage`.
+  rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
+  // Regenerates a webhook's secret token, invalidating the previous URL.
+  // Requires `server.manage`.
+  rpc RegenerateWebhookToken(RegenerateWebhookTokenRequest) returns (RegenerateWebhookTokenResponse);
+}

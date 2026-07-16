@@ -49,6 +49,7 @@
     "saved": "Sauvé !",
     "rooms": "Chambres",
     "copy_to_clipboard": "Copier dans le presse-papiers",
-    "copied_to_clipboard": "Copié dans le presse-papiers"
+    "copied_to_clipboard": "Copié dans le presse-papiers",
+    "automated": "Automatisé"
   }
 }

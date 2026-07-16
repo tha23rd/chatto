@@ -99,6 +99,7 @@ export default defineConfig({
             "guides/integrations/external-login-providers",
             "guides/integrations/community-shields",
             "guides/integrations/pocket-id",
+            "guides/integrations/channel-webhooks",
           ],
         },
         {
@@ -149,6 +150,7 @@ export default defineConfig({
                 "reference/connectrpc-api/admin-room-layout",
                 "reference/connectrpc-api/admin-server",
                 "reference/connectrpc-api/admin-users",
+                "reference/connectrpc-api/admin-webhooks",
               ],
             },
             {

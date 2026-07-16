@@ -23,6 +23,7 @@ func (s *userService) userSummary(ctx context.Context, user *corev1.User, avatar
 		Deleted:        user.GetDeleted(),
 		PresenceStatus: corePresenceStatusToAPI(presence),
 		CustomStatus:   coreCustomStatusToAPI(user.GetCustomStatus()),
+		Kind:           coreUserKindToAPI(user.GetKind()),
 	}
 	avatarURL, err := s.userAvatarURL(ctx, user.GetId(), avatar)
 	if err != nil {
@@ -32,6 +33,18 @@ func (s *userService) userSummary(ctx context.Context, user *corev1.User, avatar
 		summary.AvatarUrl = stringPtr(s.api.absolutizeAssetURL(ctx, avatarURL))
 	}
 	return summary, nil
+}
+
+// coreUserKindToAPI maps the durable user kind to its public API enum.
+func coreUserKindToAPI(kind corev1.UserKind) apiv1.UserKind {
+	switch kind {
+	case corev1.UserKind_USER_KIND_WEBHOOK:
+		return apiv1.UserKind_USER_KIND_WEBHOOK
+	case corev1.UserKind_USER_KIND_HUMAN:
+		return apiv1.UserKind_USER_KIND_HUMAN
+	default:
+		return apiv1.UserKind_USER_KIND_UNSPECIFIED
+	}
 }
 
 func (s *userService) userAvatarURL(ctx context.Context, userID string, avatar *apiv1.ImageTransformOptions) (string, error) {

@@ -14,12 +14,13 @@ import (
 // plaintext content. The body's encryption envelope is unwrapped by
 // the resolver layer's decryptMessageBody helper.
 type DecryptedMessageBody struct {
-	AuthorId    string
-	Body        string
-	Attachments []*corev1.Attachment
-	LinkPreview *corev1.LinkPreview
-	CreatedAt   time.Time
-	UpdatedAt   *time.Time
+	AuthorId        string
+	Body            string
+	Attachments     []*corev1.Attachment
+	LinkPreview     *corev1.LinkPreview
+	CreatedAt       time.Time
+	UpdatedAt       *time.Time
+	WebhookOverride *corev1.WebhookMessageOverride
 }
 
 // GetFullMessageBody returns the decrypted message body for a message.
@@ -75,11 +76,12 @@ func (c *ChattoCore) GetFullMessageBodyByEventID(ctx context.Context, eventID st
 	}
 
 	result := &DecryptedMessageBody{
-		AuthorId:    body.GetAuthorId(),
-		Body:        string(plaintext),
-		Attachments: c.MessageBodyAttachments(body),
-		LinkPreview: body.GetLinkPreview(),
-		CreatedAt:   entry.Event.GetCreatedAt().AsTime(),
+		AuthorId:        body.GetAuthorId(),
+		Body:            string(plaintext),
+		Attachments:     c.MessageBodyAttachments(body),
+		LinkPreview:     body.GetLinkPreview(),
+		CreatedAt:       entry.Event.GetCreatedAt().AsTime(),
+		WebhookOverride: body.GetWebhookOverride(),
 	}
 	// UpdatedAt: if LatestBody returned a body different from the
 	// original post's body, the message has been edited. The body

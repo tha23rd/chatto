@@ -701,6 +701,16 @@ export class Message extends Message$1<Message> {
    */
   deletedAt?: Timestamp;
 
+  /**
+   * Per-message webhook identity override (FDR-032). Present only when this
+   * message was posted through a channel webhook whose caller supplied a
+   * per-message username and/or avatar. When present, clients render this
+   * name/avatar instead of the author's profile.
+   *
+   * @generated from field: chatto.api.v1.MessageWebhookOverride webhook_override = 22;
+   */
+  webhookOverride?: MessageWebhookOverride;
+
   constructor(data?: PartialMessage<Message>) {
     super();
     proto3.util.initPartial(data, this);
@@ -725,6 +735,7 @@ export class Message extends Message$1<Message> {
     { no: 19, name: "reactions", kind: "message", T: MessageReaction, repeated: true },
     { no: 20, name: "thread", kind: "message", T: ThreadSummary },
     { no: 21, name: "deleted_at", kind: "message", T: Timestamp },
+    { no: 22, name: "webhook_override", kind: "message", T: MessageWebhookOverride },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Message {
@@ -741,5 +752,55 @@ export class Message extends Message$1<Message> {
 
   static equals(a: Message | PlainMessage<Message> | undefined, b: Message | PlainMessage<Message> | undefined): boolean {
     return proto3.util.equals(Message, a, b);
+  }
+}
+
+/**
+ * MessageWebhookOverride is the per-message display identity a channel webhook
+ * set on an individual post (FDR-032).
+ *
+ * @generated from message chatto.api.v1.MessageWebhookOverride
+ */
+export class MessageWebhookOverride extends Message$1<MessageWebhookOverride> {
+  /**
+   * Display name to render for this message, when set.
+   *
+   * @generated from field: optional string display_name = 1;
+   */
+  displayName?: string;
+
+  /**
+   * Avatar image URL to render for this message, when set.
+   *
+   * @generated from field: optional string avatar_url = 2;
+   */
+  avatarUrl?: string;
+
+  constructor(data?: PartialMessage<MessageWebhookOverride>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "chatto.api.v1.MessageWebhookOverride";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "display_name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 2, name: "avatar_url", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): MessageWebhookOverride {
+    return new MessageWebhookOverride().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): MessageWebhookOverride {
+    return new MessageWebhookOverride().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): MessageWebhookOverride {
+    return new MessageWebhookOverride().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: MessageWebhookOverride | PlainMessage<MessageWebhookOverride> | undefined, b: MessageWebhookOverride | PlainMessage<MessageWebhookOverride> | undefined): boolean {
+    return proto3.util.equals(MessageWebhookOverride, a, b);
   }
 }

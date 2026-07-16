@@ -197,6 +197,12 @@ const categories = [
         slug: 'admin-users',
         title: 'Admin Users',
         description: 'User identity, member detail, role assignment, and username-cooldown RPCs.'
+      },
+      {
+        name: 'AdminWebhookService',
+        slug: 'admin-webhooks',
+        title: 'Admin Webhooks',
+        description: 'Channel webhook create, update, delete, list, and token-regeneration RPCs.'
       }
     ]
   }

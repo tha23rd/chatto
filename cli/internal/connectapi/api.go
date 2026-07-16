@@ -118,6 +118,7 @@ func (a *API) Handlers() []Handler {
 	voicePath, voiceHandler := apiv1connect.NewVoiceCallServiceHandler(&voiceCallService{api: a}, options...)
 	customEmojiPath, customEmojiHandler := apiv1connect.NewCustomEmojiServiceHandler(&customEmojiService{api: a}, options...)
 	adminCustomEmojiPath, adminCustomEmojiHandler := adminv1connect.NewAdminCustomEmojiServiceHandler(&adminCustomEmojiService{api: a}, uploadOptions...)
+	adminWebhookPath, adminWebhookHandler := adminv1connect.NewAdminWebhookServiceHandler(&adminWebhookService{api: a}, uploadOptions...)
 	handlers := []Handler{
 		{ServicePath: accountPath, Handler: accountHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
 		{ServicePath: assetPath, Handler: assetHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
@@ -145,6 +146,7 @@ func (a *API) Handlers() []Handler {
 		{ServicePath: voicePath, Handler: voiceHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
 		{ServicePath: customEmojiPath, Handler: customEmojiHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
 		{ServicePath: adminCustomEmojiPath, Handler: adminCustomEmojiHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
+		{ServicePath: adminWebhookPath, Handler: adminWebhookHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
 	}
 	return append(handlers, reflectionHandlers(options)...)
 }

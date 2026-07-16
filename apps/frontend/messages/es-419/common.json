@@ -49,6 +49,7 @@
     "saved": "¡Guardado!",
     "rooms": "Habitaciones",
     "copy_to_clipboard": "Copiar al portapapeles",
-    "copied_to_clipboard": "Copiado al portapapeles"
+    "copied_to_clipboard": "Copiado al portapapeles",
+    "automated": "Automatizado"
   }
 }

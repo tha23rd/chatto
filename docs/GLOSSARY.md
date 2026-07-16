@@ -62,6 +62,8 @@ User-facing concepts. If a user might say the word, it goes here.
 
 **Custom Emoji** — Admin-uploaded, named image shortcode (for example `:partyparrot:`) in a server-wide catalog that any member can use. Names match `^[a-z0-9_]{1,64}$` and must not collide with built-in gemoji shortcodes. In its first version custom emoji are usable as message *Reactions* (rendered as images); inline `:name:` substitution in message bodies is out of scope. Managed with `server.manage`. See [FDR-030](fdr/FDR-030-custom-emoji.md).
 
+**Channel Webhook** — Per-room, token-authorized HTTP endpoint that lets an external service post messages without a user account or session, mirroring Discord's incoming webhooks. Created and managed with `server.manage`; the secret post URL is shown once at creation/regeneration and never again. Posts may override the display name/avatar per message. See [FDR-032](fdr/FDR-032-channel-webhooks.md).
+
 **Mention** — `@handle` syntax in a message that notifies referenced users, pingable roles, or virtual room groups such as `@all` and `@here`. See [FDR-006](fdr/FDR-006-mentions.md).
 
 **Attachment** — File (image, document, video) uploaded alongside a message. See [FDR-008](fdr/FDR-008-file-attachments-and-video.md).
@@ -113,6 +115,8 @@ Infrastructure jargon. If only contributors say the word, it goes here.
 **ChattoCore** — Go package (`cli/internal/core`) that owns domain models, projections, and NATS access. Low-level helpers are not public transport entry points and may assume their caller has already authorized the operation; public ConnectRPC paths should delegate to core operation models that own authorization before domain state changes. See [ADR-044](adr/ADR-044-connectrpc-service-conventions.md).
 
 **System actor** — Synthetic actor ID used when Chatto itself, bootstrap code, or trusted operator automation performs a domain write. It is not a login-capable user account.
+
+**Webhook user** — Synthetic, non-human user of kind `USER_KIND_WEBHOOK` that backs a *Channel Webhook* and authors its messages. Passwordless and excluded from the member directory, login resolution, and mention autocomplete. See [FDR-032](fdr/FDR-032-channel-webhooks.md).
 
 **Admin API** — Public ConnectRPC administrative surface in `chatto.admin.v1`. On the public web listener it uses normal user authentication and RBAC. It is separate from the local Operator API. See [FDR-028](fdr/FDR-028-operator-api-and-cli.md).
 
