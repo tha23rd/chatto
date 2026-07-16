@@ -47,11 +47,13 @@ const (
 // AdminCustomEmojiServiceClient is a client for the chatto.admin.v1.AdminCustomEmojiService
 // service.
 type AdminCustomEmojiServiceClient interface {
-	// Creates a custom emoji from an uploaded image. Requires `server.manage`.
+	// Creates a custom emoji from an uploaded image. Requires `emoji.manage` or
+	// `server.manage`.
 	CreateCustomEmoji(context.Context, *connect.Request[v1.CreateCustomEmojiRequest]) (*connect.Response[v1.CreateCustomEmojiResponse], error)
-	// Deletes a custom emoji by ID. Requires `server.manage`.
+	// Deletes a custom emoji by ID. Requires `emoji.manage` or `server.manage`.
 	DeleteCustomEmoji(context.Context, *connect.Request[v1.DeleteCustomEmojiRequest]) (*connect.Response[v1.DeleteCustomEmojiResponse], error)
-	// Lists all custom emojis for management. Requires `server.manage`.
+	// Lists all custom emojis for management. Requires `emoji.manage` or
+	// `server.manage`.
 	ListCustomEmojis(context.Context, *connect.Request[v1.ListCustomEmojisRequest]) (*connect.Response[v1.ListCustomEmojisResponse], error)
 }
 
@@ -112,11 +114,13 @@ func (c *adminCustomEmojiServiceClient) ListCustomEmojis(ctx context.Context, re
 // AdminCustomEmojiServiceHandler is an implementation of the
 // chatto.admin.v1.AdminCustomEmojiService service.
 type AdminCustomEmojiServiceHandler interface {
-	// Creates a custom emoji from an uploaded image. Requires `server.manage`.
+	// Creates a custom emoji from an uploaded image. Requires `emoji.manage` or
+	// `server.manage`.
 	CreateCustomEmoji(context.Context, *connect.Request[v1.CreateCustomEmojiRequest]) (*connect.Response[v1.CreateCustomEmojiResponse], error)
-	// Deletes a custom emoji by ID. Requires `server.manage`.
+	// Deletes a custom emoji by ID. Requires `emoji.manage` or `server.manage`.
 	DeleteCustomEmoji(context.Context, *connect.Request[v1.DeleteCustomEmojiRequest]) (*connect.Response[v1.DeleteCustomEmojiResponse], error)
-	// Lists all custom emojis for management. Requires `server.manage`.
+	// Lists all custom emojis for management. Requires `emoji.manage` or
+	// `server.manage`.
 	ListCustomEmojis(context.Context, *connect.Request[v1.ListCustomEmojisRequest]) (*connect.Response[v1.ListCustomEmojisResponse], error)
 }
 

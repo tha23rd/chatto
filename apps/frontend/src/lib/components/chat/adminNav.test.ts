@@ -5,6 +5,7 @@ function chrome(overrides: Partial<AdminNavChromePermissions> = {}): AdminNavChr
   return {
     canViewAdmin: false,
     canManage: false,
+    canManageEmoji: false,
     canManageRooms: false,
     canManageRoles: false,
     canAssignRoles: false,
@@ -64,5 +65,27 @@ describe('getAdminNavItems', () => {
     });
 
     expect(items.some((item) => item.label === 'Permissions')).toBe(true);
+  });
+
+  it('shows Custom Emoji for emoji managers without full server management', () => {
+    const items = getAdminNavItems({
+      serverSegment: 'local',
+      chrome: chrome({ canViewAdmin: true, canManageEmoji: true, canManage: false }),
+      server: server()
+    });
+
+    expect(items.some((item) => item.label === 'Custom Emoji')).toBe(true);
+    // Emoji access alone must not reveal other server-management pages.
+    expect(items.some((item) => item.label === 'General')).toBe(false);
+  });
+
+  it('hides Custom Emoji without emoji management', () => {
+    const items = getAdminNavItems({
+      serverSegment: 'local',
+      chrome: chrome({ canViewAdmin: true, canManage: false, canManageEmoji: false }),
+      server: server()
+    });
+
+    expect(items.some((item) => item.label === 'Custom Emoji')).toBe(false);
   });
 });

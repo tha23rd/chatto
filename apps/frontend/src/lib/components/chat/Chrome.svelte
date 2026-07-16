@@ -86,6 +86,7 @@
     bannerUrl: string | null;
     canViewAdmin: boolean;
     canManage: boolean;
+    canManageEmoji: boolean;
     canManageRooms: boolean;
     canManageRoles: boolean;
     canAssignRoles: boolean;
@@ -118,6 +119,7 @@
         bannerUrl: server.bannerUrl,
         canViewAdmin: viewer.canViewAdmin,
         canManage: server.viewerCanManageServer,
+        canManageEmoji: server.viewerCanManageEmoji,
         canManageRooms: server.viewerCanManageRooms,
         canManageRoles: viewer.canAdminManageRoles,
         canAssignRoles: viewer.canAssignRoles,
@@ -210,6 +212,7 @@
       updateChromePermissions({
         canViewAdmin: serverData.canViewAdmin,
         canManage: serverData.canManage,
+        canManageEmoji: serverData.canManageEmoji,
         canManageRooms: serverData.canManageRooms,
         canManageRoles: serverData.canManageRoles,
         canAssignRoles: serverData.canAssignRoles,

@@ -86,6 +86,7 @@
     },
     "permission_descriptions": {
       "server_manage": "Aktualizuj ustawienia serwera (nazwa, opis, logo)",
+      "emoji_manage": "Dodawanie i usuwanie niestandardowych emoji serwera",
       "room_create": "Utwórz nowe pokoje",
       "room_join": "Dołącz do istniejących pokoi",
       "room_list": "Zobacz pokoje w katalogu. Użytkownik może uzyskać dostęp do pokoju (np. poprosić o dostęp) bez możliwości dołączenia do niego.",

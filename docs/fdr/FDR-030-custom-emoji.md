@@ -116,21 +116,40 @@ proven out.
 **Tradeoff:** Members can react with a custom emoji but cannot drop it into a
 sentence yet.
 
+### 7. Dedicated `emoji.manage` permission, accepting `server.manage` too
+
+**Decision:** Emoji create/delete are gated on a dedicated server-scope
+`emoji.manage` permission rather than the broad `server.manage`. The check
+(`CanManageCustomEmoji`) succeeds for either `emoji.manage` or `server.manage`,
+and `emoji.manage` is seeded into the admin role defaults.
+**Why:** Curating emoji is a low-risk, high-frequency task that admins reasonably
+want to delegate. Requiring `server.manage` for it meant delegating the entire
+server-settings surface (branding, blocked usernames, webhooks). A dedicated
+permission lets an operator grant a narrow "emoji manager" role. Accepting
+`server.manage` as well keeps the change non-breaking: existing admins and any
+custom role previously granted `server.manage` for emoji keep working without a
+re-grant.
+**Tradeoff:** Two permissions can now authorize the same action, so reasoning
+about "who can manage emoji" means checking both grants rather than one.
+
 ## Permissions
 
-- `server.manage` — upload and delete server custom emoji. Held by the owner and
-  admin roles. Reading the catalog and reacting with a custom emoji require only
-  authentication (reacting also requires `message.react`, per FDR-005).
+- `emoji.manage` — upload and delete server custom emoji. Held by the owner and
+  admin roles by default, and grantable on its own to a narrower role so people
+  can curate emoji without the broader `server.manage` capability. `server.manage`
+  holders retain emoji access too, so existing server managers are unaffected
+  (see decision 7). Reading the catalog and reacting with a custom emoji require
+  only authentication (reacting also requires `message.react`, per FDR-005).
 
 ## Related
 
 - **ADRs:** ADR-022 (NanoID with entity prefixes), ADR-033 (event-sourced state
   with projections), ADR-034 (single event stream), ADR-035 (per-aggregate
-  migration), ADR-042 (protobuf-first public API), ADR-044 (ConnectRPC service
-  conventions)
-- **FDRs:** FDR-005 (Reactions), FDR-008 (File Attachments & Video Processing),
-  FDR-020 (Server Branding & Configuration), FDR-021 (Admin Dashboard & System
-  Monitoring)
+  migration), ADR-040 (permission-only RBAC with owner override), ADR-042
+  (protobuf-first public API), ADR-044 (ConnectRPC service conventions)
+- **FDRs:** FDR-001 (Roles & Permissions), FDR-005 (Reactions), FDR-008 (File
+  Attachments & Video Processing), FDR-020 (Server Branding & Configuration),
+  FDR-021 (Admin Dashboard & System Monitoring)
 
 ## Open Questions
 

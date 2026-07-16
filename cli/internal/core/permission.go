@@ -40,6 +40,12 @@ const (
 	// PermServerManage allows updating server settings (name, description, logo).
 	PermServerManage Permission = "server.manage"
 
+	// PermEmojiManage allows creating and deleting server custom emoji without
+	// the broader server.manage capability. server.manage holders retain emoji
+	// access too (see CanManageCustomEmoji), so this can be granted on its own to
+	// a narrower "emoji manager" role.
+	PermEmojiManage Permission = "emoji.manage"
+
 	// ===== Room Permissions =====
 
 	// PermRoomCreate allows creating new rooms.
@@ -146,6 +152,7 @@ type PermissionMetadata struct {
 var allPermissions = []PermissionMetadata{
 	// Server
 	{PermServerManage, "Manage Server", "Update server settings (name, description, logo)", CategoryServer, []PermissionScope{ScopeServer}},
+	{PermEmojiManage, "Manage Custom Emoji", "Add and remove server custom emoji", CategoryServer, []PermissionScope{ScopeServer}},
 
 	// Room
 	{PermRoomCreate, "Create Rooms", "Create new rooms in this group (or anywhere if granted at server scope)", CategoryRoom, []PermissionScope{ScopeServer, ScopeGroup}},

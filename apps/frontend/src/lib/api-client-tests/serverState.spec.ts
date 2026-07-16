@@ -188,6 +188,7 @@ describe('getAuthenticatedServerState', () => {
         'user.manage-permissions': true
       },
       viewerCanManageServer: true,
+      viewerCanManageEmoji: true,
       viewerCanCreateRooms: true,
       viewerCanJoinRooms: true,
       viewerCanListRooms: true,

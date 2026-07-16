@@ -30,10 +30,11 @@ func validateCustomEmojiName(name string) error {
 
 // CreateCustomEmoji processes an uploaded image into a small square WebP,
 // uploads it to the server asset store, and records the emoji in the durable
-// server catalog. Requires the server.manage permission. Returns the created
-// emoji. On failure after the asset upload, the orphaned asset is cleaned up.
+// server catalog. Requires the emoji.manage or server.manage permission.
+// Returns the created emoji. On failure after the asset upload, the orphaned
+// asset is cleaned up.
 func (c *ChattoCore) CreateCustomEmoji(ctx context.Context, actorID, name string, reader io.Reader) (*CustomEmoji, error) {
-	if err := c.requireCanManageServer(ctx, actorID); err != nil {
+	if err := c.requireCanManageCustomEmoji(ctx, actorID); err != nil {
 		return nil, err
 	}
 
@@ -86,10 +87,10 @@ func (c *ChattoCore) CreateCustomEmoji(ctx context.Context, actorID, name string
 }
 
 // DeleteCustomEmoji removes a custom emoji from the server catalog and cleans
-// up its backing asset. Requires the server.manage permission. Returns
-// ErrNotFound when the emoji does not exist.
+// up its backing asset. Requires the emoji.manage or server.manage permission.
+// Returns ErrNotFound when the emoji does not exist.
 func (c *ChattoCore) DeleteCustomEmoji(ctx context.Context, actorID, id string) error {
-	if err := c.requireCanManageServer(ctx, actorID); err != nil {
+	if err := c.requireCanManageCustomEmoji(ctx, actorID); err != nil {
 		return err
 	}
 
