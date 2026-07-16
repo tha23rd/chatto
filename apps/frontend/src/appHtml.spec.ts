@@ -121,7 +121,8 @@ function runThemeScript({
 describe('app.html metadata', () => {
   it('defines theme colors matching the outer frame background colors', () => {
     expect(metaContent('theme-color', 'light')).toBe('#e5e7eb');
-    expect(metaContent('theme-color', 'dark')).toBe('#262626');
+    // Dark tracks --color-background in app.css, now Discord's chat plane.
+    expect(metaContent('theme-color', 'dark')).toBe('#313338');
   });
 
   it('declares the Safari apple touch icon with an explicit size', () => {
