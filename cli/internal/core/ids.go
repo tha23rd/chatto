@@ -132,3 +132,16 @@ func NewCookieSessionID() string {
 func NewAuthCode() string {
 	return "cht_" + newID("AC")
 }
+
+// NewWebhookID generates a new channel webhook ID with "WH" prefix. It appears
+// in the public webhook post URL, so it stays in the URL-safe NanoID alphabet.
+func NewWebhookID() string {
+	return newID("WH")
+}
+
+// NewWebhookToken generates a new channel webhook secret token with the
+// "cht_WH" prefix so it is recognizable in logs and password managers. Only its
+// HMAC is ever persisted (see webhook.go).
+func NewWebhookToken() string {
+	return "cht_" + newID("WH")
+}

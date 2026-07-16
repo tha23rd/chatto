@@ -20,6 +20,7 @@ const (
 
 type postMessageOptions struct {
 	videoProcessingAssetIDs map[string]struct{}
+	webhookOverride         *corev1.WebhookMessageOverride
 }
 
 type editMessageOptions struct {
@@ -43,6 +44,22 @@ func WithVideoProcessingAssets(assetIDs ...string) PostMessageOption {
 			if assetID != "" {
 				options.videoProcessingAssetIDs[assetID] = struct{}{}
 			}
+		}
+	}
+}
+
+// WithWebhookOverride sets a per-message display identity for a message posted
+// through a channel webhook (FDR-031). A non-empty display name and/or avatar
+// URL is rendered instead of the authoring webhook user's profile. Passing two
+// empty strings is a no-op.
+func WithWebhookOverride(displayName, avatarURL string) PostMessageOption {
+	return func(options *postMessageOptions) {
+		if displayName == "" && avatarURL == "" {
+			return
+		}
+		options.webhookOverride = &corev1.WebhookMessageOverride{
+			DisplayName: displayName,
+			AvatarUrl:   avatarURL,
 		}
 	}
 }
@@ -524,10 +541,11 @@ func (c *ChattoCore) PostMessage(ctx context.Context, kind RoomKind, room_id, us
 	eventID := NewEventID()
 	bodyEventID := NewEventID()
 	messageBody := &corev1.MessageBody{
-		CreatedAt:   timestamppb.New(now),
-		AssetIds:    resolvedAssetIDs,
-		AuthorId:    user_id,
-		LinkPreview: linkPreview,
+		CreatedAt:       timestamppb.New(now),
+		AssetIds:        resolvedAssetIDs,
+		AuthorId:        user_id,
+		LinkPreview:     linkPreview,
+		WebhookOverride: options.webhookOverride,
 	}
 	if err := c.encryptMessageBody(ctx, messageBody, room_id, eventID, bodyEventID, body); err != nil {
 		return nil, err

@@ -12,12 +12,15 @@ import (
 )
 
 func (s *HTTPServer) setupWebhookRoutes() {
-	if !s.config.LiveKit.IsConfigured() {
-		return
-	}
-
 	webhooks := s.router.Group("/webhooks")
-	webhooks.POST("/livekit", s.handleLiveKitWebhook)
+
+	// Channel webhooks (FDR-031) are always available. The nested "incoming"
+	// segment avoids a route conflict with the sibling static /webhooks/livekit.
+	webhooks.POST("/incoming/:webhookId/:token", s.handleChannelWebhook)
+
+	if s.config.LiveKit.IsConfigured() {
+		webhooks.POST("/livekit", s.handleLiveKitWebhook)
+	}
 	registerTestWebhookEndpoints(webhooks, s)
 }
 

@@ -53,18 +53,18 @@ const (
 // AdminWebhookServiceClient is a client for the chatto.admin.v1.AdminWebhookService service.
 type AdminWebhookServiceClient interface {
 	// Creates a webhook against a room and returns its one-time secret URL.
-	// Requires `webhook.manage`.
+	// Requires `server.manage`.
 	CreateWebhook(context.Context, *connect.Request[v1.CreateWebhookRequest]) (*connect.Response[v1.CreateWebhookResponse], error)
 	// Updates a webhook's name, avatar, or disabled state. Requires
-	// `webhook.manage`.
+	// `server.manage`.
 	UpdateWebhook(context.Context, *connect.Request[v1.UpdateWebhookRequest]) (*connect.Response[v1.UpdateWebhookResponse], error)
 	// Deletes a webhook and disables its backing identity. Requires
-	// `webhook.manage`.
+	// `server.manage`.
 	DeleteWebhook(context.Context, *connect.Request[v1.DeleteWebhookRequest]) (*connect.Response[v1.DeleteWebhookResponse], error)
-	// Lists webhooks, optionally filtered to one room. Requires `webhook.manage`.
+	// Lists webhooks, optionally filtered to one room. Requires `server.manage`.
 	ListWebhooks(context.Context, *connect.Request[v1.ListWebhooksRequest]) (*connect.Response[v1.ListWebhooksResponse], error)
 	// Regenerates a webhook's secret token, invalidating the previous URL.
-	// Requires `webhook.manage`.
+	// Requires `server.manage`.
 	RegenerateWebhookToken(context.Context, *connect.Request[v1.RegenerateWebhookTokenRequest]) (*connect.Response[v1.RegenerateWebhookTokenResponse], error)
 }
 
@@ -150,18 +150,18 @@ func (c *adminWebhookServiceClient) RegenerateWebhookToken(ctx context.Context, 
 // service.
 type AdminWebhookServiceHandler interface {
 	// Creates a webhook against a room and returns its one-time secret URL.
-	// Requires `webhook.manage`.
+	// Requires `server.manage`.
 	CreateWebhook(context.Context, *connect.Request[v1.CreateWebhookRequest]) (*connect.Response[v1.CreateWebhookResponse], error)
 	// Updates a webhook's name, avatar, or disabled state. Requires
-	// `webhook.manage`.
+	// `server.manage`.
 	UpdateWebhook(context.Context, *connect.Request[v1.UpdateWebhookRequest]) (*connect.Response[v1.UpdateWebhookResponse], error)
 	// Deletes a webhook and disables its backing identity. Requires
-	// `webhook.manage`.
+	// `server.manage`.
 	DeleteWebhook(context.Context, *connect.Request[v1.DeleteWebhookRequest]) (*connect.Response[v1.DeleteWebhookResponse], error)
-	// Lists webhooks, optionally filtered to one room. Requires `webhook.manage`.
+	// Lists webhooks, optionally filtered to one room. Requires `server.manage`.
 	ListWebhooks(context.Context, *connect.Request[v1.ListWebhooksRequest]) (*connect.Response[v1.ListWebhooksResponse], error)
 	// Regenerates a webhook's secret token, invalidating the previous URL.
-	// Requires `webhook.manage`.
+	// Requires `server.manage`.
 	RegenerateWebhookToken(context.Context, *connect.Request[v1.RegenerateWebhookTokenRequest]) (*connect.Response[v1.RegenerateWebhookTokenResponse], error)
 }
 

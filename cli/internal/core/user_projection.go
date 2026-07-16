@@ -186,6 +186,7 @@ func (p *UserProjection) applyAccountCreated(eventID string, e *corev1.UserAccou
 		Login:       login,
 		DisplayName: displayName,
 		CreatedAt:   envelopeCreatedAt,
+		Kind:        e.GetKind(),
 	}
 	u.deleted = false
 	if login != "" {
@@ -581,7 +582,16 @@ func (p *UserProjection) GetByLogin(login string) (*corev1.User, bool) {
 	if userID == "" {
 		return nil, false
 	}
-	return p.Get(userID)
+	user, ok := p.Get(userID)
+	if !ok {
+		return nil, false
+	}
+	// Synthetic webhook identities are passwordless and must never be resolvable
+	// as a login target for authentication or account lookup (FDR-031).
+	if user.GetKind() == corev1.UserKind_USER_KIND_WEBHOOK {
+		return nil, false
+	}
+	return user, true
 }
 
 func (p *UserProjection) GetByEmail(email string) (*corev1.User, bool) {

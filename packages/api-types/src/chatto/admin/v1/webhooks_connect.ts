@@ -8,7 +8,7 @@ import { MethodKind } from "@bufbuild/protobuf";
 
 /**
  * AdminWebhookService manages channel webhooks. Every RPC requires the
- * `webhook.manage` permission, held by the owner and admin roles by default.
+ * `server.manage` permission, held by the owner and admin roles by default.
  *
  * @generated from service chatto.admin.v1.AdminWebhookService
  */
@@ -17,7 +17,7 @@ export const AdminWebhookService = {
   methods: {
     /**
      * Creates a webhook against a room and returns its one-time secret URL.
-     * Requires `webhook.manage`.
+     * Requires `server.manage`.
      *
      * @generated from rpc chatto.admin.v1.AdminWebhookService.CreateWebhook
      */
@@ -29,7 +29,7 @@ export const AdminWebhookService = {
     },
     /**
      * Updates a webhook's name, avatar, or disabled state. Requires
-     * `webhook.manage`.
+     * `server.manage`.
      *
      * @generated from rpc chatto.admin.v1.AdminWebhookService.UpdateWebhook
      */
@@ -41,7 +41,7 @@ export const AdminWebhookService = {
     },
     /**
      * Deletes a webhook and disables its backing identity. Requires
-     * `webhook.manage`.
+     * `server.manage`.
      *
      * @generated from rpc chatto.admin.v1.AdminWebhookService.DeleteWebhook
      */
@@ -52,7 +52,7 @@ export const AdminWebhookService = {
       kind: MethodKind.Unary,
     },
     /**
-     * Lists webhooks, optionally filtered to one room. Requires `webhook.manage`.
+     * Lists webhooks, optionally filtered to one room. Requires `server.manage`.
      *
      * @generated from rpc chatto.admin.v1.AdminWebhookService.ListWebhooks
      */
@@ -64,7 +64,7 @@ export const AdminWebhookService = {
     },
     /**
      * Regenerates a webhook's secret token, invalidating the previous URL.
-     * Requires `webhook.manage`.
+     * Requires `server.manage`.
      *
      * @generated from rpc chatto.admin.v1.AdminWebhookService.RegenerateWebhookToken
      */

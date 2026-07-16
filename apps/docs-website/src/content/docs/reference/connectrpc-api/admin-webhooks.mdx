@@ -19,14 +19,14 @@ Shared message and enum definitions are documented in [Shared Types And Enums](/
 ## AdminWebhookService
 
 AdminWebhookService manages channel webhooks. Every RPC requires the
-`webhook.manage` permission, held by the owner and admin roles by default.
+`server.manage` permission, held by the owner and admin roles by default.
 
 <a id="chatto-admin-v1-AdminWebhookService-CreateWebhook"></a>
 
 ### CreateWebhook
 
 Creates a webhook against a room and returns its one-time secret URL.
-Requires `webhook.manage`.
+Requires `server.manage`.
 
 ```http
 POST /api/connect/chatto.admin.v1.AdminWebhookService/CreateWebhook
@@ -63,7 +63,7 @@ Result of creating a webhook, including the one-time secret.
 ### UpdateWebhook
 
 Updates a webhook's name, avatar, or disabled state. Requires
-`webhook.manage`.
+`server.manage`.
 
 ```http
 POST /api/connect/chatto.admin.v1.AdminWebhookService/UpdateWebhook
@@ -100,7 +100,7 @@ Result of updating a webhook.
 ### DeleteWebhook
 
 Deletes a webhook and disables its backing identity. Requires
-`webhook.manage`.
+`server.manage`.
 
 ```http
 POST /api/connect/chatto.admin.v1.AdminWebhookService/DeleteWebhook
@@ -128,7 +128,7 @@ Result of deleting a webhook.
 
 ### ListWebhooks
 
-Lists webhooks, optionally filtered to one room. Requires `webhook.manage`.
+Lists webhooks, optionally filtered to one room. Requires `server.manage`.
 
 ```http
 POST /api/connect/chatto.admin.v1.AdminWebhookService/ListWebhooks
@@ -161,7 +161,7 @@ Response carrying the matching webhooks.
 ### RegenerateWebhookToken
 
 Regenerates a webhook's secret token, invalidating the previous URL.
-Requires `webhook.manage`.
+Requires `server.manage`.
 
 ```http
 POST /api/connect/chatto.admin.v1.AdminWebhookService/RegenerateWebhookToken

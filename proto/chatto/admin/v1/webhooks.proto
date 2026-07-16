@@ -111,20 +111,20 @@ message RegenerateWebhookTokenResponse {
 }
 
 // AdminWebhookService manages channel webhooks. Every RPC requires the
-// `webhook.manage` permission, held by the owner and admin roles by default.
+// `server.manage` permission, held by the owner and admin roles by default.
 service AdminWebhookService {
   // Creates a webhook against a room and returns its one-time secret URL.
-  // Requires `webhook.manage`.
+  // Requires `server.manage`.
   rpc CreateWebhook(CreateWebhookRequest) returns (CreateWebhookResponse);
   // Updates a webhook's name, avatar, or disabled state. Requires
-  // `webhook.manage`.
+  // `server.manage`.
   rpc UpdateWebhook(UpdateWebhookRequest) returns (UpdateWebhookResponse);
   // Deletes a webhook and disables its backing identity. Requires
-  // `webhook.manage`.
+  // `server.manage`.
   rpc DeleteWebhook(DeleteWebhookRequest) returns (DeleteWebhookResponse);
-  // Lists webhooks, optionally filtered to one room. Requires `webhook.manage`.
+  // Lists webhooks, optionally filtered to one room. Requires `server.manage`.
   rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
   // Regenerates a webhook's secret token, invalidating the previous URL.
-  // Requires `webhook.manage`.
+  // Requires `server.manage`.
   rpc RegenerateWebhookToken(RegenerateWebhookTokenRequest) returns (RegenerateWebhookTokenResponse);
 }

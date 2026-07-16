@@ -197,6 +197,25 @@ func (h *timelineHydrator) event(ctx context.Context, event *core.RoomEvent) (*a
 	return apiEvent, nil
 }
 
+// webhookOverrideToAPI maps a per-message webhook identity override to its
+// public API shape, or nil when there is no meaningful override (FDR-031).
+func webhookOverrideToAPI(o *corev1.WebhookMessageOverride) *apiv1.MessageWebhookOverride {
+	if o == nil {
+		return nil
+	}
+	out := &apiv1.MessageWebhookOverride{}
+	if name := o.GetDisplayName(); name != "" {
+		out.DisplayName = &name
+	}
+	if url := o.GetAvatarUrl(); url != "" {
+		out.AvatarUrl = &url
+	}
+	if out.DisplayName == nil && out.AvatarUrl == nil {
+		return nil
+	}
+	return out
+}
+
 func (h *timelineHydrator) messagePosted(ctx context.Context, event *core.RoomEvent, payload *corev1.MessagePostedEvent) (*apiv1.Message, error) {
 	message := &apiv1.Message{
 		Id:                        event.Id,
@@ -238,6 +257,7 @@ func (h *timelineHydrator) messagePosted(ctx context.Context, event *core.RoomEv
 		if body.UpdatedAt != nil {
 			message.UpdatedAt = timestamppb.New(*body.UpdatedAt)
 		}
+		message.WebhookOverride = webhookOverrideToAPI(body.WebhookOverride)
 	}
 
 	if payload.GetInThread() == "" {

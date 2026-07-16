@@ -42,11 +42,31 @@ func DeletedUserReference(userID string) *corev1.User {
 	}
 }
 
+// createUserOptions holds internal knobs for user creation.
+type createUserOptions struct {
+	kind corev1.UserKind
+}
+
+// CreateUserOption customizes how a user account is created.
+type CreateUserOption func(*createUserOptions)
+
+// WithUserKind marks the created account as a specific kind, such as a synthetic
+// webhook identity (FDR-031). WEBHOOK-kind users are passwordless and excluded
+// from human-only surfaces; they do not count toward the server user limit.
+func WithUserKind(kind corev1.UserKind) CreateUserOption {
+	return func(o *createUserOptions) { o.kind = kind }
+}
+
 // CreateUser creates a new user.
 // Uses the mentionables projection plus stream-wide OCC to prevent user/role
 // handle collisions across replicas.
 // Password is optional - pass empty string for OAuth-only users.
-func (c *ChattoCore) CreateUser(ctx context.Context, actorID string, login, displayName, password string) (*corev1.User, error) {
+func (c *ChattoCore) CreateUser(ctx context.Context, actorID string, login, displayName, password string, opts ...CreateUserOption) (*corev1.User, error) {
+	var options createUserOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+
 	// Trim and validate login (preserve original casing)
 	login = strings.TrimSpace(login)
 	if err := ValidateLogin(login); err != nil {
@@ -83,8 +103,10 @@ func (c *ChattoCore) CreateUser(ctx context.Context, actorID string, login, disp
 
 	// Enforce server-wide user limit at signup as a UX gate so people don't sign up
 	// only to be blocked when adding their first verified sign-in factor. The
-	// factor-add checks remain the race-safe hard gate.
-	if max := c.config.Limits.MaxUsersOrDefault(); max >= 0 {
+	// factor-add checks remain the race-safe hard gate. Synthetic webhook
+	// identities are administrative infrastructure, not member signups, so they
+	// bypass the limit.
+	if max := c.config.Limits.MaxUsersOrDefault(); max >= 0 && options.kind != corev1.UserKind_USER_KIND_WEBHOOK {
 		count, err := c.CountVerifiedAccounts(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to count verified accounts: %w", err)
@@ -107,6 +129,7 @@ func (c *ChattoCore) CreateUser(ctx context.Context, actorID string, login, disp
 		Login:       login,
 		DisplayName: displayName,
 		CreatedAt:   now,
+		Kind:        options.kind,
 	}
 
 	// Create encryption key for this user. Keys are always created so they
@@ -151,7 +174,7 @@ func (c *ChattoCore) CreateUser(ctx context.Context, actorID string, login, disp
 	}})
 	piiDEKEvent.CreatedAt = now
 	accountCreated := newEvent(eventActorID, &corev1.Event{Event: &corev1.Event_UserAccountCreated{
-		UserAccountCreated: &corev1.UserAccountCreatedEvent{UserId: userID},
+		UserAccountCreated: &corev1.UserAccountCreatedEvent{UserId: userID, Kind: options.kind},
 	}})
 	accountCreated.CreatedAt = now
 	account := accountCreated.GetUserAccountCreated()
@@ -734,7 +757,17 @@ func (c *ChattoCore) CountUsers(ctx context.Context) (int, error) {
 }
 
 func (c *ChattoCore) ListUsers(ctx context.Context) ([]*corev1.User, error) {
-	return c.Users.Users(), nil
+	all := c.Users.Users()
+	users := make([]*corev1.User, 0, len(all))
+	for _, u := range all {
+		// Synthetic webhook identities are not human members and must not appear
+		// in the user directory or anything derived from it (FDR-031).
+		if u.GetKind() == corev1.UserKind_USER_KIND_WEBHOOK {
+			continue
+		}
+		users = append(users, u)
+	}
+	return users, nil
 }
 
 // GetUserAvatarURL returns the URL for a user's avatar.
