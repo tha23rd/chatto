@@ -16,8 +16,10 @@ per-room emoji sets.
 
 - Admins upload custom emoji from a dedicated admin page. Each emoji has a name
   (its shortcode) and an image.
-- Uploaded images are processed into small square WebP images sized for inline
-  display, so a large source image still renders as a compact emoji.
+- Uploaded images are processed into small WebP images sized for inline display,
+  so a large source image still renders as a compact emoji. Animated GIF uploads
+  are preserved as animated WebP so the emoji keeps its motion; other formats
+  render as a single static frame.
 - Names are lowercase and limited to letters, digits, and underscores
   (`^[a-z0-9_]{1,64}$`). A name that collides with a built-in gemoji shortcode
   (for example `:smile:`) is rejected so the two namespaces never overlap.
