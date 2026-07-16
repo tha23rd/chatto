@@ -17,6 +17,9 @@ func (s *HTTPServer) setupWebhookRoutes() {
 	// Channel webhooks (FDR-032) are always available. The nested "incoming"
 	// segment avoids a route conflict with the sibling static /webhooks/livekit.
 	webhooks.POST("/incoming/:webhookId/:token", s.handleChannelWebhook)
+	// Discord-compatible platform suffix: the same URL with /github appended can be
+	// pasted into GitHub's webhook settings.
+	webhooks.POST("/incoming/:webhookId/:token/github", s.handleChannelWebhookGitHub)
 
 	if s.config.LiveKit.IsConfigured() {
 		webhooks.POST("/livekit", s.handleLiveKitWebhook)

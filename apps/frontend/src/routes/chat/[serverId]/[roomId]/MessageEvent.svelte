@@ -728,7 +728,11 @@
             ? {
                 ...actor,
                 displayName: webhookOverride.displayName || actor.displayName,
-                avatarUrl: webhookOverride.avatarUrl || actor.avatarUrl
+                avatarUrl: webhookOverride.avatarUrl || actor.avatarUrl,
+                // An override identity has no login of its own, and UserAvatar derives
+                // its alt/aria-label from login. Without this the avatar announces the
+                // webhook's synthetic internal login instead of the shown sender.
+                login: webhookOverride.displayName || actor.login
               }
             : actor}
           <button

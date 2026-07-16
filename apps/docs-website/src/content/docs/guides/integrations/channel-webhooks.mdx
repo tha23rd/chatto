@@ -65,6 +65,49 @@ curl -X POST "https://chat.example.com/webhooks/incoming/wh_abc123/wh_secrettoke
 
 A single request accepts up to 10 files, and the whole request body (content plus files) is capped at 25 MiB.
 
+## Post GitHub activity
+
+GitHub's webhooks send their own payload shape, which the endpoint above does not understand. Append `/github` to the webhook URL and Chatto will accept GitHub's payloads directly and render them as messages — no relay or intermediate service needed.
+
+<Steps>
+
+1. **In your GitHub repository**, go to **Settings → Webhooks → Add webhook**.
+
+2. **Set the Payload URL** to your webhook URL with `/github` appended:
+
+   ```text
+   https://chat.example.com/webhooks/incoming/{webhookId}/{token}/github
+   ```
+
+3. **Set Content type to `application/json`.** This is required — `application/x-www-form-urlencoded` is not supported and every delivery will fail with `400`.
+
+4. **Leave Secret empty.** Chatto does not currently verify GitHub's `X-Hub-Signature-256`; the token in the URL is what authorizes the post.
+
+5. **Leave SSL verification enabled.** The URL contains a secret token, so it should only ever travel over a verified TLS connection.
+
+6. **Choose which events to send.** Chatto renders the events listed below and silently acknowledges the rest, so selecting extra events is harmless — they simply produce no messages.
+
+</Steps>
+
+GitHub sends a `ping` event when you save the webhook. Chatto answers it with `204`, so a successful setup shows a green tick and no message in the room.
+
+### Rendered events
+
+| GitHub event | Rendered when |
+| --- | --- |
+| `push` | The push contains at least one commit. Shows the branch and up to 10 commits, noting how many more were dropped. |
+| `issues` | An issue is opened, closed, or reopened. |
+| `issue_comment` | A comment is created on an issue or pull request. |
+| `pull_request` | A pull request is opened, closed, merged, reopened, or marked ready for review. |
+| `pull_request_review` | A review is submitted approving or requesting changes. |
+| `release` | A release is published. |
+
+Each message is attributed to the GitHub user who caused the event, using their login and avatar, and links back to the item on GitHub.
+
+<Aside type="note" title="Rendering is plain markdown">
+  Chatto has no rich embeds, so events render as short markdown messages. GitHub text is included as-is, which means formatting characters in an issue title or commit message render as markdown. Long titles, comment bodies, and commit lists are truncated to fit the message length limit.
+</Aside>
+
 ## Regenerate or delete a webhook
 
 Regenerating a webhook's token immediately invalidates its previous URL and issues a new one-time URL. Deleting a webhook immediately stops it from accepting posts; messages it already posted keep their webhook identity.
@@ -85,6 +128,9 @@ Regenerating a webhook's token immediately invalidates its previous URL and issu
 | `429 Too Many Requests` | The webhook is being posted to faster than its rate limit allows; retry after a short delay. |
 | `400 Bad Request` | The body is not valid JSON (or `payload_json`), or the message has neither `content` nor attachments. |
 | Messages post as the wrong name/avatar | Check for a stray `username`/`avatar_url` override in the request body; omit them to use the webhook's own identity. |
+| GitHub deliveries all fail with `400` | The webhook's **Content type** is set to `application/x-www-form-urlencoded`. Change it to `application/json`. |
+| GitHub deliveries succeed with `204` but nothing posts | The event type is not one Chatto renders, or the payload had nothing to report (for example a tag push, or an issue that was only labelled). See the rendered-events table above. |
+| GitHub deliveries fail with `404` | The `/github` suffix may be missing or misspelled, or the ID/token is wrong. |
 
 ## Related reference
 

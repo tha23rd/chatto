@@ -26,6 +26,18 @@ without building a full bot.
 - An external client posts a message by sending `POST` to the webhook URL with a
   JSON body containing message `content`, and optionally `username` and
   `avatar_url` overrides and file `attachments`.
+- Appending `/github` to the webhook URL yields an endpoint that accepts GitHub's
+  own webhook payloads directly, so the URL can be pasted into a GitHub
+  repository's webhook settings with no intermediate relay. GitHub must be
+  configured with the JSON content type; the form-encoded content type is not
+  supported. Each supported event is rendered to a short markdown message
+  attributed to the GitHub user who caused it.
+- The `/github` endpoint renders pushes, issue opens/closes/reopens, issue
+  comments, pull request opens/closes/merges/reopens/ready-for-review, pull
+  request approvals and change requests, and published releases. Event types and
+  actions outside that set — including GitHub's `ping` probe — are accepted and
+  acknowledged without posting a message, so GitHub's delivery log does not fill
+  with failures for events Chatto has nothing to say about.
 - Posted messages appear in the target room's timeline like any other message,
   attributed to the webhook's identity. They are delivered live to connected
   clients, generate notifications, can be replied to and reacted to, and are
@@ -119,6 +131,59 @@ instead of a second upload path.
 **Tradeoff:** The upload surface must be carefully validated and rate/size limited
 because it is reachable without a user session.
 
+### 7. Platform payloads are adapted at a URL suffix, not by a relay or a new resource
+
+**Decision:** GitHub support is a `/github` suffix on the existing inbound webhook
+URL, sharing the same webhook resource, token, rate limit, and body cap. It decodes
+GitHub's payload, renders markdown, and posts through the same
+`PostWebhookMessage` seam as a plain post. Unrenderable-but-well-formed deliveries
+return `204`; only malformed JSON is a `400`.
+**Why:** This is exactly Discord's shape, so existing integration instructions and
+muscle memory transfer, and a self-hoster needs no relay service to put GitHub
+activity in a channel. Reusing the webhook resource means no new management
+surface, permission, or persisted schema. The `204`-for-unhandled rule is what keeps
+a webhook subscribed to many event types from showing a wall of failed deliveries.
+**Tradeoff:** Chatto now owns a mapping against a third-party payload schema it does
+not control, which will need maintenance as GitHub evolves. Each new event type is a
+code change rather than configuration.
+
+### 8. Platform events render as markdown text, not embeds
+
+**Decision:** Events render as short markdown messages — a bold summary line and a
+linked title or commit list — rather than as structured embeds. Provenance is
+carried by the existing per-message override: the message is attributed to the
+GitHub actor's login and avatar.
+**Why:** Chatto has no embed concept, and message bodies already render a restricted
+CommonMark subset, so markdown reaches the same goal with no new rendering surface,
+protobuf field, or frontend work. Attributing to the actor reads better than
+repeating "by @login" on every line, and reuses override plumbing that already
+exists for this purpose.
+**Tradeoff:** Two consequences follow from rendering untrusted text as markdown.
+First, GitHub text is interpolated into markdown without escaping, because the
+renderer deliberately disables backslash escapes to preserve kaomoji — so a value
+containing link or emphasis syntax renders as formatting. This is not an injection
+into Chatto (raw HTML and images are disabled and link schemes are allowlisted to
+http/https), but on a public repository a stranger's issue title can choose both a
+link's text and its destination. Judged an acceptable increment over what
+subscribing to a public repository's events already grants a stranger; neutralising
+markdown syntax in interpolated fields remains available if it proves a problem.
+Second, per-field truncation and a commit-list cap are applied before assembly,
+because a burst push or a very long comment would otherwise exceed the message body
+limit and be rejected as a failed delivery.
+
+### 9. Inbound platform requests are authorized by the URL token alone
+
+**Decision:** GitHub's `X-Hub-Signature-256` is not verified; the secret token in the
+URL remains the sole credential, as on the plain inbound endpoint.
+**Why:** The URL token is already the credential for this whole feature, and
+Discord's equivalent endpoint does not verify GitHub signatures either. Verifying
+signatures would require persisting a per-webhook signing secret — a schema addition
+to a durable record — for a second credential on a path that already has one.
+**Tradeoff:** A leaked URL can be used to post forged GitHub-shaped activity, and
+there is no cryptographic proof a delivery originated from GitHub. Adding an
+optional per-webhook secret that, when set, requires a valid signature is a clean
+additive follow-up.
+
 ## Permissions
 
 - `server.manage` — create, edit, delete, and regenerate tokens for channel
@@ -139,6 +204,17 @@ because it is reachable without a user session.
 - **Per-room management delegation:** a future `webhook.manage` at room/group
   scope would let room admins manage their own webhooks without server.manage.
 - **Slack-compatible endpoint:** a `/slack` variant of the inbound endpoint would
-  ease migration from Slack-shaped integrations. Deferred.
+  ease migration from Slack-shaped integrations. Deferred; the `/github` suffix
+  establishes the pattern it would follow.
+- **GitHub signature verification:** an optional per-webhook signing secret that,
+  when set, requires a valid `X-Hub-Signature-256` (see decision 9). Needs an
+  additive field on the persisted webhook record.
+- **GitHub event coverage:** the rendered set is deliberately small. `create`,
+  `delete`, `fork`, `deployment_status`, and workflow/check runs are plausible next
+  additions; each is one formatter plus one test case.
+- **Escaping interpolated platform text:** rendering untrusted GitHub text as
+  markdown lets it carry formatting and links (see decision 8). If this becomes a
+  nuisance or a phishing vector in practice, neutralising markdown-active syntax in
+  interpolated fields is the intended fix.
 - **Outbound/event webhooks:** posting Chatto events *out* to external URLs is a
   separate feature and out of scope here.

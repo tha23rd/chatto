@@ -71,10 +71,11 @@ type webhookPayload struct {
 	AvatarURL string `json:"avatar_url"`
 }
 
-// handleChannelWebhook accepts an inbound channel-webhook post. Authorization is
-// the webhook token in the URL; no user session is involved (FDR-032).
-func (s *HTTPServer) handleChannelWebhook(c *gin.Context) {
-	logger := log.WithPrefix("webhook.channel")
+// authorizeInboundWebhook validates the URL token and applies the per-webhook rate
+// limit, writing the error response itself. It reports ok=false when the caller
+// should stop. Shared by every inbound webhook route (plain and /github) so their
+// authorization and abuse controls cannot drift apart.
+func (s *HTTPServer) authorizeInboundWebhook(c *gin.Context, logger *log.Logger) (*core.Webhook, bool) {
 	ctx := c.Request.Context()
 
 	webhookID := c.Param("webhookId")
@@ -91,11 +92,25 @@ func (s *HTTPServer) handleChannelWebhook(c *gin.Context) {
 			logger.Error("Failed to validate webhook token", "webhook_id", webhookID, "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
 		}
-		return
+		return nil, false
 	}
 
 	if !channelWebhookLimiter.allow(webhook.ID, time.Now()) {
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limited"})
+		return nil, false
+	}
+
+	return webhook, true
+}
+
+// handleChannelWebhook accepts an inbound channel-webhook post. Authorization is
+// the webhook token in the URL; no user session is involved (FDR-032).
+func (s *HTTPServer) handleChannelWebhook(c *gin.Context) {
+	logger := log.WithPrefix("webhook.channel")
+	ctx := c.Request.Context()
+
+	webhook, ok := s.authorizeInboundWebhook(c, logger)
+	if !ok {
 		return
 	}
 
