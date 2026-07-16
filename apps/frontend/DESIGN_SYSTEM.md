@@ -88,6 +88,11 @@ Surfaces form a small semantic ladder:
 - `surface-strong` provides firmer contrast for compact framed UI.
 - `surface-selected` is reserved for persistent selection. Pair it with an
   action-colored indicator when selection must be obvious at a glance.
+- `surface-nav` is the persistent side navigation chrome: the server gutter, the
+  channel sidebar, and the room extras pane. In dark mode it is the one surface
+  that sits *below* `background`, so the chrome recedes and the room reads as the
+  work plane. In light mode it is intentionally flush with `background`. Do not
+  use it for content containers — panels inside a nav column still use `surface`.
 - In light mode, reserve white for form fields or an explicitly reviewed
   paper-like surface; do not use it as the default fill for persistent
   application chrome.

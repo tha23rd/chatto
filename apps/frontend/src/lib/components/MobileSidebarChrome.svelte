@@ -37,7 +37,7 @@
     data-app-sidebar="true"
     data-testid="mobile-sidebar-panel"
     class={[
-      'z-50 min-h-0 flex-col self-stretch bg-background',
+      'z-50 min-h-0 flex-col self-stretch bg-surface-nav',
       'max-md:fixed max-md:top-11 max-md:bottom-0 max-md:left-0 max-md:w-17 max-md:touch-pan-y',
       // Mobile: always rendered so we can animate transform.
       // Desktop: hide entirely when closed (no overlay; layout reflows).
