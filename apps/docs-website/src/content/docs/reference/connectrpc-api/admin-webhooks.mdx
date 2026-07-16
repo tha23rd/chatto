@@ -1,0 +1,191 @@
+---
+title: AdminWebhookService
+description: Channel webhook create, update, delete, list, and token-regeneration RPCs.
+editUrl: false
+---
+
+{/* Generated from proto/chatto/{auth,discovery,api,admin,realtime}/v1/*.proto. Do not edit directly. */}
+
+Chatto exposes this service below `/api/connect`.
+
+
+
+Shared message and enum definitions are documented in [Shared Types And Enums](/reference/connectrpc-api/types/).
+
+
+
+<a id="chatto-admin-v1-AdminWebhookService"></a>
+
+## AdminWebhookService
+
+AdminWebhookService manages channel webhooks. Every RPC requires the
+`webhook.manage` permission, held by the owner and admin roles by default.
+
+<a id="chatto-admin-v1-AdminWebhookService-CreateWebhook"></a>
+
+### CreateWebhook
+
+Creates a webhook against a room and returns its one-time secret URL.
+Requires `webhook.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminWebhookService/CreateWebhook
+```
+
+<a id="chatto-admin-v1-CreateWebhookRequest"></a>
+
+#### Input: CreateWebhookRequest
+
+Request to create a webhook against a room.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `room_id` | `string` | Required. Room the webhook posts into. |
+| `name` | `string` | Required. Webhook name / default author display name. |
+| `avatar` | [`chatto.api.v1.ImageUpload`](/reference/connectrpc-api/types/#chatto-api-v1-ImageUpload) | Optional default avatar image, processed into a stored asset. |
+
+
+<a id="chatto-admin-v1-CreateWebhookResponse"></a>
+
+#### Result: CreateWebhookResponse
+
+Result of creating a webhook, including the one-time secret.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `webhook` | [`Webhook`](/reference/connectrpc-api/types/#chatto-admin-v1-Webhook) | The created webhook. |
+| `token` | `string` | Raw secret token. Shown once; only its hash is stored server-side. |
+| `url` | `string` | Full post URL (base URL + webhook id + token). Shown once. |
+
+
+<a id="chatto-admin-v1-AdminWebhookService-UpdateWebhook"></a>
+
+### UpdateWebhook
+
+Updates a webhook's name, avatar, or disabled state. Requires
+`webhook.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminWebhookService/UpdateWebhook
+```
+
+<a id="chatto-admin-v1-UpdateWebhookRequest"></a>
+
+#### Input: UpdateWebhookRequest
+
+Request to update a webhook's mutable fields. Unset fields are unchanged.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Required. Webhook to update. |
+| `name` | `optional string` | New name, when changing it. |
+| `avatar` | [`chatto.api.v1.ImageUpload`](/reference/connectrpc-api/types/#chatto-api-v1-ImageUpload) | New avatar image, when replacing it. |
+| `clear_avatar` | `optional bool` | When true, remove the current avatar (mutually exclusive with `avatar`). |
+| `disabled` | `optional bool` | New disabled state, when changing it. |
+
+
+<a id="chatto-admin-v1-UpdateWebhookResponse"></a>
+
+#### Result: UpdateWebhookResponse
+
+Result of updating a webhook.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `webhook` | [`Webhook`](/reference/connectrpc-api/types/#chatto-admin-v1-Webhook) | The updated webhook. |
+
+
+<a id="chatto-admin-v1-AdminWebhookService-DeleteWebhook"></a>
+
+### DeleteWebhook
+
+Deletes a webhook and disables its backing identity. Requires
+`webhook.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminWebhookService/DeleteWebhook
+```
+
+<a id="chatto-admin-v1-DeleteWebhookRequest"></a>
+
+#### Input: DeleteWebhookRequest
+
+Request to delete a webhook by ID.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Required. Webhook to delete. |
+
+
+<a id="chatto-admin-v1-DeleteWebhookResponse"></a>
+
+#### Result: DeleteWebhookResponse
+
+Result of deleting a webhook.
+
+
+<a id="chatto-admin-v1-AdminWebhookService-ListWebhooks"></a>
+
+### ListWebhooks
+
+Lists webhooks, optionally filtered to one room. Requires `webhook.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminWebhookService/ListWebhooks
+```
+
+<a id="chatto-admin-v1-ListWebhooksRequest"></a>
+
+#### Input: ListWebhooksRequest
+
+Request to list webhooks, optionally filtered to one room.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `room_id` | `optional string` | When set, only webhooks posting into this room are returned. |
+
+
+<a id="chatto-admin-v1-ListWebhooksResponse"></a>
+
+#### Result: ListWebhooksResponse
+
+Response carrying the matching webhooks.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `webhooks` | repeated [`Webhook`](/reference/connectrpc-api/types/#chatto-admin-v1-Webhook) | Webhooks, ordered by creation time. |
+
+
+<a id="chatto-admin-v1-AdminWebhookService-RegenerateWebhookToken"></a>
+
+### RegenerateWebhookToken
+
+Regenerates a webhook's secret token, invalidating the previous URL.
+Requires `webhook.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminWebhookService/RegenerateWebhookToken
+```
+
+<a id="chatto-admin-v1-RegenerateWebhookTokenRequest"></a>
+
+#### Input: RegenerateWebhookTokenRequest
+
+Request to regenerate a webhook's secret token, invalidating the previous one.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Required. Webhook whose token is regenerated. |
+
+
+<a id="chatto-admin-v1-RegenerateWebhookTokenResponse"></a>
+
+#### Result: RegenerateWebhookTokenResponse
+
+Result of regenerating a webhook token, including the new one-time secret.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `webhook` | [`Webhook`](/reference/connectrpc-api/types/#chatto-admin-v1-Webhook) | The webhook. |
+| `token` | `string` | New raw secret token. Shown once. |
+| `url` | `string` | New full post URL. Shown once. |

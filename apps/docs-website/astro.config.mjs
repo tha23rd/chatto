@@ -149,6 +149,7 @@ export default defineConfig({
                 "reference/connectrpc-api/admin-room-layout",
                 "reference/connectrpc-api/admin-server",
                 "reference/connectrpc-api/admin-users",
+                "reference/connectrpc-api/admin-webhooks",
               ],
             },
             {

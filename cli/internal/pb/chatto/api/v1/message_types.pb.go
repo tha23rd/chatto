@@ -710,9 +710,14 @@ type Message struct {
 	Thread *ThreadSummary `protobuf:"bytes,20,opt,name=thread,proto3" json:"thread,omitempty"`
 	// Time when the message content was deleted through retraction or account
 	// crypto-shredding. Absent when unavailable body content is not a deletion.
-	DeletedAt     *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	DeletedAt *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
+	// Per-message webhook identity override (FDR-031). Present only when this
+	// message was posted through a channel webhook whose caller supplied a
+	// per-message username and/or avatar. When present, clients render this
+	// name/avatar instead of the author's profile.
+	WebhookOverride *MessageWebhookOverride `protobuf:"bytes,22,opt,name=webhook_override,json=webhookOverride,proto3" json:"webhook_override,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Message) Reset() {
@@ -857,6 +862,69 @@ func (x *Message) GetDeletedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Message) GetWebhookOverride() *MessageWebhookOverride {
+	if x != nil {
+		return x.WebhookOverride
+	}
+	return nil
+}
+
+// MessageWebhookOverride is the per-message display identity a channel webhook
+// set on an individual post (FDR-031).
+type MessageWebhookOverride struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Display name to render for this message, when set.
+	DisplayName *string `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3,oneof" json:"display_name,omitempty"`
+	// Avatar image URL to render for this message, when set.
+	AvatarUrl     *string `protobuf:"bytes,2,opt,name=avatar_url,json=avatarUrl,proto3,oneof" json:"avatar_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MessageWebhookOverride) Reset() {
+	*x = MessageWebhookOverride{}
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MessageWebhookOverride) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MessageWebhookOverride) ProtoMessage() {}
+
+func (x *MessageWebhookOverride) ProtoReflect() protoreflect.Message {
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MessageWebhookOverride.ProtoReflect.Descriptor instead.
+func (*MessageWebhookOverride) Descriptor() ([]byte, []int) {
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *MessageWebhookOverride) GetDisplayName() string {
+	if x != nil && x.DisplayName != nil {
+		return *x.DisplayName
+	}
+	return ""
+}
+
+func (x *MessageWebhookOverride) GetAvatarUrl() string {
+	if x != nil && x.AvatarUrl != nil {
+		return *x.AvatarUrl
+	}
+	return ""
+}
+
 var File_chatto_api_v1_message_types_proto protoreflect.FileDescriptor
 
 const file_chatto_api_v1_message_types_proto_rawDesc = "" +
@@ -911,7 +979,7 @@ const file_chatto_api_v1_message_types_proto_rawDesc = "" +
 	"\rlast_reply_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vlastReplyAt\x12?\n" +
 	"\x1cparticipant_preview_user_ids\x18\x04 \x03(\tR\x19participantPreviewUserIds\x12+\n" +
 	"\x11participant_count\x18\x05 \x01(\x05R\x10participantCount\x12C\n" +
-	"\fviewer_state\x18\x06 \x01(\v2 .chatto.api.v1.ThreadViewerStateR\vviewerState\"\x84\a\n" +
+	"\fviewer_state\x18\x06 \x01(\v2 .chatto.api.v1.ThreadViewerStateR\vviewerState\"\xd6\a\n" +
 	"\aMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\aroom_id\x18\x02 \x01(\tR\x06roomId\x129\n" +
@@ -932,8 +1000,15 @@ const file_chatto_api_v1_message_types_proto_rawDesc = "" +
 	"\treactions\x18\x13 \x03(\v2\x1e.chatto.api.v1.MessageReactionR\treactions\x124\n" +
 	"\x06thread\x18\x14 \x01(\v2\x1c.chatto.api.v1.ThreadSummaryR\x06thread\x129\n" +
 	"\n" +
-	"deleted_at\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAtB\a\n" +
-	"\x05_bodyJ\x04\b\x0e\x10\x13R\vreply_countR\rlast_reply_atR#thread_participant_preview_user_idsR\x18thread_participant_countR\x1aviewer_is_following_thread*\xda\x01\n" +
+	"deleted_at\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt\x12P\n" +
+	"\x10webhook_override\x18\x16 \x01(\v2%.chatto.api.v1.MessageWebhookOverrideR\x0fwebhookOverrideB\a\n" +
+	"\x05_bodyJ\x04\b\x0e\x10\x13R\vreply_countR\rlast_reply_atR#thread_participant_preview_user_idsR\x18thread_participant_countR\x1aviewer_is_following_thread\"\x84\x01\n" +
+	"\x16MessageWebhookOverride\x12&\n" +
+	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"avatar_url\x18\x02 \x01(\tH\x01R\tavatarUrl\x88\x01\x01B\x0f\n" +
+	"\r_display_nameB\r\n" +
+	"\v_avatar_url*\xda\x01\n" +
 	"\x1cMessageVideoProcessingStatus\x12/\n" +
 	"+MESSAGE_VIDEO_PROCESSING_STATUS_UNSPECIFIED\x10\x00\x12.\n" +
 	"*MESSAGE_VIDEO_PROCESSING_STATUS_PROCESSING\x10\x01\x12-\n" +
@@ -954,7 +1029,7 @@ func file_chatto_api_v1_message_types_proto_rawDescGZIP() []byte {
 }
 
 var file_chatto_api_v1_message_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_chatto_api_v1_message_types_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_chatto_api_v1_message_types_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_chatto_api_v1_message_types_proto_goTypes = []any{
 	(MessageVideoProcessingStatus)(0), // 0: chatto.api.v1.MessageVideoProcessingStatus
 	(*MessageAssetUrl)(nil),           // 1: chatto.api.v1.MessageAssetUrl
@@ -965,11 +1040,12 @@ var file_chatto_api_v1_message_types_proto_goTypes = []any{
 	(*ThreadViewerState)(nil),         // 6: chatto.api.v1.ThreadViewerState
 	(*ThreadSummary)(nil),             // 7: chatto.api.v1.ThreadSummary
 	(*Message)(nil),                   // 8: chatto.api.v1.Message
-	(*timestamppb.Timestamp)(nil),     // 9: google.protobuf.Timestamp
-	(*LinkPreview)(nil),               // 10: chatto.api.v1.LinkPreview
+	(*MessageWebhookOverride)(nil),    // 9: chatto.api.v1.MessageWebhookOverride
+	(*timestamppb.Timestamp)(nil),     // 10: google.protobuf.Timestamp
+	(*LinkPreview)(nil),               // 11: chatto.api.v1.LinkPreview
 }
 var file_chatto_api_v1_message_types_proto_depIdxs = []int32{
-	9,  // 0: chatto.api.v1.MessageAssetUrl.expires_at:type_name -> google.protobuf.Timestamp
+	10, // 0: chatto.api.v1.MessageAssetUrl.expires_at:type_name -> google.protobuf.Timestamp
 	1,  // 1: chatto.api.v1.MessageVideoVariant.asset_url:type_name -> chatto.api.v1.MessageAssetUrl
 	0,  // 2: chatto.api.v1.MessageVideoProcessing.status:type_name -> chatto.api.v1.MessageVideoProcessingStatus
 	1,  // 3: chatto.api.v1.MessageVideoProcessing.thumbnail_asset_url:type_name -> chatto.api.v1.MessageAssetUrl
@@ -977,20 +1053,21 @@ var file_chatto_api_v1_message_types_proto_depIdxs = []int32{
 	1,  // 5: chatto.api.v1.MessageAttachment.asset_url:type_name -> chatto.api.v1.MessageAssetUrl
 	1,  // 6: chatto.api.v1.MessageAttachment.thumbnail_asset_url:type_name -> chatto.api.v1.MessageAssetUrl
 	3,  // 7: chatto.api.v1.MessageAttachment.video_processing:type_name -> chatto.api.v1.MessageVideoProcessing
-	9,  // 8: chatto.api.v1.ThreadSummary.last_reply_at:type_name -> google.protobuf.Timestamp
+	10, // 8: chatto.api.v1.ThreadSummary.last_reply_at:type_name -> google.protobuf.Timestamp
 	6,  // 9: chatto.api.v1.ThreadSummary.viewer_state:type_name -> chatto.api.v1.ThreadViewerState
-	9,  // 10: chatto.api.v1.Message.created_at:type_name -> google.protobuf.Timestamp
+	10, // 10: chatto.api.v1.Message.created_at:type_name -> google.protobuf.Timestamp
 	4,  // 11: chatto.api.v1.Message.attachments:type_name -> chatto.api.v1.MessageAttachment
-	10, // 12: chatto.api.v1.Message.link_preview:type_name -> chatto.api.v1.LinkPreview
-	9,  // 13: chatto.api.v1.Message.updated_at:type_name -> google.protobuf.Timestamp
+	11, // 12: chatto.api.v1.Message.link_preview:type_name -> chatto.api.v1.LinkPreview
+	10, // 13: chatto.api.v1.Message.updated_at:type_name -> google.protobuf.Timestamp
 	5,  // 14: chatto.api.v1.Message.reactions:type_name -> chatto.api.v1.MessageReaction
 	7,  // 15: chatto.api.v1.Message.thread:type_name -> chatto.api.v1.ThreadSummary
-	9,  // 16: chatto.api.v1.Message.deleted_at:type_name -> google.protobuf.Timestamp
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	10, // 16: chatto.api.v1.Message.deleted_at:type_name -> google.protobuf.Timestamp
+	9,  // 17: chatto.api.v1.Message.webhook_override:type_name -> chatto.api.v1.MessageWebhookOverride
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_chatto_api_v1_message_types_proto_init() }
@@ -1001,13 +1078,14 @@ func file_chatto_api_v1_message_types_proto_init() {
 	file_chatto_api_v1_link_previews_proto_init()
 	file_chatto_api_v1_message_types_proto_msgTypes[5].OneofWrappers = []any{}
 	file_chatto_api_v1_message_types_proto_msgTypes[7].OneofWrappers = []any{}
+	file_chatto_api_v1_message_types_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chatto_api_v1_message_types_proto_rawDesc), len(file_chatto_api_v1_message_types_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

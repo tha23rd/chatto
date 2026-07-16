@@ -48,6 +48,17 @@ message Room {
   bool universal = 9;
 }
 
+// UserKind discriminates human accounts from synthetic, non-human identities.
+// WEBHOOK users back channel webhooks (FDR-031): they author messages but can
+// never log in, hold a session, or appear in human-only surfaces such as the
+// member directory or mention autocomplete. UNSPECIFIED is treated as HUMAN so
+// accounts created before this field existed backfill correctly.
+enum UserKind {
+  USER_KIND_UNSPECIFIED = 0;
+  USER_KIND_HUMAN = 1;
+  USER_KIND_WEBHOOK = 2;
+}
+
 // User represents a user account
 message User {
   string id = 1;
@@ -57,6 +68,8 @@ message User {
   google.protobuf.Timestamp created_at = 4; // When the user was created (null for users created before this field was added)
   bool deleted = 5; // True for public tombstones representing deleted/unresolvable users.
   CustomUserStatus custom_status = 6; // Optional durable user-authored status, hidden after expires_at.
+  // Account kind. Empty/unspecified backfills to USER_KIND_HUMAN.
+  UserKind kind = 7;
 }
 
 // CustomUserStatus is a durable, public user-authored status that is
@@ -305,6 +318,23 @@ message MessageBody {
 
   // Link preview extracted from the first URL in the message body
   LinkPreview link_preview = 40;
+
+  // Webhook per-message identity override (FDR-031). Present only for messages
+  // posted through a channel webhook whose caller supplied a per-message
+  // username and/or avatar. Stored plaintext, like link preview metadata, not
+  // inside the encrypted body. Empty for human-authored messages.
+  WebhookMessageOverride webhook_override = 41;
+}
+
+// WebhookMessageOverride carries the per-message display identity a channel
+// webhook caller may set on an individual post (FDR-031). When present, clients
+// render this name/avatar instead of the authoring webhook user's profile.
+message WebhookMessageOverride {
+  // Display name to show for this message instead of the webhook's own name.
+  string display_name = 1;
+  // Absolute avatar image URL to show for this message. Rendered client-side;
+  // empty means fall back to the webhook user's avatar.
+  string avatar_url = 2;
 }
 
 // LinkPreview stores OpenGraph/oEmbed metadata for a URL in a message.

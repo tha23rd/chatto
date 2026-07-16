@@ -123,6 +123,7 @@ Public user fields.
 | `avatar_url` | `optional string` | Avatar image URL, when available. |
 | `presence_status` | [`PresenceStatus`](#chatto-api-v1-PresenceStatus) | Current live presence status. |
 | `custom_status` | [`CustomUserStatus`](#chatto-api-v1-CustomUserStatus) | Custom profile status, when set. |
+| `kind` | [`UserKind`](#chatto-api-v1-UserKind) | Account kind. When automated (e.g. a channel webhook identity), clients may render an "automated" marker. Empty/unspecified means a human account. |
 
 <a id="chatto-api-v1-NotificationPreference"></a>
 
@@ -289,6 +290,7 @@ requests.
 | `reactions` | repeated [`MessageReaction`](#chatto-api-v1-MessageReaction) | Reaction summaries for this message. |
 | `thread` | [`ThreadSummary`](#chatto-api-v1-ThreadSummary) | Aggregated thread state, when known for a thread root message. |
 | `deleted_at` | `google.protobuf.Timestamp` | Time when the message content was deleted through retraction or account crypto-shredding. Absent when unavailable body content is not a deletion. |
+| `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-031). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile. |
 
 <a id="chatto-api-v1-MessageAssetUrl"></a>
 
@@ -374,6 +376,18 @@ One transcoded video rendition.
 | `height` | `int32` | Video height in pixels. |
 | `size` | `int64` | Rendition size in bytes. |
 | `asset_url` | [`MessageAssetUrl`](#chatto-api-v1-MessageAssetUrl) | Signed URL for the rendition. |
+
+<a id="chatto-api-v1-MessageWebhookOverride"></a>
+
+### MessageWebhookOverride
+
+MessageWebhookOverride is the per-message display identity a channel webhook
+set on an individual post (FDR-031).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `display_name` | `optional string` | Display name to render for this message, when set. |
+| `avatar_url` | `optional string` | Avatar image URL to render for this message, when set. |
 
 <a id="chatto-api-v1-ThreadSummary"></a>
 
@@ -1331,6 +1345,26 @@ Runtime-editable server profile settings.
 | `motd` | `string` | Message of the day for the authenticated header. |
 | `welcome_message` | `string` | Welcome message shown on the login page. |
 
+<a id="chatto-admin-v1-Webhook"></a>
+
+### Webhook
+
+A channel webhook: a token-authorized endpoint that posts messages into a
+specific room under a synthetic, non-human webhook identity (FDR-031). The
+secret token is embedded in the post URL and is only ever returned once, at
+creation and regeneration time.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Webhook identifier. |
+| `room_id` | `string` | Room this webhook posts into. |
+| `name` | `string` | Human-facing webhook name and default author display name. |
+| `avatar_url` | `optional string` | Default avatar image URL for the webhook identity, when set. |
+| `created_by` | `string` | User ID of the administrator who created the webhook. |
+| `created_at_ms` | `int64` | Creation time in Unix milliseconds. |
+| `disabled` | `bool` | When true, the webhook is retained but rejects inbound posts. |
+| `user_id` | `string` | User ID of the synthetic webhook user that authors this webhook's messages. |
+
 
 
 ## Enums
@@ -1378,6 +1412,19 @@ the server's live presence record expire.
 | `PRESENCE_STATUS_AWAY` | `2` | The user is connected but away or idle. |
 | `PRESENCE_STATUS_DO_NOT_DISTURB` | `3` | The user does not want notifications while this live status is active. |
 | `PRESENCE_STATUS_OFFLINE` | `4` | The user has no active live presence record. |
+
+<a id="chatto-api-v1-UserKind"></a>
+
+### UserKind
+
+UserKind discriminates human accounts from synthetic, non-human identities
+such as channel webhook authors (FDR-031).
+
+| Name | Number | Description |
+| --- | --- | --- |
+| `USER_KIND_UNSPECIFIED` | `0` | No value description provided. |
+| `USER_KIND_HUMAN` | `1` | No value description provided. |
+| `USER_KIND_WEBHOOK` | `2` | No value description provided. |
 
 <a id="chatto-api-v1-NotificationLevel"></a>
 

@@ -68,6 +68,9 @@ message EncryptedUserString {
 
 message UserAccountCreatedEvent {
   string user_id = 1;
+  // Account kind. Empty/unspecified is treated as USER_KIND_HUMAN so accounts
+  // created before this field existed backfill correctly (FDR-031).
+  UserKind kind = 2;
   EncryptedUserString encrypted_login = 10;
   EncryptedUserString encrypted_display_name = 11;
 }

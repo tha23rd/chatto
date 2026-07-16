@@ -175,4 +175,18 @@ message Message {
   // Time when the message content was deleted through retraction or account
   // crypto-shredding. Absent when unavailable body content is not a deletion.
   google.protobuf.Timestamp deleted_at = 21;
+  // Per-message webhook identity override (FDR-031). Present only when this
+  // message was posted through a channel webhook whose caller supplied a
+  // per-message username and/or avatar. When present, clients render this
+  // name/avatar instead of the author's profile.
+  MessageWebhookOverride webhook_override = 22;
+}
+
+// MessageWebhookOverride is the per-message display identity a channel webhook
+// set on an individual post (FDR-031).
+message MessageWebhookOverride {
+  // Display name to render for this message, when set.
+  optional string display_name = 1;
+  // Avatar image URL to render for this message, when set.
+  optional string avatar_url = 2;
 }
