@@ -981,6 +981,73 @@ func TestTransformImage_StaticGIF_ConvertsToJPEG(t *testing.T) {
 }
 
 // ============================================================================
+// Custom Emoji Processing Tests
+// ============================================================================
+
+func TestProcessEmojiImage_StaticPNG_OutputsWebP(t *testing.T) {
+	data := createTestImage(200, 200)
+
+	reader, err := ProcessEmojiImage(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("ProcessEmojiImage failed: %v", err)
+	}
+	out, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("Failed to read result: %v", err)
+	}
+
+	if DetectImageContentType(out) != "image/webp" {
+		t.Errorf("Expected WebP output, got %s", DetectImageContentType(out))
+	}
+	// A static image must not gain animation frames.
+	if got := countANMFChunks(out); got != 0 {
+		t.Errorf("Expected 0 ANMF frames for a static emoji, got %d", got)
+	}
+}
+
+func TestProcessEmojiImage_AnimatedGIF_PreservesAnimation(t *testing.T) {
+	frameCount := 4
+	data := createAnimatedGIF(200, 200, frameCount)
+
+	reader, err := ProcessEmojiImage(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("ProcessEmojiImage failed: %v", err)
+	}
+	out, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("Failed to read result: %v", err)
+	}
+
+	// Animated GIFs must become animated WebP that keeps every frame.
+	if DetectImageContentType(out) != "image/webp" {
+		t.Errorf("Expected WebP output, got %s", DetectImageContentType(out))
+	}
+	if got := countANMFChunks(out); got != frameCount {
+		t.Errorf("Expected %d ANMF frames, got %d", frameCount, got)
+	}
+}
+
+func TestProcessEmojiImage_AnimatedGIF_FitsWithinEmojiBounds(t *testing.T) {
+	// A 2:1 canvas larger than the emoji bounds should scale down while
+	// preserving aspect ratio (256x128 -> 128x64).
+	data := createAnimatedGIF(256, 128, 3)
+
+	reader, err := ProcessEmojiImage(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("ProcessEmojiImage failed: %v", err)
+	}
+	out, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("Failed to read result: %v", err)
+	}
+
+	w, h := animatedWebPCanvasSize(out)
+	if w != MaxEmojiDim || h != MaxEmojiDim/2 {
+		t.Errorf("Expected %dx%d, got %dx%d", MaxEmojiDim, MaxEmojiDim/2, w, h)
+	}
+}
+
+// ============================================================================
 // EXIF Orientation Tests
 // ============================================================================
 

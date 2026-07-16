@@ -282,19 +282,35 @@ func ProcessEmojiImage(input io.Reader) (io.Reader, error) {
 // to fit within MaxEmojiDim x MaxEmojiDim while maintaining aspect ratio, and
 // encodes it as WebP. Returns an error if the input exceeds cfg.MaxUploadSize.
 //
-// TODO: preserve animated GIFs as animated WebP; this currently flattens to a
-// single static frame.
+// Animated GIFs are preserved as animated WebP so uploaded emoji keep their
+// motion, reusing the same frame-compositing conversion as message-attachment
+// thumbnails. Static images collapse to a single WebP frame.
 func ProcessEmojiImageWithConfig(input io.Reader, cfg Config) (io.Reader, error) {
-	// Limit input size to prevent memory exhaustion
-	img, err := decodeBoundedImage(input, cfg)
+	// Limit input size to prevent memory exhaustion.
+	data, err := readAndValidateImage(input, cfg.MaxUploadSize)
+	if err != nil {
+		return nil, err
+	}
+
+	// Preserve animation: an animated GIF becomes an animated WebP scaled to
+	// fit the emoji bounds. FitContain keeps the whole image visible without
+	// upscaling images already within bounds.
+	if IsAnimatedGIF(data) {
+		result, err := transformAnimatedGIF(data, MaxEmojiDim, MaxEmojiDim, FitContain)
+		if err != nil {
+			return nil, fmt.Errorf("failed to process animated emoji image: %w", err)
+		}
+		return result.Reader, nil
+	}
+
+	// Static images: decode a single frame (applying EXIF orientation), resize,
+	// and encode to WebP (lossless).
+	img, _, err := imageorient.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}
-
-	// Resize if necessary
 	resized := resizeToFit(img, MaxEmojiDim, MaxEmojiDim)
 
-	// Encode to WebP (lossless)
 	var buf bytes.Buffer
 	if err := nativewebp.Encode(&buf, resized, nil); err != nil {
 		return nil, fmt.Errorf("failed to encode to webp: %w", err)
