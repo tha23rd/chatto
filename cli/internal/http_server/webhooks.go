@@ -14,7 +14,7 @@ import (
 func (s *HTTPServer) setupWebhookRoutes() {
 	webhooks := s.router.Group("/webhooks")
 
-	// Channel webhooks (FDR-031) are always available. The nested "incoming"
+	// Channel webhooks (FDR-032) are always available. The nested "incoming"
 	// segment avoids a route conflict with the sibling static /webhooks/livekit.
 	webhooks.POST("/incoming/:webhookId/:token", s.handleChannelWebhook)
 

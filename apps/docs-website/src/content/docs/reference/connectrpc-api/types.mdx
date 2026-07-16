@@ -290,7 +290,7 @@ requests.
 | `reactions` | repeated [`MessageReaction`](#chatto-api-v1-MessageReaction) | Reaction summaries for this message. |
 | `thread` | [`ThreadSummary`](#chatto-api-v1-ThreadSummary) | Aggregated thread state, when known for a thread root message. |
 | `deleted_at` | `google.protobuf.Timestamp` | Time when the message content was deleted through retraction or account crypto-shredding. Absent when unavailable body content is not a deletion. |
-| `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-031). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile. |
+| `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-032). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile. |
 
 <a id="chatto-api-v1-MessageAssetUrl"></a>
 
@@ -382,7 +382,7 @@ One transcoded video rendition.
 ### MessageWebhookOverride
 
 MessageWebhookOverride is the per-message display identity a channel webhook
-set on an individual post (FDR-031).
+set on an individual post (FDR-032).
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -1350,7 +1350,7 @@ Runtime-editable server profile settings.
 ### Webhook
 
 A channel webhook: a token-authorized endpoint that posts messages into a
-specific room under a synthetic, non-human webhook identity (FDR-031). The
+specific room under a synthetic, non-human webhook identity (FDR-032). The
 secret token is embedded in the post URL and is only ever returned once, at
 creation and regeneration time.
 
@@ -1418,7 +1418,7 @@ the server's live presence record expire.
 ### UserKind
 
 UserKind discriminates human accounts from synthetic, non-human identities
-such as channel webhook authors (FDR-031).
+such as channel webhook authors (FDR-032).
 
 | Name | Number | Description |
 | --- | --- | --- |

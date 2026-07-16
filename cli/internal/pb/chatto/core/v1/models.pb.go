@@ -77,7 +77,7 @@ func (RoomKind) EnumDescriptor() ([]byte, []int) {
 }
 
 // UserKind discriminates human accounts from synthetic, non-human identities.
-// WEBHOOK users back channel webhooks (FDR-031): they author messages but can
+// WEBHOOK users back channel webhooks (FDR-032): they author messages but can
 // never log in, hold a session, or appear in human-only surfaces such as the
 // member directory or mention autocomplete. UNSPECIFIED is treated as HUMAN so
 // accounts created before this field existed backfill correctly.
@@ -1593,7 +1593,7 @@ type MessageBody struct {
 	AssetIds []string `protobuf:"bytes,31,rep,name=asset_ids,json=assetIds,proto3" json:"asset_ids,omitempty"`
 	// Link preview extracted from the first URL in the message body
 	LinkPreview *LinkPreview `protobuf:"bytes,40,opt,name=link_preview,json=linkPreview,proto3" json:"link_preview,omitempty"`
-	// Webhook per-message identity override (FDR-031). Present only for messages
+	// Webhook per-message identity override (FDR-032). Present only for messages
 	// posted through a channel webhook whose caller supplied a per-message
 	// username and/or avatar. Stored plaintext, like link preview metadata, not
 	// inside the encrypted body. Empty for human-authored messages.
@@ -1717,7 +1717,7 @@ func (x *MessageBody) GetWebhookOverride() *WebhookMessageOverride {
 }
 
 // WebhookMessageOverride carries the per-message display identity a channel
-// webhook caller may set on an individual post (FDR-031). When present, clients
+// webhook caller may set on an individual post (FDR-032). When present, clients
 // render this name/avatar instead of the authoring webhook user's profile.
 type WebhookMessageOverride struct {
 	state protoimpl.MessageState `protogen:"open.v1"`

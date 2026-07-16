@@ -129,8 +129,6 @@ sources = [
     "../../pnpm-lock.yaml",
     "../../pnpm-workspace.yaml",
     "../../packages/api-types/dist/**/*",
-    ".env",
-    ".env.*",
     "package.json",
     "scripts/**/*",
     "src/**/*",

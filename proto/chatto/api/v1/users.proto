@@ -27,7 +27,7 @@ message User {
 }
 
 // UserKind discriminates human accounts from synthetic, non-human identities
-// such as channel webhook authors (FDR-031).
+// such as channel webhook authors (FDR-032).
 enum UserKind {
   USER_KIND_UNSPECIFIED = 0;
   USER_KIND_HUMAN = 1;

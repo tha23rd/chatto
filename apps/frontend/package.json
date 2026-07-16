@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "node scripts/fetch-noise-models.mjs --if-enabled && vite build",
+    "build": "node scripts/fetch-noise-models.mjs && vite build",
     "preview": "vite preview",
     "paraglide": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --strategy localStorage preferredLanguage baseLocale --emit-ts-declarations --output-structure locale-modules --silent && node scripts/generate-i18n-facade.mjs",
     "prepare": "svelte-kit sync || echo ''",

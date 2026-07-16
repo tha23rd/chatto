@@ -198,7 +198,7 @@ func (h *timelineHydrator) event(ctx context.Context, event *core.RoomEvent) (*a
 }
 
 // webhookOverrideToAPI maps a per-message webhook identity override to its
-// public API shape, or nil when there is no meaningful override (FDR-031).
+// public API shape, or nil when there is no meaningful override (FDR-032).
 func webhookOverrideToAPI(o *corev1.WebhookMessageOverride) *apiv1.MessageWebhookOverride {
 	if o == nil {
 		return nil

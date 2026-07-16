@@ -8,7 +8,7 @@ import {
 } from "./connect.js";
 
 /**
- * Lightweight render shape for a channel webhook (FDR-031). Carries what the
+ * Lightweight render shape for a channel webhook (FDR-032). Carries what the
  * admin UI needs to list and manage a webhook; the one-time secret token/URL
  * are returned separately by create/regenerate and are never part of this
  * shape, since the backend only ever returns them once.

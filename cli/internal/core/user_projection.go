@@ -587,7 +587,7 @@ func (p *UserProjection) GetByLogin(login string) (*corev1.User, bool) {
 		return nil, false
 	}
 	// Synthetic webhook identities are passwordless and must never be resolvable
-	// as a login target for authentication or account lookup (FDR-031).
+	// as a login target for authentication or account lookup (FDR-032).
 	if user.GetKind() == corev1.UserKind_USER_KIND_WEBHOOK {
 		return nil, false
 	}

@@ -104,7 +104,7 @@
   const actor = $derived(event?.actor ? useRenderData(UserAvatarViewData, event.actor) : null);
   const deletedActor = $derived(!actor || actor.deleted);
 
-  // Per-message webhook identity override (FDR-031): a channel webhook can
+  // Per-message webhook identity override (FDR-032): a channel webhook can
   // supply a display name and/or avatar for an individual post, which takes
   // priority over the webhook author's own profile. Read directly off the
   // `event` prop (not the later `messageEvent`/`msg` consts) so this is

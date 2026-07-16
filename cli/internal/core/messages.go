@@ -49,7 +49,7 @@ func WithVideoProcessingAssets(assetIDs ...string) PostMessageOption {
 }
 
 // WithWebhookOverride sets a per-message display identity for a message posted
-// through a channel webhook (FDR-031). A non-empty display name and/or avatar
+// through a channel webhook (FDR-032). A non-empty display name and/or avatar
 // URL is rendered instead of the authoring webhook user's profile. Passing two
 // empty strings is a no-op.
 func WithWebhookOverride(displayName, avatarURL string) PostMessageOption {
