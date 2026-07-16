@@ -1,11 +1,7 @@
 # FDR-031: Channel Webhooks
 
-**Status:** Experimental
+**Status:** Active
 **Last reviewed:** 2026-07-16
-
-> **Note:** This FDR is authored ahead of implementation as the agreed design
-> record for channel webhooks. It becomes **Active** once the feature ships. See
-> the companion build plan for the implementation sequence.
 
 ## Overview
 
@@ -83,27 +79,35 @@ authorized by re-hashing the presented token and matching.
 database or backup leak never exposes usable tokens.
 **Tradeoff:** A lost token cannot be recovered, only regenerated.
 
-### 4. The webhook resource is an event-sourced durable fact
+### 4. The webhook resource is a durable runtime-state record
 
-**Decision:** Webhook lifecycle (created, updated, token-rotated, deleted) is
-recorded as durable domain events, with a projection serving reads and the
-token-hash lookup. It is not stored only as transient runtime state.
-**Why:** Webhooks are durable configuration a self-hoster expects to survive
-restarts and appear in backups, matching how custom emoji and roles are modelled.
-**Tradeoff:** Slightly more machinery than a single runtime-state record.
+**Decision:** Each webhook is stored as a latest-value record in `RUNTIME_STATE`,
+keyed by webhook ID, holding only the HMAC of its secret token alongside its
+name, target room, creator, and backing user. Its name and avatar are mirrored
+onto the backing user, which is itself an event-sourced durable fact.
+**Why:** A webhook is fundamentally a named credential with metadata — the same
+class of durable latest-value record as sessions and tokens, which `RUNTIME_STATE`
+exists for. It survives restarts and is included in backups without adding a new
+event-sourced aggregate. Because the inbound URL carries the webhook ID,
+validation is a direct lookup plus a constant-time hash compare, so no separate
+token-hash index is needed.
+**Tradeoff:** No append-only audit history of webhook edits, unlike an EVT
+aggregate.
 
 ### 5. Management is server-administrative; possession of the token is the post authorization
 
-**Decision:** Creating and managing webhooks is gated by the `webhook.manage`
-permission, surfaced in the server-admin area alongside custom emoji and roles.
-The inbound post endpoint performs no per-user permission check — holding a valid
-token is sufficient to post to that webhook's room.
+**Decision:** Creating and managing webhooks is gated by the existing
+`server.manage` permission, surfaced in the server-admin area alongside custom
+emoji and roles. The inbound post endpoint performs no per-user permission
+check — holding a valid token is sufficient to post to that webhook's room.
 **Why:** Webhook creation grants standing post access to a room and should be an
-administrative act. Once a webhook exists, its whole purpose is unauthenticated
-posting, so the token *is* the credential.
+administrative act. Reusing `server.manage` (held by owner and admin roles)
+matches the custom-emoji management surface and needs no new default-role seeding.
+Once a webhook exists, its whole purpose is unauthenticated posting, so the token
+*is* the credential.
 **Tradeoff:** Webhook management is coarser than Discord's per-channel model; any
-server admin can manage any room's webhooks. Granular per-room delegation is left
-to a future iteration.
+server admin can manage any room's webhooks. A dedicated, room-scoped
+`webhook.manage` permission is left to a future iteration.
 
 ### 6. Attachments post through a token-authorized upload path
 
@@ -117,8 +121,8 @@ because it is reachable without a user session.
 
 ## Permissions
 
-- `webhook.manage` — create, edit, delete, and regenerate tokens for channel
-  webhooks. Server-scoped in the first iteration.
+- `server.manage` — create, edit, delete, and regenerate tokens for channel
+  webhooks (the same permission that gates other server-administrative surfaces).
 
 ## Related
 
