@@ -104,12 +104,24 @@
   const actor = $derived(event?.actor ? useRenderData(UserAvatarViewData, event.actor) : null);
   const deletedActor = $derived(!actor || actor.deleted);
 
+  // Per-message webhook identity override (FDR-031): a channel webhook can
+  // supply a display name and/or avatar for an individual post, which takes
+  // priority over the webhook author's own profile. Read directly off the
+  // `event` prop (not the later `messageEvent`/`msg` consts) so this is
+  // available before those are declared further down the script.
+  const webhookOverride = $derived(
+    isMessagePostedEvent(event?.event) ? (event.event.webhookOverride ?? null) : null
+  );
+  const isWebhookMessage = $derived(!!webhookOverride || !!actor?.isWebhookAuthor);
+
   // Display name with live updates from profile cache
   const displayName = $derived(
-    !deletedActor && actor
-      ? getLiveDisplayName(actor.id, actor.displayName || actor.login)
-      : m['common.deleted_user']()
+    webhookOverride?.displayName ||
+      (!deletedActor && actor
+        ? getLiveDisplayName(actor.id, actor.displayName || actor.login)
+        : m['common.deleted_user']())
   );
+
   const actorCallPresence = $derived(
     !deletedActor && actor ? activeCallRooms.getParticipantCallPresence(roomId, actor.id) : null
   );
@@ -712,6 +724,13 @@
 					 so it doesn't inflate row height for short (single-line) messages -->
         <div class="w-11 shrink-0"></div>
         {#if !deletedActor && actor}
+          {@const effectiveActor = webhookOverride
+            ? {
+                ...actor,
+                displayName: webhookOverride.displayName || actor.displayName,
+                avatarUrl: webhookOverride.avatarUrl || actor.avatarUrl
+              }
+            : actor}
           <button
             type="button"
             class={['absolute left-2 z-10 cursor-pointer', replyPreview ? 'top-8' : 'top-1']}
@@ -723,7 +742,7 @@
               showPopoverForActor(e);
             }}
           >
-            <UserAvatar user={actor} size="message" class="shadow-md" />
+            <UserAvatar user={effectiveActor} size="message" class="shadow-md" />
           </button>
         {:else}
           <!-- Deleted user placeholder avatar -->
@@ -822,6 +841,14 @@
                 <span>{displayName}</span>
                 {@render callPresenceIcon(actorCallPresence)}
               </button>
+              {#if isWebhookMessage}
+                <span
+                  class="meta-badge shrink-0 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-muted uppercase"
+                  title={m['common.automated']()}
+                >
+                  {m['common.automated']()}
+                </span>
+              {/if}
             {:else}
               <strong class="shrink-0 leading-none font-semibold text-muted"
                 ><DeletedUserLabel /></strong

@@ -71,6 +71,14 @@ export function getAdminNavItems({
     });
   }
 
+  if (chrome.canManage) {
+    items.push({
+      href: resolve('/chat/[serverId]/server-admin/webhooks', { serverId: serverSegment }),
+      label: m['server_settings.webhooks.nav'](),
+      icon: 'iconify uil--link-add'
+    });
+  }
+
   if (chrome.canViewAdmin) {
     items.push({
       href: resolve('/chat/[serverId]/server-admin/moderation', { serverId: serverSegment }),

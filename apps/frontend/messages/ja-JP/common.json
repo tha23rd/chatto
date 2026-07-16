@@ -49,6 +49,7 @@
     "saved": "保存しました!",
     "rooms": "部屋",
     "copy_to_clipboard": "クリップボードにコピー",
-    "copied_to_clipboard": "クリップボードにコピーされました"
+    "copied_to_clipboard": "クリップボードにコピーされました",
+    "automated": "自動"
   }
 }

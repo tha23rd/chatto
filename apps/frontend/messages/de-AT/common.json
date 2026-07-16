@@ -49,6 +49,7 @@
     "saved": "Gespeichert!",
     "rooms": "Räume",
     "copy_to_clipboard": "In Zwischenablage kopieren",
-    "copied_to_clipboard": "In Zwischenablage kopiert"
+    "copied_to_clipboard": "In Zwischenablage kopiert",
+    "automated": "Automatisiert"
   }
 }

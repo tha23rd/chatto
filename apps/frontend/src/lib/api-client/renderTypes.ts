@@ -86,6 +86,17 @@ export type UserAvatarUserView = {
   avatarUrl?: string | null;
   presenceStatus: PresenceStatus;
   customStatus?: CustomUserStatusView | null;
+  /**
+   * True when this identity is a synthetic channel-webhook author (FDR-031)
+   * rather than a human account. Drives the "automated" badge on messages.
+   */
+  isWebhookAuthor?: boolean;
+};
+
+/** Per-message webhook identity override (FDR-031). See `MessageWebhookOverride`. */
+export type MessageWebhookOverrideView = {
+  displayName?: string | null;
+  avatarUrl?: string | null;
 };
 
 export type VideoVariantView = {
@@ -198,6 +209,7 @@ export type RoomEventPayload =
       threadParticipantCount?: number;
       threadParticipants: UserAvatarUserView[];
       viewerIsFollowingThread?: boolean | null;
+      webhookOverride?: MessageWebhookOverrideView | null;
     }
   | {
       kind: 'messageRetracted';

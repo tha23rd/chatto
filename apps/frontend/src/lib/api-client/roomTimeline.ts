@@ -16,7 +16,7 @@ import type {
   MessageVideoProcessing
 } from '@chatto/api-types/api/v1/message_types_pb';
 import type { RoomTimelineEvent } from '@chatto/api-types/api/v1/room_timeline_pb';
-import type { User } from '@chatto/api-types/api/v1/users_pb';
+import { UserKind, type User } from '@chatto/api-types/api/v1/users_pb';
 
 export type RoomTimelineAPIConfig = {
   serverId?: string;
@@ -343,6 +343,12 @@ export function messagePostedPayload(message: Message, users: Record<string, Use
       .filter((user): user is NonNullable<ReturnType<typeof userView>> => user !== null),
     viewerIsFollowingThread:
       thread?.viewerState?.isFollowing !== undefined ? thread.viewerState.isFollowing : null,
+    webhookOverride: message.webhookOverride
+      ? {
+          displayName: message.webhookOverride.displayName ?? null,
+          avatarUrl: message.webhookOverride.avatarUrl ?? null
+        }
+      : null,
     reactions: message.reactions.map((reaction) => ({
       emoji: reaction.emoji,
       count: reaction.count,
@@ -373,7 +379,8 @@ function userView(userId: string, users: Record<string, User>) {
     displayName: user.displayName,
     deleted: user.deleted,
     avatarUrl: user.avatarUrl || null,
-    presenceStatus: PresenceStatus.Offline
+    presenceStatus: PresenceStatus.Offline,
+    isWebhookAuthor: user.kind === UserKind.WEBHOOK
   };
 }
 
