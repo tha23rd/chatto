@@ -1,0 +1,95 @@
+---
+title: Channel Webhooks
+description: Create a channel webhook and post messages into a Chatto room from an external service, CI pipeline, or alert.
+---
+
+import { Aside, CardGrid, LinkCard, Steps } from "@astrojs/starlight/components";
+
+Channel webhooks let an external service post messages into a room by sending an HTTP `POST` to a secret, per-webhook URL — no user account, session, or bot required. Each webhook has its own name and avatar that posted messages are attributed to, similar to Discord's incoming webhooks. This is a simple way to wire up CI notifications, alerting, RSS bridges, and other one-way integrations.
+
+<Aside type="caution" title="The URL is shown once">
+  The webhook URL contains a secret token and is displayed only at creation time (and again if you regenerate the token). Copy it immediately and store it somewhere safe — Chatto only ever stores a hash of the token, so a lost URL cannot be recovered, only replaced.
+</Aside>
+
+## Create a webhook
+
+Creating and managing channel webhooks requires the `server.manage` permission, held by the owner and admin roles by default — the same permission that gates custom emoji and role management.
+
+<Steps>
+
+1. **Open server administration** and create a new webhook against the room you want it to post into. Give it a name; you can optionally set an avatar image too. Both are used as the default author identity for its messages.
+
+2. **Copy the webhook URL** shown after creation. It has the form:
+
+   ```text
+   https://chat.example.com/webhooks/incoming/{webhookId}/{token}
+   ```
+
+   Anyone who has this URL can post to the target room, so treat it like a password.
+
+3. **Configure the external service or script** to `POST` to that URL whenever it wants to post a message.
+
+</Steps>
+
+## Post a message
+
+Send a JSON body with a `content` field:
+
+```bash
+curl -X POST "https://chat.example.com/webhooks/incoming/wh_abc123/wh_secrettoken" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Deploy finished successfully."}'
+```
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `content` | One of `content` or an attachment | Message text. |
+| `username` | No | Overrides the webhook's default display name for this message only. |
+| `avatar_url` | No | Overrides the webhook's default avatar for this message only. |
+
+A request needs either non-empty `content`, at least one attachment, or both.
+
+<Aside type="tip">
+  `username` and `avatar_url` let one webhook post under different logical senders per message — for example, a CI webhook posting as different pipeline stages. Omit them to use the webhook's own name and avatar.
+</Aside>
+
+## Post with attachments
+
+To include files, send a `multipart/form-data` request with a `payload_json` part carrying the same JSON shape, plus one file part per attachment:
+
+```bash
+curl -X POST "https://chat.example.com/webhooks/incoming/wh_abc123/wh_secrettoken" \
+  -F 'payload_json={"content":"Build artifact attached."}' \
+  -F 'file1=@build.log'
+```
+
+A single request accepts up to 10 files, and the whole request body (content plus files) is capped at 25 MiB.
+
+## Regenerate or delete a webhook
+
+Regenerating a webhook's token immediately invalidates its previous URL and issues a new one-time URL. Deleting a webhook immediately stops it from accepting posts; messages it already posted keep their webhook identity.
+
+## Limits and behavior
+
+- The endpoint is unauthenticated: possessing the token in the URL is the sole authorization. There is no per-user permission check on the posting side.
+- Requests are rate limited per webhook.
+- Posted messages behave like ordinary messages: they appear live to connected clients, generate notifications, can be replied to and reacted to, and are encrypted at rest.
+- Webhook identities never appear in the member directory or mention autocomplete, never show presence, and can never log in.
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| `404 Not Found` | The webhook ID or token in the URL is wrong, or the webhook has been deleted. |
+| `403 Forbidden` | The webhook has been disabled. |
+| `429 Too Many Requests` | The webhook is being posted to faster than its rate limit allows; retry after a short delay. |
+| `400 Bad Request` | The body is not valid JSON (or `payload_json`), or the message has neither `content` nor attachments. |
+| Messages post as the wrong name/avatar | Check for a stray `username`/`avatar_url` override in the request body; omit them to use the webhook's own identity. |
+
+## Related reference
+
+<CardGrid>
+  <LinkCard title="Admin Webhooks API" href="/reference/connectrpc-api/admin-webhooks/" description="ConnectRPC reference for creating, listing, updating, and rotating channel webhooks." />
+  <LinkCard title="Permissions" href="/guides/operations/permissions/" description="How server.manage and other permissions are assigned." />
+  <LinkCard title="Integrating With Chatto" href="/guides/integrations/chatto-api/" description="Overview of Chatto's public API surfaces." />
+</CardGrid>

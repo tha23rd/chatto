@@ -99,6 +99,7 @@ export default defineConfig({
             "guides/integrations/external-login-providers",
             "guides/integrations/community-shields",
             "guides/integrations/pocket-id",
+            "guides/integrations/channel-webhooks",
           ],
         },
         {
