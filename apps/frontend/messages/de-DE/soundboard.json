@@ -37,6 +37,12 @@
     "panel_button": "Soundboard",
     "panel_empty": "No sounds yet.",
     "play_failed": "Could not play that sound.",
-    "throttled": "Slow down a moment."
+    "throttled": "Slow down a moment.",
+    "trim_help": "Ziehe die Griffe, um Anfang und Ende zu kürzen.",
+    "trim_preview": "Vorschau",
+    "trim_stop": "Stopp",
+    "trim_reset": "Zurücksetzen",
+    "trim_start_handle": "Anfang kürzen",
+    "trim_end_handle": "Ende kürzen"
   }
 }

@@ -23,6 +23,8 @@ duration, so obviously-invalid files are rejected before hitting the network.
   import { toast } from '$lib/ui/toast';
   import { dropZone } from '$lib/attachments/dropZone.svelte';
   import DropZoneOverlay from '$lib/attachments/DropZoneOverlay.svelte';
+  import SoundboardTrimmer from '$lib/components/soundboard/SoundboardTrimmer.svelte';
+  import { decodedClipFromAudioBuffer, trimClipToWav } from '$lib/audio/trimAudio';
 
   const MAX_AUDIO_BYTES = 512 * 1024;
   const MAX_DURATION_SECONDS = 5;
@@ -57,6 +59,21 @@ duration, so obviously-invalid files are rejected before hitting the network.
   let uploading = $state(false);
   let fileInput = $state<HTMLInputElement>();
   let isDragging = $state(false);
+
+  // Decoded clip + trim selection (seconds). The trimmer edits trimStart/trimEnd
+  // in place; on upload we only re-encode when the selection actually differs
+  // from the whole clip, so untrimmed uploads keep their original bytes/format.
+  let decodedBuffer = $state<AudioBuffer | null>(null);
+  let trimStart = $state(0);
+  let trimEnd = $state(0);
+
+  function resetSelection() {
+    selectedFile = null;
+    decodedBuffer = null;
+    trimStart = 0;
+    trimEnd = 0;
+    if (fileInput) fileInput.value = '';
+  }
 
   const canSubmit = $derived(name.trim().length > 0 && selectedFile !== null && !uploading);
 
@@ -93,14 +110,13 @@ duration, so obviously-invalid files are rejected before hitting the network.
       return;
     }
 
-    let durationSeconds: number;
+    let decoded: AudioBuffer;
     try {
       const bytes = await file.arrayBuffer();
       // decodeAudioData detaches its input, so decode a copy.
       const ctx = new AudioContext();
       try {
-        const decoded = await ctx.decodeAudioData(bytes.slice(0));
-        durationSeconds = decoded.duration;
+        decoded = await ctx.decodeAudioData(bytes.slice(0));
       } finally {
         void ctx.close();
       }
@@ -109,12 +125,18 @@ duration, so obviously-invalid files are rejected before hitting the network.
       return;
     }
 
-    if (durationSeconds > MAX_DURATION_SECONDS + 0.05) {
+    if (decoded.duration > MAX_DURATION_SECONDS + 0.05) {
       toast.error(m['soundboard.audio_too_long']());
       return;
     }
 
     selectedFile = file;
+    // Keep the decoded clip so the trimmer can render its waveform and so upload
+    // can re-encode the selected region. The buffer stays valid after its decode
+    // context is closed.
+    decodedBuffer = decoded;
+    trimStart = 0;
+    trimEnd = decoded.duration;
     if (!name.trim()) {
       // Seed the name from the file name for convenience.
       name = file.name.replace(/\.[^.]+$/, '').slice(0, 64);
@@ -136,28 +158,52 @@ duration, so obviously-invalid files are rejected before hitting the network.
     acceptedTypes: ACCEPTED_AUDIO_TYPES
   });
 
+  /**
+   * Build the audio payload to upload. When the admin has trimmed the clip we
+   * re-encode the selected region as a mono WAV; otherwise the original bytes
+   * are uploaded untouched so no needless transcode is applied.
+   */
+  async function buildAudioUpload(
+    file: File
+  ): Promise<{ audio: Uint8Array<ArrayBuffer>; filename: string; contentType: string } | null> {
+    const buffer = decodedBuffer;
+    const trimmed = buffer !== null && (trimStart > 0.001 || trimEnd < buffer.duration - 0.001);
+    if (buffer && trimmed) {
+      const wav = trimClipToWav(decodedClipFromAudioBuffer(buffer), trimStart, trimEnd);
+      if (wav.byteLength > MAX_AUDIO_BYTES) {
+        toast.error(m['soundboard.audio_too_large']());
+        return null;
+      }
+      const base = file.name.replace(/\.[^.]+$/, '') || 'sound';
+      return { audio: wav, filename: `${base}.wav`, contentType: 'audio/wav' };
+    }
+    return {
+      audio: new Uint8Array(await file.arrayBuffer()),
+      filename: file.name,
+      contentType: file.type
+    };
+  }
+
   async function handleUpload(e: Event) {
     e.preventDefault();
     const file = selectedFile;
     if (!name.trim() || !file || uploading) return;
 
+    const audioUpload = await buildAudioUpload(file);
+    if (!audioUpload) return;
+
     uploading = true;
     try {
       const created = await createAdminSoundboardAPI(apiConfig()).create(
         name.trim(),
-        {
-          audio: new Uint8Array(await file.arrayBuffer()),
-          filename: file.name,
-          contentType: file.type
-        },
+        audioUpload,
         { emoji: emoji.trim(), volume: volumePercent / 100 }
       );
       store.upsert(created);
       name = '';
       emoji = '';
       volumePercent = 100;
-      selectedFile = null;
-      if (fileInput) fileInput.value = '';
+      resetSelection();
       toast.success(m['soundboard.uploaded']());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : m['soundboard.upload_failed']());
@@ -253,6 +299,15 @@ duration, so obviously-invalid files are rejected before hitting the network.
           </span>
         </div>
       </div>
+
+      {#if decodedBuffer}
+        <SoundboardTrimmer
+          buffer={decodedBuffer}
+          bind:start={trimStart}
+          bind:end={trimEnd}
+          disabled={uploading}
+        />
+      {/if}
 
       <div>
         <Button
