@@ -74,6 +74,12 @@ const categories = [
         description: 'Message creation, editing, deletion, composer link-preview, reaction, and attachment RPCs.'
       },
       {
+        name: 'SoundboardService',
+        slug: 'soundboard',
+        title: 'Soundboard',
+        description: 'Authenticated soundboard catalog listing RPCs for the voice-call soundboard panel.'
+      },
+      {
         name: 'MyAccountService',
         slug: 'account',
         title: 'My Account',
@@ -161,6 +167,12 @@ const categories = [
         slug: 'admin-custom-emojis',
         title: 'Admin Custom Emojis',
         description: 'Administrative custom-emoji create, delete, and list RPCs.'
+      },
+      {
+        name: 'AdminSoundboardService',
+        slug: 'admin-soundboard',
+        title: 'Admin Soundboard',
+        description: 'Administrative soundboard create, delete, and list RPCs.'
       },
       {
         name: 'AdminEventLogService',

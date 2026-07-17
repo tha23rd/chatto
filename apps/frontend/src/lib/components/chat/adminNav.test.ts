@@ -6,6 +6,7 @@ function chrome(overrides: Partial<AdminNavChromePermissions> = {}): AdminNavChr
     canViewAdmin: false,
     canManage: false,
     canManageEmoji: false,
+    canManageSoundboard: false,
     canManageRooms: false,
     canManageRoles: false,
     canAssignRoles: false,
@@ -87,5 +88,25 @@ describe('getAdminNavItems', () => {
     });
 
     expect(items.some((item) => item.label === 'Custom Emoji')).toBe(false);
+  });
+
+  it('shows only Soundboard for soundboard managers with no other admin access', () => {
+    const items = getAdminNavItems({
+      serverSegment: 'local',
+      chrome: chrome({ canViewAdmin: false, canManageSoundboard: true, canManage: false }),
+      server: server()
+    });
+
+    expect(items.map((item) => item.label)).toEqual(['Soundboard']);
+  });
+
+  it('hides Soundboard without soundboard management', () => {
+    const items = getAdminNavItems({
+      serverSegment: 'local',
+      chrome: chrome({ canViewAdmin: true, canManage: false, canManageSoundboard: false }),
+      server: server()
+    });
+
+    expect(items.some((item) => item.label === 'Soundboard')).toBe(false);
   });
 });

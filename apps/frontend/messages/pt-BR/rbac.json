@@ -87,6 +87,7 @@
     "permission_descriptions": {
       "server_manage": "Atualizar configurações do servidor (nome, descrição, logotipo)",
       "emoji_manage": "Adicionar e remover emojis personalizados do servidor",
+      "soundboard_manage": "Adicionar e remover sons da soundboard do servidor",
       "room_create": "Criar novas salas",
       "room_join": "Junte-se a salas existentes",
       "room_list": "Ver salas no diretório. Um usuário pode ter permissão para ver uma sala (por exemplo, para solicitar acesso) sem ter permissão para ingressar nela.",

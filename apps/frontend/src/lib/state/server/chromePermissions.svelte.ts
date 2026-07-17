@@ -11,6 +11,7 @@ export type ChromePermissions = {
   canViewAdmin: boolean;
   canManage: boolean;
   canManageEmoji: boolean;
+  canManageSoundboard: boolean;
   canManageRooms: boolean;
   canManageRoles: boolean;
   canAssignRoles: boolean;
@@ -34,6 +35,7 @@ export function createChromePermissions(): (permissions: Omit<ChromePermissions,
       canViewAdmin: false,
       canManage: false,
       canManageEmoji: false,
+      canManageSoundboard: false,
       canManageRooms: false,
       canManageRoles: false,
       canAssignRoles: false,

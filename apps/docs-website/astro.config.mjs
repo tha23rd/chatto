@@ -125,6 +125,7 @@ export default defineConfig({
                 "reference/connectrpc-api/asset-uploads",
                 "reference/connectrpc-api/custom-emojis",
                 "reference/connectrpc-api/messages",
+                "reference/connectrpc-api/soundboard",
                 "reference/connectrpc-api/account",
                 "reference/connectrpc-api/notification-preferences",
                 "reference/connectrpc-api/notifications",
@@ -144,6 +145,7 @@ export default defineConfig({
               items: [
                 "reference/connectrpc-api/admin-custom-emojis",
                 "reference/connectrpc-api/admin-diagnostics",
+                "reference/connectrpc-api/admin-soundboard",
                 "reference/connectrpc-api/admin-event-log",
                 "reference/connectrpc-api/admin-permissions",
                 "reference/connectrpc-api/admin-roles",

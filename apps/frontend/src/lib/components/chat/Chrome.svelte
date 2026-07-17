@@ -87,6 +87,7 @@
     canViewAdmin: boolean;
     canManage: boolean;
     canManageEmoji: boolean;
+    canManageSoundboard: boolean;
     canManageRooms: boolean;
     canManageRoles: boolean;
     canAssignRoles: boolean;
@@ -120,6 +121,7 @@
         canViewAdmin: viewer.canViewAdmin,
         canManage: server.viewerCanManageServer,
         canManageEmoji: server.viewerCanManageEmoji,
+        canManageSoundboard: server.viewerCanManageSoundboard,
         canManageRooms: server.viewerCanManageRooms,
         canManageRoles: viewer.canAdminManageRoles,
         canAssignRoles: viewer.canAssignRoles,
@@ -213,6 +215,7 @@
         canViewAdmin: serverData.canViewAdmin,
         canManage: serverData.canManage,
         canManageEmoji: serverData.canManageEmoji,
+        canManageSoundboard: serverData.canManageSoundboard,
         canManageRooms: serverData.canManageRooms,
         canManageRoles: serverData.canManageRoles,
         canAssignRoles: serverData.canAssignRoles,

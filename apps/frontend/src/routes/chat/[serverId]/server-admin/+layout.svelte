@@ -24,6 +24,7 @@
     const membersBase = resolve('/chat/[serverId]/server-admin/members', params);
     const roomsBase = adminBase + '/rooms';
     const customEmojiBase = adminBase + '/custom-emoji';
+    const soundboardBase = adminBase + '/soundboard';
     const moderationBase = adminBase + '/moderation';
     const permissionsBase = adminBase + '/permissions';
     const securityBase = adminBase + '/security';
@@ -49,6 +50,11 @@
     // Custom emoji management — emoji.manage (or the broader server.manage).
     if (pathname.startsWith(customEmojiBase)) {
       return () => chromePermissions.current.canManageEmoji;
+    }
+
+    // Soundboard management — soundboard.manage (or the broader server.manage).
+    if (pathname.startsWith(soundboardBase)) {
+      return () => chromePermissions.current.canManageSoundboard;
     }
 
     // Moderation pages: the resolver enforces server-scope room.ban-member.

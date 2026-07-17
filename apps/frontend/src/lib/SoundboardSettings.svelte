@@ -1,0 +1,320 @@
+<!--
+@component
+
+Server-admin management UI for soundboard sounds. Lists the server's existing
+sounds with a play-preview and a delete affordance, and lets an admin upload a
+new one by providing a name, an audio file, an optional emoji icon, and a
+default playback volume.
+
+Sounds are admin-curated and immutable once uploaded (create + delete only).
+Uploads are validated client-side: audio type, ≤512 KB, and ≤5 seconds decoded
+duration, so obviously-invalid files are rejected before hitting the network.
+-->
+<script lang="ts">
+  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { createAdminSoundboardAPI, type Sound } from '$lib/api-client/soundboard';
+  import type { ConnectAPIConfig } from '$lib/api-client/connect';
+  import { getActiveServer } from '$lib/state/activeServer.svelte';
+  import { getSoundboard } from '$lib/state/soundboard.svelte';
+  import * as m from '$lib/i18n/messages';
+
+  import { Panel, DataTable } from '$lib/components/admin';
+  import { TextInput, Button, RangeField } from '$lib/ui/form';
+  import { toast } from '$lib/ui/toast';
+  import { dropZone } from '$lib/attachments/dropZone.svelte';
+  import DropZoneOverlay from '$lib/attachments/DropZoneOverlay.svelte';
+
+  const MAX_AUDIO_BYTES = 512 * 1024;
+  const MAX_DURATION_SECONDS = 5;
+  const ACCEPTED_AUDIO_TYPES = ['audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm'];
+  const ACCEPT_ATTR = ACCEPTED_AUDIO_TYPES.join(',');
+
+  const connection = useConnection();
+
+  function apiConfig(): ConnectAPIConfig {
+    const conn = connection();
+    return {
+      serverId: conn.serverId,
+      baseUrl: conn.connectBaseUrl,
+      bearerToken: conn.bearerToken
+    };
+  }
+
+  let loading = $state(true);
+  let error = $state<string | null>(null);
+
+  // The shared, per-server store is the single source of truth. Mutating it
+  // here keeps the in-call soundboard panel in sync with uploads/deletes
+  // without a client reload.
+  const store = getSoundboard(getActiveServer());
+  const sounds = $derived(store.sounds);
+
+  // Upload form state
+  let name = $state('');
+  let emoji = $state('');
+  let volumePercent = $state(100);
+  let selectedFile = $state<File | null>(null);
+  let uploading = $state(false);
+  let fileInput = $state<HTMLInputElement>();
+  let isDragging = $state(false);
+
+  const canSubmit = $derived(name.trim().length > 0 && selectedFile !== null && !uploading);
+
+  // A single shared preview player so starting one preview stops the previous.
+  let previewAudio: HTMLAudioElement | null = null;
+
+  async function loadSounds() {
+    loading = true;
+    error = null;
+    // Force-refresh the shared store so this admin view shows the current
+    // catalog and the in-call panel benefits from the refresh too.
+    if (!(await store.load(apiConfig()))) {
+      error = m['soundboard.load_failed']();
+    }
+    loading = false;
+  }
+
+  $effect(() => {
+    loadSounds();
+  });
+
+  /**
+   * Validate an audio file and, if valid, keep it as the pending selection.
+   * Decodes the clip with the Web Audio API to measure its real duration
+   * because file size alone does not bound length.
+   */
+  async function acceptFile(file: File): Promise<void> {
+    if (!ACCEPTED_AUDIO_TYPES.includes(file.type)) {
+      toast.error(m['soundboard.invalid_audio']());
+      return;
+    }
+    if (file.size > MAX_AUDIO_BYTES) {
+      toast.error(m['soundboard.audio_too_large']());
+      return;
+    }
+
+    let durationSeconds: number;
+    try {
+      const bytes = await file.arrayBuffer();
+      // decodeAudioData detaches its input, so decode a copy.
+      const ctx = new AudioContext();
+      try {
+        const decoded = await ctx.decodeAudioData(bytes.slice(0));
+        durationSeconds = decoded.duration;
+      } finally {
+        void ctx.close();
+      }
+    } catch {
+      toast.error(m['soundboard.decode_failed']());
+      return;
+    }
+
+    if (durationSeconds > MAX_DURATION_SECONDS + 0.05) {
+      toast.error(m['soundboard.audio_too_long']());
+      return;
+    }
+
+    selectedFile = file;
+    if (!name.trim()) {
+      // Seed the name from the file name for convenience.
+      name = file.name.replace(/\.[^.]+$/, '').slice(0, 64);
+    }
+  }
+
+  function handleFileSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) void acceptFile(file);
+  }
+
+  const soundDropZone = dropZone({
+    onDrop: (files) => {
+      const file = files[0];
+      if (file) void acceptFile(file);
+    },
+    onDragStateChange: (dragging) => (isDragging = dragging),
+    acceptedTypes: ACCEPTED_AUDIO_TYPES
+  });
+
+  async function handleUpload(e: Event) {
+    e.preventDefault();
+    const file = selectedFile;
+    if (!name.trim() || !file || uploading) return;
+
+    uploading = true;
+    try {
+      const created = await createAdminSoundboardAPI(apiConfig()).create(
+        name.trim(),
+        {
+          audio: new Uint8Array(await file.arrayBuffer()),
+          filename: file.name,
+          contentType: file.type
+        },
+        { emoji: emoji.trim(), volume: volumePercent / 100 }
+      );
+      store.upsert(created);
+      name = '';
+      emoji = '';
+      volumePercent = 100;
+      selectedFile = null;
+      if (fileInput) fileInput.value = '';
+      toast.success(m['soundboard.uploaded']());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : m['soundboard.upload_failed']());
+    } finally {
+      uploading = false;
+    }
+  }
+
+  function handlePreview(sound: Sound) {
+    previewAudio?.pause();
+    const audio = new Audio(sound.url);
+    audio.volume = Math.max(0, Math.min(1, sound.volume));
+    previewAudio = audio;
+    void audio.play().catch(() => toast.error(m['soundboard.play_failed']()));
+  }
+
+  async function handleDelete(sound: Sound) {
+    try {
+      await createAdminSoundboardAPI(apiConfig()).remove(sound.id);
+      store.remove(sound.id);
+      toast.success(m['soundboard.deleted']());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : m['soundboard.delete_failed']());
+    }
+  }
+</script>
+
+<div class="flex flex-col gap-6">
+  <!-- Upload form -->
+  <Panel title={m['soundboard.upload']()} icon="iconify uil--music">
+    <form onsubmit={handleUpload} class="flex flex-col gap-4">
+      <TextInput
+        id="soundboard-name"
+        label={m['soundboard.name_label']()}
+        bind:value={name}
+        disabled={uploading}
+        maxlength={64}
+        description={m['soundboard.name_help']()}
+      />
+
+      <TextInput
+        id="soundboard-emoji"
+        label={m['soundboard.emoji_label']()}
+        bind:value={emoji}
+        disabled={uploading}
+        maxlength={16}
+        placeholder={m['soundboard.emoji_placeholder']()}
+      />
+
+      <RangeField
+        id="soundboard-volume"
+        label={m['soundboard.volume_label']()}
+        bind:value={volumePercent}
+        displayValue={`${volumePercent}%`}
+        icon="iconify uil--volume"
+        min={0}
+        max={100}
+        step={5}
+        disabled={uploading}
+      />
+
+      <div
+        class="relative flex items-center gap-4"
+        data-testid="soundboard-drop-zone"
+        {@attach soundDropZone}
+      >
+        <DropZoneOverlay
+          visible={isDragging}
+          title={m['soundboard.drop_audio']()}
+          subtitle={m['soundboard.drop_subtitle']()}
+        />
+        <div
+          class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-emphasized text-muted"
+        >
+          <span class="iconify text-2xl uil--music"></span>
+        </div>
+        <div class="flex flex-col gap-2">
+          <input
+            type="file"
+            accept={ACCEPT_ATTR}
+            class="hidden"
+            bind:this={fileInput}
+            onchange={handleFileSelect}
+          />
+          <Button variant="secondary" onclick={() => fileInput?.click()} disabled={uploading}>
+            <span class="inline-flex items-center gap-2">
+              <span class="iconify uil--upload"></span>
+              {selectedFile ? m['soundboard.change_file']() : m['soundboard.choose_file']()}
+            </span>
+          </Button>
+          <span class="text-sm text-muted">
+            {selectedFile ? selectedFile.name : m['soundboard.no_file']()}
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <Button
+          type="submit"
+          loading={uploading}
+          disabled={!canSubmit}
+          loadingText={m['soundboard.uploading']()}
+        >
+          <span class="iconify uil--plus"></span>
+          {m['soundboard.add_button']()}
+        </Button>
+      </div>
+    </form>
+  </Panel>
+
+  <!-- Existing sounds -->
+  <Panel
+    title={m['soundboard.list_title']()}
+    icon="iconify uil--music-note"
+    count={sounds.length}
+    noPadding
+  >
+    {#if loading}
+      <div class="p-6 text-muted">{m['soundboard.loading']()}</div>
+    {:else if error}
+      <div class="p-6 text-danger">{error}</div>
+    {:else}
+      <DataTable
+        items={sounds}
+        columns={3}
+        getKey={(sound) => sound.id}
+        emptyMessage={m['soundboard.empty']()}
+      >
+        {#snippet header()}
+          <th class="px-4 py-2">{m['soundboard.column_preview']()}</th>
+          <th class="px-4 py-2">{m['soundboard.column_name']()}</th>
+          <th class="px-4 py-2"></th>
+        {/snippet}
+        {#snippet row(sound)}
+          <td class="px-4 py-2">
+            <Button variant="ghost" onclick={() => handlePreview(sound)}>
+              <span class="inline-flex items-center gap-2">
+                {#if sound.emoji}
+                  <span class="text-lg">{sound.emoji}</span>
+                {:else}
+                  <span class="iconify text-lg uil--play"></span>
+                {/if}
+                <span class="sr-only">{m['soundboard.play']()}</span>
+              </span>
+            </Button>
+          </td>
+          <td class="px-4 py-2 text-sm font-medium">{sound.name}</td>
+          <td class="px-4 py-2 text-right">
+            <Button variant="ghost" onclick={() => handleDelete(sound)}>
+              <span class="inline-flex items-center gap-2 text-error">
+                <span class="iconify uil--trash-alt"></span>
+                {m['soundboard.delete']()}
+              </span>
+            </Button>
+          </td>
+        {/snippet}
+      </DataTable>
+    {/if}
+  </Panel>
+</div>

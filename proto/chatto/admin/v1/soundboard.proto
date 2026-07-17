@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package chatto.admin.v1;
+
+import "buf/validate/validate.proto";
+import "chatto/api/v1/common.proto";
+import "chatto/api/v1/soundboard.proto";
+
+option go_package = "hmans.de/chatto/internal/pb/chatto/admin/v1;adminv1";
+
+// Request to create a new soundboard sound from an uploaded audio clip.
+message CreateSoundRequest {
+  // Required. Display name for the sound, 1-64 characters.
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+  // Required. The source audio clip. The server validates format, size, and
+  // stores the clip as-is; clients decode it for playback.
+  chatto.api.v1.AudioUpload audio = 2;
+  // Optional emoji icon (unicode or custom emoji shortcode) for the button.
+  string emoji = 3 [(buf.validate.field).string.max_len = 64];
+  // Optional default playback volume in [0, 1]. Defaults to 1 when zero/unset.
+  float volume = 4;
+}
+
+// Result of creating a soundboard sound.
+message CreateSoundResponse {
+  // The newly created sound.
+  chatto.api.v1.Sound sound = 1;
+}
+
+// Request to delete a soundboard sound by ID.
+message DeleteSoundRequest {
+  // Required. Sound identifier to delete.
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// Result of deleting a soundboard sound.
+message DeleteSoundResponse {}
+
+// Request to list all soundboard sounds for administrative management.
+message ListSoundsRequest {}
+
+// Response carrying the full server soundboard catalog.
+message ListSoundsResponse {
+  // All sounds, ordered by name.
+  repeated chatto.api.v1.Sound sounds = 1;
+}
+
+// AdminSoundboardService is the administrative surface for managing the server
+// soundboard catalog. Mutating RPCs require the `soundboard.manage` permission
+// or the broader `server.manage` permission; both are held by the owner and
+// admin roles by default, and `soundboard.manage` can be granted on its own to
+// a narrower role.
+service AdminSoundboardService {
+  // Creates a sound from an uploaded audio clip. Requires `soundboard.manage`
+  // or `server.manage`.
+  rpc CreateSound(CreateSoundRequest) returns (CreateSoundResponse);
+  // Deletes a sound by ID. Requires `soundboard.manage` or `server.manage`.
+  rpc DeleteSound(DeleteSoundRequest) returns (DeleteSoundResponse);
+  // Lists all sounds for management. Requires `soundboard.manage` or
+  // `server.manage`.
+  rpc ListSounds(ListSoundsRequest) returns (ListSoundsResponse);
+}

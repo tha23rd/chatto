@@ -203,6 +203,72 @@ func (x *ImageUpload) GetContentType() string {
 	return ""
 }
 
+// AudioUpload carries an uploaded audio clip (e.g. a soundboard sound). The
+// server validates format and size and stores the bytes as-is; clients decode
+// the clip for playback.
+type AudioUpload struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Raw audio bytes.
+	Audio []byte `protobuf:"bytes,1,opt,name=audio,proto3" json:"audio,omitempty"`
+	// Original browser filename, for diagnostics and future compatibility.
+	Filename string `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
+	// Browser-provided content type (e.g. "audio/mpeg", "audio/ogg").
+	ContentType   string `protobuf:"bytes,3,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AudioUpload) Reset() {
+	*x = AudioUpload{}
+	mi := &file_chatto_api_v1_common_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AudioUpload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AudioUpload) ProtoMessage() {}
+
+func (x *AudioUpload) ProtoReflect() protoreflect.Message {
+	mi := &file_chatto_api_v1_common_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AudioUpload.ProtoReflect.Descriptor instead.
+func (*AudioUpload) Descriptor() ([]byte, []int) {
+	return file_chatto_api_v1_common_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *AudioUpload) GetAudio() []byte {
+	if x != nil {
+		return x.Audio
+	}
+	return nil
+}
+
+func (x *AudioUpload) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
+func (x *AudioUpload) GetContentType() string {
+	if x != nil {
+		return x.ContentType
+	}
+	return ""
+}
+
 // Public login/provider metadata shared by discovery and account-linking APIs.
 type ProviderMetadata struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -220,7 +286,7 @@ type ProviderMetadata struct {
 
 func (x *ProviderMetadata) Reset() {
 	*x = ProviderMetadata{}
-	mi := &file_chatto_api_v1_common_proto_msgTypes[2]
+	mi := &file_chatto_api_v1_common_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -232,7 +298,7 @@ func (x *ProviderMetadata) String() string {
 func (*ProviderMetadata) ProtoMessage() {}
 
 func (x *ProviderMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_common_proto_msgTypes[2]
+	mi := &file_chatto_api_v1_common_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -245,7 +311,7 @@ func (x *ProviderMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderMetadata.ProtoReflect.Descriptor instead.
 func (*ProviderMetadata) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_common_proto_rawDescGZIP(), []int{2}
+	return file_chatto_api_v1_common_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ProviderMetadata) GetId() string {
@@ -290,6 +356,10 @@ const file_chatto_api_v1_common_proto_rawDesc = "" +
 	"\vImageUpload\x12\x14\n" +
 	"\x05image\x18\x01 \x01(\fR\x05image\x12\x1a\n" +
 	"\bfilename\x18\x02 \x01(\tR\bfilename\x12!\n" +
+	"\fcontent_type\x18\x03 \x01(\tR\vcontentType\"b\n" +
+	"\vAudioUpload\x12\x14\n" +
+	"\x05audio\x18\x01 \x01(\fR\x05audio\x12\x1a\n" +
+	"\bfilename\x18\x02 \x01(\tR\bfilename\x12!\n" +
 	"\fcontent_type\x18\x03 \x01(\tR\vcontentType\"i\n" +
 	"\x10ProviderMetadata\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -315,12 +385,13 @@ func file_chatto_api_v1_common_proto_rawDescGZIP() []byte {
 }
 
 var file_chatto_api_v1_common_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_chatto_api_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_chatto_api_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_chatto_api_v1_common_proto_goTypes = []any{
 	(ImageFitMode)(0),             // 0: chatto.api.v1.ImageFitMode
 	(*ImageTransformOptions)(nil), // 1: chatto.api.v1.ImageTransformOptions
 	(*ImageUpload)(nil),           // 2: chatto.api.v1.ImageUpload
-	(*ProviderMetadata)(nil),      // 3: chatto.api.v1.ProviderMetadata
+	(*AudioUpload)(nil),           // 3: chatto.api.v1.AudioUpload
+	(*ProviderMetadata)(nil),      // 4: chatto.api.v1.ProviderMetadata
 }
 var file_chatto_api_v1_common_proto_depIdxs = []int32{
 	0, // 0: chatto.api.v1.ImageTransformOptions.fit:type_name -> chatto.api.v1.ImageFitMode
@@ -342,7 +413,7 @@ func file_chatto_api_v1_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chatto_api_v1_common_proto_rawDesc), len(file_chatto_api_v1_common_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   3,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -63,6 +63,11 @@ func NewCustomEmojiID() string {
 	return newID("CE")
 }
 
+// NewSoundboardSoundID generates a new soundboard sound ID with "SB" prefix.
+func NewSoundboardSoundID() string {
+	return newID("SB")
+}
+
 // NewPasswordResetToken generates a new password reset token with "PR" prefix.
 func NewPasswordResetToken() string {
 	return newID("PR")

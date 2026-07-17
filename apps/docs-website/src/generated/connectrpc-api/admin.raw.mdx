@@ -1691,6 +1691,109 @@ Result of updating the server blocked-username list.
 | `blocked_usernames` | `repeated string` | Effective blocked usernames after the update. |
 
 
+<a id="chatto-admin-v1-AdminSoundboardService"></a>
+
+## AdminSoundboardService
+
+AdminSoundboardService is the administrative surface for managing the server
+soundboard catalog. Mutating RPCs require the `soundboard.manage` permission
+or the broader `server.manage` permission; both are held by the owner and
+admin roles by default, and `soundboard.manage` can be granted on its own to
+a narrower role.
+
+<a id="chatto-admin-v1-AdminSoundboardService-CreateSound"></a>
+
+### CreateSound
+
+Creates a sound from an uploaded audio clip. Requires `soundboard.manage`
+or `server.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminSoundboardService/CreateSound
+```
+
+<a id="chatto-admin-v1-CreateSoundRequest"></a>
+
+#### Input: CreateSoundRequest
+
+Request to create a new soundboard sound from an uploaded audio clip.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `name` | `string` | Required. Display name for the sound, 1-64 characters. |
+| `audio` | `chatto.api.v1.AudioUpload` | Required. The source audio clip. The server validates format, size, and stores the clip as-is; clients decode it for playback. |
+| `emoji` | `string` | Optional emoji icon (unicode or custom emoji shortcode) for the button. |
+| `volume` | `float` | Optional default playback volume in [0, 1]. Defaults to 1 when zero/unset. |
+
+
+<a id="chatto-admin-v1-CreateSoundResponse"></a>
+
+#### Result: CreateSoundResponse
+
+Result of creating a soundboard sound.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `sound` | `chatto.api.v1.Sound` | The newly created sound. |
+
+
+<a id="chatto-admin-v1-AdminSoundboardService-DeleteSound"></a>
+
+### DeleteSound
+
+Deletes a sound by ID. Requires `soundboard.manage` or `server.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminSoundboardService/DeleteSound
+```
+
+<a id="chatto-admin-v1-DeleteSoundRequest"></a>
+
+#### Input: DeleteSoundRequest
+
+Request to delete a soundboard sound by ID.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Required. Sound identifier to delete. |
+
+
+<a id="chatto-admin-v1-DeleteSoundResponse"></a>
+
+#### Result: DeleteSoundResponse
+
+Result of deleting a soundboard sound.
+
+
+<a id="chatto-admin-v1-AdminSoundboardService-ListSounds"></a>
+
+### ListSounds
+
+Lists all sounds for management. Requires `soundboard.manage` or
+`server.manage`.
+
+```http
+POST /api/connect/chatto.admin.v1.AdminSoundboardService/ListSounds
+```
+
+<a id="chatto-admin-v1-ListSoundsRequest"></a>
+
+#### Input: ListSoundsRequest
+
+Request to list all soundboard sounds for administrative management.
+
+
+<a id="chatto-admin-v1-ListSoundsResponse"></a>
+
+#### Result: ListSoundsResponse
+
+Response carrying the full server soundboard catalog.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `sounds` | `repeated chatto.api.v1.Sound` | All sounds, ordered by name. |
+
+
 <a id="chatto-admin-v1-AdminWebhookService"></a>
 
 ## AdminWebhookService

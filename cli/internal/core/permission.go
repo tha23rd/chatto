@@ -46,6 +46,12 @@ const (
 	// a narrower "emoji manager" role.
 	PermEmojiManage Permission = "emoji.manage"
 
+	// PermSoundboardManage allows creating and deleting server soundboard
+	// sounds without the broader server.manage capability. server.manage
+	// holders retain soundboard access too, so it can be granted on its own to
+	// a narrower "soundboard manager" role. See FDR-033.
+	PermSoundboardManage Permission = "soundboard.manage"
+
 	// ===== Room Permissions =====
 
 	// PermRoomCreate allows creating new rooms.
@@ -153,6 +159,7 @@ var allPermissions = []PermissionMetadata{
 	// Server
 	{PermServerManage, "Manage Server", "Update server settings (name, description, logo)", CategoryServer, []PermissionScope{ScopeServer}},
 	{PermEmojiManage, "Manage Custom Emoji", "Add and remove server custom emoji", CategoryServer, []PermissionScope{ScopeServer}},
+	{PermSoundboardManage, "Manage Soundboard", "Add and remove server soundboard sounds", CategoryServer, []PermissionScope{ScopeServer}},
 
 	// Room
 	{PermRoomCreate, "Create Rooms", "Create new rooms in this group (or anywhere if granted at server scope)", CategoryRoom, []PermissionScope{ScopeServer, ScopeGroup}},
