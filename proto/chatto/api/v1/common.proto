@@ -40,6 +40,18 @@ message ImageUpload {
   string content_type = 3;
 }
 
+// AudioUpload carries an uploaded audio clip (e.g. a soundboard sound). The
+// server validates format and size and stores the bytes as-is; clients decode
+// the clip for playback.
+message AudioUpload {
+  // Raw audio bytes.
+  bytes audio = 1;
+  // Original browser filename, for diagnostics and future compatibility.
+  string filename = 2;
+  // Browser-provided content type (e.g. "audio/mpeg", "audio/ogg").
+  string content_type = 3;
+}
+
 // Public login/provider metadata shared by discovery and account-linking APIs.
 message ProviderMetadata {
   // Stable configured provider ID.

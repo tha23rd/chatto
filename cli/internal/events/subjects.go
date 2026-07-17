@@ -414,6 +414,11 @@ func EventTypeOf(e *corev1.Event) string {
 		return EventCustomEmojiCreated
 	case *corev1.Event_CustomEmojiDeleted:
 		return EventCustomEmojiDeleted
+
+	case *corev1.Event_SoundboardSoundCreated:
+		return EventSoundboardSoundCreated
+	case *corev1.Event_SoundboardSoundDeleted:
+		return EventSoundboardSoundDeleted
 	}
 	return ""
 }

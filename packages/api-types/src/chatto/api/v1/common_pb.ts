@@ -155,6 +155,65 @@ export class ImageUpload extends Message<ImageUpload> {
 }
 
 /**
+ * AudioUpload carries an uploaded audio clip (e.g. a soundboard sound). The
+ * server validates format and size and stores the bytes as-is; clients decode
+ * the clip for playback.
+ *
+ * @generated from message chatto.api.v1.AudioUpload
+ */
+export class AudioUpload extends Message<AudioUpload> {
+  /**
+   * Raw audio bytes.
+   *
+   * @generated from field: bytes audio = 1;
+   */
+  audio = new Uint8Array(0);
+
+  /**
+   * Original browser filename, for diagnostics and future compatibility.
+   *
+   * @generated from field: string filename = 2;
+   */
+  filename = "";
+
+  /**
+   * Browser-provided content type (e.g. "audio/mpeg", "audio/ogg").
+   *
+   * @generated from field: string content_type = 3;
+   */
+  contentType = "";
+
+  constructor(data?: PartialMessage<AudioUpload>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "chatto.api.v1.AudioUpload";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "audio", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 2, name: "filename", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "content_type", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AudioUpload {
+    return new AudioUpload().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): AudioUpload {
+    return new AudioUpload().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AudioUpload {
+    return new AudioUpload().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: AudioUpload | PlainMessage<AudioUpload> | undefined, b: AudioUpload | PlainMessage<AudioUpload> | undefined): boolean {
+    return proto3.util.equals(AudioUpload, a, b);
+  }
+}
+
+/**
  * Public login/provider metadata shared by discovery and account-linking APIs.
  *
  * @generated from message chatto.api.v1.ProviderMetadata

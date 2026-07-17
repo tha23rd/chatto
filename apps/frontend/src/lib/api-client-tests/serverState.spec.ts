@@ -189,6 +189,7 @@ describe('getAuthenticatedServerState', () => {
       },
       viewerCanManageServer: true,
       viewerCanManageEmoji: true,
+      viewerCanManageSoundboard: true,
       viewerCanCreateRooms: true,
       viewerCanJoinRooms: true,
       viewerCanListRooms: true,

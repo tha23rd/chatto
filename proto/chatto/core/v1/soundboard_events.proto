@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package chatto.core.v1;
+
+import "chatto/core/v1/models.proto";
+
+option go_package = "hmans.de/chatto/internal/pb/chatto/core/v1;corev1";
+
+// ============================================================================
+// SOUNDBOARD EVENTS (server-scoped, durable in EVT)
+//
+// Top-level Event oneof tags owned by this file:
+//   - 662-663: durable soundboard events on evt.soundboard.server.*
+//
+// Soundboard sounds are a server-wide catalog of named, admin-uploaded audio
+// clips playable into voice calls. The aggregate is a singleton keyed by the
+// constant "server" id, mirroring the RBAC and custom-emoji aggregates.
+//
+// The sound's creator and creation time are carried on the Event envelope
+// (actor_id / created_at); they are not duplicated in the payload.
+// Message-internal field numbers are local to each message and do not consume
+// top-level Event tag space.
+// ============================================================================
+
+// SoundboardSoundCreatedEvent records the addition of a new sound to the server
+// soundboard catalog. The referenced asset holds the stored audio clip bytes.
+message SoundboardSoundCreatedEvent {
+  // Sound identifier (NanoID).
+  string id = 1;
+
+  // Display name, unique across the server catalog (e.g. "airhorn").
+  string name = 2;
+
+  // Stored audio clip asset. Carries the storage backend so the clip can be
+  // served and, on deletion, cleaned up without re-probing every backend.
+  AssetRecord asset = 3;
+
+  // Optional emoji icon (unicode or custom emoji shortcode) for the button.
+  string emoji = 4;
+
+  // Default playback volume in [0, 1].
+  float volume = 5;
+
+  // Clip duration in milliseconds when known, for display. Zero when unknown.
+  int64 duration_ms = 6;
+}
+
+// SoundboardSoundDeletedEvent records the removal of a sound from the server
+// soundboard catalog.
+message SoundboardSoundDeletedEvent {
+  // Sound identifier (NanoID) that was removed.
+  string id = 1;
+}

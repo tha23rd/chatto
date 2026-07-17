@@ -23,6 +23,11 @@ Room sidebar panel for voice/video calls.
   const voiceCallState = stores.voiceCall;
   const activeCallRooms = stores.activeCallRooms;
   const callParticipantsState = stores.callParticipants;
+
+  // Shared per-server soundboard catalog. Loaded lazily once the viewer is in
+  // the call; the in-call panel plays these into the LiveKit room.
+  const soundboardStore = getSoundboard(getActiveServer());
+  const connection = useConnection();
   import { useEvent } from '$lib/hooks';
   import { useRenderData } from '$lib/render/data';
   import { UserAvatarViewData } from '$lib/components/UserAvatar.svelte';
@@ -36,8 +41,12 @@ Room sidebar panel for voice/video calls.
   import CallTileActionToolbar from './CallTileActionToolbar.svelte';
   import ParticipantVolumePopover from './ParticipantVolumePopover.svelte';
   import StreamQualityPopover from './StreamQualityPopover.svelte';
+  import SoundboardPopover from './SoundboardPopover.svelte';
   import UserContextMenu from '$lib/components/menus/UserContextMenu.svelte';
   import { getVoiceCallJoinErrorMessage } from '$lib/state/server/voiceCall.svelte';
+  import { getSoundboard } from '$lib/state/soundboard.svelte';
+  import type { Sound } from '$lib/api-client/soundboard';
+  import { useConnection } from '$lib/state/server/connection.svelte';
   import type { Track } from 'livekit-client';
   import type { Attachment } from 'svelte/attachments';
   import { startDMWith } from '$lib/dm/startDM';
@@ -399,6 +408,47 @@ Room sidebar panel for voice/video calls.
   function onStreamQualityGoLive() {
     closeStreamQuality();
     voiceCallState.toggleScreenShare();
+  }
+
+  // Soundboard. Only meaningful once joined to the call and only when LiveKit
+  // is configured (playback publishes into the room). The catalog loads lazily
+  // on first join so observers don't fetch it.
+  const sounds = $derived(soundboardStore.sounds);
+  const soundboardConfigured = $derived(isInThisCall && livekitUrl.length > 0);
+
+  $effect(() => {
+    if (!soundboardConfigured) return;
+    const conn = connection();
+    void soundboardStore.ensureLoaded({
+      serverId: conn.serverId,
+      baseUrl: conn.connectBaseUrl,
+      bearerToken: conn.bearerToken
+    });
+  });
+
+  const showSoundboardButton = $derived(soundboardConfigured && sounds.length > 0);
+
+  let soundboardAnchor = $state<{ top: number; bottom: number; left: number } | null>(null);
+
+  function toggleSoundboard(event: MouseEvent) {
+    if (soundboardAnchor) {
+      closeSoundboard();
+      return;
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    soundboardAnchor = { top: rect.top, bottom: rect.bottom, left: rect.left };
+  }
+
+  function closeSoundboard() {
+    soundboardAnchor = null;
+  }
+
+  async function onPlaySound(sound: Sound) {
+    const result = await voiceCallState.playSoundIntoCall({ url: sound.url, volume: sound.volume });
+    if (result === 'failed') {
+      toast.error(m['soundboard.play_failed']());
+    }
+    // 'throttled' feedback is surfaced inline by the popover via the store flag.
   }
 
   function openDeviceMenu(e: MouseEvent) {
@@ -859,6 +909,20 @@ Room sidebar panel for voice/video calls.
           </button>
         {/if}
 
+        {#if showSoundboardButton}
+          <button
+            type="button"
+            class={soundboardAnchor ? activeControlButtonClass : controlButtonClass}
+            title={m['soundboard.panel_button']()}
+            aria-label={m['soundboard.panel_button']()}
+            aria-pressed={!!soundboardAnchor}
+            data-testid="call-soundboard-button"
+            onclick={toggleSoundboard}
+          >
+            <span class="iconify text-lg uil--music" aria-hidden="true"></span>
+          </button>
+        {/if}
+
         <button
           type="button"
           class={dangerControlButtonClass}
@@ -981,6 +1045,16 @@ Room sidebar panel for voice/video calls.
     participant={volumePopoverParticipant}
     onclose={closeVolumePopover}
     oninput={(event) => onVolumeInput(volumePopoverParticipant!, event)}
+  />
+{/if}
+
+{#if soundboardAnchor}
+  <SoundboardPopover
+    anchor={soundboardAnchor}
+    {sounds}
+    throttled={voiceCallState.soundboardThrottled}
+    onplay={onPlaySound}
+    onclose={closeSoundboard}
   />
 {/if}
 

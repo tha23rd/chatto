@@ -87,6 +87,7 @@
     "permission_descriptions": {
       "server_manage": "Servereinstellungen aktualisieren (Name, Beschreibung, Logo)",
       "emoji_manage": "Benutzerdefinierte Server-Emojis hinzufügen und entfernen",
+      "soundboard_manage": "Soundboard-Sounds des Servers hinzufügen und entfernen",
       "room_create": "Neue Räume erstellen",
       "room_join": "Bestehenden Räumen beitreten",
       "room_list": "Räume im Verzeichnis sehen. Ein Benutzer kann einen Raum sehen dürfen (z. B. um Zugriff anzufragen), ohne ihm beitreten zu dürfen.",

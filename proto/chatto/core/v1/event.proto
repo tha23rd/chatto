@@ -9,6 +9,7 @@ import "chatto/core/v1/message_events.proto";
 import "chatto/core/v1/moderation_events.proto";
 import "chatto/core/v1/rbac_events.proto";
 import "chatto/core/v1/reaction_events.proto";
+import "chatto/core/v1/soundboard_events.proto";
 import "chatto/core/v1/room_events.proto";
 import "chatto/core/v1/room_group_events.proto";
 import "chatto/core/v1/config_events.proto";
@@ -164,6 +165,8 @@ message Event {
     // message reactions; the referenced asset holds the processed WebP bytes.
     CustomEmojiCreatedEvent custom_emoji_created = 660;
     CustomEmojiDeletedEvent custom_emoji_deleted = 661;
+    SoundboardSoundCreatedEvent soundboard_sound_created = 662;
+    SoundboardSoundDeletedEvent soundboard_sound_deleted = 663;
 
     // ----- Users (700-799, durable, evt.user.{userId}) -----
     UserAccountCreatedEvent user_account_created = 700;

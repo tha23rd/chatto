@@ -74,6 +74,17 @@ type ParticipantMetadata = {
 const RECENTLY_DISCONNECTED_CALL_SOUND_MS = 5_000;
 const MEDIA_DEVICE_TOAST_DEDUPLICATION_MS = 1_500;
 
+// Soundboard client-side rate limiting. Prevents a participant from spamming
+// clips into the call: a minimum gap between triggers plus a rolling cap.
+const SOUNDBOARD_MIN_GAP_MS = 300;
+const SOUNDBOARD_WINDOW_MS = 10_000;
+const SOUNDBOARD_MAX_PER_WINDOW = 5;
+// How long the throttled flag stays raised so the UI can flash feedback.
+const SOUNDBOARD_THROTTLE_FEEDBACK_MS = 600;
+
+/** Outcome of attempting to play a soundboard clip into the call. */
+export type SoundboardPlayResult = 'played' | 'throttled' | 'failed' | 'not-in-call';
+
 /**
  * LiveKit participant attribute key used to broadcast deafen state to other
  * participants. Present with value `'1'` while deafened; cleared otherwise.
@@ -244,6 +255,10 @@ export class VoiceCallState {
   // True while LiveKit is applying local screen-share enable/disable changes.
   isScreenSharePending = $state(false);
 
+  // Raised briefly when a soundboard trigger is rejected by the client-side
+  // rate limiter, so the panel can flash subtle "slow down" feedback.
+  soundboardThrottled = $state(false);
+
   // Participants (including local)
   participants = $state<CallParticipantInfo[]>([]);
 
@@ -331,6 +346,20 @@ export class VoiceCallState {
   private analyser: AnalyserNode | null = null;
   private analyserSource: MediaStreamAudioSourceNode | null = null;
   private analyserData: Float32Array<ArrayBuffer> | null = null;
+
+  // Dedicated audio context for soundboard playback. Kept separate from the mic
+  // analyser context (which is torn down on mute) so a clip keeps playing.
+  private soundboardAudioContext: AudioContext | null = null;
+  // Timestamps of recent soundboard triggers, used by the rolling rate limiter.
+  private soundboardPlayTimestamps: number[] = [];
+  // Cleanup callbacks for currently-playing clips, invoked on call teardown.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive lifecycle bookkeeping
+  private soundboardActiveCleanups = new Set<() => void>();
+  private soundboardThrottleTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Decoded audio buffer cache keyed by URL, so a repeated sound is not
+  // re-fetched/re-decoded on every trigger.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive decode cache
+  private soundboardBufferCache = new Map<string, AudioBuffer>();
 
   // Lazily resolves the server-configured screen-share quality ceiling at
   // share time. Optional so tests/callers can omit it (falls back to defaults).
@@ -1019,6 +1048,151 @@ export class VoiceCallState {
   }
 
   /**
+   * Play a soundboard clip into the active call so every participant hears it.
+   *
+   * The clip is decoded with the Web Audio API, routed through a gain node at
+   * the sound's default volume, and published as an ordinary LiveKit audio
+   * track (via `publishTrack`, so E2EE and the normal publish path stay
+   * intact). The same gain node is also connected to the local speakers,
+   * because LiveKit does not loop your own published audio back to you.
+   *
+   * When the buffer finishes the track is unpublished and stopped and all Web
+   * Audio nodes are released. Client-side rate limiting (a minimum gap plus a
+   * rolling per-window cap) rejects spam before any network work happens.
+   */
+  async playSoundIntoCall(sound: { url: string; volume: number }): Promise<SoundboardPlayResult> {
+    const room = this.room;
+    if (!room || !this.connected) return 'not-in-call';
+
+    if (!this.reserveSoundboardSlot()) {
+      this.flagSoundboardThrottled();
+      return 'throttled';
+    }
+
+    let ctx: AudioContext;
+    try {
+      ctx = this.ensureSoundboardAudioContext();
+      // Autoplay policies can suspend a context created outside a gesture; this
+      // call originates from a click, so resuming is permitted.
+      if (ctx.state === 'suspended') await ctx.resume();
+
+      const buffer = await this.decodeSoundboardBuffer(ctx, sound.url);
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+
+      const gain = ctx.createGain();
+      gain.gain.value = Math.max(0, Math.min(1, sound.volume));
+      source.connect(gain);
+
+      // Publish into the call.
+      const dest = ctx.createMediaStreamDestination();
+      gain.connect(dest);
+      const mediaStreamTrack = dest.stream.getAudioTracks()[0];
+      if (!mediaStreamTrack) throw new Error('soundboard destination produced no audio track');
+
+      // Publish the raw MediaStreamTrack through LiveKit's normal publish path
+      // so E2EE and encoding defaults apply exactly as they do for the mic.
+      await room.localParticipant.publishTrack(mediaStreamTrack, {
+        name: 'soundboard',
+        source: Track.Source.Unknown
+      });
+
+      // Local monitor: hear our own clip, which the SFU won't echo back.
+      gain.connect(ctx.destination);
+
+      let cleanedUp = false;
+      const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        this.soundboardActiveCleanups.delete(cleanup);
+        try {
+          source.disconnect();
+          gain.disconnect();
+        } catch {
+          // Nodes may already be detached.
+        }
+        // Unpublish through the normal path; the room may be gone on teardown.
+        if (this.room === room) {
+          void room.localParticipant.unpublishTrack(mediaStreamTrack).catch(() => {});
+        }
+        mediaStreamTrack.stop();
+      };
+      this.soundboardActiveCleanups.add(cleanup);
+
+      source.onended = cleanup;
+      source.start();
+      return 'played';
+    } catch (err) {
+      console.warn('soundboard playback failed', errorMessage(err));
+      return 'failed';
+    }
+  }
+
+  private ensureSoundboardAudioContext(): AudioContext {
+    if (!this.soundboardAudioContext || this.soundboardAudioContext.state === 'closed') {
+      this.soundboardAudioContext = new AudioContext();
+    }
+    return this.soundboardAudioContext;
+  }
+
+  private async decodeSoundboardBuffer(ctx: AudioContext, url: string): Promise<AudioBuffer> {
+    const cached = this.soundboardBufferCache.get(url);
+    if (cached) return cached;
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`soundboard fetch failed: ${response.status}`);
+    const bytes = await response.arrayBuffer();
+    // decodeAudioData detaches the ArrayBuffer, so decode a copy to keep the
+    // fetched bytes reusable if decoding is retried.
+    const decoded = await ctx.decodeAudioData(bytes);
+    this.soundboardBufferCache.set(url, decoded);
+    return decoded;
+  }
+
+  /**
+   * Reserve a slot in the rolling rate limiter. Returns false (without
+   * recording anything) when the minimum gap or the per-window cap would be
+   * exceeded.
+   */
+  private reserveSoundboardSlot(): boolean {
+    const now = Date.now();
+    this.soundboardPlayTimestamps = this.soundboardPlayTimestamps.filter(
+      (ts) => now - ts < SOUNDBOARD_WINDOW_MS
+    );
+    const last = this.soundboardPlayTimestamps[this.soundboardPlayTimestamps.length - 1];
+    if (last !== undefined && now - last < SOUNDBOARD_MIN_GAP_MS) return false;
+    if (this.soundboardPlayTimestamps.length >= SOUNDBOARD_MAX_PER_WINDOW) return false;
+    this.soundboardPlayTimestamps.push(now);
+    return true;
+  }
+
+  private flagSoundboardThrottled(): void {
+    this.soundboardThrottled = true;
+    if (this.soundboardThrottleTimeout) clearTimeout(this.soundboardThrottleTimeout);
+    this.soundboardThrottleTimeout = setTimeout(() => {
+      this.soundboardThrottled = false;
+      this.soundboardThrottleTimeout = null;
+    }, SOUNDBOARD_THROTTLE_FEEDBACK_MS);
+  }
+
+  private teardownSoundboard(): void {
+    for (const cleanup of [...this.soundboardActiveCleanups]) cleanup();
+    this.soundboardActiveCleanups.clear();
+    this.soundboardPlayTimestamps = [];
+    if (this.soundboardThrottleTimeout) {
+      clearTimeout(this.soundboardThrottleTimeout);
+      this.soundboardThrottleTimeout = null;
+    }
+    this.soundboardThrottled = false;
+    this.soundboardBufferCache.clear();
+    if (this.soundboardAudioContext && this.soundboardAudioContext.state !== 'closed') {
+      this.soundboardAudioContext.close().catch(() => {});
+    }
+    this.soundboardAudioContext = null;
+  }
+
+  /**
    * Refresh available audio and video devices.
    */
   async refreshDevices(options: { requestVideoPermissions?: boolean } = {}): Promise<void> {
@@ -1362,6 +1536,7 @@ export class VoiceCallState {
     }
     this.noiseSuppression.handleCallEnded();
     this.teardownLocalAudioAnalyser();
+    this.teardownSoundboard();
     if (this.room) {
       // Detach all remote audio tracks to clean up <audio> elements
       for (const p of this.room.remoteParticipants.values()) {

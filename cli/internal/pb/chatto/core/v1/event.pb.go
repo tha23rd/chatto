@@ -111,6 +111,8 @@ type Event struct {
 	//	*Event_RoomGroupsReordered
 	//	*Event_CustomEmojiCreated
 	//	*Event_CustomEmojiDeleted
+	//	*Event_SoundboardSoundCreated
+	//	*Event_SoundboardSoundDeleted
 	//	*Event_UserAccountCreated
 	//	*Event_UserLoginChanged
 	//	*Event_UserDisplayNameChanged
@@ -714,6 +716,24 @@ func (x *Event) GetCustomEmojiDeleted() *CustomEmojiDeletedEvent {
 	if x != nil {
 		if x, ok := x.Event.(*Event_CustomEmojiDeleted); ok {
 			return x.CustomEmojiDeleted
+		}
+	}
+	return nil
+}
+
+func (x *Event) GetSoundboardSoundCreated() *SoundboardSoundCreatedEvent {
+	if x != nil {
+		if x, ok := x.Event.(*Event_SoundboardSoundCreated); ok {
+			return x.SoundboardSoundCreated
+		}
+	}
+	return nil
+}
+
+func (x *Event) GetSoundboardSoundDeleted() *SoundboardSoundDeletedEvent {
+	if x != nil {
+		if x, ok := x.Event.(*Event_SoundboardSoundDeleted); ok {
+			return x.SoundboardSoundDeleted
 		}
 	}
 	return nil
@@ -1425,6 +1445,14 @@ type Event_CustomEmojiDeleted struct {
 	CustomEmojiDeleted *CustomEmojiDeletedEvent `protobuf:"bytes,661,opt,name=custom_emoji_deleted,json=customEmojiDeleted,proto3,oneof"`
 }
 
+type Event_SoundboardSoundCreated struct {
+	SoundboardSoundCreated *SoundboardSoundCreatedEvent `protobuf:"bytes,662,opt,name=soundboard_sound_created,json=soundboardSoundCreated,proto3,oneof"`
+}
+
+type Event_SoundboardSoundDeleted struct {
+	SoundboardSoundDeleted *SoundboardSoundDeletedEvent `protobuf:"bytes,663,opt,name=soundboard_sound_deleted,json=soundboardSoundDeleted,proto3,oneof"`
+}
+
 type Event_UserAccountCreated struct {
 	// ----- Users (700-799, durable, evt.user.{userId}) -----
 	UserAccountCreated *UserAccountCreatedEvent `protobuf:"bytes,700,opt,name=user_account_created,json=userAccountCreated,proto3,oneof"`
@@ -1746,6 +1774,10 @@ func (*Event_CustomEmojiCreated) isEvent_Event() {}
 
 func (*Event_CustomEmojiDeleted) isEvent_Event() {}
 
+func (*Event_SoundboardSoundCreated) isEvent_Event() {}
+
+func (*Event_SoundboardSoundDeleted) isEvent_Event() {}
+
 func (*Event_UserAccountCreated) isEvent_Event() {}
 
 func (*Event_UserLoginChanged) isEvent_Event() {}
@@ -1850,7 +1882,7 @@ var File_chatto_core_v1_event_proto protoreflect.FileDescriptor
 
 const file_chatto_core_v1_event_proto_rawDesc = "" +
 	"\n" +
-	"\x1achatto/core/v1/event.proto\x12\x0echatto.core.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a chatto/core/v1/auth_events.proto\x1a!chatto/core/v1/asset_events.proto\x1a#chatto/core/v1/message_events.proto\x1a&chatto/core/v1/moderation_events.proto\x1a chatto/core/v1/rbac_events.proto\x1a$chatto/core/v1/reaction_events.proto\x1a chatto/core/v1/room_events.proto\x1a&chatto/core/v1/room_group_events.proto\x1a\"chatto/core/v1/config_events.proto\x1a(chatto/core/v1/custom_emoji_events.proto\x1a\"chatto/core/v1/thread_events.proto\x1a chatto/core/v1/user_events.proto\"\xdcV\n" +
+	"\x1achatto/core/v1/event.proto\x12\x0echatto.core.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a chatto/core/v1/auth_events.proto\x1a!chatto/core/v1/asset_events.proto\x1a#chatto/core/v1/message_events.proto\x1a&chatto/core/v1/moderation_events.proto\x1a chatto/core/v1/rbac_events.proto\x1a$chatto/core/v1/reaction_events.proto\x1a&chatto/core/v1/soundboard_events.proto\x1a chatto/core/v1/room_events.proto\x1a&chatto/core/v1/room_group_events.proto\x1a\"chatto/core/v1/config_events.proto\x1a(chatto/core/v1/custom_emoji_events.proto\x1a\"chatto/core/v1/thread_events.proto\x1a chatto/core/v1/user_events.proto\"\xb0X\n" +
 	"\x05Event\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x129\n" +
 	"\n" +
@@ -1910,7 +1942,9 @@ const file_chatto_core_v1_event_proto_rawDesc = "" +
 	"\x1fsidebar_group_entries_reordered\x18\xe1\x04 \x01(\v21.chatto.core.v1.SidebarGroupEntriesReorderedEventH\x00R\x1csidebarGroupEntriesReordered\x12_\n" +
 	"\x15room_groups_reordered\x18\x8a\x05 \x01(\v2(.chatto.core.v1.RoomGroupsReorderedEventH\x00R\x13roomGroupsReordered\x12\\\n" +
 	"\x14custom_emoji_created\x18\x94\x05 \x01(\v2'.chatto.core.v1.CustomEmojiCreatedEventH\x00R\x12customEmojiCreated\x12\\\n" +
-	"\x14custom_emoji_deleted\x18\x95\x05 \x01(\v2'.chatto.core.v1.CustomEmojiDeletedEventH\x00R\x12customEmojiDeleted\x12\\\n" +
+	"\x14custom_emoji_deleted\x18\x95\x05 \x01(\v2'.chatto.core.v1.CustomEmojiDeletedEventH\x00R\x12customEmojiDeleted\x12h\n" +
+	"\x18soundboard_sound_created\x18\x96\x05 \x01(\v2+.chatto.core.v1.SoundboardSoundCreatedEventH\x00R\x16soundboardSoundCreated\x12h\n" +
+	"\x18soundboard_sound_deleted\x18\x97\x05 \x01(\v2+.chatto.core.v1.SoundboardSoundDeletedEventH\x00R\x16soundboardSoundDeleted\x12\\\n" +
 	"\x14user_account_created\x18\xbc\x05 \x01(\v2'.chatto.core.v1.UserAccountCreatedEventH\x00R\x12userAccountCreated\x12V\n" +
 	"\x12user_login_changed\x18\xbd\x05 \x01(\v2%.chatto.core.v1.UserLoginChangedEventH\x00R\x10userLoginChanged\x12i\n" +
 	"\x19user_display_name_changed\x18\xbe\x05 \x01(\v2+.chatto.core.v1.UserDisplayNameChangedEventH\x00R\x16userDisplayNameChanged\x12M\n" +
@@ -2036,56 +2070,58 @@ var file_chatto_core_v1_event_proto_goTypes = []any{
 	(*RoomGroupsReorderedEvent)(nil),                // 54: chatto.core.v1.RoomGroupsReorderedEvent
 	(*CustomEmojiCreatedEvent)(nil),                 // 55: chatto.core.v1.CustomEmojiCreatedEvent
 	(*CustomEmojiDeletedEvent)(nil),                 // 56: chatto.core.v1.CustomEmojiDeletedEvent
-	(*UserAccountCreatedEvent)(nil),                 // 57: chatto.core.v1.UserAccountCreatedEvent
-	(*UserLoginChangedEvent)(nil),                   // 58: chatto.core.v1.UserLoginChangedEvent
-	(*UserDisplayNameChangedEvent)(nil),             // 59: chatto.core.v1.UserDisplayNameChangedEvent
-	(*UserAvatarSetEvent)(nil),                      // 60: chatto.core.v1.UserAvatarSetEvent
-	(*UserAvatarClearedEvent)(nil),                  // 61: chatto.core.v1.UserAvatarClearedEvent
-	(*UserVerifiedEmailAddedEvent)(nil),             // 62: chatto.core.v1.UserVerifiedEmailAddedEvent
-	(*UserPasswordHashChangedEvent)(nil),            // 63: chatto.core.v1.UserPasswordHashChangedEvent
-	(*UserOIDCSubjectLinkedEvent)(nil),              // 64: chatto.core.v1.UserOIDCSubjectLinkedEvent
-	(*UserServerPreferencesChangedEvent)(nil),       // 65: chatto.core.v1.UserServerPreferencesChangedEvent
-	(*UserLoginCooldownClearedEvent)(nil),           // 66: chatto.core.v1.UserLoginCooldownClearedEvent
-	(*UserAccountDeletedEvent)(nil),                 // 67: chatto.core.v1.UserAccountDeletedEvent
-	(*UserLoginCooldownStartedEvent)(nil),           // 68: chatto.core.v1.UserLoginCooldownStartedEvent
-	(*UserKeyShreddedEvent)(nil),                    // 69: chatto.core.v1.UserKeyShreddedEvent
-	(*UserDEKGeneratedEvent)(nil),                   // 70: chatto.core.v1.UserDEKGeneratedEvent
-	(*UserExternalIdentityLinkedEvent)(nil),         // 71: chatto.core.v1.UserExternalIdentityLinkedEvent
-	(*UserCustomStatusSetEvent)(nil),                // 72: chatto.core.v1.UserCustomStatusSetEvent
-	(*UserCustomStatusClearedEvent)(nil),            // 73: chatto.core.v1.UserCustomStatusClearedEvent
-	(*UserExternalIdentityUnlinkedEvent)(nil),       // 74: chatto.core.v1.UserExternalIdentityUnlinkedEvent
-	(*RbacRoleCreatedEvent)(nil),                    // 75: chatto.core.v1.RbacRoleCreatedEvent
-	(*RbacRoleDisplayNameChangedEvent)(nil),         // 76: chatto.core.v1.RbacRoleDisplayNameChangedEvent
-	(*RbacRoleDescriptionChangedEvent)(nil),         // 77: chatto.core.v1.RbacRoleDescriptionChangedEvent
-	(*RbacRoleDeletedEvent)(nil),                    // 78: chatto.core.v1.RbacRoleDeletedEvent
-	(*RbacRolesReorderedEvent)(nil),                 // 79: chatto.core.v1.RbacRolesReorderedEvent
-	(*RbacRoleAssignedEvent)(nil),                   // 80: chatto.core.v1.RbacRoleAssignedEvent
-	(*RbacRoleRevokedEvent)(nil),                    // 81: chatto.core.v1.RbacRoleRevokedEvent
-	(*RbacPermissionGrantedEvent)(nil),              // 82: chatto.core.v1.RbacPermissionGrantedEvent
-	(*RbacPermissionDeniedEvent)(nil),               // 83: chatto.core.v1.RbacPermissionDeniedEvent
-	(*RbacPermissionClearedEvent)(nil),              // 84: chatto.core.v1.RbacPermissionClearedEvent
-	(*RbacRolePingableChangedEvent)(nil),            // 85: chatto.core.v1.RbacRolePingableChangedEvent
-	(*RoomMemberBannedEvent)(nil),                   // 86: chatto.core.v1.RoomMemberBannedEvent
-	(*RoomMemberUnbannedEvent)(nil),                 // 87: chatto.core.v1.RoomMemberUnbannedEvent
-	(*RoomMemberAddedEvent)(nil),                    // 88: chatto.core.v1.RoomMemberAddedEvent
-	(*RoomMemberRemovedEvent)(nil),                  // 89: chatto.core.v1.RoomMemberRemovedEvent
-	(*RegistrationVerificationCodeIssuedEvent)(nil), // 90: chatto.core.v1.RegistrationVerificationCodeIssuedEvent
-	(*EmailVerificationCodeIssuedEvent)(nil),        // 91: chatto.core.v1.EmailVerificationCodeIssuedEvent
-	(*PasswordResetLinkIssuedEvent)(nil),            // 92: chatto.core.v1.PasswordResetLinkIssuedEvent
-	(*AccountDeletionConfirmationIssuedEvent)(nil),  // 93: chatto.core.v1.AccountDeletionConfirmationIssuedEvent
-	(*PasswordResetCompletedEvent)(nil),             // 94: chatto.core.v1.PasswordResetCompletedEvent
-	(*LoginSucceededEvent)(nil),                     // 95: chatto.core.v1.LoginSucceededEvent
-	(*LoginFailedEvent)(nil),                        // 96: chatto.core.v1.LoginFailedEvent
-	(*LogoutSucceededEvent)(nil),                    // 97: chatto.core.v1.LogoutSucceededEvent
-	(*AuthCodeIssuedEvent)(nil),                     // 98: chatto.core.v1.AuthCodeIssuedEvent
-	(*AuthCodeExchangeSucceededEvent)(nil),          // 99: chatto.core.v1.AuthCodeExchangeSucceededEvent
-	(*AuthCodeExchangeFailedEvent)(nil),             // 100: chatto.core.v1.AuthCodeExchangeFailedEvent
-	(*BearerTokenIssuedEvent)(nil),                  // 101: chatto.core.v1.BearerTokenIssuedEvent
-	(*BearerTokenRevokedEvent)(nil),                 // 102: chatto.core.v1.BearerTokenRevokedEvent
-	(*OAuthConsentGrantedEvent)(nil),                // 103: chatto.core.v1.OAuthConsentGrantedEvent
-	(*OAuthConsentDeniedEvent)(nil),                 // 104: chatto.core.v1.OAuthConsentDeniedEvent
-	(*ReactionAddedEvent)(nil),                      // 105: chatto.core.v1.ReactionAddedEvent
-	(*ReactionRemovedEvent)(nil),                    // 106: chatto.core.v1.ReactionRemovedEvent
+	(*SoundboardSoundCreatedEvent)(nil),             // 57: chatto.core.v1.SoundboardSoundCreatedEvent
+	(*SoundboardSoundDeletedEvent)(nil),             // 58: chatto.core.v1.SoundboardSoundDeletedEvent
+	(*UserAccountCreatedEvent)(nil),                 // 59: chatto.core.v1.UserAccountCreatedEvent
+	(*UserLoginChangedEvent)(nil),                   // 60: chatto.core.v1.UserLoginChangedEvent
+	(*UserDisplayNameChangedEvent)(nil),             // 61: chatto.core.v1.UserDisplayNameChangedEvent
+	(*UserAvatarSetEvent)(nil),                      // 62: chatto.core.v1.UserAvatarSetEvent
+	(*UserAvatarClearedEvent)(nil),                  // 63: chatto.core.v1.UserAvatarClearedEvent
+	(*UserVerifiedEmailAddedEvent)(nil),             // 64: chatto.core.v1.UserVerifiedEmailAddedEvent
+	(*UserPasswordHashChangedEvent)(nil),            // 65: chatto.core.v1.UserPasswordHashChangedEvent
+	(*UserOIDCSubjectLinkedEvent)(nil),              // 66: chatto.core.v1.UserOIDCSubjectLinkedEvent
+	(*UserServerPreferencesChangedEvent)(nil),       // 67: chatto.core.v1.UserServerPreferencesChangedEvent
+	(*UserLoginCooldownClearedEvent)(nil),           // 68: chatto.core.v1.UserLoginCooldownClearedEvent
+	(*UserAccountDeletedEvent)(nil),                 // 69: chatto.core.v1.UserAccountDeletedEvent
+	(*UserLoginCooldownStartedEvent)(nil),           // 70: chatto.core.v1.UserLoginCooldownStartedEvent
+	(*UserKeyShreddedEvent)(nil),                    // 71: chatto.core.v1.UserKeyShreddedEvent
+	(*UserDEKGeneratedEvent)(nil),                   // 72: chatto.core.v1.UserDEKGeneratedEvent
+	(*UserExternalIdentityLinkedEvent)(nil),         // 73: chatto.core.v1.UserExternalIdentityLinkedEvent
+	(*UserCustomStatusSetEvent)(nil),                // 74: chatto.core.v1.UserCustomStatusSetEvent
+	(*UserCustomStatusClearedEvent)(nil),            // 75: chatto.core.v1.UserCustomStatusClearedEvent
+	(*UserExternalIdentityUnlinkedEvent)(nil),       // 76: chatto.core.v1.UserExternalIdentityUnlinkedEvent
+	(*RbacRoleCreatedEvent)(nil),                    // 77: chatto.core.v1.RbacRoleCreatedEvent
+	(*RbacRoleDisplayNameChangedEvent)(nil),         // 78: chatto.core.v1.RbacRoleDisplayNameChangedEvent
+	(*RbacRoleDescriptionChangedEvent)(nil),         // 79: chatto.core.v1.RbacRoleDescriptionChangedEvent
+	(*RbacRoleDeletedEvent)(nil),                    // 80: chatto.core.v1.RbacRoleDeletedEvent
+	(*RbacRolesReorderedEvent)(nil),                 // 81: chatto.core.v1.RbacRolesReorderedEvent
+	(*RbacRoleAssignedEvent)(nil),                   // 82: chatto.core.v1.RbacRoleAssignedEvent
+	(*RbacRoleRevokedEvent)(nil),                    // 83: chatto.core.v1.RbacRoleRevokedEvent
+	(*RbacPermissionGrantedEvent)(nil),              // 84: chatto.core.v1.RbacPermissionGrantedEvent
+	(*RbacPermissionDeniedEvent)(nil),               // 85: chatto.core.v1.RbacPermissionDeniedEvent
+	(*RbacPermissionClearedEvent)(nil),              // 86: chatto.core.v1.RbacPermissionClearedEvent
+	(*RbacRolePingableChangedEvent)(nil),            // 87: chatto.core.v1.RbacRolePingableChangedEvent
+	(*RoomMemberBannedEvent)(nil),                   // 88: chatto.core.v1.RoomMemberBannedEvent
+	(*RoomMemberUnbannedEvent)(nil),                 // 89: chatto.core.v1.RoomMemberUnbannedEvent
+	(*RoomMemberAddedEvent)(nil),                    // 90: chatto.core.v1.RoomMemberAddedEvent
+	(*RoomMemberRemovedEvent)(nil),                  // 91: chatto.core.v1.RoomMemberRemovedEvent
+	(*RegistrationVerificationCodeIssuedEvent)(nil), // 92: chatto.core.v1.RegistrationVerificationCodeIssuedEvent
+	(*EmailVerificationCodeIssuedEvent)(nil),        // 93: chatto.core.v1.EmailVerificationCodeIssuedEvent
+	(*PasswordResetLinkIssuedEvent)(nil),            // 94: chatto.core.v1.PasswordResetLinkIssuedEvent
+	(*AccountDeletionConfirmationIssuedEvent)(nil),  // 95: chatto.core.v1.AccountDeletionConfirmationIssuedEvent
+	(*PasswordResetCompletedEvent)(nil),             // 96: chatto.core.v1.PasswordResetCompletedEvent
+	(*LoginSucceededEvent)(nil),                     // 97: chatto.core.v1.LoginSucceededEvent
+	(*LoginFailedEvent)(nil),                        // 98: chatto.core.v1.LoginFailedEvent
+	(*LogoutSucceededEvent)(nil),                    // 99: chatto.core.v1.LogoutSucceededEvent
+	(*AuthCodeIssuedEvent)(nil),                     // 100: chatto.core.v1.AuthCodeIssuedEvent
+	(*AuthCodeExchangeSucceededEvent)(nil),          // 101: chatto.core.v1.AuthCodeExchangeSucceededEvent
+	(*AuthCodeExchangeFailedEvent)(nil),             // 102: chatto.core.v1.AuthCodeExchangeFailedEvent
+	(*BearerTokenIssuedEvent)(nil),                  // 103: chatto.core.v1.BearerTokenIssuedEvent
+	(*BearerTokenRevokedEvent)(nil),                 // 104: chatto.core.v1.BearerTokenRevokedEvent
+	(*OAuthConsentGrantedEvent)(nil),                // 105: chatto.core.v1.OAuthConsentGrantedEvent
+	(*OAuthConsentDeniedEvent)(nil),                 // 106: chatto.core.v1.OAuthConsentDeniedEvent
+	(*ReactionAddedEvent)(nil),                      // 107: chatto.core.v1.ReactionAddedEvent
+	(*ReactionRemovedEvent)(nil),                    // 108: chatto.core.v1.ReactionRemovedEvent
 }
 var file_chatto_core_v1_event_proto_depIdxs = []int32{
 	1,   // 0: chatto.core.v1.Event.created_at:type_name -> google.protobuf.Timestamp
@@ -2144,61 +2180,63 @@ var file_chatto_core_v1_event_proto_depIdxs = []int32{
 	54,  // 53: chatto.core.v1.Event.room_groups_reordered:type_name -> chatto.core.v1.RoomGroupsReorderedEvent
 	55,  // 54: chatto.core.v1.Event.custom_emoji_created:type_name -> chatto.core.v1.CustomEmojiCreatedEvent
 	56,  // 55: chatto.core.v1.Event.custom_emoji_deleted:type_name -> chatto.core.v1.CustomEmojiDeletedEvent
-	57,  // 56: chatto.core.v1.Event.user_account_created:type_name -> chatto.core.v1.UserAccountCreatedEvent
-	58,  // 57: chatto.core.v1.Event.user_login_changed:type_name -> chatto.core.v1.UserLoginChangedEvent
-	59,  // 58: chatto.core.v1.Event.user_display_name_changed:type_name -> chatto.core.v1.UserDisplayNameChangedEvent
-	60,  // 59: chatto.core.v1.Event.user_avatar_set:type_name -> chatto.core.v1.UserAvatarSetEvent
-	61,  // 60: chatto.core.v1.Event.user_avatar_cleared:type_name -> chatto.core.v1.UserAvatarClearedEvent
-	62,  // 61: chatto.core.v1.Event.user_verified_email_added:type_name -> chatto.core.v1.UserVerifiedEmailAddedEvent
-	63,  // 62: chatto.core.v1.Event.user_password_hash_changed:type_name -> chatto.core.v1.UserPasswordHashChangedEvent
-	64,  // 63: chatto.core.v1.Event.user_oidc_subject_linked:type_name -> chatto.core.v1.UserOIDCSubjectLinkedEvent
-	65,  // 64: chatto.core.v1.Event.user_server_preferences_changed:type_name -> chatto.core.v1.UserServerPreferencesChangedEvent
-	66,  // 65: chatto.core.v1.Event.user_login_cooldown_cleared:type_name -> chatto.core.v1.UserLoginCooldownClearedEvent
-	67,  // 66: chatto.core.v1.Event.user_account_deleted:type_name -> chatto.core.v1.UserAccountDeletedEvent
-	68,  // 67: chatto.core.v1.Event.user_login_cooldown_started:type_name -> chatto.core.v1.UserLoginCooldownStartedEvent
-	69,  // 68: chatto.core.v1.Event.user_key_shredded:type_name -> chatto.core.v1.UserKeyShreddedEvent
-	70,  // 69: chatto.core.v1.Event.user_dek_generated:type_name -> chatto.core.v1.UserDEKGeneratedEvent
-	71,  // 70: chatto.core.v1.Event.user_external_identity_linked:type_name -> chatto.core.v1.UserExternalIdentityLinkedEvent
-	72,  // 71: chatto.core.v1.Event.user_custom_status_set:type_name -> chatto.core.v1.UserCustomStatusSetEvent
-	73,  // 72: chatto.core.v1.Event.user_custom_status_cleared:type_name -> chatto.core.v1.UserCustomStatusClearedEvent
-	74,  // 73: chatto.core.v1.Event.user_external_identity_unlinked:type_name -> chatto.core.v1.UserExternalIdentityUnlinkedEvent
-	75,  // 74: chatto.core.v1.Event.rbac_role_created:type_name -> chatto.core.v1.RbacRoleCreatedEvent
-	76,  // 75: chatto.core.v1.Event.rbac_role_display_name_changed:type_name -> chatto.core.v1.RbacRoleDisplayNameChangedEvent
-	77,  // 76: chatto.core.v1.Event.rbac_role_description_changed:type_name -> chatto.core.v1.RbacRoleDescriptionChangedEvent
-	78,  // 77: chatto.core.v1.Event.rbac_role_deleted:type_name -> chatto.core.v1.RbacRoleDeletedEvent
-	79,  // 78: chatto.core.v1.Event.rbac_roles_reordered:type_name -> chatto.core.v1.RbacRolesReorderedEvent
-	80,  // 79: chatto.core.v1.Event.rbac_role_assigned:type_name -> chatto.core.v1.RbacRoleAssignedEvent
-	81,  // 80: chatto.core.v1.Event.rbac_role_revoked:type_name -> chatto.core.v1.RbacRoleRevokedEvent
-	82,  // 81: chatto.core.v1.Event.rbac_permission_granted:type_name -> chatto.core.v1.RbacPermissionGrantedEvent
-	83,  // 82: chatto.core.v1.Event.rbac_permission_denied:type_name -> chatto.core.v1.RbacPermissionDeniedEvent
-	84,  // 83: chatto.core.v1.Event.rbac_permission_cleared:type_name -> chatto.core.v1.RbacPermissionClearedEvent
-	85,  // 84: chatto.core.v1.Event.rbac_role_pingable_changed:type_name -> chatto.core.v1.RbacRolePingableChangedEvent
-	86,  // 85: chatto.core.v1.Event.room_member_banned:type_name -> chatto.core.v1.RoomMemberBannedEvent
-	87,  // 86: chatto.core.v1.Event.room_member_unbanned:type_name -> chatto.core.v1.RoomMemberUnbannedEvent
-	88,  // 87: chatto.core.v1.Event.room_member_added:type_name -> chatto.core.v1.RoomMemberAddedEvent
-	89,  // 88: chatto.core.v1.Event.room_member_removed:type_name -> chatto.core.v1.RoomMemberRemovedEvent
-	90,  // 89: chatto.core.v1.Event.registration_verification_code_issued:type_name -> chatto.core.v1.RegistrationVerificationCodeIssuedEvent
-	91,  // 90: chatto.core.v1.Event.email_verification_code_issued:type_name -> chatto.core.v1.EmailVerificationCodeIssuedEvent
-	92,  // 91: chatto.core.v1.Event.password_reset_link_issued:type_name -> chatto.core.v1.PasswordResetLinkIssuedEvent
-	93,  // 92: chatto.core.v1.Event.account_deletion_confirmation_issued:type_name -> chatto.core.v1.AccountDeletionConfirmationIssuedEvent
-	94,  // 93: chatto.core.v1.Event.password_reset_completed:type_name -> chatto.core.v1.PasswordResetCompletedEvent
-	95,  // 94: chatto.core.v1.Event.login_succeeded:type_name -> chatto.core.v1.LoginSucceededEvent
-	96,  // 95: chatto.core.v1.Event.login_failed:type_name -> chatto.core.v1.LoginFailedEvent
-	97,  // 96: chatto.core.v1.Event.logout_succeeded:type_name -> chatto.core.v1.LogoutSucceededEvent
-	98,  // 97: chatto.core.v1.Event.auth_code_issued:type_name -> chatto.core.v1.AuthCodeIssuedEvent
-	99,  // 98: chatto.core.v1.Event.auth_code_exchange_succeeded:type_name -> chatto.core.v1.AuthCodeExchangeSucceededEvent
-	100, // 99: chatto.core.v1.Event.auth_code_exchange_failed:type_name -> chatto.core.v1.AuthCodeExchangeFailedEvent
-	101, // 100: chatto.core.v1.Event.bearer_token_issued:type_name -> chatto.core.v1.BearerTokenIssuedEvent
-	102, // 101: chatto.core.v1.Event.bearer_token_revoked:type_name -> chatto.core.v1.BearerTokenRevokedEvent
-	103, // 102: chatto.core.v1.Event.oauth_consent_granted:type_name -> chatto.core.v1.OAuthConsentGrantedEvent
-	104, // 103: chatto.core.v1.Event.oauth_consent_denied:type_name -> chatto.core.v1.OAuthConsentDeniedEvent
-	105, // 104: chatto.core.v1.Event.reaction_added:type_name -> chatto.core.v1.ReactionAddedEvent
-	106, // 105: chatto.core.v1.Event.reaction_removed:type_name -> chatto.core.v1.ReactionRemovedEvent
-	106, // [106:106] is the sub-list for method output_type
-	106, // [106:106] is the sub-list for method input_type
-	106, // [106:106] is the sub-list for extension type_name
-	106, // [106:106] is the sub-list for extension extendee
-	0,   // [0:106] is the sub-list for field type_name
+	57,  // 56: chatto.core.v1.Event.soundboard_sound_created:type_name -> chatto.core.v1.SoundboardSoundCreatedEvent
+	58,  // 57: chatto.core.v1.Event.soundboard_sound_deleted:type_name -> chatto.core.v1.SoundboardSoundDeletedEvent
+	59,  // 58: chatto.core.v1.Event.user_account_created:type_name -> chatto.core.v1.UserAccountCreatedEvent
+	60,  // 59: chatto.core.v1.Event.user_login_changed:type_name -> chatto.core.v1.UserLoginChangedEvent
+	61,  // 60: chatto.core.v1.Event.user_display_name_changed:type_name -> chatto.core.v1.UserDisplayNameChangedEvent
+	62,  // 61: chatto.core.v1.Event.user_avatar_set:type_name -> chatto.core.v1.UserAvatarSetEvent
+	63,  // 62: chatto.core.v1.Event.user_avatar_cleared:type_name -> chatto.core.v1.UserAvatarClearedEvent
+	64,  // 63: chatto.core.v1.Event.user_verified_email_added:type_name -> chatto.core.v1.UserVerifiedEmailAddedEvent
+	65,  // 64: chatto.core.v1.Event.user_password_hash_changed:type_name -> chatto.core.v1.UserPasswordHashChangedEvent
+	66,  // 65: chatto.core.v1.Event.user_oidc_subject_linked:type_name -> chatto.core.v1.UserOIDCSubjectLinkedEvent
+	67,  // 66: chatto.core.v1.Event.user_server_preferences_changed:type_name -> chatto.core.v1.UserServerPreferencesChangedEvent
+	68,  // 67: chatto.core.v1.Event.user_login_cooldown_cleared:type_name -> chatto.core.v1.UserLoginCooldownClearedEvent
+	69,  // 68: chatto.core.v1.Event.user_account_deleted:type_name -> chatto.core.v1.UserAccountDeletedEvent
+	70,  // 69: chatto.core.v1.Event.user_login_cooldown_started:type_name -> chatto.core.v1.UserLoginCooldownStartedEvent
+	71,  // 70: chatto.core.v1.Event.user_key_shredded:type_name -> chatto.core.v1.UserKeyShreddedEvent
+	72,  // 71: chatto.core.v1.Event.user_dek_generated:type_name -> chatto.core.v1.UserDEKGeneratedEvent
+	73,  // 72: chatto.core.v1.Event.user_external_identity_linked:type_name -> chatto.core.v1.UserExternalIdentityLinkedEvent
+	74,  // 73: chatto.core.v1.Event.user_custom_status_set:type_name -> chatto.core.v1.UserCustomStatusSetEvent
+	75,  // 74: chatto.core.v1.Event.user_custom_status_cleared:type_name -> chatto.core.v1.UserCustomStatusClearedEvent
+	76,  // 75: chatto.core.v1.Event.user_external_identity_unlinked:type_name -> chatto.core.v1.UserExternalIdentityUnlinkedEvent
+	77,  // 76: chatto.core.v1.Event.rbac_role_created:type_name -> chatto.core.v1.RbacRoleCreatedEvent
+	78,  // 77: chatto.core.v1.Event.rbac_role_display_name_changed:type_name -> chatto.core.v1.RbacRoleDisplayNameChangedEvent
+	79,  // 78: chatto.core.v1.Event.rbac_role_description_changed:type_name -> chatto.core.v1.RbacRoleDescriptionChangedEvent
+	80,  // 79: chatto.core.v1.Event.rbac_role_deleted:type_name -> chatto.core.v1.RbacRoleDeletedEvent
+	81,  // 80: chatto.core.v1.Event.rbac_roles_reordered:type_name -> chatto.core.v1.RbacRolesReorderedEvent
+	82,  // 81: chatto.core.v1.Event.rbac_role_assigned:type_name -> chatto.core.v1.RbacRoleAssignedEvent
+	83,  // 82: chatto.core.v1.Event.rbac_role_revoked:type_name -> chatto.core.v1.RbacRoleRevokedEvent
+	84,  // 83: chatto.core.v1.Event.rbac_permission_granted:type_name -> chatto.core.v1.RbacPermissionGrantedEvent
+	85,  // 84: chatto.core.v1.Event.rbac_permission_denied:type_name -> chatto.core.v1.RbacPermissionDeniedEvent
+	86,  // 85: chatto.core.v1.Event.rbac_permission_cleared:type_name -> chatto.core.v1.RbacPermissionClearedEvent
+	87,  // 86: chatto.core.v1.Event.rbac_role_pingable_changed:type_name -> chatto.core.v1.RbacRolePingableChangedEvent
+	88,  // 87: chatto.core.v1.Event.room_member_banned:type_name -> chatto.core.v1.RoomMemberBannedEvent
+	89,  // 88: chatto.core.v1.Event.room_member_unbanned:type_name -> chatto.core.v1.RoomMemberUnbannedEvent
+	90,  // 89: chatto.core.v1.Event.room_member_added:type_name -> chatto.core.v1.RoomMemberAddedEvent
+	91,  // 90: chatto.core.v1.Event.room_member_removed:type_name -> chatto.core.v1.RoomMemberRemovedEvent
+	92,  // 91: chatto.core.v1.Event.registration_verification_code_issued:type_name -> chatto.core.v1.RegistrationVerificationCodeIssuedEvent
+	93,  // 92: chatto.core.v1.Event.email_verification_code_issued:type_name -> chatto.core.v1.EmailVerificationCodeIssuedEvent
+	94,  // 93: chatto.core.v1.Event.password_reset_link_issued:type_name -> chatto.core.v1.PasswordResetLinkIssuedEvent
+	95,  // 94: chatto.core.v1.Event.account_deletion_confirmation_issued:type_name -> chatto.core.v1.AccountDeletionConfirmationIssuedEvent
+	96,  // 95: chatto.core.v1.Event.password_reset_completed:type_name -> chatto.core.v1.PasswordResetCompletedEvent
+	97,  // 96: chatto.core.v1.Event.login_succeeded:type_name -> chatto.core.v1.LoginSucceededEvent
+	98,  // 97: chatto.core.v1.Event.login_failed:type_name -> chatto.core.v1.LoginFailedEvent
+	99,  // 98: chatto.core.v1.Event.logout_succeeded:type_name -> chatto.core.v1.LogoutSucceededEvent
+	100, // 99: chatto.core.v1.Event.auth_code_issued:type_name -> chatto.core.v1.AuthCodeIssuedEvent
+	101, // 100: chatto.core.v1.Event.auth_code_exchange_succeeded:type_name -> chatto.core.v1.AuthCodeExchangeSucceededEvent
+	102, // 101: chatto.core.v1.Event.auth_code_exchange_failed:type_name -> chatto.core.v1.AuthCodeExchangeFailedEvent
+	103, // 102: chatto.core.v1.Event.bearer_token_issued:type_name -> chatto.core.v1.BearerTokenIssuedEvent
+	104, // 103: chatto.core.v1.Event.bearer_token_revoked:type_name -> chatto.core.v1.BearerTokenRevokedEvent
+	105, // 104: chatto.core.v1.Event.oauth_consent_granted:type_name -> chatto.core.v1.OAuthConsentGrantedEvent
+	106, // 105: chatto.core.v1.Event.oauth_consent_denied:type_name -> chatto.core.v1.OAuthConsentDeniedEvent
+	107, // 106: chatto.core.v1.Event.reaction_added:type_name -> chatto.core.v1.ReactionAddedEvent
+	108, // 107: chatto.core.v1.Event.reaction_removed:type_name -> chatto.core.v1.ReactionRemovedEvent
+	108, // [108:108] is the sub-list for method output_type
+	108, // [108:108] is the sub-list for method input_type
+	108, // [108:108] is the sub-list for extension type_name
+	108, // [108:108] is the sub-list for extension extendee
+	0,   // [0:108] is the sub-list for field type_name
 }
 
 func init() { file_chatto_core_v1_event_proto_init() }
@@ -2212,6 +2250,7 @@ func file_chatto_core_v1_event_proto_init() {
 	file_chatto_core_v1_moderation_events_proto_init()
 	file_chatto_core_v1_rbac_events_proto_init()
 	file_chatto_core_v1_reaction_events_proto_init()
+	file_chatto_core_v1_soundboard_events_proto_init()
 	file_chatto_core_v1_room_events_proto_init()
 	file_chatto_core_v1_room_group_events_proto_init()
 	file_chatto_core_v1_config_events_proto_init()
@@ -2274,6 +2313,8 @@ func file_chatto_core_v1_event_proto_init() {
 		(*Event_RoomGroupsReordered)(nil),
 		(*Event_CustomEmojiCreated)(nil),
 		(*Event_CustomEmojiDeleted)(nil),
+		(*Event_SoundboardSoundCreated)(nil),
+		(*Event_SoundboardSoundDeleted)(nil),
 		(*Event_UserAccountCreated)(nil),
 		(*Event_UserLoginChanged)(nil),
 		(*Event_UserDisplayNameChanged)(nil),

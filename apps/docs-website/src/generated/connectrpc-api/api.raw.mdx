@@ -2874,6 +2874,44 @@ Authenticated server runtime configuration response.
 | `runtime` | [`ServerRuntimeConfig`](#chatto-api-v1-ServerRuntimeConfig) | Authenticated runtime settings used by clients. |
 
 
+<a id="chatto-api-v1-SoundboardService"></a>
+
+## SoundboardService
+
+SoundboardService exposes the read side of the server soundboard catalog. It
+is available to any authenticated user to render the soundboard panel in the
+voice call UI. Management (create/delete) lives in the administrative
+chatto.admin.v1.AdminSoundboardService.
+
+<a id="chatto-api-v1-SoundboardService-ListSounds"></a>
+
+### ListSounds
+
+Lists all soundboard sounds defined on the server. Available to any
+authenticated user.
+
+```http
+POST /api/connect/chatto.api.v1.SoundboardService/ListSounds
+```
+
+<a id="chatto-api-v1-ListSoundsRequest"></a>
+
+#### Input: ListSoundsRequest
+
+Request to list all soundboard sounds defined on the server.
+
+
+<a id="chatto-api-v1-ListSoundsResponse"></a>
+
+#### Result: ListSoundsResponse
+
+Response carrying the full server soundboard catalog.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `sounds` | repeated [`Sound`](#chatto-api-v1-Sound) | All sounds, ordered by name. |
+
+
 <a id="chatto-api-v1-ThreadService"></a>
 
 ## ThreadService
@@ -3360,6 +3398,22 @@ Response from recording a leave intent.
 
 
 ## Supporting Types
+
+<a id="chatto-api-v1-AudioUpload"></a>
+
+### AudioUpload
+
+AudioUpload carries an uploaded audio clip (e.g. a soundboard sound). The
+server validates format and size and stores the bytes as-is; clients decode
+the clip for playback.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `audio` | `bytes` | Raw audio bytes. |
+| `filename` | `string` | Original browser filename, for diagnostics and future compatibility. |
+| `content_type` | `string` | Browser-provided content type (e.g. "audio/mpeg", "audio/ogg"). |
+
+
 
 <a id="chatto-api-v1-ImageTransformOptions"></a>
 
@@ -4301,6 +4355,28 @@ Authenticated server runtime settings used by clients.
 | `max_video_upload_size` | `int64` | Maximum video upload size in bytes. |
 | `message_edit_window_seconds` | `int32` | Message edit window in seconds. |
 | `screen_share` | [`ScreenShareConfig`](#chatto-api-v1-ScreenShareConfig) | Screen-share capture/encoding ceiling applied by clients when publishing a screen share. Server-configured so operators can tune quality without a client redeploy. |
+
+
+
+<a id="chatto-api-v1-Sound"></a>
+
+### Sound
+
+A server-wide soundboard sound: a short audio clip uploaded by an admin that
+any member connected to a room's voice call can play so that every joined
+participant hears it. The catalog is shared by the whole server; there are no
+per-user or per-room sound sets. See FDR-033.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Sound identifier (NanoID). |
+| `name` | `string` | Display name, e.g. "airhorn". |
+| `url` | `string` | Absolute or root-relative URL that serves the audio clip bytes. Clients fetch this to publish the clip into the LiveKit call. |
+| `emoji` | `string` | Optional emoji icon shown on the soundboard button (unicode or custom emoji shortcode). Empty when the sound has no icon. |
+| `volume` | `float` | Default playback volume in the range [0, 1]. Listeners can further scale this with a personal soundboard volume control. |
+| `created_by` | `string` | User ID of the admin who created the sound. |
+| `created_at_ms` | `int64` | Creation time in Unix milliseconds. |
+| `duration_ms` | `int64` | Clip duration in milliseconds when known, for display. Zero when unknown. |
 
 
 

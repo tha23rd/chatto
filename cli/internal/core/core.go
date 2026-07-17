@@ -200,6 +200,14 @@ type ChattoCore struct {
 	// for WaitFor from custom-emoji writers.
 	CustomEmojisProjector *events.Projector
 
+	// Soundboard holds the current server soundboard catalog derived from
+	// durable soundboard aggregate events.
+	Soundboard *SoundboardProjection
+
+	// SoundboardProjector runs the consumer for Soundboard. Exposed for
+	// WaitFor from soundboard writers.
+	SoundboardProjector *events.Projector
+
 	// Users holds current user/account/profile/auth lookup state derived
 	// from durable user-aggregate events.
 	Users *UserProjection
@@ -917,6 +925,11 @@ func (c *ChattoCore) ResolvePublicServerAsset(ctx context.Context, key string) (
 	if c.CustomEmojis != nil && c.CustomEmojis.IsPublicEmojiAsset(assetID) {
 		legacyDeclaredPublic = true
 	}
+	// Soundboard sound clips are intentionally public server assets; the
+	// catalog is their durable public declaration. See FDR-033.
+	if c.Soundboard != nil && c.Soundboard.IsPublicSoundAsset(assetID) {
+		legacyDeclaredPublic = true
+	}
 	if legacyDeclaredPublic && legacyNATSExists {
 		info, err := c.storage.serverAssets.GetInfo(ctx, assetID)
 		if err != nil || info == nil || info.Headers.Get("Room-Id") != "" || info.Headers.Get("Upload-Id") != "" {
@@ -1311,6 +1324,9 @@ func NewChattoCore(ctx context.Context, nc *nats.Conn, cfg config.CoreConfig) (*
 	customEmojis := NewCustomEmojiProjection()
 	customEmojisProjector := newProjector(customEmojis, "custom_emojis", "Custom Emojis", customEmojis.adminProjectionEstimate)
 
+	soundboard := NewSoundboardProjection()
+	soundboardProjector := newProjector(soundboard, "soundboard", "Soundboard", soundboard.adminProjectionEstimate)
+
 	dekResolver := newUnwrappedDEKResolver(encMgr.keyWrapper, encMgr.contentKeys)
 
 	users := newUserProjectionWithDEKResolver(dekResolver)
@@ -1381,6 +1397,8 @@ func NewChattoCore(ctx context.Context, nc *nats.Conn, cfg config.CoreConfig) (*
 		ReactionsProjector:       reactionsProjector,
 		CustomEmojis:             customEmojis,
 		CustomEmojisProjector:    customEmojisProjector,
+		Soundboard:               soundboard,
+		SoundboardProjector:      soundboardProjector,
 		Users:                    users,
 		UsersProjector:           usersProjector,
 		ContentKeys:              contentKeys,

@@ -31,6 +31,11 @@ func (s *HTTPServer) setupAssetRoutes() {
 	// cache). A distinct public path keeps the emoji URL namespace stable and
 	// independent of server branding. See FDR-030.
 	s.router.GET("/assets/emoji/*path", s.serveServerAsset)
+	// Soundboard sound clips live in the same server-asset keyspace/backends as
+	// branding and emoji, so they reuse serveServerAsset (probe-any-backend +
+	// immutable cache). A distinct public path keeps the sound URL namespace
+	// stable. See FDR-033.
+	s.router.GET("/assets/sound/*path", s.serveServerAsset)
 	s.router.GET("/assets/files/:assetID", s.serveStableAttachment)
 	s.router.GET("/assets/files/:assetID/image/:dimensions/:fit", s.serveStableTransformedAttachment)
 }

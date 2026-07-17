@@ -21,6 +21,7 @@ describe('PERMISSION_METADATA', () => {
       'room.list',
       'room.manage',
       'server.manage',
+      'soundboard.manage',
       'user.delete-any',
       'user.delete-self',
       'user.manage-accounts',

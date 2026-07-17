@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package chatto.api.v1;
+
+option go_package = "hmans.de/chatto/internal/pb/chatto/api/v1;apiv1";
+
+// A server-wide soundboard sound: a short audio clip uploaded by an admin that
+// any member connected to a room's voice call can play so that every joined
+// participant hears it. The catalog is shared by the whole server; there are no
+// per-user or per-room sound sets. See FDR-033.
+message Sound {
+  // Sound identifier (NanoID).
+  string id = 1;
+  // Display name, e.g. "airhorn".
+  string name = 2;
+  // Absolute or root-relative URL that serves the audio clip bytes. Clients
+  // fetch this to publish the clip into the LiveKit call.
+  string url = 3;
+  // Optional emoji icon shown on the soundboard button (unicode or custom
+  // emoji shortcode). Empty when the sound has no icon.
+  string emoji = 4;
+  // Default playback volume in the range [0, 1]. Listeners can further scale
+  // this with a personal soundboard volume control.
+  float volume = 5;
+  // User ID of the admin who created the sound.
+  string created_by = 6;
+  // Creation time in Unix milliseconds.
+  int64 created_at_ms = 7;
+  // Clip duration in milliseconds when known, for display. Zero when unknown.
+  int64 duration_ms = 8;
+}
+
+// Request to list all soundboard sounds defined on the server.
+message ListSoundsRequest {}
+
+// Response carrying the full server soundboard catalog.
+message ListSoundsResponse {
+  // All sounds, ordered by name.
+  repeated Sound sounds = 1;
+}
+
+// SoundboardService exposes the read side of the server soundboard catalog. It
+// is available to any authenticated user to render the soundboard panel in the
+// voice call UI. Management (create/delete) lives in the administrative
+// chatto.admin.v1.AdminSoundboardService.
+service SoundboardService {
+  // Lists all soundboard sounds defined on the server. Available to any
+  // authenticated user.
+  rpc ListSounds(ListSoundsRequest) returns (ListSoundsResponse);
+}

@@ -1,0 +1,52 @@
+---
+title: SoundboardService
+description: Authenticated soundboard catalog listing RPCs for the voice-call soundboard panel.
+editUrl: false
+---
+
+{/* Generated from proto/chatto/{auth,discovery,api,admin,realtime}/v1/*.proto. Do not edit directly. */}
+
+Chatto exposes this service below `/api/connect`.
+
+
+
+Shared message and enum definitions are documented in [Shared Types And Enums](/reference/connectrpc-api/types/).
+
+
+
+<a id="chatto-api-v1-SoundboardService"></a>
+
+## SoundboardService
+
+SoundboardService exposes the read side of the server soundboard catalog. It
+is available to any authenticated user to render the soundboard panel in the
+voice call UI. Management (create/delete) lives in the administrative
+chatto.admin.v1.AdminSoundboardService.
+
+<a id="chatto-api-v1-SoundboardService-ListSounds"></a>
+
+### ListSounds
+
+Lists all soundboard sounds defined on the server. Available to any
+authenticated user.
+
+```http
+POST /api/connect/chatto.api.v1.SoundboardService/ListSounds
+```
+
+<a id="chatto-api-v1-ListSoundsRequest"></a>
+
+#### Input: ListSoundsRequest
+
+Request to list all soundboard sounds defined on the server.
+
+
+<a id="chatto-api-v1-ListSoundsResponse"></a>
+
+#### Result: ListSoundsResponse
+
+Response carrying the full server soundboard catalog.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `sounds` | repeated [`Sound`](/reference/connectrpc-api/types/#chatto-api-v1-Sound) | All sounds, ordered by name. |

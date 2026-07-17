@@ -170,3 +170,17 @@ func (c *ChattoCore) requireCanManageCustomEmoji(ctx context.Context, actorID st
 	}
 	return nil
 }
+
+func (c *ChattoCore) requireCanManageSoundboard(ctx context.Context, actorID string) error {
+	if err := requireAuthenticatedActor(actorID); err != nil {
+		return err
+	}
+	canManage, err := c.CanManageSoundboard(ctx, actorID)
+	if err != nil {
+		return fmt.Errorf("check soundboard.manage: %w", err)
+	}
+	if !canManage {
+		return ErrPermissionDenied
+	}
+	return nil
+}

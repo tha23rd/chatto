@@ -5,6 +5,7 @@ export type AdminNavChromePermissions = {
   canViewAdmin: boolean;
   canManage: boolean;
   canManageEmoji: boolean;
+  canManageSoundboard: boolean;
   canManageRooms: boolean;
   canManageRoles: boolean;
   canAssignRoles: boolean;
@@ -36,9 +37,15 @@ export function getAdminNavItems({
   server: AdminNavServerPermissions;
 }): AdminNavItem[] {
   if (!chrome) return [];
-  // Emoji managers may hold no other admin capability, so admit them here too;
-  // the per-item guards below still limit them to the Custom Emoji entry.
-  if (!chrome.canViewAdmin && !server.canViewAdmin && !chrome.canManageEmoji) return [];
+  // Emoji/soundboard managers may hold no other admin capability, so admit them
+  // here too; the per-item guards below still limit them to their entry.
+  if (
+    !chrome.canViewAdmin &&
+    !server.canViewAdmin &&
+    !chrome.canManageEmoji &&
+    !chrome.canManageSoundboard
+  )
+    return [];
 
   const items: AdminNavItem[] = [];
 
@@ -71,6 +78,14 @@ export function getAdminNavItems({
       href: resolve('/chat/[serverId]/server-admin/custom-emoji', { serverId: serverSegment }),
       label: m['server_settings.custom_emoji.nav'](),
       icon: 'iconify uil--smile'
+    });
+  }
+
+  if (chrome.canManageSoundboard) {
+    items.push({
+      href: resolve('/chat/[serverId]/server-admin/soundboard', { serverId: serverSegment }),
+      label: m['soundboard.nav'](),
+      icon: 'iconify uil--music'
     });
   }
 

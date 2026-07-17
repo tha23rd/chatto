@@ -35,6 +35,7 @@ export type AuthenticatedServerState = {
   viewerPermissions: Record<string, boolean>;
   viewerCanManageServer: boolean;
   viewerCanManageEmoji: boolean;
+  viewerCanManageSoundboard: boolean;
   viewerCanCreateRooms: boolean;
   viewerCanJoinRooms: boolean;
   viewerCanListRooms: boolean;
@@ -171,6 +172,9 @@ export async function getAuthenticatedServerState(
     // Dedicated emoji.manage grant, or the broader server.manage. Mirrors the
     // backend CanManageCustomEmoji check so server managers keep emoji access.
     viewerCanManageEmoji: can('emoji.manage') || can('server.manage'),
+    // Dedicated soundboard.manage grant, or the broader server.manage. Mirrors
+    // the backend CanManageSoundboard check so server managers keep access.
+    viewerCanManageSoundboard: can('soundboard.manage') || can('server.manage'),
     viewerCanCreateRooms: can('room.create'),
     viewerCanJoinRooms: can('room.join'),
     viewerCanListRooms: can('room.list'),

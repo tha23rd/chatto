@@ -147,6 +147,21 @@ func (c *ChattoCore) CanManageCustomEmoji(ctx context.Context, userID string) (b
 	return c.hasServerPermission(ctx, userID, PermServerManage)
 }
 
+// CanManageSoundboard checks if a user can create or delete server soundboard
+// sounds. The dedicated soundboard.manage permission grants this, and
+// server.manage holders retain it too so existing server managers keep
+// soundboard access without a separate grant.
+func (c *ChattoCore) CanManageSoundboard(ctx context.Context, userID string) (bool, error) {
+	canSound, err := c.hasServerPermission(ctx, userID, PermSoundboardManage)
+	if err != nil {
+		return false, err
+	}
+	if canSound {
+		return true, nil
+	}
+	return c.hasServerPermission(ctx, userID, PermServerManage)
+}
+
 // CanManageAnyRoom checks if a user can update or delete any room.
 // "Any" room as opposed to a specific room — for per-room checks, use the
 // room-level resolver via PermissionResolver.HasRoomPermission.
