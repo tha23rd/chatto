@@ -98,6 +98,13 @@ Frontend and Documentation Components:
 - Vite and Vitest (https://vite.dev/, https://vitest.dev/) - MIT License
 - zod (https://zod.dev/) - MIT License
 
+Windows Desktop Components:
+
+- Tauri core, JavaScript API, CLI, and build tooling
+  (https://tauri.app/) - Apache License 2.0 OR MIT License
+- Tauri HTTP, WebSocket, global shortcut, opener, and single-instance plugins
+  (https://github.com/tauri-apps/plugins-workspace) - Apache License 2.0 OR MIT License
+
 Upstream NOTICE Text:
 
 CoreOS go-oidc:

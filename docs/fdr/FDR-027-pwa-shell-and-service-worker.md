@@ -1,7 +1,7 @@
 # FDR-027: PWA Shell & Service Worker
 
 **Status:** Active
-**Last reviewed:** 2026-07-14
+**Last reviewed:** 2026-07-18
 
 ## Overview
 
@@ -14,6 +14,7 @@ Reconnect catch-up is owned by the foreground web app, not the service worker. W
 ## Behavior
 
 - The service worker is registered by SvelteKit in production builds.
+- The Windows desktop target uses the same frontend source but disables service-worker registration and SvelteKit version polling because the packaged application owns its shell lifecycle.
 - On install, the worker caches the SPA fallback shell and SvelteKit build assets required to boot it.
 - On activate, old Chatto shell caches are deleted and the new worker claims open clients.
 - Known shell assets are served cache-first from the versioned cache; static PWA assets other than the web manifest are cached lazily on first request.
@@ -58,5 +59,5 @@ Reconnect catch-up is owned by the foreground web app, not the service worker. W
 
 ## Related
 
-- **ADRs:** ADR-043 (client-shell internationalization), ADR-047 (direct ticketed asset URLs)
+- **ADRs:** ADR-043 (client-shell internationalization), ADR-047 (direct ticketed asset URLs), ADR-052 (Windows desktop client)
 - **FDRs:** FDR-008 (File Attachments & Video Processing), FDR-012 (Notifications), FDR-013 (Web Push Notifications)
