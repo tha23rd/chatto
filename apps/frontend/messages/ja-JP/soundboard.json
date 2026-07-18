@@ -37,6 +37,12 @@
     "panel_button": "Soundboard",
     "panel_empty": "No sounds yet.",
     "play_failed": "Could not play that sound.",
-    "throttled": "Slow down a moment."
+    "throttled": "Slow down a moment.",
+    "trim_help": "ハンドルをドラッグして開始位置と終了位置を調整します。",
+    "trim_preview": "プレビュー",
+    "trim_stop": "停止",
+    "trim_reset": "リセット",
+    "trim_start_handle": "開始位置",
+    "trim_end_handle": "終了位置"
   }
 }

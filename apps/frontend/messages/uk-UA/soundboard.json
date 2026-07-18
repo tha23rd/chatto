@@ -37,6 +37,12 @@
     "panel_button": "Soundboard",
     "panel_empty": "No sounds yet.",
     "play_failed": "Could not play that sound.",
-    "throttled": "Slow down a moment."
+    "throttled": "Slow down a moment.",
+    "trim_help": "Перетягуйте повзунки, щоб обрізати початок і кінець.",
+    "trim_preview": "Перегляд",
+    "trim_stop": "Зупинити",
+    "trim_reset": "Скинути",
+    "trim_start_handle": "Обрізати початок",
+    "trim_end_handle": "Обрізати кінець"
   }
 }

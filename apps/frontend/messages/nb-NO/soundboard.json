@@ -37,6 +37,12 @@
     "panel_button": "Soundboard",
     "panel_empty": "No sounds yet.",
     "play_failed": "Could not play that sound.",
-    "throttled": "Slow down a moment."
+    "throttled": "Slow down a moment.",
+    "trim_help": "Dra i håndtakene for å beskjære start og slutt.",
+    "trim_preview": "Forhåndsvis",
+    "trim_stop": "Stopp",
+    "trim_reset": "Tilbakestill",
+    "trim_start_handle": "Beskjær start",
+    "trim_end_handle": "Beskjær slutt"
   }
 }

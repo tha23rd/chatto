@@ -1,7 +1,7 @@
 # FDR-033: Soundboard
 
 **Status:** Active
-**Last reviewed:** 2026-07-16
+**Last reviewed:** 2026-07-17
 
 ## Overview
 
@@ -25,6 +25,11 @@ path for playback, so it adds no new media infrastructure.
   server accepts MP3, Ogg, WAV, and WebM clips up to 512 KB and up to 5 seconds;
   duration is measured client-side before upload and size/format are enforced by
   the server. Clips are stored as-is and decoded by clients for playback.
+- Before uploading, an admin can trim the clip on a waveform editor: two
+  draggable handles set the kept start and end, and a preview button plays only
+  the selected region. Trimming is optional — an untouched clip uploads
+  unchanged. This is especially useful for staying within the 5-second limit by
+  cutting leading or trailing silence.
 - A server has a fixed maximum of 48 custom sounds. There are no paid "boost"
   tiers; Chatto is self-hosted, so the cap is a plain ceiling.
 - The soundboard surface only appears when LiveKit is configured and the viewer
@@ -191,6 +196,29 @@ that can never play anything.
 
 **Tradeoff:** An operator cannot pre-load sounds before turning voice on. This is
 acceptable because sounds cannot be auditioned without a call anyway.
+
+### 9. Trimming happens client-side; only a trimmed clip is re-encoded
+
+**Decision:** The upload form decodes the selected clip with the Web Audio API,
+renders its waveform, and lets the admin drag start/end handles to keep a
+sub-region. If the admin leaves the selection at the full clip, the original
+bytes are uploaded untouched (decision 5). If they trim, the browser slices the
+decoded samples to the selection, mixes them to mono, and re-encodes a 16-bit
+PCM WAV — one of the already-accepted formats — which is uploaded in place of the
+original. No server-side audio editing or transcoding is added.
+
+**Why:** Trimming to remove leading/trailing silence is the most common edit a
+5-second cap demands, and the clip is already decoded client-side for the
+duration check, so the samples needed to trim are in hand. Re-encoding only when
+the admin actually trims avoids inflating an untouched small MP3 into a larger
+WAV. Mono keeps a maximum-length trimmed clip comfortably under the 512 KB size
+limit and matches how a soundboard clip is heard in a call.
+
+**Tradeoff:** A trimmed clip is stored as uncompressed PCM WAV, larger per second
+than the source codec (bounded by the length and size caps), and downmixed to
+mono, so any stereo image in the original is lost. Trimming depends on the
+browser successfully decoding the source; a clip that only fails to decode at
+this stage cannot be trimmed and must be uploaded whole.
 
 ## Permissions
 

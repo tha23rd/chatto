@@ -37,6 +37,12 @@
     "panel_button": "Soundboard",
     "panel_empty": "No sounds yet.",
     "play_failed": "Could not play that sound.",
-    "throttled": "Slow down a moment."
+    "throttled": "Slow down a moment.",
+    "trim_help": "Sleep de handgrepen om het begin en einde bij te snijden.",
+    "trim_preview": "Voorbeeld",
+    "trim_stop": "Stoppen",
+    "trim_reset": "Opnieuw instellen",
+    "trim_start_handle": "Begin bijsnijden",
+    "trim_end_handle": "Einde bijsnijden"
   }
 }
