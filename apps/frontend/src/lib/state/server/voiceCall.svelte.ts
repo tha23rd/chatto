@@ -225,6 +225,28 @@ function sanitizeVolumeMap(raw: Record<string, number>): Record<string, number> 
   return out;
 }
 
+/**
+ * Filters a device list down to selectable, uniquely-keyed devices.
+ *
+ * Browsers return placeholder `MediaDeviceInfo` entries with an empty
+ * `deviceId` (and empty label) for device categories the user has not granted
+ * permission to yet — e.g. cameras while video is off. A machine with several
+ * such devices yields multiple entries all sharing `deviceId === ''`, which
+ * are unselectable and, because the device menu keys its `{#each}` by
+ * `deviceId`, previously collided into a Svelte `each_key_duplicate` error
+ * that aborted the whole menu render. Dropping empty ids and de-duplicating by
+ * id keeps the menu safe and hides rows the user could not pick anyway.
+ */
+function uniqueDevices(devices: MediaDeviceInfo[]): MediaDeviceInfo[] {
+  const result: MediaDeviceInfo[] = [];
+  for (const device of devices) {
+    if (!device.deviceId) continue;
+    if (result.some((seen) => seen.deviceId === device.deviceId)) continue;
+    result.push(device);
+  }
+  return result;
+}
+
 export class VoiceCallState {
   #api: VoiceCallAPI;
 
@@ -1198,11 +1220,14 @@ export class VoiceCallState {
   async refreshDevices(options: { requestVideoPermissions?: boolean } = {}): Promise<void> {
     try {
       const requestVideoPermissions = options.requestVideoPermissions ?? this.isCameraEnabled;
-      const [inputDevices, outputDevices, videoInputDevices] = await Promise.all([
+      const [rawInputDevices, rawOutputDevices, rawVideoInputDevices] = await Promise.all([
         Room.getLocalDevices('audioinput'),
         Room.getLocalDevices('audiooutput'),
         Room.getLocalDevices('videoinput', requestVideoPermissions)
       ]);
+      const inputDevices = uniqueDevices(rawInputDevices);
+      const outputDevices = uniqueDevices(rawOutputDevices);
+      const videoInputDevices = uniqueDevices(rawVideoInputDevices);
 
       this.audioDevices = inputDevices;
       this.audioOutputDevices = outputDevices;
