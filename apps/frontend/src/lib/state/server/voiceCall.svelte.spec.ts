@@ -311,6 +311,48 @@ describe('VoiceCallState', () => {
     });
   });
 
+  it('drops empty and duplicate device ids so the device menu keys stay unique', async () => {
+    const client = createVoiceCallClient();
+    const state = new VoiceCallState(client);
+
+    // refreshDevices enumerates audioinput, then audiooutput, then videoinput.
+    // Browsers hand back empty-deviceId placeholders for categories without
+    // permission (e.g. cameras while video is off); several of them collide on
+    // deviceId === '' and previously broke the keyed {#each} in the menu.
+    const dev = (deviceId: string, kind: MediaDeviceKind, label: string): MediaDeviceInfo => ({
+      deviceId,
+      kind,
+      label,
+      groupId: 'group',
+      toJSON: () => ({})
+    });
+    vi.mocked(Room.getLocalDevices)
+      .mockImplementationOnce(async () => [
+        dev('mic-1', 'audioinput', 'Mic'),
+        dev('mic-1', 'audioinput', 'Mic (dup)'),
+        dev('', 'audioinput', '')
+      ])
+      .mockImplementationOnce(async () => [dev('spk-1', 'audiooutput', 'Speaker')])
+      .mockImplementationOnce(async () => [
+        dev('', 'videoinput', ''),
+        dev('', 'videoinput', '')
+      ]);
+
+    await state.refreshDevices();
+
+    expect(state.audioDevices.map((d) => d.deviceId)).toEqual(['mic-1']);
+    expect(state.audioOutputDevices.map((d) => d.deviceId)).toEqual(['spk-1']);
+    expect(state.videoDevices).toEqual([]);
+    // No placeholder ('') ids survive to become non-unique {#each} keys.
+    const allIds = [
+      ...state.audioDevices,
+      ...state.audioOutputDevices,
+      ...state.videoDevices
+    ].map((d) => d.deviceId);
+    expect(allIds.every((id) => id !== '')).toBe(true);
+    expect(new Set(allIds).size).toBe(allIds.length);
+  });
+
   it('requests voiceIsolation at capture when the voice isolation mode is selected', async () => {
     const client = createVoiceCallClient();
     const state = new VoiceCallState(client);
