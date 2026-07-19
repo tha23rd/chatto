@@ -1,7 +1,7 @@
 # FDR-031: Microphone Noise Suppression
 
 **Status:** Experimental
-**Last reviewed:** 2026-07-14
+**Last reviewed:** 2026-07-19
 
 ## Overview
 
@@ -112,6 +112,21 @@ must never claim a clean baseline over degraded or dead audio.
 **Tradeoff:** Extra controller complexity (a queue, health checks, and explicit
 `unavailable` reporting) relative to a naive "just call setProcessor" approach.
 
+### 5. The Windows client permits the package's blob-backed AudioWorklet
+
+**Decision:** The packaged Tauri renderer allows `blob:` in `script-src` so
+`deepfilternet3-noise-filter` can register its generated AudioWorklet module.
+The exception is native-only; the normal web CSP remains unchanged.
+
+**Why:** WebView2 supports the model, WebAssembly, and AudioWorklet APIs, but
+applies the worklet module load to `script-src`. The dependency exposes only a
+blob-backed module loader, so the prior native policy rejected initialization.
+
+**Tradeoff:** Trusted bundled renderer code may load blob-backed scripts. Remote
+scripts, inline scripts, frames, navigation, shell, and filesystem access remain
+blocked. Revisit a same-origin worklet asset if the dependency exposes one
+before the feature leaves experimental status.
+
 ## Permissions
 
 Not permission-gated. It is a per-client capture preference, available to any
@@ -126,9 +141,6 @@ see FDR-016).
 
 ## Open Questions
 
-- The DeepFilterNet3 worklet loads from blob URLs, which violates the intended
-  `worker-src 'self'` CSP (report-only today). This should be resolved before
-  the feature is considered stable / promoted from experimental.
 - Real in-call verification is still outstanding: two participants with E2EE, a
   browser matrix (voice isolation is effectively Safari-only), a listening pass,
   and a low-power/mobile CPU run for the enhanced mode.

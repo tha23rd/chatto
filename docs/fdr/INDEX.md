@@ -40,6 +40,6 @@ See [`.agents/skills/fdr/SKILL.md`](../../.agents/skills/fdr/SKILL.md) for the F
 | [FDR-028](FDR-028-operator-api-and-cli.md) | Operator API & CLI | Active | 2026-06-29 |
 | [FDR-029](FDR-029-chatto-shields.md) | Chatto Shields | Active | 2026-07-12 |
 | [FDR-030](FDR-030-custom-emoji.md) | Custom Emoji | Active | 2026-07-12 |
-| [FDR-031](FDR-031-microphone-noise-suppression.md) | Microphone Noise Suppression | Experimental | 2026-07-14 |
+| [FDR-031](FDR-031-microphone-noise-suppression.md) | Microphone Noise Suppression | Experimental | 2026-07-19 |
 | [FDR-032](FDR-032-channel-webhooks.md) | Channel Webhooks | Active | 2026-07-16 |
 | [FDR-033](FDR-033-soundboard.md) | Soundboard | Active | 2026-07-19 |
