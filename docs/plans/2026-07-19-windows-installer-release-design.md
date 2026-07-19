@@ -1,93 +1,136 @@
-# Windows Installer Release Design
+# Main-Native Windows Prerelease Design
 
 **Date:** 2026-07-19
 **Status:** Approved
+**Supersedes:** The tag-driven design originally recorded in this file
 
 ## Problem
 
-Chatto's tag-driven release workflow publishes CLI archives and checksums to a
-GitHub Release and publishes server/client container images to GHCR. The
-Windows desktop POC can produce an NSIS installer locally, but tagged releases
-do not build or attach that installer. Its development configuration also uses
-a fixed `0.1.0` version, which must not leak into versioned release assets.
+Chatto's Windows desktop POC can produce an NSIS installer locally, but the
+installer is not available from GitHub Releases. Publishing it from the normal
+`main` and `v*` server release path would also increase the native fork's
+overlap with upstream release code and couple desktop experiments to the
+server/web release cadence.
 
-## Decision
+The native client needs a release channel that keeps `main` focused on the
+upstream web/server product, makes upstream merges routine, and still produces
+an immediately downloadable installer for every accepted native change.
 
-Extend `.github/workflows/release.yml` instead of creating a second release
-workflow or delegating release ownership to `tauri-apps/tauri-action`.
+## Branch Topology
 
-For every pushed `v*` tag, a Windows x64 job will:
+Use `main-native` as a long-lived downstream integration branch:
 
-1. check out the tagged source;
-2. set up the repository-managed Node, pnpm, and Rust toolchains;
-3. derive and validate the SemVer bundle version from the tag;
-4. build the existing NSIS target with a Tauri configuration overlay that
-   changes only `version`;
-5. run the existing package verifier;
-6. stage the installer under a stable release-asset name and create a SHA-256
-   checksum file; and
-7. upload both files as a private workflow artifact for the Linux release job.
+```text
+upstream/main -> origin/main
+                      \
+                       -> origin/main-native -> desktop-v... prereleases
+                                  ^
+                                  |
+                         native feature PRs
+```
 
-The existing release job will depend on the Windows build, download that
-workflow artifact, and attach both files to GoReleaser's draft GitHub Release
-before the current publication step. GoReleaser, release-please, GHCR tags,
-Homebrew publication, and GitHub Release notes remain owned by their current
-steps.
+`origin/main` remains the web/server-focused branch. Native feature PRs target
+`main-native`. Upstream changes flow from `main` into `main-native`; native-only
+changes do not flow back into `main` unless they are independently suitable for
+the shared web/server product.
 
-This ordering keeps publication atomic: a failed Windows build or upload stops
-the draft from becoming public, rather than leaving a public release without
-the advertised installer.
+The native workflow changes live only on `main-native`, so they do not need to
+be carried in `main` for GitHub to execute them. The existing tag-driven
+`release.yml`, release-please configuration, GoReleaser assets, GHCR images,
+and Homebrew publication remain unchanged.
 
-## Version And Asset Contract
+## Per-Merge Prerelease Contract
 
-The pushed tag remains the release version source of truth. A tag such as
-`v0.5.0-beta.1` supplies Tauri with `0.5.0-beta.1` through its supported
-`--config` merge option. The tracked `0.1.0` value remains suitable for local
-POC builds, so release automation does not rewrite or commit package manifests.
+Add `main-native` to the normal CI workflow's push and pull-request branches.
+On a push to `main-native`, the existing Windows desktop job will build and
+verify the full NSIS bundle in addition to running its normal tests and checks.
+It will transfer the installer and checksum to a publisher job as an internal
+workflow artifact.
 
-GitHub Releases will expose stable, product-oriented asset names rather than
-Tauri's implementation-specific output path:
+The publisher will wait for the relevant cross-platform CI jobs, not merely the
+Windows compiler. Once those jobs pass, it will:
 
-- `Chatto_<version>_x64-setup.exe`
-- `Chatto_<version>_x64-setup.exe.sha256`
+1. download the Windows workflow artifact;
+2. require exactly the expected installer and checksum;
+3. verify the checksum locally;
+4. create or resume a draft GitHub prerelease for the exact commit;
+5. upload and verify both release assets; and
+6. make the draft public as a prerelease.
 
-The build will fail if the version is invalid, the expected NSIS installer is
-missing or ambiguous, package verification fails, or either release asset
-cannot be uploaded.
+This matches the existing main-branch image-publishing principle: accepted
+code is published only after the tests that guard it succeed. A draft prevents
+users from seeing a partially uploaded installer release.
+
+## Immutable Version And Tag Scheme
+
+Every `main-native` commit receives a deterministic version derived from the
+stable base version in `apps/desktop/package.json` and the first twelve
+characters of the commit SHA:
+
+```text
+<base>-main-native.sha-<short-sha>
+```
+
+For example, base version `0.1.0` at commit `af3ce2e42586...` becomes:
+
+```text
+version: 0.1.0-main-native.sha-af3ce2e42586
+tag:     desktop-v0.1.0-main-native.sha-af3ce2e42586
+asset:   Chatto_0.1.0-main-native.sha-af3ce2e42586_x64-setup.exe
+```
+
+The pushed commit is therefore recoverable from the release name and the tag
+points immutably at that exact source. Rerunning the same workflow resumes its
+draft or treats an already published prerelease as complete; it does not create
+a duplicate release or move a tag.
+
+The workflow passes the derived version through Tauri's supported `--config`
+merge option. Tracked development manifests remain at their human-managed base
+version and are not rewritten by CI.
+
+## Permissions And Repository Ownership
+
+The Windows build job has read-only contents permission and no publishing
+credentials. The final publisher job alone receives `contents: write` through
+the repository-scoped `GITHUB_TOKEN` after its required CI jobs pass.
+
+All GitHub operations target `${{ github.repository }}` rather than the
+upstream `chattocorp/chatto` repository. This is essential because the native
+release channel belongs to the downstream repository even when its source is
+periodically synchronized from upstream.
 
 ## Security And Signing
 
-The Windows build job receives read-only repository contents and no publishing
-credentials. Only the existing Linux release job retains `contents: write` and
-uploads to the draft release using the existing GoReleaser GitHub token.
+The POC installer remains unsigned by explicit product decision. Every
+prerelease and its notes must say so plainly because Windows SmartScreen may
+warn or block users. Authenticode signing, certificate secret management,
+automatic updates, and Microsoft Store distribution remain separate
+production-hardening work.
 
-The POC installer remains unsigned by explicit product decision. Windows
-SmartScreen may therefore warn users. Authenticode signing, certificate secret
-management, automatic updates, and installer attestations are separate
-production-hardening work; this workflow must not imply that the unsigned
-installer is signed or trusted.
+The publisher validates the artifact count, exact commit-derived filenames,
+and SHA-256 checksum before upload, then confirms both expected asset names are
+present before publishing the draft.
 
-## Alternatives Considered
+## Trade-Offs
 
-`tauri-apps/tauri-action` can build and create GitHub Releases, but using it
-here would introduce a second component that owns tags, drafts, and release
-metadata already managed by release-please and GoReleaser.
+Publishing on every merge deliberately creates many GitHub prereleases and
+tags. This provides the requested immediate Releases-page history and strong
+commit provenance, at the cost of a noisier release list and additional
+Windows runner minutes.
 
-A separate workflow triggered after a GitHub Release is published would be
-more isolated and easier to rerun, but it would make an incomplete release
-public before the installer succeeds. Attaching the installer after
-publication also weakens the release's all-assets-ready guarantee.
+A rolling tag would keep the release list smaller but would make its source
+mutable and weaken reproducibility. A release-please-controlled desktop cadence
+would produce cleaner versions but would not make every accepted merge
+immediately available. Both alternatives were rejected for this POC.
 
 ## Regression Coverage And Verification
 
-A focused repository test will parse the real workflow and assert the release
-contract: the Windows job runs on `windows-latest`, builds the NSIS target with
-the tag-derived version, verifies and uploads the installer/checksum workflow
-artifact, and the publishing job depends on and attaches those files before
-making the draft public.
+A focused Node test will inspect the real `ci.yml` and assert the branch,
+permission, version-overlay, build, verification, artifact-transfer, CI-gating,
+draft, prerelease, checksum, and publication contracts. It will also assert
+that the normal server `release.yml` is not wired to `main-native`.
 
-Verification will also include `actionlint`, the desktop Rust tests and checks,
-the repository's Docker/release validation where locally practical, license
-metadata checks, and a Windows-native release build using the same version
-overlay and packaging commands as CI. The workflow will not create a test tag
-or publish a real GitHub Release during PR verification.
+Verification will include the focused workflow test in red and green states,
+`actionlint`, desktop tests/checks, license metadata, whitespace checks, and a
+native Windows build with the same commit-derived version overlay. No test tag
+or GitHub Release will be created from the feature branch.

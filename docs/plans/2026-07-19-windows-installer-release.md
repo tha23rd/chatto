@@ -1,16 +1,40 @@
-# Windows Installer Release Implementation Plan
+# Main-Native Windows Prerelease Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Publish the Windows x64 NSIS installer and its SHA-256 checksum on every tag-driven Chatto GitHub Release without changing existing GHCR, GoReleaser, or Homebrew behavior.
+**Goal:** Make every successful merge to `main-native` publish an immutable, unsigned Windows x64 NSIS prerelease without changing `main` or the normal server release channel.
 
-**Architecture:** Build the unsigned installer in a read-only `windows-latest` job, transfer its staged release assets through GitHub's workflow-artifact channel, and make the existing Linux release job attach those files to GoReleaser's draft before the draft is published. The `v*` tag supplies a temporary Tauri version overlay, leaving development manifests unchanged.
+**Architecture:** Retarget native development to a long-lived `main-native` branch. Extend its normal CI workflow so the existing Windows job produces a commit-versioned installer artifact, then let a Linux publisher job gated on the relevant CI jobs create a draft, attach and verify the assets, and expose it as a GitHub prerelease. Keep `release.yml`, `v*` tags, GoReleaser, GHCR, and Homebrew behavior unchanged.
 
-**Tech Stack:** GitHub Actions, PowerShell 7, Tauri 2.11, NSIS, Rust stable MSVC, pnpm/mise, Node's built-in test runner, GitHub CLI, GoReleaser.
+**Tech Stack:** GitHub Actions, PowerShell 7, Tauri 2.11, NSIS, Rust stable MSVC, pnpm/mise, Node's built-in test runner, GitHub CLI.
 
 ---
 
-### Task 1: Add a release-workflow contract test
+### Task 1: Establish the downstream branch boundary
+
+**External state:**
+
+- Create: `origin/main-native` at the current `origin/main` commit
+- Update: PR #20 base branch from `main` to `main-native`
+
+**Step 1: Fetch and verify the base**
+
+Fetch `origin/main`, verify that `main-native` does not already exist, and
+record the exact commit used as the new branch base. Do not rename the current
+feature branch or touch other feature branches/worktrees.
+
+**Step 2: Create the remote integration branch**
+
+Push the verified `origin/main` commit to `refs/heads/main-native`. Do not force
+push and do not change the repository's default branch.
+
+**Step 3: Retarget and verify PR #20**
+
+Use `gh pr edit --base main-native`, then use `gh pr view` to confirm the stored
+base, head, body, state, and mergeability. The PR must still contain the full
+native delta and remain draft.
+
+### Task 2: Add a main-native CI contract test
 
 **Files:**
 
@@ -18,194 +42,166 @@
 - Modify: `apps/desktop/package.json`
 - Test: `apps/desktop/scripts/release-workflow.test.mjs`
 
-**Step 1: Write the workflow regression test**
+**Step 1: Write the focused test**
 
-Use `node:test`, `node:assert/strict`, and `node:fs` only. Read the real
-`.github/workflows/release.yml` and isolate top-level job blocks. Assert that:
+Using only Node built-ins, read the real `.github/workflows/ci.yml` and
+`.github/workflows/release.yml`. Assert that:
 
-- a `build-windows-installer` job runs on `windows-latest` with read-only
-  contents;
-- it resolves a release version, calls Tauri with a `--config` version
-  overlay, runs `verify-package.ps1`, stages a `.exe` plus `.sha256`, and uses
+- CI includes `main-native` for pushes and pull requests;
+- `test-desktop-windows` exposes native version/tag outputs and, only on a
+  `main-native` push, derives a commit version, builds Tauri with `--config`,
+  runs `verify-package.ps1`, stages `.exe`/`.sha256`, and uploads them with
   `actions/upload-artifact@v7`;
-- the existing `release` job declares `needs: build-windows-installer`, uses
-  `actions/download-artifact@v8`, validates the checksum, and calls
-  `gh release upload`; and
-- the workflow orders GoReleaser before release-asset upload and release-asset
-  upload before `Publish GitHub Release`.
+- `publish-main-native-installer` runs only for a `main-native` push, needs the
+  relevant CI jobs, has `contents: write`, downloads the exact commit artifact
+  with `actions/download-artifact@v8`, verifies the checksum, uses a draft and
+  prerelease, and publishes through `gh release`; and
+- normal `release.yml` is not triggered by or coupled to `main-native`.
 
-Keep the assertions about behavior and ordering rather than reproducing the
-whole YAML file.
+Wire the test into `apps/desktop/package.json` so `mise test-desktop` enforces
+the contract.
 
-**Step 2: Wire the contract test into desktop tests**
-
-Add the Node test before Cargo tests in `apps/desktop/package.json`'s `test`
-script so `mise test-desktop` and the Windows CI job continuously enforce the
-release contract.
-
-**Step 3: Run the focused test and verify RED**
+**Step 2: Run the focused test and verify RED**
 
 Run:
 
 ```bash
-mise x -- pnpm --dir apps/desktop exec node --test scripts/release-workflow.test.mjs
+mise x -- node apps/desktop/scripts/release-workflow.test.mjs
 ```
 
-Expected: FAIL because `release.yml` does not yet contain a Windows installer
-job.
+Expected: FAIL because CI does not yet recognize `main-native` or publish its
+installer.
 
-Do not edit the workflow before observing this failure.
-
-### Task 2: Build and stage the tagged Windows installer
+### Task 3: Build and transfer the installer in Windows CI
 
 **Files:**
 
-- Modify: `.github/workflows/release.yml`
+- Modify: `.github/workflows/ci.yml`
 - Test: `apps/desktop/scripts/release-workflow.test.mjs`
 
-**Step 1: Add the tag-gated Windows build job**
+**Step 1: Add the branch triggers**
 
-Add `build-windows-installer` alongside the existing release jobs with:
+Add `main-native` to both the push and pull-request base branch lists. Preserve
+all existing `main` and maintenance-release triggers.
 
-- the same pushed-`v*` event guard as the existing release job;
-- `windows-latest`, a bounded timeout, `contents: read`, and no secrets;
-- repository checkout and the shared setup action with CLI dependencies
-  disabled;
-- stable Rust and the existing Rust-cache convention; and
-- `CARGO_INCREMENTAL=0`.
+**Step 2: Derive immutable metadata**
 
-Do not add Linux/macOS matrices or a second publishing action.
+Give `test-desktop-windows` outputs for version, tag, and installer name. On a
+`main-native` push only, read the stable SemVer base from
+`apps/desktop/package.json`, append `-main-native.sha-<12-char-sha>`, and write a
+temporary Tauri configuration containing only that version.
 
-**Step 2: Resolve the release version safely**
+Fail if the base is not a stable three-component SemVer or the commit SHA is
+malformed.
 
-In PowerShell, require `GITHUB_REF_NAME` to match `v<SemVer>`, strip exactly
-one leading `v`, and expose the result as a step output. Write a JSON
-configuration overlay under `RUNNER_TEMP` containing only that version. Pass
-the file to Tauri with `--config` so tracked package/config versions remain
-unchanged.
+**Step 3: Preserve ordinary CI and build the release bundle**
 
-**Step 3: Build and verify the installer**
+Keep the existing `--no-bundle` build for PRs, `main`, and release branches.
+On a `main-native` push, replace that final build with the full NSIS target
+using the temporary version overlay. Require the exact commit-derived filename
+and exactly one installer in the bundle directory.
 
-Build API types, then run the pinned workspace Tauri CLI. Require exactly the
-expected NSIS file at:
+**Step 4: Verify, stage, and transfer**
 
-```text
-apps/desktop/src-tauri/target/release/bundle/nsis/Chatto_<version>_x64-setup.exe
-```
+Run the existing PowerShell package verifier with the explicit installer path,
+stage only the installer plus lowercase GNU-compatible SHA-256 checksum, and
+upload them as `windows-installer-${{ github.sha }}` with one-day retention and
+no compression.
 
-Run `apps/desktop/scripts/verify-package.ps1` with that explicit path. Stage a
-copy plus a lowercase GNU-compatible SHA-256 checksum under
-`.context/release/windows`.
+The Windows job keeps the workflow's default read-only contents permission and
+receives no release credentials.
 
-**Step 4: Upload the internal workflow artifact**
-
-Use `actions/upload-artifact@v7`, a deterministic artifact name, a one-day
-retention, and an error if staged files are missing. Upload only the installer
-and checksum; do not publish from the Windows job.
-
-### Task 3: Attach the Windows assets before publishing the draft
+### Task 4: Publish after the relevant CI gates pass
 
 **Files:**
 
-- Modify: `.github/workflows/release.yml`
+- Modify: `.github/workflows/ci.yml`
 - Test: `apps/desktop/scripts/release-workflow.test.mjs`
 
-**Step 1: Make the release job depend on the Windows build**
+**Step 1: Add the gated publisher job**
 
-Add `needs: build-windows-installer` to the existing tag release job. Do not
-change its event condition, contents/package permissions, concurrency, or
-stable-release output.
+Create `publish-main-native-installer` for pushes to `refs/heads/main-native`.
+Require successful license, protobuf-drift, frontend, Windows desktop, CLI,
+ordinary e2e, and media-e2e jobs. Grant only `contents: write` and run on
+Ubuntu.
 
-**Step 2: Download and validate the assets**
+**Step 2: Download and validate the workflow artifact**
 
-After GoReleaser has created or reused the draft, download the named workflow
-artifact with `actions/download-artifact@v8`. Require the exact versioned
-installer and checksum names, reject missing or unexpected ambiguity, and run
-`sha256sum --check` before contacting GitHub.
+Download `windows-installer-${{ github.sha }}`. Consume the version, tag, and
+installer name from `test-desktop-windows` outputs. Require exactly the two
+expected files and run `sha256sum --check` before calling GitHub.
 
-**Step 3: Upload to the existing draft**
+**Step 3: Create or resume the immutable draft**
 
-Use `gh release upload` with the existing `GORELEASER_GITHUB_TOKEN`, explicit
-`chattocorp/chatto` repository and `v${VERSION}` tag. Use `--clobber` so a
-failed draft workflow can be rerun; because the release is still a draft, a
-failed replacement cannot expose a partial public release.
+Target `${{ github.repository }}` and the exact `${{ github.sha }}` using the
+repository `GITHUB_TOKEN`. If no release exists, create a draft prerelease with
+the commit-derived `desktop-v...` tag and explicit unsigned-POC notes. If a
+draft exists for a rerun, resume it. If the same prerelease is already public,
+treat the immutable release as complete instead of replacing it.
 
-Keep this step before the existing `Publish GitHub Release` step. Leave
-frontend/server GHCR publication and Homebrew updating otherwise unchanged.
+**Step 4: Upload, verify, and publish**
 
-**Step 4: Run the focused test and verify GREEN**
+Upload both assets with `--clobber` only while the release is a draft. Query the
+release API and require both asset names, then set `draft=false` while retaining
+`prerelease=true`.
+
+**Step 5: Run the focused test and verify GREEN**
 
 Run:
 
 ```bash
-mise x -- pnpm --dir apps/desktop exec node --test scripts/release-workflow.test.mjs
+mise x -- node apps/desktop/scripts/release-workflow.test.mjs
 ```
 
-Expected: PASS, including the build/upload/publication ordering assertions.
+Expected: PASS.
 
-### Task 4: Document the release artifact
+### Task 5: Document and verify the release channel
 
 **Files:**
 
 - Modify: `apps/desktop/README.md`
-
-**Step 1: Add tagged-release guidance**
-
-Document that tag-driven releases attach the x64 NSIS installer and checksum
-to GitHub Releases, that the installer version matches the release tag, and
-that POC installers remain unsigned and can trigger SmartScreen warnings.
-
-Do not advertise automatic updates, code signing, Microsoft Store delivery,
-or non-Windows packages.
-
-### Task 5: Verify, commit, and update PR #20
-
-**Files:**
-
+- Verify: `.github/workflows/ci.yml`
 - Verify: `.github/workflows/release.yml`
 - Verify: `apps/desktop/package.json`
 - Verify: `apps/desktop/scripts/release-workflow.test.mjs`
-- Verify: `apps/desktop/README.md`
-- Update: PR #20 body if release automation is not already described
 
-**Step 1: Run syntax and focused verification**
+**Step 1: Document main-native prereleases**
+
+Explain the branch flow, commit-derived tag/version/asset names, Releases-page
+location, checksum verification, and unsigned SmartScreen warning. Do not
+advertise signing, automatic updates, non-Windows packages, or stable support.
+
+**Step 2: Run repository verification**
 
 Run:
 
 ```bash
 mise x -- actionlint .github/workflows/*.yml
-mise x -- pnpm --dir apps/desktop exec node --test scripts/release-workflow.test.mjs
+mise x -- node apps/desktop/scripts/release-workflow.test.mjs
 mise test-desktop
 mise check-desktop
 mise license-check
 git diff --check
 ```
 
-Expected: all commands pass. Report any check that cannot run locally as
-unverified rather than silently omitting it.
+Expected: all commands pass. Do not claim checks that were not run.
 
-**Step 2: Reproduce the release build on native Windows**
+**Step 3: Reproduce the versioned build on native Windows**
 
-Use the same version-overlay, Tauri build, package-verification, staging, and
-checksum logic as the workflow with a harmless prerelease test version. Verify
-the generated filename, embedded product version, non-empty installer,
-unsigned status, and checksum. Do not push a tag or create a GitHub Release.
+Run Tauri with the same commit-derived configuration overlay, then run the
+package verifier and checksum logic. Confirm the exact filename, non-empty
+installer, product version, unsigned status, and checksum. Do not push a test
+tag or create a release from the feature branch.
 
-**Step 3: Review workflow permissions and diff**
+**Step 4: Review, commit, and push**
 
-Confirm the Windows job has no write permission or secrets, the Linux release
-job is still the only publisher, the public-release step follows installer
-upload, and the pre-existing `cli/data.oldbak-23944/` directory remains
-untouched.
-
-**Step 4: Commit and push**
-
-Commit the contract test and implementation with a Conventional Commit such
-as:
+Confirm `release.yml` has no main-native coupling, only the publisher has write
+permission, and `cli/data.oldbak-23944/` remains untouched. Commit with a
+Conventional Commit such as:
 
 ```bash
-git commit -m "ci(desktop): publish Windows release installer"
+git commit -m "ci(desktop): publish main-native prereleases"
 ```
 
-Push `feat/windows-desktop-poc`, update PR #20's summary/testing evidence, and
-inspect CI. Fix regressions introduced by this change before handoff.
+Push the feature branch, update PR #20's summary and verification, inspect CI,
+and fix regressions introduced by the change before handoff.
