@@ -21,7 +21,8 @@ fn production_config_has_no_remotely_configured_window() {
 fn production_csp_blocks_remote_code_and_frames() {
     let config = json("tauri.conf.json");
     let csp = config["app"]["security"]["csp"].as_str().unwrap();
-    assert!(csp.contains("script-src 'self' 'wasm-unsafe-eval'"));
+    assert!(csp.contains("script-src 'self' 'wasm-unsafe-eval' blob:"));
+    assert!(csp.contains("worker-src 'self' blob:"));
     assert!(csp.contains("frame-src 'none'"));
     assert!(csp.contains("object-src 'none'"));
     assert!(!csp.contains("script-src https:"));
