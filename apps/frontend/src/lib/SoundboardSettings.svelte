@@ -125,18 +125,19 @@ duration, so obviously-invalid files are rejected before hitting the network.
       return;
     }
 
-    if (decoded.duration > MAX_DURATION_SECONDS + 0.05) {
-      toast.error(m['soundboard.audio_too_long']());
-      return;
-    }
-
     selectedFile = file;
     // Keep the decoded clip so the trimmer can render its waveform and so upload
     // can re-encode the selected region. The buffer stays valid after its decode
     // context is closed.
+    //
+    // A clip longer than the duration limit is NOT rejected here: the whole
+    // point of the trimmer is to cut a longer clip down to size. We default the
+    // selection to the first `MAX_DURATION_SECONDS` so it is already valid, and
+    // the trimmer constrains the window to that length while the admin adjusts
+    // where it sits.
     decodedBuffer = decoded;
     trimStart = 0;
-    trimEnd = decoded.duration;
+    trimEnd = Math.min(decoded.duration, MAX_DURATION_SECONDS);
     if (!name.trim()) {
       // Seed the name from the file name for convenience.
       name = file.name.replace(/\.[^.]+$/, '').slice(0, 64);
@@ -167,6 +168,12 @@ duration, so obviously-invalid files are rejected before hitting the network.
     file: File
   ): Promise<{ audio: Uint8Array<ArrayBuffer>; filename: string; contentType: string } | null> {
     const buffer = decodedBuffer;
+    // The selected region must respect the duration limit. The trimmer already
+    // constrains the window to this length, so this is a defensive backstop.
+    if (buffer && trimEnd - trimStart > MAX_DURATION_SECONDS + 0.05) {
+      toast.error(m['soundboard.audio_too_long']());
+      return null;
+    }
     const trimmed = buffer !== null && (trimStart > 0.001 || trimEnd < buffer.duration - 0.001);
     if (buffer && trimmed) {
       const wav = trimClipToWav(decodedClipFromAudioBuffer(buffer), trimStart, trimEnd);
@@ -305,6 +312,7 @@ duration, so obviously-invalid files are rejected before hitting the network.
           buffer={decodedBuffer}
           bind:start={trimStart}
           bind:end={trimEnd}
+          maxSelectionSeconds={MAX_DURATION_SECONDS}
           disabled={uploading}
         />
       {/if}
