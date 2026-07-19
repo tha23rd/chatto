@@ -14,6 +14,13 @@ const require = createRequire(import.meta.url);
 const electronExecutable = require("electron") as string;
 const desktopRoot = fileURLToPath(new URL("..", import.meta.url));
 const mainEntry = path.join(desktopRoot, "dist", "main.js");
+// By default the smoke test drives dev Electron loading dist/main.js. Playwright
+// attaches to the Electron main process via the Node inspector, which the
+// packaged release binary deliberately disables (RunAsNode /
+// EnableNodeCliInspectArguments fuses in scripts/afterPack.mjs), so a fully
+// hardened binary can never be the target here — electron.launch() would hang.
+// CHATTO_DESKTOP_EXECUTABLE therefore only works against an unfused local build;
+// packaged-artifact hardening is asserted separately by verify:fuses:linux.
 const packagedExecutable = process.env.CHATTO_DESKTOP_EXECUTABLE
   ? path.resolve(process.env.CHATTO_DESKTOP_EXECUTABLE)
   : null;
@@ -597,9 +604,8 @@ function launchArguments(
     ...(packagedExecutable ? [] : [mainEntry]),
     `--user-data-dir=${userDataDirectory}`,
     "--no-sandbox",
-    // GPU init under a headless Xvfb server is a common cause of Electron launch
-    // hangs on CI; software rendering off a small /dev/shm makes the launch
-    // reliable without changing what the smoke test exercises.
+    // Xvfb on CI has no GPU and a small /dev/shm; forcing software rendering off
+    // the heap keeps Electron startup reliable without changing what is tested.
     "--disable-gpu",
     "--disable-dev-shm-usage",
     deepLink,

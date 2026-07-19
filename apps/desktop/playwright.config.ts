@@ -4,15 +4,13 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   forbidOnly: true,
-  // Retry on CI to absorb residual flakiness in the packaged Electron launch
-  // under Xvfb (the GPU/shm launch flags below are the primary mitigation).
-  retries: process.env.CI ? 2 : 0,
+  // One retry on CI absorbs occasional Electron startup jitter under Xvfb.
+  retries: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: "list",
-  // The packaged Electron binary can take ~45-60s just to open its first window
-  // under CI's headless Xvfb (an identical binary launched in one run, timed out
-  // at 45s in others), so give the whole test generous headroom over that.
-  timeout: 120_000,
+  // Dev Electron boots the bundled renderer in a few seconds under Xvfb; the
+  // headroom here just covers cold-cache first launches on CI runners.
+  timeout: 60_000,
   use: {
     trace: "retain-on-failure",
   },

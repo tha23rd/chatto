@@ -230,9 +230,13 @@ jobs:
       - name: Verify packaged Electron fuses
         run: pnpm --dir apps/desktop verify:fuses:linux
 
-      - name: Run packaged Electron smoke test
-        env:
-          CHATTO_DESKTOP_EXECUTABLE: ${{ github.workspace }}/apps/desktop/release/linux-unpacked/chatto-desktop
+      # The packaged binary's hardening is asserted by verify:fuses:linux above.
+      # The renderer/bridge/shell behaviour is asserted here against the same
+      # dist/main.js via dev Electron, which Playwright can attach to. Playwright
+      # drives the Electron main process through the Node inspector, which the
+      # packaged binary deliberately disables (RunAsNode / EnableNodeCliInspect*
+      # fuses), so it cannot be the smoke target without weakening those fuses.
+      - name: Run desktop shell smoke test
         run: xvfb-run --auto-servernum pnpm --dir apps/desktop test:smoke
 
       - name: Upload Electron smoke diagnostics
