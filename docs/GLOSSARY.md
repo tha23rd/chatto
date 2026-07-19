@@ -60,9 +60,9 @@ User-facing concepts. If a user might say the word, it goes here.
 
 **Reaction** — Emoji attached to a message by a user; the emoji can be a built-in gemoji or a server *Custom Emoji*. See [FDR-005](fdr/FDR-005-reactions.md).
 
-**Custom Emoji** — Admin-uploaded, named image shortcode (for example `:partyparrot:`) in a server-wide catalog that any member can use. Names match `^[a-z0-9_]{1,64}$` and must not collide with built-in gemoji shortcodes. In its first version custom emoji are usable as message *Reactions* (rendered as images); inline `:name:` substitution in message bodies is out of scope. Managed with `server.manage`. See [FDR-033](fdr/FDR-033-custom-emoji.md).
+**Custom Emoji** — Admin-uploaded, named image shortcode (for example `:partyparrot:`) in a server-wide catalog that any member can use. Names match `^[a-z0-9_]{1,64}$` and must not collide with built-in gemoji shortcodes. In its first version custom emoji are usable as message *Reactions* (rendered as images); inline `:name:` substitution in message bodies is out of scope. Managed with `server.manage`. See [FDR-900](fdr/FDR-900-custom-emoji.md).
 
-**Channel Webhook** — Per-room, token-authorized HTTP endpoint that lets an external service post messages without a user account or session, mirroring Discord's incoming webhooks. Created and managed with `server.manage`; the secret post URL is shown once at creation/regeneration and never again. Posts may override the display name/avatar per message. See [FDR-035](fdr/FDR-035-channel-webhooks.md).
+**Channel Webhook** — Per-room, token-authorized HTTP endpoint that lets an external service post messages without a user account or session, mirroring Discord's incoming webhooks. Created and managed with `server.manage`; the secret post URL is shown once at creation/regeneration and never again. Posts may override the display name/avatar per message. See [FDR-902](fdr/FDR-902-channel-webhooks.md).
 
 **Mention** — `@handle` syntax in a message that notifies referenced users, pingable roles, or virtual room groups such as `@all` and `@here`. See [FDR-006](fdr/FDR-006-mentions.md).
 
@@ -116,7 +116,7 @@ Infrastructure jargon. If only contributors say the word, it goes here.
 
 **System actor** — Synthetic actor ID used when Chatto itself, bootstrap code, or trusted operator automation performs a domain write. It is not a login-capable user account.
 
-**Webhook user** — Synthetic, non-human user of kind `USER_KIND_WEBHOOK` that backs a *Channel Webhook* and authors its messages. Passwordless and excluded from the member directory, login resolution, and mention autocomplete. See [FDR-035](fdr/FDR-035-channel-webhooks.md).
+**Webhook user** — Synthetic, non-human user of kind `USER_KIND_WEBHOOK` that backs a *Channel Webhook* and authors its messages. Passwordless and excluded from the member directory, login resolution, and mention autocomplete. See [FDR-902](fdr/FDR-902-channel-webhooks.md).
 
 **Admin API** — Public ConnectRPC administrative surface in `chatto.admin.v1`. On the public web listener it uses normal user authentication and RBAC. It is separate from the local Operator API. See [FDR-028](fdr/FDR-028-operator-api-and-cli.md).
 

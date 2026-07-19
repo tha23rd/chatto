@@ -10,7 +10,7 @@ import { CustomUserStatus } from "./user_status_pb.js";
 
 /**
  * UserKind discriminates human accounts from synthetic, non-human identities
- * such as channel webhook authors (FDR-035).
+ * such as channel webhook authors (FDR-902).
  *
  * @generated from enum chatto.api.v1.UserKind
  */

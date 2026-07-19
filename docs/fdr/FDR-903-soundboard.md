@@ -1,4 +1,4 @@
-# FDR-036: Soundboard
+# FDR-903: Soundboard
 
 **Status:** Active
 **Last reviewed:** 2026-07-19
@@ -12,7 +12,7 @@ sounds (each with an optional emoji icon and a default volume); any member
 connected to a call can trigger a sound from a panel in the call UI. The
 soundboard is a feature of voice calls (FDR-016): it exists only while a call is
 running and only for the participants who have joined that call. It reuses the
-custom-emoji model (FDR-033) for the catalog and the existing LiveKit publish
+custom-emoji model (FDR-900) for the catalog and the existing LiveKit publish
 path for playback, so it adds no new media infrastructure.
 
 ## Behavior
@@ -80,7 +80,7 @@ media and cannot mix audio into the stream. Publishing from the triggering
 client keeps the clip inside the same E2EE path as microphone audio, requires no
 new server-side media plane, and reuses the attach/detach logic calls already
 depend on. It is the audio analogue of how the frontend already manipulates
-outbound tracks for noise suppression (FDR-034).
+outbound tracks for noise suppression (FDR-901).
 
 **Tradeoff:** Only participants who have joined the LiveKit call hear the sound;
 roster-only observers do not, exactly like microphone audio. Playback fidelity
@@ -113,7 +113,7 @@ and delete write events to a single server-scoped `soundboard` aggregate
 `evt.soundboard.server.*`, with current catalog state derived by an in-memory
 `SoundboardProjection`.
 
-**Why:** Like the custom-emoji catalog (FDR-033 decision 3), the sound catalog is
+**Why:** Like the custom-emoji catalog (FDR-900 decision 3), the sound catalog is
 server-wide, low-cardinality, admin-edited, and shared by every member, so a
 single server-scoped aggregate matches the data's ownership and keeps
 create/delete ordering explicit and replayable (ADR-033, ADR-034), guarded by
@@ -135,7 +135,7 @@ a sound is deleted.
 
 **Why:** Sound clips are small, public, server-scoped binaries with the same
 lifecycle needs as other server assets, so reusing the pipeline avoids a parallel
-storage/serving path (FDR-033 decision 4). Clients need the clip bytes to publish
+storage/serving path (FDR-900 decision 4). Clients need the clip bytes to publish
 them (decision 1), which a plain public HTTP asset URL provides.
 
 **Tradeoff:** Sound clips are public once their URL is known, like other
@@ -169,7 +169,7 @@ service (`chatto.admin.v1.AdminSoundboardService`) gated on `soundboard.manage`.
 **Why:** Every member needs to read the catalog, but only administrators should
 change it. Splitting a broad read service from an admin write service follows the
 public API conventions in ADR-042 and ADR-044 and keeps the authorization
-boundary obvious, exactly as custom emoji do (FDR-033 decision 5).
+boundary obvious, exactly as custom emoji do (FDR-900 decision 5).
 
 **Tradeoff:** Two services describe one resource, but each has a single clear
 audience. Unlike Discord, non-admin members cannot add their own sounds in this
@@ -179,7 +179,7 @@ version (see open questions).
 
 **Decision:** Curating the catalog is gated on a dedicated `soundboard.manage`
 permission, which is also satisfied by the broad `server.manage` and is
-auto-granted to the admin/owner default roles (FDR-033 decision 7). There is no
+auto-granted to the admin/owner default roles (FDR-900 decision 7). There is no
 separate "use" permission: playing a sound is gated only on having joined the
 room's active call, the same gate voice calling itself uses (FDR-016).
 
@@ -293,7 +293,7 @@ bounds; a dropped "started" packet simply skips one highlight.
   (protobuf-first public API), ADR-044 (ConnectRPC service conventions)
 - **FDRs:** FDR-001 (Roles & Permissions), FDR-008 (File Attachments & Video
   Processing), FDR-016 (Voice Calls), FDR-020 (Server Branding & Configuration),
-  FDR-021 (Admin Dashboard & System Monitoring), FDR-033 (Custom Emoji), FDR-034
+  FDR-021 (Admin Dashboard & System Monitoring), FDR-900 (Custom Emoji), FDR-901
   (Microphone Noise Suppression)
 
 ## Open Questions

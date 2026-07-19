@@ -24,7 +24,7 @@ const (
 // A server-wide soundboard sound: a short audio clip uploaded by an admin that
 // any member connected to a room's voice call can play so that every joined
 // participant hears it. The catalog is shared by the whole server; there are no
-// per-user or per-room sound sets. See FDR-036.
+// per-user or per-room sound sets. See FDR-903.
 type Sound struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Sound identifier (NanoID).

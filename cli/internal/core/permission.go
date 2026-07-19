@@ -49,7 +49,7 @@ const (
 	// PermSoundboardManage allows creating and deleting server soundboard
 	// sounds without the broader server.manage capability. server.manage
 	// holders retain soundboard access too, so it can be granted on its own to
-	// a narrower "soundboard manager" role. See FDR-036.
+	// a narrower "soundboard manager" role. See FDR-903.
 	PermSoundboardManage Permission = "soundboard.manage"
 
 	// ===== Room Permissions =====
@@ -295,6 +295,8 @@ func DefaultModeratorPermissions() []Permission {
 func DefaultAdminPermissions() []Permission {
 	return []Permission{
 		PermServerManage,
+		PermEmojiManage,
+		PermSoundboardManage,
 		PermRoomCreate,
 		PermRoomJoin,
 		PermRoomList,

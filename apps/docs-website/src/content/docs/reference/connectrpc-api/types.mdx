@@ -381,7 +381,7 @@ requests.
 | `reactions` | repeated [`MessageReaction`](#chatto-api-v1-MessageReaction) | Reaction summaries for this message. |
 | `thread` | [`ThreadSummary`](#chatto-api-v1-ThreadSummary) | Aggregated thread state, when known for a thread root message. |
 | `deleted_at` | `google.protobuf.Timestamp` | Time when the message content was deleted through retraction or account crypto-shredding. Absent when unavailable body content is not a deletion. |
-| `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-035). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile. |
+| `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-902). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile. |
 
 <a id="chatto-api-v1-MessageAssetUrl"></a>
 
@@ -473,7 +473,7 @@ One transcoded video rendition.
 ### MessageWebhookOverride
 
 MessageWebhookOverride is the per-message display identity a channel webhook
-set on an individual post (FDR-035).
+set on an individual post (FDR-902).
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -960,7 +960,7 @@ Authenticated server runtime settings used by clients.
 A server-wide soundboard sound: a short audio clip uploaded by an admin that
 any member connected to a room's voice call can play so that every joined
 participant hears it. The catalog is shared by the whole server; there are no
-per-user or per-room sound sets. See FDR-036.
+per-user or per-room sound sets. See FDR-903.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -1463,7 +1463,7 @@ Runtime-editable server profile settings.
 ### Webhook
 
 A channel webhook: a token-authorized endpoint that posts messages into a
-specific room under a synthetic, non-human webhook identity (FDR-035). The
+specific room under a synthetic, non-human webhook identity (FDR-902). The
 secret token is embedded in the post URL and is only ever returned once, at
 creation and regeneration time.
 
@@ -1531,7 +1531,7 @@ the server's live presence record expire.
 ### UserKind
 
 UserKind discriminates human accounts from synthetic, non-human identities
-such as channel webhook authors (FDR-035).
+such as channel webhook authors (FDR-902).
 
 | Name | Number | Description |
 | --- | --- | --- |

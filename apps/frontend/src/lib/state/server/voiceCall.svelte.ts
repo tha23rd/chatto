@@ -89,7 +89,7 @@ const SOUNDBOARD_THROTTLE_FEEDBACK_MS = 600;
 // target it, and (implicitly) keeps its own source lane.
 const SOUNDBOARD_TRACK_NAME = 'soundboard';
 // LiveKit data-channel topic for the ephemeral "I'm playing a sound" signal
-// that lights up the player's tile on every client (see FDR-036).
+// that lights up the player's tile on every client (see FDR-903).
 const SOUNDBOARD_DATA_TOPIC = 'soundboard';
 // Safety timeout to clear a remote "playing" highlight if the matching stop
 // signal is lost. Comfortably longer than the maximum clip length.

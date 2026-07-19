@@ -1,38 +1,35 @@
-# FDR-033: Custom Emoji
+# FDR-900: Custom Emoji
 
 **Status:** Active
-**Last reviewed:** 2026-07-12
+**Last reviewed:** 2026-07-19
 
 ## Overview
 
 Server administrators can build a server-wide catalog of named custom emoji —
-image shortcodes such as `:partyparrot:` — that every member can use. In this
-first version, custom emoji are usable as message **reactions**: a member picks
-one from the emoji picker and it renders as a small inline image on the reaction
-pill. The catalog is shared by the whole server; there are no per-user or
-per-room emoji sets.
+image shortcodes such as `:partyparrot:` — that every member can use in messages
+and reactions. The catalog is shared by the whole server; there are no per-user
+or per-room emoji sets.
 
 ## Behavior
 
 - Admins upload custom emoji from a dedicated admin page. Each emoji has a name
   (its shortcode) and an image.
-- Uploaded images are processed into small WebP images sized for inline display,
-  so a large source image still renders as a compact emoji. Animated GIF uploads
-  are preserved as animated WebP so the emoji keeps its motion; other formats
-  render as a single static frame.
+- Uploaded images are processed into small WebP images bounded to emoji display
+  dimensions while preserving their aspect ratio. Animated GIF uploads are
+  preserved as animated WebP so the emoji keeps its motion; other formats render
+  as a single static frame.
 - Names are lowercase and limited to letters, digits, and underscores
   (`^[a-z0-9_]{1,64}$`). A name that collides with a built-in gemoji shortcode
   (for example `:smile:`) is rejected so the two namespaces never overlap.
 - Admins can delete a custom emoji. Existing reactions that used it stop
   rendering as that image once it is gone.
 - Any authenticated member sees the current custom emoji catalog in the emoji
-  picker alongside built-in emoji and can react to a message with one.
+  picker alongside built-in emoji and can use one in a message or reaction.
+- Known `:name:` shortcodes render as custom emoji images in normal message
+  prose. Shortcodes in code, preformatted text, and links remain literal.
 - Reaction pills backed by a custom emoji render the emoji image; pills backed
   by a built-in emoji render the glyph as before. Counts, viewer highlight, and
   reactor tooltips behave the same as ordinary reactions.
-- Custom emoji do **not** substitute inside message text. Typing `:partyparrot:`
-  in a message body posts the literal text; only reactions render custom emoji
-  images in this version.
 
 ## Design Decisions
 
@@ -95,7 +92,8 @@ are.
 (`chatto.api.v1.CustomEmojiService.ListCustomEmojis`) available to any signed-in
 member for the picker and reaction rendering. Creating and deleting emoji live on
 a separate administrative service (`chatto.admin.v1.AdminCustomEmojiService`)
-gated on `server.manage`.
+gated on `emoji.manage`, with `server.manage` accepted for compatibility (see
+decision 7).
 **Why:** Every member needs to read the catalog, but only administrators should
 change it. Splitting a broad read service from an admin write service follows the
 public API conventions in ADR-042 and ADR-044 and keeps the authorization
@@ -103,18 +101,16 @@ boundary obvious.
 **Tradeoff:** Two services describe one resource, but each has a single clear
 audience and permission requirement.
 
-### 6. Reactions only for the first version
+### 6. Inline shortcodes render after message formatting
 
-**Decision:** Custom emoji are usable as reactions and nothing else. Inline
-`:name:` substitution inside message bodies is explicitly out of scope for this
-version.
-**Why:** Reactions already resolve shortcodes, so custom emoji reuse that path
-with minimal new surface. Inline body substitution would require parsing and
-rendering emoji tokens inside message content, with its own escaping, editing,
-and notification interactions, and is deferred until the catalog and picker have
-proven out.
-**Tradeoff:** Members can react with a custom emoji but cannot drop it into a
-sentence yet.
+**Decision:** Known `:name:` shortcodes render as inline custom emoji in normal
+message prose. Code, preformatted text, and link text remain literal.
+**Why:** Shortcodes round-trip as message text, preserve editing and copying
+semantics, reuse the server catalog, and avoid changing the stored message
+schema.
+**Tradeoff:** Rendering depends on the current catalog. Deleted or unavailable
+emoji remain literal text, and custom emoji cannot render where the server
+catalog is unavailable.
 
 ### 7. Dedicated `emoji.manage` permission, accepting `server.manage` too
 
@@ -153,6 +149,6 @@ about "who can manage emoji" means checking both grants rather than one.
 
 ## Open Questions
 
-- Inline `:name:` custom emoji rendering inside message bodies is deferred to a
-  future version and will need its own parsing, editing, and notification
-  decisions.
+- Custom emoji are not yet included in Recently Used or quick-reaction slots.
+  Bringing them to parity requires image-aware rendering in those surfaces while
+  preserving the separate custom catalog.

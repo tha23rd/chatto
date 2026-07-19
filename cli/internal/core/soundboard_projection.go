@@ -26,7 +26,7 @@ type Sound struct {
 // SoundboardProjection derives the current server soundboard catalog from
 // durable soundboard aggregate events. Sounds are a server-wide singleton
 // catalog (mirroring RBAC and custom emoji); state is kept entirely in memory
-// and rebuilt from EVT replay. See FDR-036.
+// and rebuilt from EVT replay. See FDR-903.
 type SoundboardProjection struct {
 	events.MemoryProjection
 	byID   map[string]*Sound // sound ID -> sound
