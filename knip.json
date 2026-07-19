@@ -44,8 +44,25 @@
         "src/lib/pb/**": ["exports", "types", "enumMembers"]
       }
     },
+    "apps/desktop": {
+      "entry": [
+        "e2e/**/*.ts",
+        "scripts/**/*.mjs",
+        "src/preload.cts",
+        "src/pickerPreload.cts"
+      ],
+      "project": [
+        "e2e/**/*.ts",
+        "scripts/**/*.mjs",
+        "src/**/*.{cts,ts}",
+        "*.ts"
+      ]
+    },
     "apps/docs-website": {
       "ignoreDependencies": ["@fontsource-variable/ibm-plex-sans"]
+    },
+    "packages/native-bridge": {
+      "project": ["src/**/*.ts"]
     }
   }
 }

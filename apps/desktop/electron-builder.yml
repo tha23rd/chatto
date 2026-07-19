@@ -1,0 +1,88 @@
+appId: org.chatto.desktop
+productName: Chatto
+artifactName: Chatto-${version}-${os}-${arch}.${ext}
+asar: true
+npmRebuild: false
+asarUnpack:
+  - node_modules/uiohook-napi/**
+directories:
+  output: release
+  buildResources: ../frontend/static/icons
+files:
+  - dist/**
+  # Defence in depth: the build already excludes test scaffolding from dist
+  # (tsconfig excludes src/test and specs, and `build` cleans dist first), but
+  # never ship test-only mocks/specs inside the signed asar even if a stray
+  # artifact survives. Source maps are kept: the source is public (AGPL) and
+  # they aid crash triage.
+  - "!dist/test/**"
+  - "!dist/**/*.spec.*"
+  - package.json
+extraResources:
+  - from: ../frontend/build
+    to: renderer
+  - from: ../frontend/static/icons/icon-512.png
+    to: icon.png
+  - from: ../../LICENSES/Apache-2.0.txt
+    to: LICENSE
+  - from: ../../NOTICE
+    to: NOTICE
+afterPack: scripts/afterPack.mjs
+protocols:
+  - name: Chatto links
+    schemes:
+      - chatto
+publish:
+  provider: github
+  owner: chattocorp
+  repo: chatto
+win:
+  icon: ../frontend/static/icons/icon-512.png
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+    - target: msi
+      arch: [x64, arm64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  differentialPackage: true
+mac:
+  icon: ../frontend/static/icons/icon-512.png
+  category: public.app-category.social-networking
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: Chatto uses your microphone when you join a call.
+    NSCameraUsageDescription: Chatto uses your camera when you turn on video in a call.
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+linux:
+  icon: ../frontend/static/icons/icon-512.png
+  category: Network
+  syncDesktopName: true
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64, arm64]
+deb:
+  # Electron Builder's defaults plus libXt, which the Linux uiohook prebuild
+  # links directly for press/release global keyboard events.
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+    - libuuid1
+    - libsecret-1-0
+    - libxt6

@@ -24,6 +24,11 @@
           "type": "json",
           "path": "apps/frontend/package.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "apps/desktop/package.json",
+          "jsonpath": "$.version"
         }
       ]
     }

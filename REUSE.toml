@@ -11,6 +11,7 @@ SPDX-License-Identifier = "AGPL-3.0-or-later"
 [[annotations]]
 path = [
   "apps/docs-website/**",
+  "apps/desktop/**",
   "apps/frontend/**",
   "CHANGELOG.md",
   "CONTRIBUTING.md",
@@ -20,6 +21,7 @@ path = [
   "examples/**",
   "LICENSING.md",
   "packages/api-types/**",
+  "packages/native-bridge/**",
   "README.md",
   "SECURITY.md",
   "proto/AGENTS.md",

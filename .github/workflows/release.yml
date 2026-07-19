@@ -184,7 +184,8 @@ jobs:
               .release-please-manifest-main.json|\
               CHANGELOG.md|\
               cli/version.go|\
-              apps/frontend/package.json)
+              apps/frontend/package.json|\
+              apps/desktop/package.json)
                 ;;
               *)
                 disallowed+=("$path")
@@ -262,13 +263,16 @@ jobs:
       - name: Build frontend Docker tags
         id: frontend_tags
         shell: bash
+        env:
+          CHATTO_FRONTEND_VERSION: ${{ steps.version.outputs.version }}
+          CHATTO_PUSH_LATEST: ${{ steps.release_meta.outputs.push_latest }}
         run: |
           {
             echo "tags<<EOF"
-            echo "ghcr.io/chattocorp/chatto-client:${{ steps.version.outputs.version }}"
-            if [[ "${{ steps.version.outputs.version }}" == *-* ]]; then
+            echo "ghcr.io/chattocorp/chatto-client:${CHATTO_FRONTEND_VERSION}"
+            if [[ "${CHATTO_FRONTEND_VERSION}" == *-* ]]; then
               echo "ghcr.io/chattocorp/chatto-client:next"
-            elif [[ "${{ steps.release_meta.outputs.push_latest }}" == "true" ]]; then
+            elif [[ "${CHATTO_PUSH_LATEST}" == "true" ]]; then
               echo "ghcr.io/chattocorp/chatto-client:latest"
             fi
             echo "EOF"

@@ -1,0 +1,42 @@
+{
+  "name": "chatto-desktop",
+  "desktopName": "org.chatto.desktop",
+  "private": true,
+  "version": "0.4.8",
+  "description": "Chatto native desktop client",
+  "author": {
+    "name": "Chatto contributors",
+    "email": "hendrik.mans@chattocorp.eu",
+    "url": "https://chatto.run"
+  },
+  "homepage": "https://chatto.run",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "clean": "rm -rf dist release",
+    "dev": "electron dist/main.js",
+    "package": "electron-builder --publish never",
+    "package:dir": "electron-builder --dir --publish never",
+    "package:win:dir": "electron-builder --win --dir --x64 --publish never",
+    "package:linux:deb": "electron-builder --linux deb --x64 --publish never",
+    "test": "vitest --run",
+    "test:smoke": "playwright test",
+    "verify:fuses:linux": "electron-fuses read --app release/linux-unpacked/chatto-desktop"
+  },
+  "dependencies": {
+    "@chatto/native-bridge": "workspace:*",
+    "electron-updater": "^6.8.9",
+    "uiohook-napi": "^1.5.5"
+  },
+  "devDependencies": {
+    "@electron/fuses": "^2.1.3",
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^22.19.19",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.6"
+  }
+}

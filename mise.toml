@@ -113,7 +113,7 @@ sources = ["package.json", "tsconfig.json", "src/**/*"]
 
 [tasks.build-frontend]
 description = "Build the frontend application"
-depends = ["setup-frontend", "build-api-types"]
+depends = ["setup-frontend", "build-api-types", "build-native-bridge"]
 dir = "apps/frontend"
 run = [
     "pnpm svelte-kit sync",
@@ -129,6 +129,7 @@ sources = [
     "../../pnpm-lock.yaml",
     "../../pnpm-workspace.yaml",
     "../../packages/api-types/dist/**/*",
+    "../../packages/native-bridge/dist/**/*",
     "package.json",
     "scripts/**/*",
     "src/**/*",
@@ -142,6 +143,30 @@ sources = [
     "vite.config.ts",
 ]
 outputs = ["build/.mise-build-stamp", "../../cli/internal/http_server/.client/.gitkeep"]
+
+[tasks.build-native-bridge]
+description = "Build the typed native desktop bridge contract"
+depends = ["setup-frontend"]
+dir = "packages/native-bridge"
+run = "pnpm build"
+sources = ["package.json", "tsconfig.json", "src/**/*.ts"]
+outputs = ["dist/index.js", "dist/index.d.ts"]
+
+[tasks.build-desktop]
+description = "Build the bundled native desktop client"
+depends = ["setup-frontend", "build-native-bridge", "build-frontend"]
+dir = "apps/desktop"
+run = "pnpm build"
+sources = [
+    "package.json",
+    "tsconfig.json",
+    "electron-builder.yml",
+    "scripts/**/*",
+    "src/**/*",
+    "../../packages/native-bridge/dist/**/*",
+    "../frontend/build/**/*",
+]
+outputs = ["dist/main.js", "dist/preload.cjs", "dist/pickerPreload.cjs"]
 
 [tasks.build-dev-cli]
 description = "Build the development CLI application for the current architecture"
@@ -192,7 +217,7 @@ outputs = ["../apps/frontend/e2e/fixtures/bin/chatto-current"]
 
 [tasks.storybook]
 description = "Run the Storybook design-system catalog on the workspace port"
-depends = ["setup-frontend", "build-api-types"]
+depends = ["setup-frontend", "build-api-types", "build-native-bridge"]
 dir = "apps/frontend"
 env = {
   CHATTO_STORYBOOK_PORT = "{{env.CHATTO_STORYBOOK_PORT | default(value=env.CONDUCTOR_PORT | default(value=env.PASEO_PORT | default(value='4000')))}}",
@@ -207,9 +232,21 @@ run = "go build -trimpath -tags bootstrap -o bin/chatto-dev . && exec ./bin/chat
 
 [tasks.dev-frontend]
 description = "Run the local development frontend"
-depends = ["setup-frontend", "build-api-types"]
+depends = ["setup-frontend", "build-api-types", "build-native-bridge"]
 dir = "apps/frontend"
 run = "exec ./node_modules/.bin/vite dev"
+
+[tasks.dev-desktop]
+description = "Run the bundled native desktop client"
+depends = ["build-desktop"]
+dir = "apps/desktop"
+run = "exec pnpm dev"
+
+[tasks.package-desktop-win]
+description = "Cross-build an unpacked Windows desktop app (x64) for manual testing"
+depends = ["build-desktop"]
+dir = "apps/desktop"
+run = "pnpm package:win:dir"
 
 [tasks.dev-livekit]
 description = "Run a local LiveKit server with workspace-safe ports"
@@ -233,7 +270,7 @@ run = "exec mailpit --smtp \"127.0.0.1:$CHATTO_DEV_MAILPIT_SMTP_PORT\" --listen 
 
 [tasks.dev]
 description = "Run the local backend and frontend development servers"
-depends = ["setup-cli", "build-api-types"]
+depends = ["setup-cli", "build-api-types", "build-native-bridge"]
 env = {
   VITE_PORT = "{{env.VITE_PORT | default(value=env.CONDUCTOR_PORT | default(value=env.PASEO_PORT | default(value='4000')))}}",
   CHATTO_WEBSERVER_PORT = "{{env.CHATTO_WEBSERVER_PORT | default(value=env.CONDUCTOR_PORT | default(value=env.PASEO_PORT | default(value='4000')) | int + 1)}}",
@@ -330,12 +367,12 @@ sources = ["**/*.go", "cmd/embedded/LICENSE", "cmd/embedded/NOTICE"]
 
 [tasks.knip]
 description = "Find unused frontend/docs files, dependencies, and exports"
-depends = ["setup-frontend", "build-api-types"]
+depends = ["setup-frontend", "build-api-types", "build-native-bridge"]
 run = "pnpm knip"
 
 [tasks.lint-frontend]
 description = "Run TypeScript and ESLint checks on frontend"
-depends = ["setup-frontend", "build-api-types"]
+depends = ["setup-frontend", "build-api-types", "build-native-bridge"]
 dir = "apps/frontend"
 run = ["pnpm check", "pnpm lint"]
 
@@ -345,9 +382,23 @@ run = [{ task = "lint-*" }]
 
 [tasks.test-frontend]
 description = "Run frontend unit tests"
-depends = ["setup-frontend", "build-api-types"]
+depends = ["setup-frontend", "build-api-types", "build-native-bridge"]
 dir = "apps/frontend"
 run = "pnpm vitest --run"
+
+[tasks.test-desktop]
+description = "Run native bridge and desktop unit tests"
+depends = ["setup-frontend", "build-native-bridge"]
+run = [
+    "pnpm --filter @chatto/native-bridge test",
+    "pnpm --filter chatto-desktop test",
+]
+
+[tasks.test-desktop-smoke]
+description = "Launch the real bundled desktop client and verify its hardened renderer"
+depends = ["build-desktop"]
+dir = "apps/desktop"
+run = "pnpm test:smoke"
 
 [tasks.test-e2e]
 description = "Run E2E tests"
@@ -357,7 +408,12 @@ run = "pnpm exec playwright test"
 
 [tasks.test]
 description = "Run all tests"
-run = [{ task = "test-cli" }, { task = "test-frontend" }, { task = "test-e2e" }]
+run = [
+    { task = "test-cli" },
+    { task = "test-frontend" },
+    { task = "test-desktop" },
+    { task = "test-e2e" },
+]
 
 # =============================================================================
 # Utility

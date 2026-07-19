@@ -98,6 +98,14 @@ Frontend and Documentation Components:
 - Vite and Vitest (https://vite.dev/, https://vitest.dev/) - MIT License
 - zod (https://zod.dev/) - MIT License
 
+Native Desktop Client Components:
+
+- Electron (https://www.electronjs.org/) - MIT License
+- Electron Builder and Electron Updater (https://www.electron.build/) - MIT License
+- Electron Fuses (https://github.com/electron/fuses) - MIT License
+- uiohook-napi and libuiohook (https://github.com/SnosMe/uiohook-napi,
+  https://github.com/kwhat/libuiohook) - MIT License
+
 Upstream NOTICE Text:
 
 CoreOS go-oidc:
