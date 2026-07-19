@@ -718,6 +718,45 @@ describe('VoiceCallState', () => {
     expect(state.participants[0].screenShareTrack).toBeNull();
   });
 
+  it('collects diagnostics from the published local screen-share track', async () => {
+    const getRTCStatsReport = vi.fn(
+      async () =>
+        new Map([
+          [
+            'outbound-video',
+            {
+              id: 'outbound-video',
+              type: 'outbound-rtp',
+              kind: 'video',
+              timestamp: 1_000,
+              bytesSent: 2_000,
+              framesEncoded: 30,
+              packetsSent: 20,
+              qualityLimitationReason: 'none'
+            }
+          ]
+        ]) as unknown as RTCStatsReport
+    );
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    lastRoom!.localParticipant.getTrackPublication = vi.fn(() => ({
+      track: { getRTCStatsReport }
+    }));
+
+    await state.toggleScreenShare();
+    await vi.waitFor(() => expect(getRTCStatsReport).toHaveBeenCalledOnce());
+
+    expect(state.screenShareDiagnostics.latest).toMatchObject({
+      bytesSent: 2_000,
+      bitrateBps: null,
+      framesEncoded: 30,
+      packetsSent: 20,
+      qualityLimitationReason: 'none'
+    });
+
+    await state.toggleScreenShare();
+  });
+
   it('retunes a live screen share in place instead of republishing it', async () => {
     const applyConstraints = vi.fn(async () => {});
     const setParameters = vi.fn(async () => {});

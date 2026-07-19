@@ -27,6 +27,12 @@ import type { VoiceCallAPI } from '$lib/api-client/voiceCalls';
 import { serverSlot, Codecs, type StorageSlot } from '$lib/storage/slot';
 import { NoiseSuppressionController } from '$lib/voice/noiseSuppression.svelte';
 import {
+  EMPTY_SCREEN_SHARE_DIAGNOSTICS,
+  ScreenShareDiagnosticsCollector,
+  type RTCStatsReportLike,
+  type ScreenShareDiagnosticsSnapshot
+} from '$lib/voice/webrtcDiagnostics';
+import {
   DEFAULT_SCREEN_SHARE_QUALITY,
   clampQualityPrefs,
   isScreenShareQualityPrefs,
@@ -306,6 +312,7 @@ export class VoiceCallState {
   // True when the last quality change could not be applied to the live share and will only
   // take effect on the next one. Lets the UI be honest instead of silently doing nothing.
   screenShareRetuneFailed = $state(false);
+  screenShareDiagnostics = $state<ScreenShareDiagnosticsSnapshot>(EMPTY_SCREEN_SHARE_DIAGNOSTICS);
 
   // Audio input devices
   audioDevices = $state<MediaDeviceInfo[]>([]);
@@ -344,6 +351,7 @@ export class VoiceCallState {
   private pushToTalkOwnsMicrophone = false;
   private pushToTalkReconcileInFlight: Promise<void> | null = null;
   private readonly nativeCallControls: NativeCallControlsController;
+  private readonly screenShareDiagnosticsCollector: ScreenShareDiagnosticsCollector;
   private e2eeWorker: Worker | null = null;
   private audioLevelInterval: ReturnType<typeof setInterval> | null = null;
   private suppressDisconnectToast = false;
@@ -419,6 +427,9 @@ export class VoiceCallState {
       setPushToTalkPressed: (pressed) => this.setPushToTalkPressed(pressed),
       toggleMute: () => this.toggleMute(),
       toggleDeafen: () => this.toggleDeafen()
+    });
+    this.screenShareDiagnosticsCollector = new ScreenShareDiagnosticsCollector((snapshot) => {
+      this.screenShareDiagnostics = snapshot;
     });
     if (serverId) {
       this.#volumesSlot = serverSlot(serverId, CALL_VOLUMES_SUFFIX, {}, volumeMapCodec);
@@ -1188,6 +1199,23 @@ export class VoiceCallState {
       this.isScreenShareEnabled = newEnabled ? false : this.isScreenShareEnabled;
     }
     this.updateParticipants();
+    this.syncScreenShareDiagnostics(room);
+  }
+
+  private syncScreenShareDiagnostics(room: Room): void {
+    if (!this.isScreenShareEnabled || this.room !== room) {
+      this.screenShareDiagnosticsCollector.stop();
+      return;
+    }
+
+    const track = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
+    if (!track) {
+      this.screenShareDiagnosticsCollector.stop();
+      return;
+    }
+    this.screenShareDiagnosticsCollector.start(
+      () => track.getRTCStatsReport() as Promise<RTCStatsReportLike | undefined>
+    );
   }
 
   /**
@@ -1681,6 +1709,7 @@ export class VoiceCallState {
       this.audioLevelInterval = null;
     }
     this.noiseSuppression.handleCallEnded();
+    this.screenShareDiagnosticsCollector.stop();
     this.teardownLocalAudioAnalyser();
     this.teardownSoundboard();
     if (this.room) {
