@@ -4,6 +4,7 @@
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { UserSettingsState, setUserSettings } from '$lib/state/userSettings.svelte';
   import { createUserProfileCache } from '$lib/state/userProfiles.svelte';
+  import AnonymousOriginPresenceProvider from './AnonymousOriginPresenceProvider.svelte';
 
   let { data, children } = $props();
   let authenticatedRootModule: Promise<typeof import('./AuthenticatedRoot.svelte')> | null = null;
@@ -28,6 +29,10 @@
   const userSettings = new UserSettingsState();
   setUserSettings(userSettings);
 </script>
+
+{#if !data.user}
+  <AnonymousOriginPresenceProvider {presenceCache} />
+{/if}
 
 {#if data.user && serverRegistry.originServer}
   {#key data.user.id}
