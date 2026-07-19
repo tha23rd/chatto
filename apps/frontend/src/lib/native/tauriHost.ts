@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { assertAllowedExternalUrl, assertAllowedHttpEndpoint } from './urlPolicy';
@@ -12,6 +13,9 @@ export interface TauriHostBindings {
   readonly openUrl: (url: string) => Promise<void>;
   readonly createRealtimeSocket: NativeHost['createRealtimeSocket'];
   readonly startServerOAuth: NativeHost['startServerOAuth'];
+  readonly onTrayAction: NativeHost['onTrayAction'];
+  readonly setCallControls: NativeHost['setCallControls'];
+  readonly quit: NativeHost['quit'];
 }
 
 const unsupported = (capability: string): Error =>
@@ -33,7 +37,7 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       nativeHttp: true,
       nativeRealtime: true,
       globalPushToTalk: false,
-      tray: false
+      tray: true
     },
 
     async fetch(input, init) {
@@ -60,14 +64,16 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       throw unsupported('Global push-to-talk');
     },
 
-    async onTrayAction() {
-      return () => {};
+    onTrayAction(listener) {
+      return bindings.onTrayAction(listener);
     },
 
-    async setCallControls() {},
+    setCallControls(controls) {
+      return bindings.setCallControls(controls);
+    },
 
-    async quit() {
-      throw unsupported('Native quit');
+    quit() {
+      return bindings.quit();
     }
   };
 }
@@ -76,5 +82,13 @@ export const tauriNativeHost = createTauriNativeHost({
   fetch: tauriFetch,
   openUrl,
   createRealtimeSocket: createTauriRealtimeSocket,
-  startServerOAuth: (request) => invoke('start_server_oauth', { request })
+  startServerOAuth: (request) => invoke('start_server_oauth', { request }),
+  onTrayAction: (listener) =>
+    listen<string>('native://tray-action', ({ payload }) => {
+      if (payload === 'show' || payload === 'toggle-mute' || payload === 'toggle-deafen') {
+        listener(payload);
+      }
+    }),
+  setCallControls: (controls) => invoke('set_call_controls', { controls }),
+  quit: () => invoke('quit_desktop')
 });

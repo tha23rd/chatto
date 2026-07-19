@@ -6,7 +6,10 @@ function bindings() {
     fetch: vi.fn(async () => new Response(null, { status: 204 })),
     openUrl: vi.fn(async () => {}),
     createRealtimeSocket: vi.fn(),
-    startServerOAuth: vi.fn()
+    startServerOAuth: vi.fn(),
+    onTrayAction: vi.fn(async () => () => {}),
+    setCallControls: vi.fn(async () => {}),
+    quit: vi.fn(async () => {})
   };
 }
 
@@ -20,8 +23,23 @@ describe('Tauri NativeHost', () => {
       nativeHttp: true,
       nativeRealtime: true,
       globalPushToTalk: false,
-      tray: false
+      tray: true
     });
+  });
+
+  it('routes tray actions and lifecycle controls through typed native bindings', async () => {
+    const native = bindings();
+    const host = createTauriNativeHost(native);
+    const listener = vi.fn();
+    const controls = { connected: true, muted: false, deafened: true };
+
+    await host.onTrayAction(listener);
+    await host.setCallControls(controls);
+    await host.quit();
+
+    expect(native.onTrayAction).toHaveBeenCalledWith(listener);
+    expect(native.setCallControls).toHaveBeenCalledWith(controls);
+    expect(native.quit).toHaveBeenCalledOnce();
   });
 
   it('routes allowed HTTPS and loopback requests through the Rust HTTP plugin', async () => {
