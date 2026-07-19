@@ -155,7 +155,16 @@
       },
       "save_button": "Enregistrer les paramètres d'affichage",
       "saved": "Paramètres d'affichage enregistrés",
-      "save_failed": "Échec de l'enregistrement des paramètres d'affichage"
+      "save_failed": "Échec de l'enregistrement des paramètres d'affichage",
+      "soundboard": {
+        "title": "Soundboard",
+        "description": "Réglez le volume auquel les sons du soundboard des autres membres sont lus pour vous dans les appels vocaux.",
+        "volume": "Volume de lecture",
+        "mute": {
+          "label": "Couper le soundboard",
+          "description": "Coupez tous les sons du soundboard des autres membres."
+        }
+      }
     },
     "notifications": {
       "title": "Notifications",

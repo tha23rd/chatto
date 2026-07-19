@@ -155,7 +155,16 @@
       },
       "save_button": "Zapisz ustawienia wyświetlania",
       "saved": "Ustawienia wyświetlacza zostały zapisane",
-      "save_failed": "Nie udało się zapisać ustawień wyświetlania"
+      "save_failed": "Nie udało się zapisać ustawień wyświetlania",
+      "soundboard": {
+        "title": "Soundboard",
+        "description": "Określ, jak głośno dźwięki soundboardu innych członków są odtwarzane dla Ciebie w połączeniach głosowych.",
+        "volume": "Głośność odtwarzania",
+        "mute": {
+          "label": "Wycisz soundboard",
+          "description": "Wycisz wszystkie dźwięki soundboardu innych członków."
+        }
+      }
     },
     "notifications": {
       "title": "Powiadomienia",

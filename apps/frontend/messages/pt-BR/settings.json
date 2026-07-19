@@ -155,7 +155,16 @@
       },
       "save_button": "Salvar configurações de exibição",
       "saved": "Configurações de exibição salvas",
-      "save_failed": "Falha ao salvar as configurações de exibição"
+      "save_failed": "Falha ao salvar as configurações de exibição",
+      "soundboard": {
+        "title": "Soundboard",
+        "description": "Controle o volume com que os sons do soundboard de outros membros são reproduzidos para você em chamadas de voz.",
+        "volume": "Volume de reprodução",
+        "mute": {
+          "label": "Silenciar o soundboard",
+          "description": "Silencie todos os sons do soundboard de outros membros."
+        }
+      }
     },
     "notifications": {
       "title": "Notificações",
