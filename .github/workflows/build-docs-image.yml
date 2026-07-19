@@ -42,6 +42,10 @@ permissions:
 
 jobs:
   build-docs-image:
+    # The docs image is published to the upstream ghcr.io/chattocorp/chatto-docs
+    # namespace. Forks lack write access there, so the push step 403s. Only run
+    # this job on the upstream repository; forks skip it cleanly.
+    if: github.repository == 'chattocorp/chatto'
     # runs-on: ubicloud-standard-4
     runs-on: ubuntu-latest
     steps:
