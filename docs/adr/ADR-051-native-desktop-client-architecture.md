@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 **Date:** 2026-07-18
 
@@ -118,11 +118,36 @@ Because the UI is bundled, a UI change is an app release. The app auto-updates.
 A bundled UI that lags a given server is tolerated by the already
 mixed-version-tolerant public API, so drift is soft, not breaking.
 
-### 7. Deliberately out of scope
+### 7. Keep call audio in Chromium and LiveKit
+
+The initial native client does not add a second audio engine or a Chatto-owned
+native Node audio addon. Chromium and LiveKit continue to own microphone
+capture, echo cancellation, automatic gain control, publication, and output.
+The existing renderer-owned enhanced noise suppression remains layered onto
+that pipeline.
+
+Device hot-swap also stays in the shared renderer: LiveKit media-device change
+events refresh the available devices and switch an active microphone, speaker,
+or camera away from a removed hardware ID. The shell owns only the capabilities
+the browser cannot supply reliably: a low-level global push-to-talk hook and an
+explicit desktop-capture source grant. Electron's display-media loopback
+provides system-wide audio on Windows (not per-application isolation); the
+initial macOS and Linux path is video-only.
+
+This avoids a second capture lifecycle, Electron ABI rebuild work, and another
+platform-specific media stack without giving up the existing AEC, AGC, or
+device-recovery behaviour. A native audio module should be reconsidered only
+if measured production failures cannot be fixed in Chromium/LiveKit, or if a
+maintainable cross-platform system-audio API becomes necessary. It must not
+duplicate the renderer's noise suppression.
+
+### 8. Deliberately out of scope
 
 - **Remote loading of server UI code** — rejected per Decision 1.
 - **In-game overlay** (native injection/hooking) and **game "rich presence" IPC**
   — large effort, niche for self-hosted community chat.
+- **Detached mini-call window** — optional shell UI deferred until the main call
+  stage has demonstrated a stable compact interaction model.
 - **Native noise suppression** — already solved in the renderer; the fork runs
   DeepFilterNet3 client-side. Any future native audio module targets only
   capture, echo cancellation, AGC, and device handling, not noise suppression.
@@ -139,6 +164,8 @@ mixed-version-tolerant public API, so drift is soft, not breaking.
 - The multi-server registry, bearer auth, and routing are reused as-is.
 - The same bridge contract extends to mobile (Capacitor) without a web-app
   rewrite.
+- Keeping call audio in the renderer avoids a second media engine and native
+  addon ABI lifecycle.
 
 ### Negative
 
@@ -150,6 +177,9 @@ mixed-version-tolerant public API, so drift is soft, not breaking.
   be tightly scoped to registered origins and carefully tested.
 - Bearer tokens in client storage remain XSS-exposed (as noted in ADR-025); the
   native origin does not change that boundary but does fix and trust the origin.
+- System/application-audio capture is initially available on Windows only;
+  macOS and Linux screen sharing is video-only until Electron exposes a stable
+  equivalent or production evidence justifies native capture work.
 
 ### Trade-offs
 
@@ -159,6 +189,40 @@ mixed-version-tolerant public API, so drift is soft, not breaking.
 - Relaxing CORS in the shell trades a small, explicitly scoped deviation from
   browser behaviour for the ability to reach user-trusted servers the way a
   native client naturally would.
+- Reusing Chromium/LiveKit audio trades full control over capture internals for
+  one shared, already-tested call pipeline and substantially less native code.
+
+## Implementation
+
+- `apps/desktop/` owns the Electron main process, isolated preload, native
+  integrations, package configuration, hardening fuses, and Electron smoke
+  test. `packages/native-bridge/` owns the complete typed allowlist exposed as
+  `window.chattoNative`.
+- The static frontend is served from `chatto-app://app` with a report-only CSP
+  (including Trusted Types) matching the web frontend, navigation restrictions,
+  and no active service worker. The browser build still registers its service
+  worker normally.
+- The exact-origin policy rewrites the outgoing `Origin` for registered server
+  HTTP and WebSocket traffic and reflects the app origin only on responses from
+  those same origins. Short-lived probe and OAuth grants cover only the public
+  discovery RPC and token endpoint, respectively.
+- OAuth authorization uses the system browser and a one-shot random loopback
+  callback. Remote authorization UI never enters the privileged window.
+- Launch deep links are queued behind an explicit renderer-ready handshake so
+  the first process invocation cannot race the frontend subscriptions.
+- The Tier A bridge covers tray actions, badges and mention flashing, native
+  notifications and inline replies, startup, spellcheck, updates, deep links,
+  and global push-to-talk. The window uses the native OS frame, so no
+  window-control surface crosses the bridge.
+- Screen sharing runs through the ordinary web `getDisplayMedia` path, so the
+  frontend ships no screen-share picker. macOS uses the OS system picker
+  (`useSystemPicker`); Windows and Linux use a chooser rendered by the main
+  process in a hardened child window. The audio intent rides on the
+  `getDisplayMedia` constraints (`request.audioRequested`), and Windows display
+  capture can include loopback audio.
+- Electron Builder targets Windows NSIS/MSI, macOS DMG/ZIP, and Linux
+  AppImage/DEB packages. The macOS package declares the required media usage
+  descriptions and hardened-runtime entitlements.
 
 ## Related
 
@@ -167,5 +231,5 @@ mixed-version-tolerant public API, so drift is soft, not breaking.
   (durable LiveKit call state).
 - **FDRs:** FDR-016 (voice calls), FDR-027 (PWA shell and service worker). A
   feature record for the desktop client itself should be written once it ships.
-- **Planning:** phasing and implementation tracked in the GitHub issue.
-```
+- **Planning:** phases and implementation checklist are tracked in
+  [PR #19](https://github.com/tha23rd/chatto/pull/19).
