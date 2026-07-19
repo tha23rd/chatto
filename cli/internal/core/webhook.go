@@ -32,7 +32,7 @@ var ErrWebhookNotFound = errors.New("webhook not found")
 var ErrWebhookDisabled = errors.New("webhook disabled")
 
 // Webhook is a channel webhook: a token-authorized endpoint that posts messages
-// into a room under a synthetic, non-human webhook user (FDR-032).
+// into a room under a synthetic, non-human webhook user (FDR-035).
 type Webhook struct {
 	ID          string
 	RoomID      string

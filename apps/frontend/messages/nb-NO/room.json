@@ -21,6 +21,15 @@
       "action": "Bli med i rommet",
       "prompt": "Bli med #{room} for å lese og delta i dette rommet.",
       "inline_prompt": "Bli med i dette rommet for å lese og delta.",
+      "group_label": "I {group}",
+      "member_preview_label": "Rommedlemmer",
+      "member_count": [
+        {
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
+          "match": { "countPlural=one": "{count} medlem", "countPlural=other": "{count} medlemmer" }
+        }
+      ],
       "success": "Ble med #{room}",
       "success_generic": "Ble med i rommet",
       "failed": "Kunne ikke bli med i rommet",
@@ -57,9 +66,12 @@
       "leave_confirm": "Er du sikker på at du vil forlate #{room}?"
     },
     "server": {
-      "leave_title": "Forlat serveren",
-      "leave_action": "Forlat serveren",
-      "leave_prompt": "Er du sikker på at du vil forlate {server}? Du mister tilgangen til rommene, og klienten din vil glemme denne serveren. Du kan legge den til på nytt senere fra sidefeltet."
+      "remove_title": "Fjern server",
+      "remove_action": "Fjern server",
+      "remove_prompt": "Vil du fjerne {server} fra dette sidefeltet? Dette fjerner bare serveren fra denne enheten. Kontoen og dataene dine på serveren blir ikke slettet.",
+      "remove_account_prefix": "For å slette kontoen permanent, åpne ",
+      "remove_account_link": "Kontoinnstillinger",
+      "remove_account_suffix": " for denne serveren før du fjerner den."
     },
     "timeline": {
       "beginning": "Dette er begynnelsen på denne samtalen."
@@ -83,6 +95,8 @@
         "edit": "Rediger melding",
         "more": "Flere handlinger",
         "edit_short": "Rediger",
+        "copy_text": "Kopier tekst",
+        "copy_text_failed": "Kunne ikke kopiere teksten",
         "copy_link": "Kopier lenken"
       },
       "meta": {
@@ -98,18 +112,18 @@
         "in_reply_to": "som svar på",
         "reply_preview_fallback": "Melding",
         "deleted": "Denne meldingen er slettet."
+      },
+      "timestamp": {
+        "details_title": "Dato og klokkeslett",
+        "local_time": "Lokal",
+        "relative_time": "Relativ"
       }
     },
     "system_events": {
       "joined": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "ble med i rommet",
             "countPlural=other": "ble med i rommet"
@@ -118,13 +132,8 @@
       ],
       "left": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "forlot rommet",
             "countPlural=other": "forlot rommet"
@@ -136,13 +145,8 @@
       "and": "og",
       "other_people": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "annet",
             "countPlural=other": "andre"

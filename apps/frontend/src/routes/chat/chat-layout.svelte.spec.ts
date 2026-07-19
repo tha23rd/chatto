@@ -6,6 +6,10 @@ const mocks = vi.hoisted(() => ({
   stopPresenceTracking: vi.fn(),
   store: {
     isAuthenticated: true,
+    serverInfo: {
+      supportsRealtimeProjection: true
+    },
+    realtimeSync: {},
     currentUser: {
       user: undefined
     }
@@ -23,9 +27,7 @@ vi.mock('$lib/presenceTracking', () => ({
 
 vi.mock('$lib/state/server/eventBus.svelte', () => ({
   eventBusManager: {
-    pauseAll: vi.fn(),
-    resumeAll: vi.fn(),
-    startBus: vi.fn()
+    synchronizeAuthenticatedServers: vi.fn()
   }
 }));
 

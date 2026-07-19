@@ -77,7 +77,7 @@ func (RoomKind) EnumDescriptor() ([]byte, []int) {
 }
 
 // UserKind discriminates human accounts from synthetic, non-human identities.
-// WEBHOOK users back channel webhooks (FDR-032): they author messages but can
+// WEBHOOK users back channel webhooks (FDR-035): they author messages but can
 // never log in, hold a session, or appear in human-only surfaces such as the
 // member directory or mention autocomplete. UNSPECIFIED is treated as HUMAN so
 // accounts created before this field existed backfill correctly.
@@ -283,7 +283,7 @@ func (x SidebarGroupEntry_Kind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SidebarGroupEntry_Kind.Descriptor instead.
 func (SidebarGroupEntry_Kind) EnumDescriptor() ([]byte, []int) {
-	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{22, 0}
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{26, 0}
 }
 
 // Room represents a chat room on the server.
@@ -1593,7 +1593,7 @@ type MessageBody struct {
 	AssetIds []string `protobuf:"bytes,31,rep,name=asset_ids,json=assetIds,proto3" json:"asset_ids,omitempty"`
 	// Link preview extracted from the first URL in the message body
 	LinkPreview *LinkPreview `protobuf:"bytes,40,opt,name=link_preview,json=linkPreview,proto3" json:"link_preview,omitempty"`
-	// Webhook per-message identity override (FDR-032). Present only for messages
+	// Webhook per-message identity override (FDR-035). Present only for messages
 	// posted through a channel webhook whose caller supplied a per-message
 	// username and/or avatar. Stored plaintext, like link preview metadata, not
 	// inside the encrypted body. Empty for human-authored messages.
@@ -1717,7 +1717,7 @@ func (x *MessageBody) GetWebhookOverride() *WebhookMessageOverride {
 }
 
 // WebhookMessageOverride carries the per-message display identity a channel
-// webhook caller may set on an individual post (FDR-032). When present, clients
+// webhook caller may set on an individual post (FDR-035). When present, clients
 // render this name/avatar instead of the authoring webhook user's profile.
 type WebhookMessageOverride struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1791,7 +1791,9 @@ type LinkPreview struct {
 	// Embed ID for rich embeds (e.g., YouTube video ID)
 	EmbedId *string `protobuf:"bytes,7,opt,name=embed_id,json=embedId,proto3,oneof" json:"embed_id,omitempty"`
 	// Preview image content metadata and storage pointer.
-	ImageAsset    *AssetRecord `protobuf:"bytes,8,opt,name=image_asset,json=imageAsset,proto3" json:"image_asset,omitempty"`
+	ImageAsset *AssetRecord `protobuf:"bytes,8,opt,name=image_asset,json=imageAsset,proto3" json:"image_asset,omitempty"`
+	// Structured provider-neutral social-post snapshot for native rendering.
+	SocialPost    *SocialPostPreview `protobuf:"bytes,9,opt,name=social_post,json=socialPost,proto3" json:"social_post,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1882,8 +1884,324 @@ func (x *LinkPreview) GetImageAsset() *AssetRecord {
 	return nil
 }
 
+func (x *LinkPreview) GetSocialPost() *SocialPostPreview {
+	if x != nil {
+		return x.SocialPost
+	}
+	return nil
+}
+
+// SocialPostPreview is a bounded, provider-neutral snapshot of a public post.
+type SocialPostPreview struct {
+	state          protoimpl.MessageState  `protogen:"open.v1"`
+	Provider       string                  `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	Author         *SocialPostAuthor       `protobuf:"bytes,2,opt,name=author,proto3" json:"author,omitempty"`
+	Text           string                  `protobuf:"bytes,3,opt,name=text,proto3" json:"text,omitempty"`
+	PublishedAt    *timestamppb.Timestamp  `protobuf:"bytes,4,opt,name=published_at,json=publishedAt,proto3" json:"published_at,omitempty"`
+	Images         []*SocialPostImage      `protobuf:"bytes,5,rep,name=images,proto3" json:"images,omitempty"`
+	ExternalLink   *SocialPostExternalLink `protobuf:"bytes,6,opt,name=external_link,json=externalLink,proto3" json:"external_link,omitempty"`
+	ContentWarning *string                 `protobuf:"bytes,7,opt,name=content_warning,json=contentWarning,proto3,oneof" json:"content_warning,omitempty"`
+	Url            string                  `protobuf:"bytes,8,opt,name=url,proto3" json:"url,omitempty"`
+	// One quoted post. Nested quotes inside this snapshot are omitted.
+	QuotedPost    *SocialPostPreview `protobuf:"bytes,9,opt,name=quoted_post,json=quotedPost,proto3" json:"quoted_post,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SocialPostPreview) Reset() {
+	*x = SocialPostPreview{}
+	mi := &file_chatto_core_v1_models_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SocialPostPreview) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SocialPostPreview) ProtoMessage() {}
+
+func (x *SocialPostPreview) ProtoReflect() protoreflect.Message {
+	mi := &file_chatto_core_v1_models_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SocialPostPreview.ProtoReflect.Descriptor instead.
+func (*SocialPostPreview) Descriptor() ([]byte, []int) {
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *SocialPostPreview) GetProvider() string {
+	if x != nil {
+		return x.Provider
+	}
+	return ""
+}
+
+func (x *SocialPostPreview) GetAuthor() *SocialPostAuthor {
+	if x != nil {
+		return x.Author
+	}
+	return nil
+}
+
+func (x *SocialPostPreview) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *SocialPostPreview) GetPublishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.PublishedAt
+	}
+	return nil
+}
+
+func (x *SocialPostPreview) GetImages() []*SocialPostImage {
+	if x != nil {
+		return x.Images
+	}
+	return nil
+}
+
+func (x *SocialPostPreview) GetExternalLink() *SocialPostExternalLink {
+	if x != nil {
+		return x.ExternalLink
+	}
+	return nil
+}
+
+func (x *SocialPostPreview) GetContentWarning() string {
+	if x != nil && x.ContentWarning != nil {
+		return *x.ContentWarning
+	}
+	return ""
+}
+
+func (x *SocialPostPreview) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *SocialPostPreview) GetQuotedPost() *SocialPostPreview {
+	if x != nil {
+		return x.QuotedPost
+	}
+	return nil
+}
+
+// SocialPostAuthor identifies the author shown on a social-post preview.
+type SocialPostAuthor struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DisplayName   string                 `protobuf:"bytes,1,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Handle        string                 `protobuf:"bytes,2,opt,name=handle,proto3" json:"handle,omitempty"`
+	AvatarAsset   *AssetRecord           `protobuf:"bytes,3,opt,name=avatar_asset,json=avatarAsset,proto3" json:"avatar_asset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SocialPostAuthor) Reset() {
+	*x = SocialPostAuthor{}
+	mi := &file_chatto_core_v1_models_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SocialPostAuthor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SocialPostAuthor) ProtoMessage() {}
+
+func (x *SocialPostAuthor) ProtoReflect() protoreflect.Message {
+	mi := &file_chatto_core_v1_models_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SocialPostAuthor.ProtoReflect.Descriptor instead.
+func (*SocialPostAuthor) Descriptor() ([]byte, []int) {
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *SocialPostAuthor) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *SocialPostAuthor) GetHandle() string {
+	if x != nil {
+		return x.Handle
+	}
+	return ""
+}
+
+func (x *SocialPostAuthor) GetAvatarAsset() *AssetRecord {
+	if x != nil {
+		return x.AvatarAsset
+	}
+	return nil
+}
+
+// SocialPostImage is one locally persisted image attached to a social post.
+type SocialPostImage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Asset         *AssetRecord           `protobuf:"bytes,1,opt,name=asset,proto3" json:"asset,omitempty"`
+	Alt           string                 `protobuf:"bytes,2,opt,name=alt,proto3" json:"alt,omitempty"`
+	Width         uint32                 `protobuf:"varint,3,opt,name=width,proto3" json:"width,omitempty"`
+	Height        uint32                 `protobuf:"varint,4,opt,name=height,proto3" json:"height,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SocialPostImage) Reset() {
+	*x = SocialPostImage{}
+	mi := &file_chatto_core_v1_models_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SocialPostImage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SocialPostImage) ProtoMessage() {}
+
+func (x *SocialPostImage) ProtoReflect() protoreflect.Message {
+	mi := &file_chatto_core_v1_models_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SocialPostImage.ProtoReflect.Descriptor instead.
+func (*SocialPostImage) Descriptor() ([]byte, []int) {
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *SocialPostImage) GetAsset() *AssetRecord {
+	if x != nil {
+		return x.Asset
+	}
+	return nil
+}
+
+func (x *SocialPostImage) GetAlt() string {
+	if x != nil {
+		return x.Alt
+	}
+	return ""
+}
+
+func (x *SocialPostImage) GetWidth() uint32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *SocialPostImage) GetHeight() uint32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+// SocialPostExternalLink is a website card attached to a social post.
+type SocialPostExternalLink struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	ImageAsset    *AssetRecord           `protobuf:"bytes,4,opt,name=image_asset,json=imageAsset,proto3" json:"image_asset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SocialPostExternalLink) Reset() {
+	*x = SocialPostExternalLink{}
+	mi := &file_chatto_core_v1_models_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SocialPostExternalLink) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SocialPostExternalLink) ProtoMessage() {}
+
+func (x *SocialPostExternalLink) ProtoReflect() protoreflect.Message {
+	mi := &file_chatto_core_v1_models_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SocialPostExternalLink.ProtoReflect.Descriptor instead.
+func (*SocialPostExternalLink) Descriptor() ([]byte, []int) {
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *SocialPostExternalLink) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *SocialPostExternalLink) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *SocialPostExternalLink) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *SocialPostExternalLink) GetImageAsset() *AssetRecord {
+	if x != nil {
+		return x.ImageAsset
+	}
+	return nil
+}
+
 // CachedLinkPreview wraps LinkPreview with cache metadata.
-// Stored in LINK_PREVIEW_CACHE KV bucket.
+// Stored under link_preview.* keys in the RUNTIME_STATE KV bucket.
 type CachedLinkPreview struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The original URL (for verification)
@@ -1896,13 +2214,15 @@ type CachedLinkPreview struct {
 	ErrorReason string `protobuf:"bytes,4,opt,name=error_reason,json=errorReason,proto3" json:"error_reason,omitempty"`
 	// When this cache entry was created (Unix timestamp)
 	FetchedAtUnix int64 `protobuf:"varint,5,opt,name=fetched_at_unix,json=fetchedAtUnix,proto3" json:"fetched_at_unix,omitempty"`
+	// Cache interpretation version used for bounded compatibility refreshes.
+	SchemaVersion uint32 `protobuf:"varint,6,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CachedLinkPreview) Reset() {
 	*x = CachedLinkPreview{}
-	mi := &file_chatto_core_v1_models_proto_msgTypes[19]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1914,7 +2234,7 @@ func (x *CachedLinkPreview) String() string {
 func (*CachedLinkPreview) ProtoMessage() {}
 
 func (x *CachedLinkPreview) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_core_v1_models_proto_msgTypes[19]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1927,7 +2247,7 @@ func (x *CachedLinkPreview) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CachedLinkPreview.ProtoReflect.Descriptor instead.
 func (*CachedLinkPreview) Descriptor() ([]byte, []int) {
-	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{19}
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CachedLinkPreview) GetUrl() string {
@@ -1961,6 +2281,13 @@ func (x *CachedLinkPreview) GetErrorReason() string {
 func (x *CachedLinkPreview) GetFetchedAtUnix() int64 {
 	if x != nil {
 		return x.FetchedAtUnix
+	}
+	return 0
+}
+
+func (x *CachedLinkPreview) GetSchemaVersion() uint32 {
+	if x != nil {
+		return x.SchemaVersion
 	}
 	return 0
 }
@@ -2007,7 +2334,7 @@ type RoomLayout struct {
 
 func (x *RoomLayout) Reset() {
 	*x = RoomLayout{}
-	mi := &file_chatto_core_v1_models_proto_msgTypes[20]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2019,7 +2346,7 @@ func (x *RoomLayout) String() string {
 func (*RoomLayout) ProtoMessage() {}
 
 func (x *RoomLayout) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_core_v1_models_proto_msgTypes[20]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2032,7 +2359,7 @@ func (x *RoomLayout) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoomLayout.ProtoReflect.Descriptor instead.
 func (*RoomLayout) Descriptor() ([]byte, []int) {
-	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{20}
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{24}
 }
 
 // Deprecated: Marked as deprecated in chatto/core/v1/models.proto.
@@ -2073,7 +2400,7 @@ type SidebarLink struct {
 
 func (x *SidebarLink) Reset() {
 	*x = SidebarLink{}
-	mi := &file_chatto_core_v1_models_proto_msgTypes[21]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2085,7 +2412,7 @@ func (x *SidebarLink) String() string {
 func (*SidebarLink) ProtoMessage() {}
 
 func (x *SidebarLink) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_core_v1_models_proto_msgTypes[21]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2098,7 +2425,7 @@ func (x *SidebarLink) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SidebarLink.ProtoReflect.Descriptor instead.
 func (*SidebarLink) Descriptor() ([]byte, []int) {
-	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{21}
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SidebarLink) GetId() string {
@@ -2132,7 +2459,7 @@ type SidebarGroupEntry struct {
 
 func (x *SidebarGroupEntry) Reset() {
 	*x = SidebarGroupEntry{}
-	mi := &file_chatto_core_v1_models_proto_msgTypes[22]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2144,7 +2471,7 @@ func (x *SidebarGroupEntry) String() string {
 func (*SidebarGroupEntry) ProtoMessage() {}
 
 func (x *SidebarGroupEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_core_v1_models_proto_msgTypes[22]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2157,7 +2484,7 @@ func (x *SidebarGroupEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SidebarGroupEntry.ProtoReflect.Descriptor instead.
 func (*SidebarGroupEntry) Descriptor() ([]byte, []int) {
-	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{22}
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SidebarGroupEntry) GetKind() SidebarGroupEntry_Kind {
@@ -2192,7 +2519,7 @@ type RoomGroup struct {
 
 func (x *RoomGroup) Reset() {
 	*x = RoomGroup{}
-	mi := &file_chatto_core_v1_models_proto_msgTypes[23]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2204,7 +2531,7 @@ func (x *RoomGroup) String() string {
 func (*RoomGroup) ProtoMessage() {}
 
 func (x *RoomGroup) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_core_v1_models_proto_msgTypes[23]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2217,7 +2544,7 @@ func (x *RoomGroup) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoomGroup.ProtoReflect.Descriptor instead.
 func (*RoomGroup) Descriptor() ([]byte, []int) {
-	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{23}
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *RoomGroup) GetId() string {
@@ -2292,7 +2619,7 @@ type VideoProcessingState struct {
 
 func (x *VideoProcessingState) Reset() {
 	*x = VideoProcessingState{}
-	mi := &file_chatto_core_v1_models_proto_msgTypes[24]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2304,7 +2631,7 @@ func (x *VideoProcessingState) String() string {
 func (*VideoProcessingState) ProtoMessage() {}
 
 func (x *VideoProcessingState) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_core_v1_models_proto_msgTypes[24]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2317,7 +2644,7 @@ func (x *VideoProcessingState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VideoProcessingState.ProtoReflect.Descriptor instead.
 func (*VideoProcessingState) Descriptor() ([]byte, []int) {
-	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{24}
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *VideoProcessingState) GetStatus() VideoStatus {
@@ -2398,7 +2725,7 @@ type VideoVariant struct {
 
 func (x *VideoVariant) Reset() {
 	*x = VideoVariant{}
-	mi := &file_chatto_core_v1_models_proto_msgTypes[25]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2410,7 +2737,7 @@ func (x *VideoVariant) String() string {
 func (*VideoVariant) ProtoMessage() {}
 
 func (x *VideoVariant) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_core_v1_models_proto_msgTypes[25]
+	mi := &file_chatto_core_v1_models_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2423,7 +2750,7 @@ func (x *VideoVariant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VideoVariant.ProtoReflect.Descriptor instead.
 func (*VideoVariant) Descriptor() ([]byte, []int) {
-	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{25}
+	return file_chatto_core_v1_models_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *VideoVariant) GetAttachmentId() string {
@@ -2590,7 +2917,7 @@ const file_chatto_core_v1_models_proto_rawDesc = "" +
 	"\x16WebhookMessageOverride\x12!\n" +
 	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\x12\x1d\n" +
 	"\n" +
-	"avatar_url\x18\x02 \x01(\tR\tavatarUrl\"\xbc\x02\n" +
+	"avatar_url\x18\x02 \x01(\tR\tavatarUrl\"\x80\x03\n" +
 	"\vLinkPreview\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -2601,15 +2928,45 @@ const file_chatto_core_v1_models_proto_rawDesc = "" +
 	"embed_type\x18\x06 \x01(\tR\tembedType\x12\x1e\n" +
 	"\bembed_id\x18\a \x01(\tH\x01R\aembedId\x88\x01\x01\x12<\n" +
 	"\vimage_asset\x18\b \x01(\v2\x1b.chatto.core.v1.AssetRecordR\n" +
-	"imageAssetB\x11\n" +
+	"imageAsset\x12B\n" +
+	"\vsocial_post\x18\t \x01(\v2!.chatto.core.v1.SocialPostPreviewR\n" +
+	"socialPostB\x11\n" +
 	"\x0f_image_asset_idB\v\n" +
-	"\t_embed_id\"\xca\x01\n" +
+	"\t_embed_id\"\xda\x03\n" +
+	"\x11SocialPostPreview\x12\x1a\n" +
+	"\bprovider\x18\x01 \x01(\tR\bprovider\x128\n" +
+	"\x06author\x18\x02 \x01(\v2 .chatto.core.v1.SocialPostAuthorR\x06author\x12\x12\n" +
+	"\x04text\x18\x03 \x01(\tR\x04text\x12=\n" +
+	"\fpublished_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\vpublishedAt\x127\n" +
+	"\x06images\x18\x05 \x03(\v2\x1f.chatto.core.v1.SocialPostImageR\x06images\x12K\n" +
+	"\rexternal_link\x18\x06 \x01(\v2&.chatto.core.v1.SocialPostExternalLinkR\fexternalLink\x12,\n" +
+	"\x0fcontent_warning\x18\a \x01(\tH\x00R\x0econtentWarning\x88\x01\x01\x12\x10\n" +
+	"\x03url\x18\b \x01(\tR\x03url\x12B\n" +
+	"\vquoted_post\x18\t \x01(\v2!.chatto.core.v1.SocialPostPreviewR\n" +
+	"quotedPostB\x12\n" +
+	"\x10_content_warning\"\x8d\x01\n" +
+	"\x10SocialPostAuthor\x12!\n" +
+	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\x12\x16\n" +
+	"\x06handle\x18\x02 \x01(\tR\x06handle\x12>\n" +
+	"\favatar_asset\x18\x03 \x01(\v2\x1b.chatto.core.v1.AssetRecordR\vavatarAsset\"\x84\x01\n" +
+	"\x0fSocialPostImage\x121\n" +
+	"\x05asset\x18\x01 \x01(\v2\x1b.chatto.core.v1.AssetRecordR\x05asset\x12\x10\n" +
+	"\x03alt\x18\x02 \x01(\tR\x03alt\x12\x14\n" +
+	"\x05width\x18\x03 \x01(\rR\x05width\x12\x16\n" +
+	"\x06height\x18\x04 \x01(\rR\x06height\"\xa0\x01\n" +
+	"\x16SocialPostExternalLink\x12\x10\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12<\n" +
+	"\vimage_asset\x18\x04 \x01(\v2\x1b.chatto.core.v1.AssetRecordR\n" +
+	"imageAsset\"\xf1\x01\n" +
 	"\x11CachedLinkPreview\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x125\n" +
 	"\apreview\x18\x02 \x01(\v2\x1b.chatto.core.v1.LinkPreviewR\apreview\x12!\n" +
 	"\ffetch_failed\x18\x03 \x01(\bR\vfetchFailed\x12!\n" +
 	"\ferror_reason\x18\x04 \x01(\tR\verrorReason\x12&\n" +
-	"\x0ffetched_at_unix\x18\x05 \x01(\x03R\rfetchedAtUnix\"\xae\x01\n" +
+	"\x0ffetched_at_unix\x18\x05 \x01(\x03R\rfetchedAtUnix\x12%\n" +
+	"\x0eschema_version\x18\x06 \x01(\rR\rschemaVersion\"\xae\x01\n" +
 	"\n" +
 	"RoomLayout\x12F\n" +
 	"\x0flegacy_sections\x18\x01 \x03(\v2\x19.chatto.core.v1.RoomGroupB\x02\x18\x01R\x0elegacySections\x12;\n" +
@@ -2685,7 +3042,7 @@ func file_chatto_core_v1_models_proto_rawDescGZIP() []byte {
 }
 
 var file_chatto_core_v1_models_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_chatto_core_v1_models_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_chatto_core_v1_models_proto_msgTypes = make([]protoimpl.MessageInfo, 30)
 var file_chatto_core_v1_models_proto_goTypes = []any{
 	(RoomKind)(0),                  // 0: chatto.core.v1.RoomKind
 	(UserKind)(0),                  // 1: chatto.core.v1.UserKind
@@ -2711,53 +3068,66 @@ var file_chatto_core_v1_models_proto_goTypes = []any{
 	(*MessageBody)(nil),            // 21: chatto.core.v1.MessageBody
 	(*WebhookMessageOverride)(nil), // 22: chatto.core.v1.WebhookMessageOverride
 	(*LinkPreview)(nil),            // 23: chatto.core.v1.LinkPreview
-	(*CachedLinkPreview)(nil),      // 24: chatto.core.v1.CachedLinkPreview
-	(*RoomLayout)(nil),             // 25: chatto.core.v1.RoomLayout
-	(*SidebarLink)(nil),            // 26: chatto.core.v1.SidebarLink
-	(*SidebarGroupEntry)(nil),      // 27: chatto.core.v1.SidebarGroupEntry
-	(*RoomGroup)(nil),              // 28: chatto.core.v1.RoomGroup
-	(*VideoProcessingState)(nil),   // 29: chatto.core.v1.VideoProcessingState
-	(*VideoVariant)(nil),           // 30: chatto.core.v1.VideoVariant
-	(*timestamppb.Timestamp)(nil),  // 31: google.protobuf.Timestamp
+	(*SocialPostPreview)(nil),      // 24: chatto.core.v1.SocialPostPreview
+	(*SocialPostAuthor)(nil),       // 25: chatto.core.v1.SocialPostAuthor
+	(*SocialPostImage)(nil),        // 26: chatto.core.v1.SocialPostImage
+	(*SocialPostExternalLink)(nil), // 27: chatto.core.v1.SocialPostExternalLink
+	(*CachedLinkPreview)(nil),      // 28: chatto.core.v1.CachedLinkPreview
+	(*RoomLayout)(nil),             // 29: chatto.core.v1.RoomLayout
+	(*SidebarLink)(nil),            // 30: chatto.core.v1.SidebarLink
+	(*SidebarGroupEntry)(nil),      // 31: chatto.core.v1.SidebarGroupEntry
+	(*RoomGroup)(nil),              // 32: chatto.core.v1.RoomGroup
+	(*VideoProcessingState)(nil),   // 33: chatto.core.v1.VideoProcessingState
+	(*VideoVariant)(nil),           // 34: chatto.core.v1.VideoVariant
+	(*timestamppb.Timestamp)(nil),  // 35: google.protobuf.Timestamp
 }
 var file_chatto_core_v1_models_proto_depIdxs = []int32{
 	0,  // 0: chatto.core.v1.Room.kind:type_name -> chatto.core.v1.RoomKind
-	31, // 1: chatto.core.v1.User.created_at:type_name -> google.protobuf.Timestamp
+	35, // 1: chatto.core.v1.User.created_at:type_name -> google.protobuf.Timestamp
 	7,  // 2: chatto.core.v1.User.custom_status:type_name -> chatto.core.v1.CustomUserStatus
 	1,  // 3: chatto.core.v1.User.kind:type_name -> chatto.core.v1.UserKind
-	31, // 4: chatto.core.v1.CustomUserStatus.expires_at:type_name -> google.protobuf.Timestamp
-	31, // 5: chatto.core.v1.VerifiedEmail.verified_at:type_name -> google.protobuf.Timestamp
-	31, // 6: chatto.core.v1.CookieSession.created_at:type_name -> google.protobuf.Timestamp
-	31, // 7: chatto.core.v1.CookieSession.expires_at:type_name -> google.protobuf.Timestamp
+	35, // 4: chatto.core.v1.CustomUserStatus.expires_at:type_name -> google.protobuf.Timestamp
+	35, // 5: chatto.core.v1.VerifiedEmail.verified_at:type_name -> google.protobuf.Timestamp
+	35, // 6: chatto.core.v1.CookieSession.created_at:type_name -> google.protobuf.Timestamp
+	35, // 7: chatto.core.v1.CookieSession.expires_at:type_name -> google.protobuf.Timestamp
 	9,  // 8: chatto.core.v1.CookieSession.request:type_name -> chatto.core.v1.AuditRequestMetadata
-	31, // 9: chatto.core.v1.CookieSession.fresh_auth_at:type_name -> google.protobuf.Timestamp
+	35, // 9: chatto.core.v1.CookieSession.fresh_auth_at:type_name -> google.protobuf.Timestamp
 	13, // 10: chatto.core.v1.DeprecatedAsset.nats:type_name -> chatto.core.v1.NATSAsset
 	12, // 11: chatto.core.v1.DeprecatedAsset.s3:type_name -> chatto.core.v1.S3Asset
 	13, // 12: chatto.core.v1.AssetRecord.nats:type_name -> chatto.core.v1.NATSAsset
 	12, // 13: chatto.core.v1.AssetRecord.s3:type_name -> chatto.core.v1.S3Asset
 	2,  // 14: chatto.core.v1.UserPresence.status:type_name -> chatto.core.v1.UserPresenceStatus
-	31, // 15: chatto.core.v1.ThreadMetadata.last_reply_at:type_name -> google.protobuf.Timestamp
+	35, // 15: chatto.core.v1.ThreadMetadata.last_reply_at:type_name -> google.protobuf.Timestamp
 	11, // 16: chatto.core.v1.Attachment.storage:type_name -> chatto.core.v1.DeprecatedAsset
-	31, // 17: chatto.core.v1.MessageBody.created_at:type_name -> google.protobuf.Timestamp
-	31, // 18: chatto.core.v1.MessageBody.updated_at:type_name -> google.protobuf.Timestamp
+	35, // 17: chatto.core.v1.MessageBody.created_at:type_name -> google.protobuf.Timestamp
+	35, // 18: chatto.core.v1.MessageBody.updated_at:type_name -> google.protobuf.Timestamp
 	20, // 19: chatto.core.v1.MessageBody.attachments:type_name -> chatto.core.v1.Attachment
 	23, // 20: chatto.core.v1.MessageBody.link_preview:type_name -> chatto.core.v1.LinkPreview
 	22, // 21: chatto.core.v1.MessageBody.webhook_override:type_name -> chatto.core.v1.WebhookMessageOverride
 	14, // 22: chatto.core.v1.LinkPreview.image_asset:type_name -> chatto.core.v1.AssetRecord
-	23, // 23: chatto.core.v1.CachedLinkPreview.preview:type_name -> chatto.core.v1.LinkPreview
-	28, // 24: chatto.core.v1.RoomLayout.legacy_sections:type_name -> chatto.core.v1.RoomGroup
-	4,  // 25: chatto.core.v1.SidebarGroupEntry.kind:type_name -> chatto.core.v1.SidebarGroupEntry.Kind
-	27, // 26: chatto.core.v1.RoomGroup.entries:type_name -> chatto.core.v1.SidebarGroupEntry
-	26, // 27: chatto.core.v1.RoomGroup.sidebar_links:type_name -> chatto.core.v1.SidebarLink
-	3,  // 28: chatto.core.v1.VideoProcessingState.status:type_name -> chatto.core.v1.VideoStatus
-	30, // 29: chatto.core.v1.VideoProcessingState.variants:type_name -> chatto.core.v1.VideoVariant
-	20, // 30: chatto.core.v1.VideoProcessingState.thumbnail_attachment:type_name -> chatto.core.v1.Attachment
-	20, // 31: chatto.core.v1.VideoVariant.attachment:type_name -> chatto.core.v1.Attachment
-	32, // [32:32] is the sub-list for method output_type
-	32, // [32:32] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	24, // 23: chatto.core.v1.LinkPreview.social_post:type_name -> chatto.core.v1.SocialPostPreview
+	25, // 24: chatto.core.v1.SocialPostPreview.author:type_name -> chatto.core.v1.SocialPostAuthor
+	35, // 25: chatto.core.v1.SocialPostPreview.published_at:type_name -> google.protobuf.Timestamp
+	26, // 26: chatto.core.v1.SocialPostPreview.images:type_name -> chatto.core.v1.SocialPostImage
+	27, // 27: chatto.core.v1.SocialPostPreview.external_link:type_name -> chatto.core.v1.SocialPostExternalLink
+	24, // 28: chatto.core.v1.SocialPostPreview.quoted_post:type_name -> chatto.core.v1.SocialPostPreview
+	14, // 29: chatto.core.v1.SocialPostAuthor.avatar_asset:type_name -> chatto.core.v1.AssetRecord
+	14, // 30: chatto.core.v1.SocialPostImage.asset:type_name -> chatto.core.v1.AssetRecord
+	14, // 31: chatto.core.v1.SocialPostExternalLink.image_asset:type_name -> chatto.core.v1.AssetRecord
+	23, // 32: chatto.core.v1.CachedLinkPreview.preview:type_name -> chatto.core.v1.LinkPreview
+	32, // 33: chatto.core.v1.RoomLayout.legacy_sections:type_name -> chatto.core.v1.RoomGroup
+	4,  // 34: chatto.core.v1.SidebarGroupEntry.kind:type_name -> chatto.core.v1.SidebarGroupEntry.Kind
+	31, // 35: chatto.core.v1.RoomGroup.entries:type_name -> chatto.core.v1.SidebarGroupEntry
+	30, // 36: chatto.core.v1.RoomGroup.sidebar_links:type_name -> chatto.core.v1.SidebarLink
+	3,  // 37: chatto.core.v1.VideoProcessingState.status:type_name -> chatto.core.v1.VideoStatus
+	34, // 38: chatto.core.v1.VideoProcessingState.variants:type_name -> chatto.core.v1.VideoVariant
+	20, // 39: chatto.core.v1.VideoProcessingState.thumbnail_attachment:type_name -> chatto.core.v1.Attachment
+	20, // 40: chatto.core.v1.VideoVariant.attachment:type_name -> chatto.core.v1.Attachment
+	41, // [41:41] is the sub-list for method output_type
+	41, // [41:41] is the sub-list for method input_type
+	41, // [41:41] is the sub-list for extension type_name
+	41, // [41:41] is the sub-list for extension extendee
+	0,  // [0:41] is the sub-list for field type_name
 }
 
 func init() { file_chatto_core_v1_models_proto_init() }
@@ -2775,13 +3145,14 @@ func file_chatto_core_v1_models_proto_init() {
 		(*AssetRecord_S3)(nil),
 	}
 	file_chatto_core_v1_models_proto_msgTypes[18].OneofWrappers = []any{}
+	file_chatto_core_v1_models_proto_msgTypes[19].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chatto_core_v1_models_proto_rawDesc), len(file_chatto_core_v1_models_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   26,
+			NumMessages:   30,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

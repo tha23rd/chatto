@@ -29,12 +29,12 @@ func (s *HTTPServer) setupAssetRoutes() {
 	// Custom emoji images live in the same server-asset keyspace/backends as
 	// branding, so they reuse serveServerAsset (probe-any-backend + immutable
 	// cache). A distinct public path keeps the emoji URL namespace stable and
-	// independent of server branding. See FDR-030.
+	// independent of server branding. See FDR-033.
 	s.router.GET("/assets/emoji/*path", s.serveServerAsset)
 	// Soundboard sound clips live in the same server-asset keyspace/backends as
 	// branding and emoji, so they reuse serveServerAsset (probe-any-backend +
 	// immutable cache). A distinct public path keeps the sound URL namespace
-	// stable. See FDR-033.
+	// stable. See FDR-036.
 	s.router.GET("/assets/sound/*path", s.serveServerAsset)
 	s.router.GET("/assets/files/:assetID", s.serveStableAttachment)
 	s.router.GET("/assets/files/:assetID/image/:dimensions/:fit", s.serveStableTransformedAttachment)
@@ -207,6 +207,9 @@ func (s *HTTPServer) serveStableAttachment(c *gin.Context) {
 	c.Header("Cache-Control", protectedAssetCacheControl)
 	c.Header("ETag", fmt.Sprintf("\"%s\"", assetID))
 	c.Header("Vary", "Accept-Encoding, Authorization, Cookie")
+	// Chatto-backed streams are sequential. Seekable media delivery requires an
+	// S3 redirect, whose object server handles byte ranges directly.
+	c.Header("Accept-Ranges", "none")
 	c.DataFromReader(http.StatusOK, info.Size, contentType, reader, nil)
 }
 

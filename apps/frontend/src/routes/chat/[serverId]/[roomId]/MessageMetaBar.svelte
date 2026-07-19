@@ -220,7 +220,7 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
         {replyCountLabel}
       </span>
       {#if hasThreadNotification}
-        <UnreadDot />
+        <UnreadDot testid="thread-notification-dot" />
       {/if}
     </a>
     {#if onToggleThreadFollow}

@@ -21,6 +21,15 @@
       "action": "Unirse a la sala",
       "prompt": "Únase a #{room} para leer y participar en esta sala.",
       "inline_prompt": "Únase a esta sala para leer y participar.",
+      "group_label": "En {group}",
+      "member_preview_label": "Miembros de la sala",
+      "member_count": [
+        {
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
+          "match": { "countPlural=one": "{count} miembro", "countPlural=other": "{count} miembros" }
+        }
+      ],
       "success": "Se unió a #{room}",
       "success_generic": "Sala unida",
       "failed": "No se pudo unir a la sala",
@@ -57,9 +66,12 @@
       "leave_confirm": "¿Estás seguro de que quieres salir de #{room}?"
     },
     "server": {
-      "leave_title": "Salir del servidor",
-      "leave_action": "Salir del servidor",
-      "leave_prompt": "¿Estás seguro de que quieres salir de {server}? Perderás el acceso a sus salas y tu cliente se olvidará de este servidor. Puedes volver a agregarlo más tarde desde la barra lateral."
+      "remove_title": "Eliminar servidor",
+      "remove_action": "Eliminar servidor",
+      "remove_prompt": "¿Quieres eliminar {server} de esta barra lateral? Esto solo elimina el servidor de este dispositivo. Tu cuenta y tus datos en el servidor no se eliminarán.",
+      "remove_account_prefix": "Para eliminar tu cuenta permanentemente, abre la ",
+      "remove_account_link": "Configuración de la cuenta",
+      "remove_account_suffix": " de este servidor antes de eliminarlo."
     },
     "timeline": {
       "beginning": "Este es el comienzo de esta conversación."
@@ -83,6 +95,8 @@
         "edit": "Editar mensaje",
         "more": "Más acciones",
         "edit_short": "Editar",
+        "copy_text": "Copiar texto",
+        "copy_text_failed": "No se pudo copiar el texto",
         "copy_link": "Copiar enlace"
       },
       "meta": {
@@ -98,18 +112,18 @@
         "in_reply_to": "en respuesta a",
         "reply_preview_fallback": "Mensaje",
         "deleted": "Este mensaje ha sido eliminado."
+      },
+      "timestamp": {
+        "details_title": "Fecha y hora",
+        "local_time": "Local",
+        "relative_time": "Relativa"
       }
     },
     "system_events": {
       "joined": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "se unió a la sala",
             "countPlural=other": "se unió a la sala"
@@ -118,13 +132,8 @@
       ],
       "left": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "salió de la habitación",
             "countPlural=other": "salió de la habitación"
@@ -136,13 +145,8 @@
       "and": "y",
       "other_people": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "otro",
             "countPlural=other": "otros"
