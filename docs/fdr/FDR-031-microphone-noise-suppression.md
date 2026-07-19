@@ -136,8 +136,8 @@ see FDR-016).
 ## Related
 
 - **FDRs:** FDR-016 (Voice Calls)
-- **ADRs:** none directly; media routing/authorization context is in ADR-009
-  (Durable LiveKit Call State).
+- **ADRs:** ADR-052 (Windows Desktop Client Reuses the Web Frontend); media
+  routing/authorization context is in ADR-009 (Durable LiveKit Call State).
 
 ## Open Questions
 
