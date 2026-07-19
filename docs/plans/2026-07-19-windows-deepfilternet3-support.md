@@ -19,16 +19,24 @@
 
 **Step 1: Write the failing native CSP contract test**
 
-Extend `production_csp_blocks_remote_code_and_frames` with exact assertions for
-the worklet-loading policy:
+Extend `production_csp_blocks_remote_code_and_frames` with exact source-set
+assertions for the worklet-loading policy:
 
 ```rust
-assert!(csp.contains("script-src 'self' 'wasm-unsafe-eval' blob:"));
-assert!(csp.contains("worker-src 'self' blob:"));
+assert_eq!(
+    csp_sources(csp, "script-src"),
+    vec!["'self'", "'wasm-unsafe-eval'", "blob:"]
+);
+assert_eq!(
+    csp_sources(csp, "worker-src"),
+    vec!["'self'", "blob:"]
+);
 ```
 
-Retain the negative assertions that remote HTTPS scripts and frames are not
-allowed.
+Parse semicolon-delimited directives, reject duplicate directives, and compare
+the complete `script-src`, `worker-src`, `frame-src`, and `object-src` source
+sets. This prevents later unsafe sources or duplicate effective policies from
+passing a substring check.
 
 **Step 2: Run the focused test and confirm the red state**
 
