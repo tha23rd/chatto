@@ -94,6 +94,7 @@ export class DesktopUpdatesCoordinator {
       if (setupUnsubscribe && this.#unsubscribe === setupUnsubscribe) {
         this.#unsubscribe = null;
         await this.#safelyUnsubscribe(setupUnsubscribe);
+        if (lifecycle !== this.#lifecycle || host !== this.#host) return;
       }
       this.#initialized = false;
       this.#recordUnavailableFailure(lifecycle, host);

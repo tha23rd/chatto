@@ -186,6 +186,37 @@ describe('DesktopUpdatesCoordinator', () => {
     expect(checkForDesktopUpdate).toHaveBeenCalledTimes(3);
   });
 
+  it('does not let deferred setup cleanup invalidate or leak a fresh remount', async () => {
+    const oldCleanup = deferred<void>();
+    const oldUnsubscribe = vi.fn<Unsubscribe>(() => oldCleanup.promise);
+    const newUnsubscribe = vi.fn<Unsubscribe>();
+    const unexpectedUnsubscribe = vi.fn<Unsubscribe>();
+    const onDesktopUpdateState = vi
+      .fn<NativeHost['onDesktopUpdateState']>()
+      .mockResolvedValueOnce(oldUnsubscribe)
+      .mockResolvedValueOnce(newUnsubscribe)
+      .mockResolvedValueOnce(unexpectedUnsubscribe);
+    const desktop = createDesktopHost({ onDesktopUpdateState });
+    vi.mocked(desktop.host.setDesktopUpdateChannel).mockRejectedValueOnce(
+      new Error('transient channel failure')
+    );
+    const coordinator = createCoordinator(desktop.host, { desktopUpdateChannel: 'stable' });
+
+    const oldInitialization = coordinator.initialize();
+    await vi.waitFor(() => expect(oldUnsubscribe).toHaveBeenCalledOnce());
+    await coordinator.destroy();
+    await coordinator.initialize();
+    oldCleanup.resolve(undefined);
+    await oldInitialization;
+
+    await coordinator.initialize();
+
+    expect(onDesktopUpdateState).toHaveBeenCalledTimes(2);
+    await coordinator.destroy();
+    expect(newUnsubscribe).toHaveBeenCalledOnce();
+    expect(unexpectedUnsubscribe).not.toHaveBeenCalled();
+  });
+
   it.each(['subscription', 'channel'] as const)(
     'recovers from a transient startup %s failure after a bounded delay',
     async (failure) => {
