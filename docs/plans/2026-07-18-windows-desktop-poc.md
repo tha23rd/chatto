@@ -4,9 +4,9 @@
 
 **Goal:** Deliver a runnable Windows Tauri/WebView2 proof of concept that reuses Chatto's Svelte frontend, authenticates self-hosted servers safely, preserves realtime and LiveKit behavior, and adds global push-to-talk plus tray lifecycle.
 
-**Architecture:** `apps/desktop` owns the Windows process, OAuth loopback listener, tray, and Tauri permissions. The existing static Svelte build remains the renderer and reaches native behavior through a frontend-owned `NativeHost`; browser behavior remains the default when the desktop capability is absent. LiveKit and E2EE stay in the renderer, while the desktop build routes registered-server HTTP and WebSocket traffic through Tauri plugins behind reference-counted origin leases.
+**Architecture:** `apps/desktop` owns the Windows process, OAuth loopback listener, tray, Tauri permissions, and a bounded Rust realtime bridge. The existing static Svelte build remains the renderer and reaches native behavior through a frontend-owned `NativeHost`; browser behavior remains the default when the desktop capability is absent. LiveKit and E2EE stay in the renderer, while the desktop build routes registered-server HTTP and realtime traffic through native adapters behind reference-counted origin leases.
 
-**Tech Stack:** SvelteKit/Svelte 5, Vitest, LiveKit JS, Tauri 2, Rust, WebView2, Tauri HTTP/WebSocket/global-shortcut/opener/single-instance plugins, GitHub Actions Windows runner.
+**Tech Stack:** SvelteKit/Svelte 5, Vitest, LiveKit JS, Tauri 2, Rust, Tokio-Tungstenite, WebView2, Tauri HTTP/global-shortcut/opener/single-instance plugins, GitHub Actions Windows runner.
 
 ---
 
@@ -173,9 +173,10 @@ remote scripts or frames.
 
 **Step 3: Install only required plugins**
 
-Add Tauri API plus HTTP, WebSocket, global-shortcut, opener, and
-single-instance guest bindings. Add matching Rust plugins. Do not add updater,
-filesystem, shell, notification, or autostart permissions in the POC.
+Add Tauri API plus HTTP, global-shortcut, opener, and single-instance guest
+bindings. Add matching Rust plugins and Tokio-Tungstenite for the narrow
+app-owned realtime bridge. Do not add updater, filesystem, shell, notification,
+or autostart permissions in the POC.
 
 **Step 4: Add mise tasks**
 
@@ -245,7 +246,9 @@ Run: `git commit -m "feat(desktop): add native ConnectRPC transport"`
 - Modify: `apps/frontend/src/lib/state/server/eventBus.svelte.spec.ts`
 - Modify: `apps/frontend/src/lib/native/tauriHost.ts`
 - Modify: `apps/desktop/src-tauri/src/lib.rs`
-- Modify: `apps/desktop/src-tauri/capabilities/main.json`
+- Create: `apps/desktop/src-tauri/src/realtime.rs`
+- Modify: `apps/desktop/src-tauri/Cargo.toml`
+- Modify: `apps/desktop/src-tauri/capabilities/default.json`
 
 **Step 1: Write failing async-factory tests**
 
@@ -259,11 +262,15 @@ Allow `RealtimeSocketFactory` to return a socket or promise. Await the current
 generation before attaching handlers; close stale sockets. Promote the
 test-only setter to the platform transport seam while retaining test reset.
 
-**Step 3: Implement the Tauri WebSocket wrapper**
+**Step 3: Implement the bounded native WebSocket bridge**
 
-Map plugin `Text`, `Binary`, and `Close` messages onto the existing socket
-contract; map `send` and `close` to asynchronous plugin operations without
-leaking unhandled rejections. Reject non-WSS/non-loopback URLs before connect.
+Map Rust `Text`, `Binary`, `Close`, and error events onto the existing socket
+contract; map `send` and `close` to asynchronous Tauri commands without leaking
+unhandled rejections. Reject non-WSS/non-loopback URLs in both layers. Bound
+active connections, buffers, frames, messages, and the outbound queue, and add
+pull-based inbound delivery so WebView IPC and TCP apply backpressure. Add
+native regression tests proving an interrupted socket is removed from process
+state and a quiet socket stays connected across IPC receive heartbeats.
 
 **Step 4: Verify and commit**
 

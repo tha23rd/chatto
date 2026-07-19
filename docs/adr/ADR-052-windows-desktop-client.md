@@ -90,20 +90,26 @@ capabilities apply only to the main window and grant no generic filesystem or
 shell access.
 
 Native networking accepts HTTPS/WSS destinations and plaintext HTTP/WS only on
-loopback for development. The native HTTP plugin scope enforces that outer
-boundary. The desktop adapter additionally maintains reference-counted leases
+loopback for development. The native HTTP plugin scope and the app-owned Rust
+realtime bridge independently enforce that outer boundary. The realtime bridge
+also caps active connections, message and frame sizes, and its outbound queue;
+the renderer pulls one event at a time, so the bridge does not read another
+frame until that IPC request is fulfilled. It removes native connection state
+after every close, interruption, or send failure. The desktop adapter
+additionally maintains reference-counted leases
 for origins in the local server registry (and the server currently being
 added), rejects other HTTP/WebSocket/OAuth destinations, disables HTTP
 redirects, and verifies the final response origin. A source guard prevents
-Tauri plugin imports outside that adapter. Tokens, authorization codes, URLs
-containing queries, and user identifiers are not logged by the native host.
+Tauri imports outside that adapter. Tokens, authorization codes, URLs containing
+queries, and user identifiers are not logged by the native host.
 
-This is intentionally recorded as a POC limitation: the WebSocket plugin has no
-native dynamic origin scope, and arbitrary self-hosted origins cannot be listed
-in a static capability file. Registered-origin enforcement therefore assumes
-the bundled renderer and adapter have not already been compromised. A
-production decision must explicitly accept that residual authority or replace
-the plugin networking with Rust-owned commands and a native allowlist.
+This is intentionally recorded as a POC limitation: arbitrary self-hosted
+origins cannot be listed in a static capability file, and the dynamic
+registered-origin leases are not currently mirrored into native state.
+Registered-origin enforcement therefore assumes the bundled renderer and
+adapter have not already been compromised. A production decision must
+explicitly accept that residual authority or move the saved-server allowlist
+across the native boundary.
 
 ### Use system-browser OAuth with PKCE and an ephemeral loopback callback
 
@@ -121,9 +127,10 @@ logic is shared so native and web completion cannot drift.
 
 Browser fetch and WebSocket remain the default for the web client. The desktop
 adapter uses Tauri's Rust-backed HTTP client for allowed absolute Chatto
-endpoints and supplies it through ConnectRPC's custom Fetch seam. It uses the
-Tauri WebSocket plugin for the realtime protobuf connection so a browser
-`Origin` header does not cause a server-side upgrade rejection.
+endpoints and supplies it through ConnectRPC's custom Fetch seam. A narrow
+app-owned Rust/Tokio-Tungstenite bridge owns the realtime protobuf connection so
+a browser `Origin` header does not cause a server-side upgrade rejection and so
+the tray-resident process can deterministically release interrupted sockets.
 
 The public ConnectRPC and realtime protocols do not change. The POC validates
 public discovery, authenticated unary requests, server streaming, realtime
@@ -183,11 +190,12 @@ idle cost that a closed web tab does not. Resource-efficiency claims require
 measurements of cold start, idle, tray, voice, and screen-share states.
 
 The desktop application adds a Rust toolchain, Windows packaging, Tauri plugin
-updates, a native security boundary, and platform-specific tests. OAuth and
-realtime transport behavior become more complex than the web-only path, though
-their public server protocols remain unchanged. The native plugin transports
-also cross the WebView/Tauri IPC boundary; their resource and throughput cost
-must be measured rather than assumed to outperform browser networking.
+and networking-library updates, a native security boundary, and
+platform-specific tests. OAuth and realtime transport behavior become more
+complex than the web-only path, though their public server protocols remain
+unchanged. The native transports also cross the WebView/Tauri IPC boundary;
+their resource and throughput cost must be measured rather than assumed to
+outperform browser networking.
 
 WebView2 updates with Windows rather than with Chatto. This reduces bundle size
 but means the exact embedded Chromium build is not pinned by an application

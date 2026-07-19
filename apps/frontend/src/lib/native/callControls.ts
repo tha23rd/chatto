@@ -20,6 +20,14 @@ function reportNativeControlFailure(operation: string, error: unknown): void {
   console.error(`[native-call-controls] ${operation} failed`, error);
 }
 
+async function unsubscribeWithRetry(unsubscribe: Unsubscribe): Promise<void> {
+  try {
+    await unsubscribe();
+  } catch {
+    await unsubscribe();
+  }
+}
+
 /**
  * Owns the one process-wide shortcut and tray subscription.
  *
@@ -71,15 +79,7 @@ class NativeCallControlsCoordinator {
   async #reconcile(): Promise<void> {
     const active = this.#activeOwner();
     if (!active) {
-      const pushToTalkUnsubscribe = this.#pushToTalkUnsubscribe;
-      const trayUnsubscribe = this.#trayUnsubscribe;
-      this.#pushToTalkUnsubscribe = null;
-      this.#trayUnsubscribe = null;
-      if (pushToTalkUnsubscribe) await pushToTalkUnsubscribe();
-      if (trayUnsubscribe) await trayUnsubscribe();
-      if (this.#host.capabilities.tray) {
-        await this.#host.setCallControls({ connected: false, muted: false, deafened: false });
-      }
+      await this.#cleanupRegistrations(true);
       return;
     }
 
@@ -90,12 +90,9 @@ class NativeCallControlsCoordinator {
   }
 
   async #ensureRegistered(): Promise<void> {
-    if (this.#pushToTalkUnsubscribe || this.#trayUnsubscribe) return;
-    let pushToTalkUnsubscribe: Unsubscribe | null = null;
-    let trayUnsubscribe: Unsubscribe | null = null;
     try {
-      if (this.#host.capabilities.globalPushToTalk) {
-        pushToTalkUnsubscribe = await this.#host.registerPushToTalk(
+      if (this.#host.capabilities.globalPushToTalk && !this.#pushToTalkUnsubscribe) {
+        this.#pushToTalkUnsubscribe = await this.#host.registerPushToTalk(
           PUSH_TO_TALK_ACCELERATOR,
           (state) => {
             const active = this.#activeOwner();
@@ -106,8 +103,8 @@ class NativeCallControlsCoordinator {
           }
         );
       }
-      if (this.#host.capabilities.tray) {
-        trayUnsubscribe = await this.#host.onTrayAction((action) => {
+      if (this.#host.capabilities.tray && !this.#trayUnsubscribe) {
+        this.#trayUnsubscribe = await this.#host.onTrayAction((action) => {
           const active = this.#activeOwner();
           if (!active) return;
           const operation =
@@ -120,12 +117,46 @@ class NativeCallControlsCoordinator {
         });
       }
     } catch (error) {
-      if (pushToTalkUnsubscribe) await pushToTalkUnsubscribe();
-      if (trayUnsubscribe) await trayUnsubscribe();
+      await this.#cleanupRegistrations(false).catch((cleanupError) =>
+        reportNativeControlFailure('partial registration cleanup', cleanupError)
+      );
       throw error;
     }
-    this.#pushToTalkUnsubscribe = pushToTalkUnsubscribe;
-    this.#trayUnsubscribe = trayUnsubscribe;
+  }
+
+  async #cleanupRegistrations(disableTray: boolean): Promise<void> {
+    const failures: unknown[] = [];
+    const pushToTalkUnsubscribe = this.#pushToTalkUnsubscribe;
+    const trayUnsubscribe = this.#trayUnsubscribe;
+
+    if (pushToTalkUnsubscribe) {
+      try {
+        await unsubscribeWithRetry(pushToTalkUnsubscribe);
+        if (this.#pushToTalkUnsubscribe === pushToTalkUnsubscribe) {
+          this.#pushToTalkUnsubscribe = null;
+        }
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (trayUnsubscribe) {
+      try {
+        await unsubscribeWithRetry(trayUnsubscribe);
+        if (this.#trayUnsubscribe === trayUnsubscribe) this.#trayUnsubscribe = null;
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (disableTray && this.#host.capabilities.tray) {
+      try {
+        await this.#host.setCallControls({ connected: false, muted: false, deafened: false });
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length > 0) {
+      throw new AggregateError(failures, 'One or more native call-control cleanups failed.');
+    }
   }
 }
 

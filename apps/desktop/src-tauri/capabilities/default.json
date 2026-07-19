@@ -16,7 +16,6 @@
         { "url": "http://[::1]:*" }
       ]
     },
-    "websocket:default",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
     {

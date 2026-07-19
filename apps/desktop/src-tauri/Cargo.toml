@@ -31,6 +31,6 @@ tauri-plugin-http = { version = "2.5.9", default-features = false, features = ["
 tauri-plugin-log = "2"
 tauri-plugin-opener = "2.5.4"
 tauri-plugin-single-instance = "2.4.3"
-tauri-plugin-websocket = { version = "2.4.2", default-features = false, features = ["rustls-tls-native-roots"] }
-tokio = { version = "1.53.0", features = ["macros", "net", "time", "io-util"] }
+tokio = { version = "1.53.0", features = ["io-util", "macros", "net", "rt", "sync", "time"] }
+tokio-tungstenite = { version = "0.28.0", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
 url = "2.5.8"

@@ -137,10 +137,16 @@ export const tauriNativeHost = createTauriNativeHost({
       listener(state === 'Pressed' ? 'pressed' : 'released');
     });
     let registered = true;
+    let unregistering: Promise<void> | null = null;
     return async () => {
       if (!registered) return;
-      registered = false;
-      await unregister(accelerator);
+      unregistering ??= unregister(accelerator);
+      try {
+        await unregistering;
+        registered = false;
+      } finally {
+        unregistering = null;
+      }
     };
   },
   onTrayAction: (listener) =>

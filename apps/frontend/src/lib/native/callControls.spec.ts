@@ -125,6 +125,26 @@ describe('NativeCallControlsController', () => {
     });
   });
 
+  it('attempts every cleanup when one native unsubscription fails', async () => {
+    const harness = createHarness();
+    harness.unsubscribePushToTalk.mockRejectedValueOnce(new Error('shortcut cleanup failed'));
+    const controller = new NativeCallControlsController(harness.host, harness.target);
+    controller.start();
+    await vi.waitFor(() => expect(harness.host.onTrayAction).toHaveBeenCalledOnce());
+
+    controller.stop();
+
+    await vi.waitFor(() => {
+      expect(harness.unsubscribePushToTalk).toHaveBeenCalledTimes(2);
+      expect(harness.unsubscribeTray).toHaveBeenCalledOnce();
+      expect(harness.host.setCallControls).toHaveBeenLastCalledWith({
+        connected: false,
+        muted: false,
+        deafened: false
+      });
+    });
+  });
+
   it('gives native ownership to one active call when multiple servers are connected', async () => {
     const harness = createHarness();
     const firstTarget = {

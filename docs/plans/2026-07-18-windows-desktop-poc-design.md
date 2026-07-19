@@ -118,13 +118,18 @@ disables HTTP redirects, and verifies the final response origin. A source guard
 keeps direct Tauri imports inside the adapter. The native HTTP plugin separately
 enforces the outer HTTPS-or-loopback policy.
 
-Tauri's WebSocket plugin does not expose a dynamic native origin scope, and
-self-hosted server domains cannot be enumerated in the packaged capability
-file. Consequently, the POC's registered-origin check is a trusted-renderer
-boundary rather than protection from already-compromised bundled renderer
-code. Advancing this architecture to production requires accepting that
-residual risk or replacing the plugin transports with Rust-owned commands and
-a native allowlist.
+The app-owned Rust realtime bridge validates WSS destinations and permits
+plaintext WS only on loopback. It caps active connections, message and frame
+sizes, and its outbound queue. The renderer pulls one event per IPC request, so
+the native task does not read another frame until the renderer is ready, and it
+removes native state on every termination path. Self-hosted server domains still
+cannot be enumerated in the packaged
+capability file, and the dynamic registered-origin leases are not mirrored into
+native state. Consequently, the POC's registered-origin check remains a
+trusted-renderer boundary rather than protection from already-compromised
+bundled renderer code. Advancing this architecture to production requires
+accepting that residual risk or moving the saved-server allowlist across the
+native boundary.
 
 ## Authentication And Connectivity
 
@@ -150,7 +155,7 @@ transport seam, not a global response-header rewrite, and it avoids requiring
 self-hosters to recognize a packaged application origin. The POC must cover
 public discovery, authenticated unary calls, server streaming, and realtime
 reconnect behavior, and its resource measurements must include any IPC cost of
-the plugin transports.
+the native transports.
 
 ## Media And Streaming
 

@@ -505,8 +505,8 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
- "tauri-plugin-websocket",
  "tokio",
+ "tokio-tungstenite",
  "url",
 ]
 
@@ -4058,26 +4058,6 @@ dependencies = [
  "tracing",
  "windows-sys 0.60.2",
  "zbus",
-]
-
-[[package]]
-name = "tauri-plugin-websocket"
-version = "2.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe037be7e1c30be639fe12dc3077e8ec4709e6f30ca4a6016b7edc76232ae9ee"
-dependencies = [
- "futures-util",
- "http",
- "log",
- "rand 0.9.5",
- "rustls",
- "serde",
- "serde_json",
- "tauri",
- "tauri-plugin",
- "thiserror 2.0.19",
- "tokio",
- "tokio-tungstenite",
 ]
 
 [[package]]

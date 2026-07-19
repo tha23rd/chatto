@@ -1,5 +1,8 @@
 mod oauth;
+mod realtime;
 mod shell;
+
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -11,10 +14,13 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_websocket::init())
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             oauth::start_server_oauth,
+            realtime::realtime_connect,
+            realtime::realtime_receive,
+            realtime::realtime_send,
+            realtime::realtime_disconnect,
             shell::set_call_controls,
             shell::quit_desktop
         ])
@@ -26,6 +32,7 @@ pub fn run() {
                         .build(),
                 )?;
             }
+            app.manage(realtime::RealtimeConnectionManager::default());
             shell::setup(app)?;
             Ok(())
         })
