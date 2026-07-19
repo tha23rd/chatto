@@ -5,10 +5,16 @@ import test from "node:test";
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
+function normalizeNewlines(contents) {
+  return contents.replace(/\r\n?/g, "\n");
+}
+
 function workflowFile(name) {
-  return readFileSync(
-    new URL(`.github/workflows/${name}`, `file://${repositoryRoot}`),
-    "utf8",
+  return normalizeNewlines(
+    readFileSync(
+      new URL(`.github/workflows/${name}`, `file://${repositoryRoot}`),
+      "utf8",
+    ),
   );
 }
 
@@ -40,6 +46,18 @@ function job(workflow, name) {
     ? workflow.slice(start)
     : workflow.slice(start, start + marker.length + nextJob);
 }
+
+test("workflow parsing is independent of checkout line endings", () => {
+  const windowsWorkflow = normalizeNewlines(
+    ciWorkflow.replaceAll("\n", "\r\n"),
+  );
+
+  assert.match(job(windowsWorkflow, "test-desktop-windows"), /tauri build/);
+  assert.match(
+    job(windowsWorkflow, "publish-main-native-installer"),
+    /contents: write/,
+  );
+});
 
 test("CI treats main-native as an integration branch", () => {
   const triggers = ciWorkflow.slice(0, ciWorkflow.indexOf("jobs:\n"));
