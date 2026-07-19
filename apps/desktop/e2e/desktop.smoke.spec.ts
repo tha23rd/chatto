@@ -71,7 +71,9 @@ test("runs the hardened shell, bridge events, and single-instance links", async 
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
     await page.waitForLoadState("domcontentloaded");
-    await expect(page.getByTestId("native-window-controls")).toBeVisible();
+    // The window frame is the native OS chrome (no in-renderer controls), so the
+    // deep link opening the Add Server dialog with the prefilled URL is the first
+    // observable signal that the renderer booted and the bridge delivered it.
     await expect(page.getByLabel("Server URL")).toHaveValue(linkedServer);
 
     const remoteTransport = await page.evaluate(async (serverOrigin) => {
@@ -381,8 +383,10 @@ test("runs the hardened shell, bridge events, and single-instance links", async 
         bridgeKeys: Object.keys(nativeWindow.chattoNative ?? {}).sort(),
         hasNodeProcess: typeof nativeWindow.process !== "undefined",
         hasNodeRequire: typeof nativeWindow.require !== "undefined",
+        // The shell CSP is served report-only (see appProtocol.ts), matching the
+        // web frontend, so it rides the report-only header, not the enforcing one.
         contentSecurityPolicy: shellResponse.headers.get(
-          "content-security-policy",
+          "content-security-policy-report-only",
         ),
         updateState: updateState?.kind,
         invalidOriginRejected,
