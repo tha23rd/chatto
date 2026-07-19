@@ -93,8 +93,11 @@ if ($existingOutputs.Count -ne 0) {
 $stagedInstaller = Join-Path $resolvedOutputDirectory $installerName
 Copy-Item -LiteralPath $installers[0].FullName -Destination $stagedInstaller
 $checksum = (Get-FileHash -LiteralPath $stagedInstaller -Algorithm SHA256).Hash.ToLowerInvariant()
-"$checksum  $installerName" |
-    Set-Content -LiteralPath "$stagedInstaller.sha256" -Encoding ascii
+[System.IO.File]::WriteAllText(
+    "$stagedInstaller.sha256",
+    "$checksum  $installerName`n",
+    [System.Text.Encoding]::ASCII
+)
 
 if (-not [string]::IsNullOrWhiteSpace($GitHubOutputPath)) {
     "version=$version" | Out-File -FilePath $GitHubOutputPath -Encoding utf8 -Append
