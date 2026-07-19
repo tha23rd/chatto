@@ -143,6 +143,24 @@ sources = [
 ]
 outputs = ["build/.mise-build-stamp", "../../cli/internal/http_server/.client/.gitkeep"]
 
+[tasks.desktop-setup]
+description = "Install the Windows desktop client dependencies"
+depends = ["setup-frontend"]
+run = "cargo fetch --manifest-path apps/desktop/src-tauri/Cargo.toml"
+sources = ["apps/desktop/package.json", "apps/desktop/src-tauri/Cargo.toml", "apps/desktop/src-tauri/Cargo.lock", "pnpm-lock.yaml"]
+
+[tasks.desktop-dev]
+description = "Run the Windows desktop client in development mode"
+depends = ["desktop-setup", "build-api-types"]
+dir = "apps/desktop"
+run = "pnpm dev"
+
+[tasks.desktop-build]
+description = "Build the Windows NSIS desktop installer"
+depends = ["desktop-setup", "build-api-types"]
+dir = "apps/desktop"
+run = "pnpm build"
+
 [tasks.build-dev-cli]
 description = "Build the development CLI application for the current architecture"
 depends = ["setup-cli", "build-frontend"]
