@@ -10,6 +10,25 @@ fn json(relative: &str) -> Value {
     serde_json::from_slice(&fs::read(manifest_path(relative)).unwrap()).unwrap()
 }
 
+fn csp_sources<'a>(csp: &'a str, directive: &str) -> Vec<&'a str> {
+    let mut matching_directives = csp
+        .split(';')
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+        .filter_map(|entry| {
+            let mut parts = entry.split_whitespace();
+            (parts.next() == Some(directive)).then(|| parts.collect())
+        });
+    let sources = matching_directives
+        .next()
+        .unwrap_or_else(|| panic!("CSP is missing {directive}"));
+    assert!(
+        matching_directives.next().is_none(),
+        "CSP contains duplicate {directive} directives"
+    );
+    sources
+}
+
 #[test]
 fn production_config_has_no_remotely_configured_window() {
     let config = json("tauri.conf.json");
@@ -21,11 +40,13 @@ fn production_config_has_no_remotely_configured_window() {
 fn production_csp_blocks_remote_code_and_frames() {
     let config = json("tauri.conf.json");
     let csp = config["app"]["security"]["csp"].as_str().unwrap();
-    assert!(csp.contains("script-src 'self' 'wasm-unsafe-eval'"));
-    assert!(csp.contains("frame-src 'none'"));
-    assert!(csp.contains("object-src 'none'"));
-    assert!(!csp.contains("script-src https:"));
-    assert!(!csp.contains("frame-src https:"));
+    assert_eq!(
+        csp_sources(csp, "script-src"),
+        vec!["'self'", "'wasm-unsafe-eval'", "blob:"]
+    );
+    assert_eq!(csp_sources(csp, "worker-src"), vec!["'self'", "blob:"]);
+    assert_eq!(csp_sources(csp, "frame-src"), vec!["'none'"]);
+    assert_eq!(csp_sources(csp, "object-src"), vec!["'none'"]);
 }
 
 #[test]

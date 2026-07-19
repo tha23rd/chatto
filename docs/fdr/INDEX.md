@@ -43,6 +43,6 @@ See [`.agents/skills/fdr/SKILL.md`](../../.agents/skills/fdr/SKILL.md) for the F
 | [FDR-031](FDR-031-client-server-compatibility-discovery.md) | Client–Server Compatibility Discovery | Experimental | 2026-07-16 |
 | [FDR-032](FDR-032-message-formatting.md) | Message Formatting | Active | 2026-07-19 |
 | [FDR-033](FDR-033-custom-emoji.md) | Custom Emoji | Active | 2026-07-12 |
-| [FDR-034](FDR-034-microphone-noise-suppression.md) | Microphone Noise Suppression | Experimental | 2026-07-14 |
+| [FDR-034](FDR-034-microphone-noise-suppression.md) | Microphone Noise Suppression | Experimental | 2026-07-19 |
 | [FDR-035](FDR-035-channel-webhooks.md) | Channel Webhooks | Active | 2026-07-16 |
 | [FDR-036](FDR-036-soundboard.md) | Soundboard | Active | 2026-07-19 |
