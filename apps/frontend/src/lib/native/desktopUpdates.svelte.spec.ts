@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { browserNativeHost } from './browserHost';
 import {
   DesktopUpdatesCoordinator,
-  DESKTOP_UPDATE_CHECK_INTERVAL_MS
+  DESKTOP_UPDATE_CHECK_INTERVAL_MS,
+  DESKTOP_UPDATE_SETUP_RETRY_MS
 } from './desktopUpdates.svelte';
 import type { DesktopUpdateChannel, DesktopUpdateSnapshot, NativeHost, Unsubscribe } from './types';
 
@@ -128,6 +129,93 @@ describe('DesktopUpdatesCoordinator', () => {
     expect(desktop.host.checkForDesktopUpdate).toHaveBeenCalledTimes(2);
   });
 
+  it('establishes a fresh subscription and timer when remounted during an old subscription', async () => {
+    vi.useFakeTimers();
+    const oldSubscription = deferred<Unsubscribe>();
+    const oldUnsubscribe = vi.fn<Unsubscribe>();
+    const newUnsubscribe = vi.fn<Unsubscribe>();
+    const onDesktopUpdateState = vi
+      .fn<NativeHost['onDesktopUpdateState']>()
+      .mockImplementationOnce(() => oldSubscription.promise)
+      .mockResolvedValueOnce(newUnsubscribe);
+    const desktop = createDesktopHost({ onDesktopUpdateState });
+    const coordinator = createCoordinator(desktop.host, { desktopUpdateChannel: 'stable' });
+
+    const oldInitialization = coordinator.initialize();
+    await coordinator.destroy();
+    const remounted = coordinator.initialize();
+    const subscriptionsBeforeOldResolved = onDesktopUpdateState.mock.calls.length;
+    oldSubscription.resolve(oldUnsubscribe);
+    await Promise.all([oldInitialization, remounted]);
+
+    expect(subscriptionsBeforeOldResolved).toBe(2);
+    expect(oldUnsubscribe).toHaveBeenCalledOnce();
+    expect(desktop.host.setDesktopUpdateChannel).toHaveBeenCalledOnce();
+    expect(desktop.host.checkForDesktopUpdate).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(DESKTOP_UPDATE_CHECK_INTERVAL_MS);
+    expect(desktop.host.checkForDesktopUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not reuse or apply an old deferred check after destroy and remount', async () => {
+    vi.useFakeTimers();
+    const oldCheck = deferred<DesktopUpdateSnapshot>();
+    const checkForDesktopUpdate = vi
+      .fn<NativeHost['checkForDesktopUpdate']>()
+      .mockImplementationOnce(() => oldCheck.promise)
+      .mockResolvedValue(idleUpdate);
+    const desktop = createDesktopHost({ checkForDesktopUpdate });
+    const coordinator = createCoordinator(desktop.host, { desktopUpdateChannel: 'stable' });
+
+    const oldInitialization = coordinator.initialize();
+    await vi.waitFor(() => expect(checkForDesktopUpdate).toHaveBeenCalledOnce());
+    await coordinator.destroy();
+    const remounted = coordinator.initialize();
+    const subscriptionsBeforeOldResolved = vi.mocked(desktop.host.onDesktopUpdateState).mock.calls
+      .length;
+    oldCheck.resolve({
+      ...idleUpdate,
+      phase: 'ready',
+      candidateVersion: '0.2.0-stale'
+    });
+    await Promise.all([oldInitialization, remounted]);
+
+    expect(subscriptionsBeforeOldResolved).toBe(2);
+    expect(checkForDesktopUpdate).toHaveBeenCalledTimes(2);
+    expect(coordinator.snapshot).toEqual(idleUpdate);
+    await vi.advanceTimersByTimeAsync(DESKTOP_UPDATE_CHECK_INTERVAL_MS);
+    expect(checkForDesktopUpdate).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(['subscription', 'channel'] as const)(
+    'recovers from a transient startup %s failure after a bounded delay',
+    async (failure) => {
+      vi.useFakeTimers();
+      const desktop = createDesktopHost();
+      if (failure === 'subscription') {
+        vi.mocked(desktop.host.onDesktopUpdateState).mockRejectedValueOnce(
+          new Error('transient subscription failure')
+        );
+      } else {
+        vi.mocked(desktop.host.setDesktopUpdateChannel).mockRejectedValueOnce(
+          new Error('transient channel failure')
+        );
+      }
+      const coordinator = createCoordinator(desktop.host, { desktopUpdateChannel: 'stable' });
+
+      await coordinator.initialize();
+      expect(coordinator.snapshot.phase).toBe('failed');
+      expect(desktop.host.checkForDesktopUpdate).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(DESKTOP_UPDATE_SETUP_RETRY_MS - 1);
+      expect(desktop.host.checkForDesktopUpdate).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+
+      await vi.waitFor(() => expect(desktop.host.checkForDesktopUpdate).toHaveBeenCalledOnce());
+      expect(coordinator.snapshot).toEqual(idleUpdate);
+      expect(desktop.host.onDesktopUpdateState).toHaveBeenCalledTimes(2);
+    }
+  );
+
   it('checks every six hours and removes the timer and subscription when destroyed', async () => {
     vi.useFakeTimers();
     const desktop = createDesktopHost();
@@ -168,6 +256,43 @@ describe('DesktopUpdatesCoordinator', () => {
     await changingChannel;
     expect(desktop.host.setDesktopUpdateChannel).toHaveBeenLastCalledWith('nightly');
     expect(desktop.host.checkForDesktopUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it('serializes concurrent channel changes so the latest preference wins natively', async () => {
+    let nativeChannel: DesktopUpdateChannel = 'stable';
+    const firstChange = deferred<DesktopUpdateSnapshot>();
+    const desktop = createDesktopHost();
+    const setDesktopUpdateChannel = vi.mocked(desktop.host.setDesktopUpdateChannel);
+    const checkForDesktopUpdate = vi.mocked(desktop.host.checkForDesktopUpdate);
+    checkForDesktopUpdate.mockImplementation(async () => ({
+      ...idleUpdate,
+      channel: nativeChannel
+    }));
+    const preferences: TestPreferences = { desktopUpdateChannel: 'stable' };
+    const coordinator = createCoordinator(desktop.host, preferences);
+    await coordinator.initialize();
+    setDesktopUpdateChannel
+      .mockImplementationOnce(async (channel) => {
+        await firstChange.promise;
+        nativeChannel = channel;
+        return { ...idleUpdate, channel };
+      })
+      .mockImplementationOnce(async (channel) => {
+        nativeChannel = channel;
+        return { ...idleUpdate, channel };
+      });
+
+    const selectNightly = coordinator.setChannel('nightly');
+    await vi.waitFor(() => expect(setDesktopUpdateChannel).toHaveBeenCalledTimes(2));
+    const selectStable = coordinator.setChannel('stable');
+    expect(preferences.desktopUpdateChannel).toBe('stable');
+    firstChange.resolve({ ...idleUpdate, channel: 'nightly' });
+    await Promise.all([selectNightly, selectStable]);
+
+    expect(setDesktopUpdateChannel).toHaveBeenLastCalledWith('stable');
+    expect(nativeChannel).toBe('stable');
+    expect(coordinator.snapshot.channel).toBe('stable');
+    expect(checkForDesktopUpdate).toHaveBeenCalledTimes(2);
   });
 
   it('keeps normalized manual failures visible in state', async () => {
