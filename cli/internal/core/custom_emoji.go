@@ -125,7 +125,7 @@ func (c *ChattoCore) ListCustomEmojis() []*CustomEmoji {
 // CustomEmojiURL builds the public URL that renders a custom emoji's image.
 // Emoji assets live in the shared server-asset backends but are served under a
 // dedicated /assets/emoji/ path so the public emoji URL namespace stays stable
-// and independent of server branding. See FDR-030.
+// and independent of server branding. See FDR-033.
 func (c *ChattoCore) CustomEmojiURL(assetID string) string {
 	if assetID == "" {
 		return ""

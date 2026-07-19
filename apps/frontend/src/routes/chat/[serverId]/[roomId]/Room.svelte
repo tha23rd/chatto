@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { goto, pushState, replaceState } from '$app/navigation';
   import { page } from '$app/state';
   import { dropZone } from '$lib/attachments/dropZone.svelte';
@@ -10,17 +11,16 @@
   import {
     useRoomData,
     useRoomUnread,
-    useEvent,
+    useProjectionEvent,
     usePresenceChange,
     createTypingIndicator
   } from '$lib/hooks';
-  import { appState, sidebarNav } from '$lib/state/globals.svelte';
+  import { appState } from '$lib/state/globals.svelte';
   import * as m from '$lib/i18n/messages';
   import {
     createComposerContext,
     createMentionRoles,
     getRoomMembers,
-    MessagesStore,
     RoomFilesStore,
     RoomMembersStore,
     setRoomMembersStore,
@@ -46,8 +46,7 @@
   import { toast } from '$lib/ui/toast';
   import PageTitle from '$lib/ui/PageTitle.svelte';
   import PaneHeader from '$lib/ui/PaneHeader.svelte';
-  import { isMessagePostedEvent } from '$lib/render/eventKinds';
-  import { onDestroy, tick } from 'svelte';
+  import { tick } from 'svelte';
   import { fly } from 'svelte/transition';
   import RoomEventsPane from './RoomEventsPane.svelte';
   import RoomSidebar from './RoomSidebar.svelte';
@@ -112,10 +111,17 @@
   let replyStateRoomId: string | null = null;
   const jumpState = composerContext.jumpState;
   const currentUser = $derived(serverRegistry.getStore(getActiveServer()).currentUser);
-  const roomMessageStore = new MessagesStore(connection(), () => currentUser.user?.id ?? null);
+  const roomMessageStore = $derived(stores.messagesForRoom(roomId));
 
-  onDestroy(() => {
-    roomMessageStore.dispose();
+  $effect(() => {
+    const selectedRoomId = roomId;
+    untrack(() => stores.restoreProjectedRoomWindow(selectedRoomId));
+    return () => {
+      // Invalidate any historical-window request before this room becomes
+      // inactive. Its late response must not replace the retained latest
+      // projection while another room is being rendered.
+      untrack(() => stores.restoreProjectedRoomWindow(selectedRoomId));
+    };
   });
 
   $effect(() =>
@@ -190,8 +196,10 @@
   });
 
   $effect(() => {
-    if (room.roomData) {
-      roomMembersStore.ensureLoaded();
+    if (stores.hasCompleteProjectedRoomMembership(roomId)) {
+      roomMembersStore.replaceProjection(roomId, stores.projectedMembersForRoom(roomId));
+    } else {
+      roomMembersStore.awaitProjection(roomId);
     }
   });
 
@@ -201,9 +209,8 @@
 
   createRoomPermissions(() => permissions);
 
-  // roomData === null means the server returned a clean response with no room
-  // (deleted, archived, no access). Transient network failures are filtered
-  // upstream in useRoomData, so reaching this branch is genuine — clear
+  // roomData === null means the ready projection contains no visible room
+  // (deleted, archived, or no access), so reaching this branch is genuine — clear
   // lastRoom so [spaceId]/+page.svelte's onMount doesn't redirect us right
   // back here in an infinite loop.
   $effect.pre(() => {
@@ -319,27 +326,31 @@
     }
   }
 
-  // Keep the server read cursor in sync with incoming root messages. Other
-  // users' messages mark the room read while the user is actually present;
-  // own messages are already auto-marked read by the post mutation.
-  useEvent((event) => {
-    roomFilesStore.ingestServerEvent(event);
-    roomMembersStore.ingestServerEvent(event);
-    if (!event.event) return;
-
-    if (isMessagePostedEvent(event.event) && event.event.roomId === roomId) {
-      const actorId = event.actorId;
-
-      if (!event.event.threadRootEventId) {
-        if (actorId) {
-          typingIndicator.removeTypingUser(actorId);
-        }
-      }
-
-      if (!event.event.threadRootEventId && currentUser.user) {
-        if (actorId !== currentUser.user.id && appState.isPresent) {
+  // Durable message rows arrive only through projection operations. Keep
+  // presence/read side effects and the independent paginated files read model
+  // aligned with those authoritative row replacements.
+  useProjectionEvent((event) => {
+    const isThreadViewerStateChange = event.operations.some(
+      (operation) => operation.operation.case === 'threadViewerStatesReplace'
+    );
+    for (const operation of event.operations) {
+      if (operation.operation.case !== 'roomTimelineEventUpsert') continue;
+      const update = operation.operation.value;
+      if (update.roomId !== roomId || update.event?.event.case !== 'messagePosted') continue;
+      const message = update.event.event.value.message;
+      if (!message?.threadRootEventId) {
+        const actorId = event.actorId;
+        if (actorId) typingIndicator.removeTypingUser(actorId);
+        if (currentUser.user && actorId !== currentUser.user.id && appState.isPresent) {
           unread.markRoomAsRead(roomId, event.id);
         }
+      }
+      if (
+        (message?.attachments.length ?? 0) > 0 ||
+        message?.deletedAt ||
+        (event.id !== update.event.id && !update.reactionChange && !isThreadViewerStateChange)
+      ) {
+        void roomFilesStore.refresh();
       }
     }
   });
@@ -478,7 +489,11 @@
     if (!threadId || e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest('[data-testid="thread-pane"], dialog')) return;
-    if (sidebarNav.isMobile && target.closest('[data-app-sidebar]')) return;
+    // A thread is an overlay over the room view, so only the dimmed room
+    // surface behind it should behave as a click-outside dismissal target.
+    // Controls elsewhere in the app (such as the room extras sidebar) manage
+    // their own state and must not close the thread as a side effect.
+    if (!target.closest('[data-thread-dismiss-surface]')) return;
     closeThread();
   }}
 />
@@ -504,6 +519,7 @@
         isDesktopCallMaximized ? 'lg:hidden' : ''
       ]}
       data-testid="room-view-region"
+      data-thread-dismiss-surface
     >
       <div
         class={[

@@ -55,6 +55,8 @@ vi.mock('$app/navigation', () => ({
   replaceState: mocks.replaceState
 }));
 
+vi.mock('$app/environment', () => ({ version: '0.5.0-test' }));
+
 vi.mock('$app/paths', () => ({
   resolve: (path: string, params?: Record<string, string>) =>
     path.replace('[serverId]', params?.serverId ?? '').replace('[roomId]', params?.roomId ?? '')
@@ -422,6 +424,57 @@ describe('ModalContainer sign out modal', () => {
     expect(findButton(second.container, 'All Servers')).not.toBeDisabled();
 
     finishSignOut?.(new Response('{}', { status: 200 }));
+  });
+});
+
+describe('ModalContainer About Chatto modal', () => {
+  it('shows the interactive Chatto wordmark', async () => {
+    mocks.modal = { type: 'aboutChatto' };
+
+    const { container } = render(ModalContainer);
+
+    expect(q(container, 'dialog')?.getAttribute('aria-label')).toBe('About Chatto');
+    expect(container.textContent ?? '').toContain('v0.5.0-test');
+    expect(
+      container.querySelector('a[href="https://github.com/chattocorp/chatto"]')
+    ).not.toBeNull();
+    expect(container.querySelector('a[href="https://docs.chatto.run"]')).not.toBeNull();
+    await vi.waitFor(() => {
+      const wordmarkButton = container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Fire a ready laser at Chatto"]'
+      );
+      expect(wordmarkButton).not.toBeNull();
+      expect(wordmarkButton?.querySelector('canvas')).not.toBeNull();
+    }, { timeout: 10_000 });
+  });
+});
+
+describe('ModalContainer remove server modal', () => {
+  it('removes an inactive selected server without navigating away from the active server', async () => {
+    const remote = {
+      id: 'remote',
+      url: 'https://remote.example.test',
+      name: 'Remote',
+      token: 'token'
+    };
+    mocks.servers = [mocks.originServer!, remote];
+    mocks.modal = { type: 'removeServer', serverId: 'remote', spaceName: 'Remote' };
+
+    const { container } = render(ModalContainer);
+    await expect
+      .element(q(container, '[href="/chat/remote.example.test/settings/account"]'))
+      .toHaveTextContent('Account Settings');
+    expect(container.textContent).toContain(
+      'Your account and data on the server will not be deleted.'
+    );
+    clickButton(container, 'Remove Server');
+
+    await vi.waitFor(() => {
+      expect(mocks.clearLastRoom).toHaveBeenCalledWith('remote');
+      expect(mocks.removeServer).toHaveBeenCalledWith('remote');
+      expect(window.history.back).toHaveBeenCalledOnce();
+    });
+    expect(mocks.goto).not.toHaveBeenCalled();
   });
 });
 

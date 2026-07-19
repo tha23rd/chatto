@@ -711,7 +711,7 @@ type Message struct {
 	// Time when the message content was deleted through retraction or account
 	// crypto-shredding. Absent when unavailable body content is not a deletion.
 	DeletedAt *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
-	// Per-message webhook identity override (FDR-032). Present only when this
+	// Per-message webhook identity override (FDR-035). Present only when this
 	// message was posted through a channel webhook whose caller supplied a
 	// per-message username and/or avatar. When present, clients render this
 	// name/avatar instead of the author's profile.
@@ -870,7 +870,7 @@ func (x *Message) GetWebhookOverride() *MessageWebhookOverride {
 }
 
 // MessageWebhookOverride is the per-message display identity a channel webhook
-// set on an individual post (FDR-032).
+// set on an individual post (FDR-035).
 type MessageWebhookOverride struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Display name to render for this message, when set.

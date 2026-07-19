@@ -22,7 +22,7 @@ const (
 )
 
 // UserKind discriminates human accounts from synthetic, non-human identities
-// such as channel webhook authors (FDR-032).
+// such as channel webhook authors (FDR-035).
 type UserKind int32
 
 const (

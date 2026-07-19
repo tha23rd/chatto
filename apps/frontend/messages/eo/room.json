@@ -21,6 +21,15 @@
       "action": "Aliĝu al Ĉambro",
       "prompt": "Aliĝu al #{room} por legi kaj partopreni en ĉi tiu ĉambro.",
       "inline_prompt": "Aliĝu al ĉi tiu ĉambro por legi kaj partopreni.",
+      "group_label": "En {group}",
+      "member_preview_label": "Ĉambromembroj",
+      "member_count": [
+        {
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
+          "match": { "countPlural=one": "{count} membro", "countPlural=other": "{count} membroj" }
+        }
+      ],
       "success": "Aliĝis al #{room}",
       "success_generic": "Aliĝis al ĉambro",
       "failed": "Malsukcesis aliĝi al ĉambro",
@@ -57,9 +66,12 @@
       "leave_confirm": "Ĉu vi certas, ke vi volas forlasi #{room}?"
     },
     "server": {
-      "leave_title": "Forlasu Servilon",
-      "leave_action": "Forlasu Servilon",
-      "leave_prompt": "Ĉu vi certas, ke vi volas forlasi {server}? Vi perdos la aliron al ĝiaj ĉambroj, kaj via kliento forgesos pri ĉi tiu servilo. Vi povas re-aldoni ĝin poste de la flanka kolumno."
+      "remove_title": "Forigi servilon",
+      "remove_action": "Forigi servilon",
+      "remove_prompt": "Ĉu forigi {server} de ĉi tiu flanka kolumno? Tio nur forigas la servilon de ĉi tiu aparato. Via konto kaj datumoj sur la servilo ne estos forigitaj.",
+      "remove_account_prefix": "Por definitive forigi vian konton, malfermu la ",
+      "remove_account_link": "Kontajn agordojn",
+      "remove_account_suffix": " de ĉi tiu servilo antaŭ ol forigi ĝin."
     },
     "timeline": {
       "beginning": "Jen la komenco de ĉi tiu konversacio."
@@ -83,6 +95,8 @@
         "edit": "Redaktu mesaĝon",
         "more": "Pli da agoj",
         "edit_short": "Redaktu",
+        "copy_text": "Kopiu tekston",
+        "copy_text_failed": "Malsukcesis kopii tekston",
         "copy_link": "Kopiu ligilon"
       },
       "meta": {
@@ -98,18 +112,18 @@
         "in_reply_to": "en respondo al",
         "reply_preview_fallback": "Mesaĝo",
         "deleted": "Ĉi tiu mesaĝo estis forigita."
+      },
+      "timestamp": {
+        "details_title": "Dato kaj horo",
+        "local_time": "Loka",
+        "relative_time": "Relativa"
       }
     },
     "system_events": {
       "joined": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "aliĝis al la ĉambro",
             "countPlural=other": "aliĝis al la ĉambro"
@@ -118,13 +132,8 @@
       ],
       "left": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "forlasis la ĉambron",
             "countPlural=other": "forlasis la ĉambron"
@@ -136,13 +145,8 @@
       "and": "kaj",
       "other_people": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "alia",
             "countPlural=other": "aliaj"

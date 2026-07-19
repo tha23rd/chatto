@@ -95,7 +95,7 @@ func (a *roomTimelineAssembler) hydrateEvents(ctx context.Context, viewerID stri
 	return apiEvents, h, nil
 }
 
-func (a *roomTimelineAssembler) buildThreadPage(ctx context.Context, viewerID string, kind core.RoomKind, root *core.RoomEvent, replies *core.RoomEventsResult, includeRoot bool) (*apiv1.RoomTimelinePage, error) {
+func (a *roomTimelineAssembler) buildThreadPage(ctx context.Context, viewerID, roomID, threadRootEventID string, kind core.RoomKind, root *core.RoomEvent, replies *core.RoomEventsResult, includeRoot bool) (*apiv1.RoomTimelinePage, error) {
 	events := make([]*core.RoomEvent, 0, 1+len(replies.Events))
 	if includeRoot {
 		events = append(events, root)
@@ -106,8 +106,14 @@ func (a *roomTimelineAssembler) buildThreadPage(ctx context.Context, viewerID st
 	if err != nil {
 		return nil, err
 	}
-	page.StartCursor = formatRoomTimelineCursor(replies.StartCursorSeq)
-	page.EndCursor = formatRoomTimelineCursor(replies.EndCursorSeq)
+	page.StartCursor, err = a.api.formatRoomTimelineCursor(viewerID, roomID, threadRootEventID, replies.StartCursorSeq)
+	if err != nil {
+		return nil, err
+	}
+	page.EndCursor, err = a.api.formatRoomTimelineCursor(viewerID, roomID, threadRootEventID, replies.EndCursorSeq)
+	if err != nil {
+		return nil, err
+	}
 	return page, nil
 }
 
@@ -198,7 +204,7 @@ func (h *timelineHydrator) event(ctx context.Context, event *core.RoomEvent) (*a
 }
 
 // webhookOverrideToAPI maps a per-message webhook identity override to its
-// public API shape, or nil when there is no meaningful override (FDR-032).
+// public API shape, or nil when there is no meaningful override (FDR-035).
 func webhookOverrideToAPI(o *corev1.WebhookMessageOverride) *apiv1.MessageWebhookOverride {
 	if o == nil {
 		return nil
@@ -440,6 +446,10 @@ func (h *timelineHydrator) users() (map[string]*apiv1.User, error) {
 	if err != nil {
 		return nil, err
 	}
+	presences, err := h.api.core.GetUserPresences(h.ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 
 	result := make(map[string]*apiv1.User, len(ids))
 	avatarWidth, avatarHeight := 96, 96
@@ -448,11 +458,11 @@ func (h *timelineHydrator) users() (map[string]*apiv1.User, error) {
 		if user == nil {
 			user = core.DeletedUserReference(id)
 		}
-		summary, err := (&userService{api: h.api}).userSummary(h.ctx, user, &apiv1.ImageTransformOptions{
+		summary, err := (&userService{api: h.api}).userSummaryWithPresence(h.ctx, user, &apiv1.ImageTransformOptions{
 			Width:  int32(avatarWidth),
 			Height: int32(avatarHeight),
 			Fit:    apiv1.ImageFitMode_IMAGE_FIT_MODE_COVER,
-		})
+		}, presences[id])
 		if err != nil {
 			return nil, err
 		}

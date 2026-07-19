@@ -1,72 +1,163 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NativeHost } from '$lib/native/types';
 
-const mocks = vi.hoisted(() => ({
-  goto: vi.fn(),
-  getNativeHost: vi.fn(),
-  saveFlowState: vi.fn(),
-  completeServerOAuth: vi.fn(),
-  startServerOAuth: vi.fn()
+const {
+  addServerMock,
+  clearOriginAuthenticationMock,
+  completeServerOAuthMock,
+  generateServerIdMock,
+  getNativeHostMock,
+  initServerInfoMock,
+  gotoMock,
+  registeredServersMock,
+  replaceServerAuthenticationMock,
+  startNativeOAuthMock,
+  updateServerMock
+} = vi.hoisted(() => ({
+  addServerMock: vi.fn(),
+  clearOriginAuthenticationMock: vi.fn(),
+  completeServerOAuthMock: vi.fn(),
+  generateServerIdMock: vi.fn(() => 'remote-example'),
+  getNativeHostMock: vi.fn(),
+  initServerInfoMock: vi.fn(() => Promise.resolve()),
+  gotoMock: vi.fn(() => Promise.resolve()),
+  registeredServersMock: [] as Array<{ id: string; url: string }>,
+  replaceServerAuthenticationMock: vi.fn(),
+  startNativeOAuthMock: vi.fn(),
+  updateServerMock: vi.fn()
 }));
 
-vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
+vi.mock('$app/navigation', () => ({ goto: gotoMock }));
 vi.mock('$app/paths', () => ({
-  resolve: (route: string, params?: { serverId: string }) =>
-    params ? route.replace('[serverId]', params.serverId) : route
+  resolve: (_route: string, params?: { serverId?: string }) =>
+    params?.serverId ? `/chat/${params.serverId}` : '/login'
 }));
 vi.mock('$lib/api-client/server', () => ({ getPublicServerInfo: vi.fn() }));
-vi.mock('$lib/native/host', () => ({ getNativeHost: mocks.getNativeHost }));
-vi.mock('$lib/oauth/pkce', () => ({
-  generateCodeChallenge: vi.fn(async () => 'challenge'),
-  generateCodeVerifier: vi.fn(() => 'verifier'),
-  generateState: vi.fn(() => 'state'),
-  saveFlowState: mocks.saveFlowState
-}));
+vi.mock('$lib/native/host', () => ({ getNativeHost: getNativeHostMock }));
+vi.mock('$lib/navigation', () => ({ serverIdToSegment: (serverId: string) => serverId }));
 vi.mock('$lib/state/server/registry.svelte', () => ({
-  serverRegistry: { clearOriginAuthentication: vi.fn() }
+  generateServerId: generateServerIdMock,
+  serverRegistry: {
+    servers: registeredServersMock,
+    addServer: addServerMock,
+    getStore: vi.fn(() => ({ serverInfo: { init: initServerInfoMock } })),
+    updateServer: updateServerMock,
+    replaceServerAuthentication: replaceServerAuthenticationMock,
+    clearOriginAuthentication: clearOriginAuthenticationMock
+  }
 }));
 vi.mock('./loadAuth', () => ({ clearCachedUser: vi.fn() }));
-vi.mock('./serverOAuth', () => ({ completeServerOAuth: mocks.completeServerOAuth }));
-
-import { startServerOAuthFlow } from './reauth';
+vi.mock('./serverOAuth', () => ({ completeServerOAuth: completeServerOAuthMock }));
 
 function nativeHost(nativeOAuth: boolean): NativeHost {
   return {
     capabilities: { nativeOAuth },
-    startServerOAuth: mocks.startServerOAuth
+    startServerOAuth: startNativeOAuthMock
   } as unknown as NativeHost;
 }
 
+class FakeBroadcastChannel {
+  static instances: FakeBroadcastChannel[] = [];
+
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  closed = false;
+
+  constructor(readonly name: string) {
+    FakeBroadcastChannel.instances.push(this);
+  }
+
+  postMessage() {}
+
+  close() {
+    this.closed = true;
+  }
+
+  emit(data: unknown) {
+    this.onmessage?.({ data } as MessageEvent);
+  }
+}
+
+function memoryStorage(): Storage {
+  const values = new Map<string, string>();
+  return {
+    get length() {
+      return values.size;
+    },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => [...values.keys()][index] ?? null,
+    removeItem: (key) => values.delete(key),
+    setItem: (key, value) => values.set(key, value)
+  };
+}
+
+function browserHarness(openResult: Window | null) {
+  const listeners = new Set<(event: MessageEvent) => void>();
+  const open = vi.fn(() => openResult);
+  const owner = {
+    location: { origin: 'https://app.example' },
+    screenX: 0,
+    screenY: 0,
+    outerWidth: 1280,
+    outerHeight: 900,
+    open,
+    addEventListener: (type: string, listener: (event: MessageEvent) => void) => {
+      if (type === 'message') listeners.add(listener);
+    },
+    removeEventListener: (type: string, listener: (event: MessageEvent) => void) => {
+      if (type === 'message') listeners.delete(listener);
+    },
+    setInterval,
+    clearInterval,
+    setTimeout,
+    clearTimeout
+  } as unknown as Window;
+  return { owner, open };
+}
+
 beforeEach(() => {
-  mocks.goto.mockReset().mockResolvedValue(undefined);
-  mocks.saveFlowState.mockReset();
-  mocks.completeServerOAuth.mockReset().mockReturnValue({ serverId: 'chatto.example' });
-  mocks.startServerOAuth.mockReset().mockResolvedValue({ accessToken: 'token' });
+  vi.clearAllMocks();
+  vi.resetModules();
+  registeredServersMock.length = 0;
+  FakeBroadcastChannel.instances = [];
+  getNativeHostMock.mockReturnValue(nativeHost(false));
+  startNativeOAuthMock.mockResolvedValue({ accessToken: 'token' });
+  completeServerOAuthMock.mockImplementation((flow: { remoteUrl: string }) => {
+    registeredServersMock.push({ id: 'chatto-example', url: flow.remoteUrl });
+    return { serverId: 'chatto.example' };
+  });
+  vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel);
+  vi.stubGlobal('sessionStorage', memoryStorage());
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('startServerOAuthFlow', () => {
-  it('uses the native loopback flow and completes registration on desktop', async () => {
-    mocks.getNativeHost.mockReturnValue(nativeHost(true));
+describe('native remote server OAuth', () => {
+  it('uses the native loopback flow and completes registration before navigation', async () => {
+    getNativeHostMock.mockReturnValue(nativeHost(true));
+    const beforeNavigate = vi.fn();
 
-    await startServerOAuthFlow('https://chatto.example', {
-      name: 'Example',
-      authorizeUrl: '/oauth/authorize',
-      iconUrl: 'https://chatto.example/icon.png'
-    });
+    const { startServerOAuthFlow } = await import('./reauth');
+    await startServerOAuthFlow(
+      'https://chatto.example',
+      {
+        name: 'Example',
+        authorizeUrl: '/oauth/authorize',
+        iconUrl: 'https://chatto.example/icon.png'
+      },
+      beforeNavigate
+    );
 
-    expect(mocks.startServerOAuth).toHaveBeenCalledWith({
+    expect(startNativeOAuthMock).toHaveBeenCalledWith({
       serverUrl: 'https://chatto.example',
       authorizePath: '/oauth/authorize',
-      codeChallenge: 'challenge',
-      codeVerifier: 'verifier',
-      state: 'state'
+      codeChallenge: expect.any(String),
+      codeVerifier: expect.any(String),
+      state: expect.any(String)
     });
-    expect(mocks.saveFlowState).not.toHaveBeenCalled();
-    expect(mocks.completeServerOAuth).toHaveBeenCalledWith(
+    expect(completeServerOAuthMock).toHaveBeenCalledWith(
       {
         remoteUrl: 'https://chatto.example',
         serverName: 'Example',
@@ -74,54 +165,19 @@ describe('startServerOAuthFlow', () => {
       },
       { accessToken: 'token' }
     );
-    expect(mocks.goto).toHaveBeenCalledWith('/chat/chatto.example');
-  });
-
-  it('retains the browser callback flow for the web client', async () => {
-    mocks.getNativeHost.mockReturnValue(nativeHost(false));
-    const location = { origin: 'https://client.example', href: '' };
-    vi.stubGlobal('window', { location });
-
-    await startServerOAuthFlow('https://chatto.example', {
-      name: 'Example',
-      authorizeUrl: '/oauth/authorize',
-      iconUrl: null
-    });
-
-    expect(mocks.saveFlowState).toHaveBeenCalledWith({
-      verifier: 'verifier',
-      state: 'state',
-      remoteUrl: 'https://chatto.example',
-      serverName: 'Example',
-      serverIconUrl: null
-    });
-    const authorizeUrl = new URL(location.href);
-    expect(authorizeUrl.origin + authorizeUrl.pathname).toBe(
-      'https://chatto.example/oauth/authorize'
+    expect(initServerInfoMock).toHaveBeenCalledOnce();
+    expect(beforeNavigate).toHaveBeenCalledOnce();
+    expect(beforeNavigate.mock.invocationCallOrder[0]).toBeLessThan(
+      gotoMock.mock.invocationCallOrder[0]!
     );
-    expect(authorizeUrl.searchParams.get('redirect_uri')).toBe(
-      'https://client.example/servers/callback'
-    );
-  });
-
-  it('preserves non-loopback HTTP server OAuth in the web client', async () => {
-    mocks.getNativeHost.mockReturnValue(nativeHost(false));
-    const location = { origin: 'http://client.lan', href: '' };
-    vi.stubGlobal('window', { location });
-
-    await startServerOAuthFlow('http://192.168.1.20:4000', {
-      name: 'LAN server',
-      authorizeUrl: '/oauth/authorize',
-      iconUrl: null
-    });
-
-    expect(new URL(location.href).origin).toBe('http://192.168.1.20:4000');
-    expect(mocks.startServerOAuth).not.toHaveBeenCalled();
+    expect(gotoMock).toHaveBeenCalledWith('/chat/chatto.example');
+    expect(sessionStorage.getItem('chatto:oauth:flow')).toBeNull();
   });
 
   it('rejects an authorization endpoint on a different origin', async () => {
-    mocks.getNativeHost.mockReturnValue(nativeHost(true));
+    getNativeHostMock.mockReturnValue(nativeHost(true));
 
+    const { startServerOAuthFlow } = await import('./reauth');
     await expect(
       startServerOAuthFlow('https://chatto.example', {
         name: 'Example',
@@ -129,6 +185,118 @@ describe('startServerOAuthFlow', () => {
         iconUrl: null
       })
     ).rejects.toThrow('OAuth authorization URL is not allowed.');
-    expect(mocks.startServerOAuth).not.toHaveBeenCalled();
+    expect(startNativeOAuthMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('remote server OAuth popup', () => {
+  it('keeps the main client mounted while completing PKCE through a popup', async () => {
+    const popup = {
+      closed: false,
+      opener: {} as Window,
+      location: { href: '' },
+      close: vi.fn(function (this: { closed: boolean }) {
+        this.closed = true;
+      })
+    } as unknown as Window;
+    const { owner, open } = browserHarness(popup);
+    vi.stubGlobal('window', owner);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              access_token: 'cht_ATtoken',
+              user: { id: 'user-1', login: 'alice', displayName: 'Alice' }
+            }),
+            { headers: { 'Content-Type': 'application/json' } }
+          )
+      )
+    );
+
+    const { startServerOAuthFlow } = await import('./reauth');
+    const beforeNavigate = vi.fn();
+    const completion = startServerOAuthFlow(
+      'https://remote.example',
+      {
+        name: 'Remote',
+        authorizeUrl: '/oauth/authorize',
+        iconUrl: null
+      },
+      beforeNavigate
+    );
+
+    // window.open happens before the first asynchronous PKCE operation, so it
+    // remains associated with the user's click and avoids popup blocking.
+    expect(open).toHaveBeenCalledOnce();
+    expect(open).toHaveBeenCalledWith(
+      'about:blank',
+      expect.stringMatching(/^chatto-oauth-/),
+      expect.stringContaining('width=520,height=600')
+    );
+    await vi.waitFor(() => expect(popup.location.href).toContain('/oauth/authorize?'));
+    expect(popup.opener).toBeNull();
+
+    const authorizeURL = new URL(popup.location.href);
+    const state = authorizeURL.searchParams.get('state');
+    expect(state).toBeTruthy();
+    expect(authorizeURL.searchParams.get('redirect_uri')).toBe(
+      'https://app.example/servers/callback?mode=popup'
+    );
+
+    const responseChannel = FakeBroadcastChannel.instances.find(
+      (channel) => channel.name === `chatto:oauth-popup:${state}`
+    );
+    expect(responseChannel).toBeDefined();
+    responseChannel!.emit({
+      type: 'chatto:oauth-popup-response',
+      state,
+      code: 'cht_ACcode'
+    });
+
+    await completion;
+
+    expect(fetch).toHaveBeenCalledWith(
+      'https://remote.example/oauth/token',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining(
+          '"redirect_uri":"https://app.example/servers/callback?mode=popup"'
+        )
+      })
+    );
+    expect(addServerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'remote-example',
+        url: 'https://remote.example',
+        token: 'cht_ATtoken',
+        userId: 'user-1'
+      })
+    );
+    expect(initServerInfoMock).toHaveBeenCalledOnce();
+    expect(beforeNavigate).toHaveBeenCalledOnce();
+    expect(beforeNavigate.mock.invocationCallOrder[0]).toBeLessThan(
+      gotoMock.mock.invocationCallOrder[0]!
+    );
+    expect(gotoMock).toHaveBeenCalledWith('/chat/remote-example');
+    expect(popup.close).toHaveBeenCalledOnce();
+  });
+
+  it('fails without navigating the main window when the popup is blocked', async () => {
+    const { owner } = browserHarness(null);
+    vi.stubGlobal('window', owner);
+
+    const { startServerOAuthFlow } = await import('./reauth');
+    await expect(
+      startServerOAuthFlow('https://remote.example', {
+        name: 'Remote',
+        authorizeUrl: '/oauth/authorize',
+        iconUrl: null
+      })
+    ).rejects.toThrow('could not be opened');
+
+    expect(gotoMock).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('chatto:oauth:flow')).toBeNull();
   });
 });

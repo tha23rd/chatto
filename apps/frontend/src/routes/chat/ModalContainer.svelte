@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { version } from '$app/environment';
   import { page } from '$app/state';
   import { goto, replaceState } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -11,6 +12,7 @@
 
   const activeInstanceId = $derived(getActiveServer());
   const serverSegment = $derived(serverIdToSegment(activeInstanceId));
+  const modalServerId = $derived(page.state.modal?.serverId ?? activeInstanceId);
   import Dialog from '$lib/ui/Dialog.svelte';
   import ConfirmDialog from '$lib/ui/ConfirmDialog.svelte';
   import CreateRoom from '$lib/CreateRoom.svelte';
@@ -28,6 +30,15 @@
   import { toast } from '$lib/ui/toast';
   import { clearLastRoom } from '$lib/storage/lastRoom';
   import { notifyRoomMessageMutated } from '$lib/state/room/messageMutationEvents';
+
+  let simulatedChattoWordmarkModule: Promise<
+    typeof import('$lib/components/SimulatedChattoWordmark.svelte')
+  > | null = null;
+
+  function loadSimulatedChattoWordmark() {
+    simulatedChattoWordmarkModule ??= import('$lib/components/SimulatedChattoWordmark.svelte');
+    return simulatedChattoWordmarkModule;
+  }
 
   function closeModal() {
     history.back();
@@ -56,7 +67,7 @@
   }
 
   let leavingRoom = $state(false);
-  let leavingServer = $state(false);
+  let removingServer = $state(false);
   let deletingMessage = $state(false);
   let deletingLinkPreview = $state(false);
   let deletingAttachment = $state(false);
@@ -87,15 +98,22 @@
     goto(resolve('/chat/[serverId]', { serverId: serverSegment }));
   }
 
-  async function handleLeaveServer() {
-    // Post-#330 PR(a) "leave server" no longer hits the API — server membership
+  async function handleRemoveServer() {
+    // Removing a server no longer hits the API — server membership
     // is implicit on signup, so the action is purely a client-side disconnect:
     // forget the instance from the registry and route somewhere safe.
-    leavingServer = true;
-    clearLastRoom(activeInstanceId);
+    removingServer = true;
+    const targetServerId = modalServerId;
+    clearLastRoom(targetServerId);
 
-    const leftInstanceId = activeInstanceId;
+    const leftInstanceId = targetServerId;
     serverRegistry.removeServer(leftInstanceId);
+
+    if (leftInstanceId !== activeInstanceId) {
+      removingServer = false;
+      closeModal();
+      return;
+    }
 
     // Land on the origin instance if it exists, otherwise root.
     const originId = serverRegistry.originServer?.id;
@@ -104,7 +122,7 @@
     } else {
       goto(resolve('/'));
     }
-    leavingServer = false;
+    removingServer = false;
   }
 
   async function handleDeleteMessage(roomId: string, eventId: string) {
@@ -249,6 +267,47 @@
   </Dialog>
 {:else if modalType === 'logout'}
   <SignOutDialog onclose={closeModal} />
+{:else if modalType === 'aboutChatto'}
+  <Dialog
+    visible
+    title={m['ui.tooltip.about']({ subject: 'Chatto' })}
+    size="lg"
+    onclose={closeModal}
+  >
+    <div class="flex flex-col items-center gap-4 text-sm">
+      <div class="flex aspect-[2/1] w-full items-center justify-center">
+        {#await loadSimulatedChattoWordmark() then { default: SimulatedChattoWordmark }}
+          <SimulatedChattoWordmark contained />
+        {/await}
+      </div>
+
+      <p class="text-muted tabular-nums">v{version}</p>
+
+      <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        <a
+          href="https://github.com/chattocorp/chatto"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 link"
+        >
+          <span class="iconify text-base mdi--github" aria-hidden="true"></span>
+          <span>github.com/chattocorp/chatto</span>
+          <span class="iconify text-sm mdi--open-in-new" aria-hidden="true"></span>
+        </a>
+        <a
+          href="https://docs.chatto.run"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 link"
+        >
+          <span class="iconify text-base mdi--book-open-page-variant-outline" aria-hidden="true"
+          ></span>
+          <span>docs.chatto.run</span>
+          <span class="iconify text-sm mdi--open-in-new" aria-hidden="true"></span>
+        </a>
+      </div>
+    </div>
+  </Dialog>
 {:else if modalType === 'leaveRoom' && roomId}
   <ConfirmDialog
     title={m['room.leave.title']()}
@@ -260,16 +319,26 @@
   >
     {m['room.leave.prompt']({ room: roomName ?? '' })}
   </ConfirmDialog>
-{:else if modalType === 'leaveServer'}
+{:else if modalType === 'removeServer'}
   <ConfirmDialog
-    title={m['room.server.leave_title']()}
-    actionLabel={m['room.server.leave_action']()}
-    actionIcon="iconify uil--sign-out-alt"
-    loading={leavingServer}
-    onconfirm={() => handleLeaveServer()}
+    title={m['room.server.remove_title']()}
+    actionLabel={m['room.server.remove_action']()}
+    actionIcon="iconify uil--minus-circle"
+    loading={removingServer}
+    onconfirm={() => handleRemoveServer()}
     onclose={closeModal}
   >
-    {m['room.server.leave_prompt']({ server: spaceName ?? '' })}
+    <p>{m['room.server.remove_prompt']({ server: spaceName ?? '' })}</p>
+    <p class="mt-3 text-sm text-muted">
+      {m['room.server.remove_account_prefix']()}
+      <a
+        href={resolve('/chat/[serverId]/settings/account', {
+          serverId: serverIdToSegment(modalServerId)
+        })}
+        class="link"
+        >{m['room.server.remove_account_link']()}</a
+      >{m['room.server.remove_account_suffix']()}
+    </p>
   </ConfirmDialog>
 {:else if modalType === 'deleteMessage' && roomId && eventId}
   <ConfirmDialog

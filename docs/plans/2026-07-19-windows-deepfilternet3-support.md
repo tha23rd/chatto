@@ -97,7 +97,7 @@ git commit -m "fix(desktop): allow DeepFilterNet3 worklet modules"
 
 **Files:**
 
-- Modify: `docs/fdr/FDR-031-microphone-noise-suppression.md`
+- Modify: `docs/fdr/FDR-034-microphone-noise-suppression.md`
 
 **Step 1: Update the review date and add a native-client decision**
 
@@ -129,7 +129,7 @@ Run:
 
 ```bash
 git diff --check
-git diff -- docs/fdr/FDR-031-microphone-noise-suppression.md
+git diff -- docs/fdr/FDR-034-microphone-noise-suppression.md
 ```
 
 Expected: no whitespace errors; the FDR accurately distinguishes the native
@@ -138,7 +138,7 @@ exception from the unchanged web policy.
 **Step 3: Commit the documentation update**
 
 ```bash
-git add docs/fdr/FDR-031-microphone-noise-suppression.md
+git add docs/fdr/FDR-034-microphone-noise-suppression.md
 git commit -m "docs(voice): document native worklet policy"
 ```
 
@@ -276,7 +276,7 @@ fix(desktop): support DeepFilterNet3 worklets
 
 The body must summarize the CSP root cause, security tradeoff, unchanged web
 policy, automated checks, native packaged-protocol result, Windows release
-build evidence, and link FDR-031 plus the design/implementation plans.
+build evidence, and link FDR-034 plus the design/implementation plans.
 
 **Step 4: Verify the stored PR metadata**
 
