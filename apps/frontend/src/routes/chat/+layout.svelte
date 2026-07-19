@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fullscreenVideo } from '$lib/state/globals.svelte';
+  import NotificationSync from '$lib/components/NotificationSync.svelte';
   import { createPresenceCache } from '$lib/state/presenceCache.svelte';
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { UserSettingsState, setUserSettings } from '$lib/state/userSettings.svelte';
@@ -32,6 +33,7 @@
 
 {#if !data.user}
   <AnonymousOriginPresenceProvider {presenceCache} />
+  <NotificationSync />
 {/if}
 
 {#if data.user && serverRegistry.originServer}
