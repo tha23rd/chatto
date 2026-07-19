@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { relative, resolve } from 'node:path';
+import { relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const frontendRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -66,7 +66,7 @@ async function svelteFiles(directory) {
 const failures = [];
 
 for (const file of await svelteFiles(sourceRoot)) {
-  const path = relative(frontendRoot, file);
+  const path = relative(frontendRoot, file).split(sep).join('/');
   const source = await readFile(file, 'utf8');
   const utilitySource = source
     .replace(/<style[\s\S]*?<\/style>/g, '')
