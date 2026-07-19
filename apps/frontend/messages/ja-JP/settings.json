@@ -155,7 +155,16 @@
       },
       "save_button": "表示設定の保存",
       "saved": "表示設定が保存されました",
-      "save_failed": "表示設定の保存に失敗しました"
+      "save_failed": "表示設定の保存に失敗しました",
+      "soundboard": {
+        "title": "Soundboard",
+        "description": "ボイスコールで他のメンバーのサウンドボードの音があなたに再生される音量を調整します。",
+        "volume": "再生音量",
+        "mute": {
+          "label": "サウンドボードをミュート",
+          "description": "他のメンバーのサウンドボードの音をすべてミュートします。"
+        }
+      }
     },
     "notifications": {
       "title": "通知",

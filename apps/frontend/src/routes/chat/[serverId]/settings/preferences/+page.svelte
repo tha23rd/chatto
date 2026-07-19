@@ -10,7 +10,7 @@
   import { getActiveServer } from '$lib/state/activeServer.svelte';
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { ChoiceRow, PaneHeader, FormSection } from '$lib/ui';
-  import { Button, Combobox, FormError } from '$lib/ui/form';
+  import { Button, Combobox, FormError, RangeField, Checkbox } from '$lib/ui/form';
   import { toast } from '$lib/ui/toast';
   import { formatMessageTime } from '$lib/utils/formatTime';
 
@@ -255,6 +255,38 @@
           onclick={() => (selectedTimeFormat = option.value)}
         />
       {/each}
+    </div>
+  </FormSection>
+
+  <!-- Soundboard playback -->
+  <FormSection title={m['settings.preferences.soundboard.title']()} maxWidth="max-w-md" bordered>
+    <p class="mb-3 text-sm text-muted">{m['settings.preferences.soundboard.description']()}</p>
+
+    <div class="flex flex-col gap-3">
+      <RangeField
+        id="soundboard-volume"
+        testid="soundboard-volume"
+        label={m['settings.preferences.soundboard.volume']()}
+        icon="uil--volume"
+        min={0}
+        max={100}
+        step={5}
+        value={Math.round(userPreferences.soundboardVolume * 100)}
+        displayValue={`${Math.round(userPreferences.soundboardVolume * 100)}%`}
+        disabled={userPreferences.soundboardMuted}
+        oninput={(e) =>
+          (userPreferences.soundboardVolume =
+            Number((e.currentTarget as HTMLInputElement).value) / 100)}
+      />
+
+      <Checkbox
+        id="soundboard-muted"
+        label={m['settings.preferences.soundboard.mute.label']()}
+        description={m['settings.preferences.soundboard.mute.description']()}
+        checked={userPreferences.soundboardMuted}
+        onchange={(e) =>
+          (userPreferences.soundboardMuted = (e.currentTarget as HTMLInputElement).checked)}
+      />
     </div>
   </FormSection>
 

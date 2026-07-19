@@ -17,6 +17,7 @@ Room sidebar panel for voice/video calls.
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { getServerPermissions } from '$lib/state/server/permissions.svelte';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
+  import { userPreferences } from '$lib/state/userPreferences.svelte';
   import * as m from '$lib/i18n/messages';
 
   const stores = serverRegistry.getStore(getActiveServer());
@@ -286,14 +287,17 @@ Room sidebar panel for voice/video calls.
   function updateSpeakingIndicators() {
     for (const { identity, node } of speakingCards) {
       const { isSpeaking, audioLevel } = voiceCallState.getAudioLevel(identity);
+      // Playing a soundboard clip lights up the tile like speech, so you can
+      // see who triggered a sound even if they aren't talking.
+      const soundboardActive = voiceCallState.isSoundboardActive(identity);
       const opacity = audioLevel > 0.01 ? 0.35 + Math.pow(audioLevel, 0.35) * 0.65 : 0;
-      const visible = isSpeaking || opacity > 0;
+      const visible = isSpeaking || opacity > 0 || soundboardActive;
 
-      node.style.setProperty(
-        '--call-speaking-ring-opacity',
-        visible ? String(opacity || 0.85) : '0'
-      );
-      node.style.setProperty('--call-speaking-ring-strength', visible ? String(audioLevel) : '0');
+      const ringOpacity = soundboardActive ? 0.95 : opacity || 0.85;
+      const ringStrength = soundboardActive ? Math.max(audioLevel, 0.9) : audioLevel;
+
+      node.style.setProperty('--call-speaking-ring-opacity', visible ? String(ringOpacity) : '0');
+      node.style.setProperty('--call-speaking-ring-strength', visible ? String(ringStrength) : '0');
       node.dataset.callSpeaking = visible ? 'true' : 'false';
     }
   }
@@ -325,6 +329,13 @@ Room sidebar panel for voice/video calls.
       };
     };
   }
+
+  // Re-apply the listener-side soundboard volume/mute to any live soundboard
+  // tracks whenever the preference changes while a call is running.
+  $effect(() => {
+    void userPreferences.soundboardPlaybackGain;
+    voiceCallState.refreshSoundboardPlaybackVolume();
+  });
 
   // DM start capability
   const serverPerms = getServerPermissions();
