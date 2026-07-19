@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { browserNativeHost } from './browserHost';
 import {
   getNativeHost,
+  initializeNativeHost,
   installNativeHost,
   resetNativeHostForTests,
   selectNativeHost
@@ -54,6 +55,22 @@ describe('NativeHost selection', () => {
 
     restore();
     expect(getNativeHost()).toBe(browserNativeHost);
+  });
+
+  it('loads and installs the desktop host before desktop startup continues', async () => {
+    const tauri = desktopHost();
+    const loadDesktopHost = vi.fn(async () => tauri);
+
+    await expect(initializeNativeHost(true, loadDesktopHost)).resolves.toBe(tauri);
+    expect(loadDesktopHost).toHaveBeenCalledOnce();
+    expect(getNativeHost()).toBe(tauri);
+  });
+
+  it('does not load native bindings for an ordinary web build', async () => {
+    const loadDesktopHost = vi.fn(async () => desktopHost());
+
+    await expect(initializeNativeHost(false, loadDesktopHost)).resolves.toBe(browserNativeHost);
+    expect(loadDesktopHost).not.toHaveBeenCalled();
   });
 
   it('opens HTTPS links through the browser implementation', async () => {

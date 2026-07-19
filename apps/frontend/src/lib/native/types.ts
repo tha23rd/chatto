@@ -64,7 +64,7 @@ export interface NativeHost {
   readonly capabilities: NativeCapabilities;
 
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
-  createRealtimeSocket(url: string): RealtimeSocketLike | Promise<RealtimeSocketLike>;
+  createRealtimeSocket(url: string): RealtimeSocketLike;
   startServerOAuth(request: NativeOAuthRequest): Promise<NativeOAuthResult>;
   openExternal(url: string): Promise<void>;
   registerPushToTalk(

@@ -7,6 +7,7 @@ import {
 } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import type { ServiceType } from "@bufbuild/protobuf";
+import { getNativeHost } from "$lib/native/host";
 import { notifyAuthenticationRequired } from "./hooks.js";
 
 export type ConnectAPIConfig = {
@@ -28,9 +29,16 @@ export function createChattoTransport(
   config: { baseUrl: string },
   options: { useBinaryFormat?: boolean } = {},
 ): Transport {
+  const nativeHost = getNativeHost();
   return createConnectTransport({
     baseUrl: config.baseUrl,
     useBinaryFormat: options.useBinaryFormat ?? true,
+    ...(nativeHost.capabilities.nativeHttp
+      ? {
+          fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+            nativeHost.fetch(input, init),
+        }
+      : {}),
   });
 }
 
