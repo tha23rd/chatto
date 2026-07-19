@@ -53,9 +53,10 @@ Windows compiler. Once those jobs pass, it will:
 1. download the Windows workflow artifact;
 2. require exactly the expected installer and checksum;
 3. verify the checksum locally;
-4. create or resume a draft GitHub prerelease for the exact commit;
-5. upload and verify both release assets; and
-6. make the draft public as a prerelease.
+4. create an asset-bearing GitHub prerelease for the exact commit;
+5. rely on GitHub CLI's draft/upload/publish transaction so incomplete assets
+   are never exposed; and
+6. verify the published tag and both release assets.
 
 This matches the existing main-branch image-publishing principle: accepted
 code is published only after the tests that guard it succeed. A draft prevents
@@ -108,8 +109,11 @@ automatic updates, and Microsoft Store distribution remain separate
 production-hardening work.
 
 The publisher validates the artifact count, exact commit-derived filenames,
-and SHA-256 checksum before upload, then confirms both expected asset names are
-present before publishing the draft.
+and SHA-256 checksum before upload, then confirms the immutable tag and both
+expected asset names are present. If a failed prior attempt left an unpublished
+draft, the publisher verifies that the draft belongs to the exact tag and
+commit, replaces only that incomplete draft, and retries the documented GitHub
+CLI draft/upload/publish transaction.
 
 ## Trade-Offs
 

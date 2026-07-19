@@ -131,19 +131,20 @@ Download `windows-installer-${{ github.sha }}`. Consume the version, tag, and
 installer name from `test-desktop-windows` outputs. Require exactly the two
 expected files and run `sha256sum --check` before calling GitHub.
 
-**Step 3: Create or resume the immutable draft**
+**Step 3: Create or safely replace the immutable prerelease transaction**
 
 Target `${{ github.repository }}` and the exact `${{ github.sha }}` using the
-repository `GITHUB_TOKEN`. If no release exists, create a draft prerelease with
-the commit-derived `desktop-v...` tag and explicit unsigned-POC notes. If a
-draft exists for a rerun, resume it. If the same prerelease is already public,
-treat the immutable release as complete instead of replacing it.
+repository `GITHUB_TOKEN`. If the same complete prerelease is already public,
+treat the immutable release as complete. If a failed prior attempt left an
+unpublished draft, verify its exact tag and commit before replacing only that
+incomplete draft.
 
 **Step 4: Upload, verify, and publish**
 
-Upload both assets with `--clobber` only while the release is a draft. Query the
-release API and require both asset names, then set `draft=false` while retaining
-`prerelease=true`.
+Pass both assets to `gh release create --prerelease`. GitHub CLI documents that
+this path creates a draft internally, uploads the assets, and publishes only
+after the uploads succeed. Query the release and tag APIs afterward and require
+the exact source commit, prerelease state, and both asset names.
 
 **Step 5: Run the focused test and verify GREEN**
 

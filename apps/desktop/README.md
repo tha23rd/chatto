@@ -5,6 +5,30 @@ SvelteKit client in `apps/frontend`. It deliberately owns only native transport,
 authentication, shortcuts, tray/window lifecycle, and future media capture
 integration. Product UI and domain behaviour remain in the shared frontend.
 
+## Main-native prereleases
+
+Native development targets the downstream `main-native` branch so `main` can
+remain focused on the upstream web/server code. Merge `main` into
+`main-native` to pick up upstream changes; native feature pull requests should
+use `main-native` as their base.
+
+Every successful push to `main-native` publishes an immutable Windows POC
+prerelease on the repository's
+[GitHub Releases page](https://github.com/tha23rd/chatto/releases). The base
+version and source commit are encoded in the tag and installer name:
+
+```text
+desktop-v0.1.0-main-native.sha-af3ce2e42586
+Chatto_0.1.0-main-native.sha-af3ce2e42586_x64-setup.exe
+Chatto_0.1.0-main-native.sha-af3ce2e42586_x64-setup.exe.sha256
+```
+
+The workflow waits for the relevant CI jobs, verifies the package and checksum,
+and uploads both files to a draft before exposing it as a prerelease. Verify the
+downloaded installer against its adjacent `.sha256` file before running it.
+These POC packages are intentionally unsigned, so Windows SmartScreen may warn
+about or block them.
+
 ## Development
 
 Install the normal Chatto prerequisites plus the Windows Tauri prerequisites:
