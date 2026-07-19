@@ -28,7 +28,10 @@
       return;
     }
 
-    const homeId = serverRegistry.originServer?.id ?? '';
+    // No origin server (static hosting / bundled desktop client) → treat the
+    // first registered server as home so `/chat` resolves to a real server
+    // instead of dead-ending.
+    const homeId = serverRegistry.originServer?.id ?? serverRegistry.servers[0]?.id ?? '';
     if (!homeId) return;
 
     const lastPos = data.welcome ? null : resolveLastPosition(homeId);
