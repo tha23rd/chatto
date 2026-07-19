@@ -7,6 +7,7 @@ function bindings() {
     openUrl: vi.fn(async () => {}),
     createRealtimeSocket: vi.fn(),
     startServerOAuth: vi.fn(),
+    registerPushToTalk: vi.fn(async () => () => {}),
     onTrayAction: vi.fn(async () => () => {}),
     setCallControls: vi.fn(async () => {}),
     quit: vi.fn(async () => {})
@@ -22,9 +23,19 @@ describe('Tauri NativeHost', () => {
       nativeOAuth: true,
       nativeHttp: true,
       nativeRealtime: true,
-      globalPushToTalk: false,
+      globalPushToTalk: true,
       tray: true
     });
+  });
+
+  it('routes global push-to-talk through the native shortcut binding', async () => {
+    const native = bindings();
+    const host = createTauriNativeHost(native);
+    const listener = vi.fn();
+
+    await host.registerPushToTalk('Control+Shift+Space', listener);
+
+    expect(native.registerPushToTalk).toHaveBeenCalledWith('Control+Shift+Space', listener);
   });
 
   it('routes tray actions and lifecycle controls through typed native bindings', async () => {
