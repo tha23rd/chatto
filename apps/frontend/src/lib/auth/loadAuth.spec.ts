@@ -5,16 +5,22 @@ const {
   getCurrentUserViaConnectMock,
   clearOriginAuthenticationMock,
   handleAuthenticationRequiredMock,
-  clearAuthenticationRequiredMock
+  clearAuthenticationRequiredMock,
+  getNativeClientMock
 } = vi.hoisted(() => ({
   getCurrentUserViaConnectMock: vi.fn(),
   clearOriginAuthenticationMock: vi.fn(),
   handleAuthenticationRequiredMock: vi.fn(),
-  clearAuthenticationRequiredMock: vi.fn()
+  clearAuthenticationRequiredMock: vi.fn(),
+  getNativeClientMock: vi.fn(() => null as unknown)
 }));
 
 vi.mock('$app/environment', () => ({
   browser: true
+}));
+
+vi.mock('$lib/native/client', () => ({
+  getNativeClient: getNativeClientMock
 }));
 
 vi.mock('$app/paths', () => ({
@@ -63,6 +69,15 @@ async function loadModule() {
 describe('loadCurrentUser', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getNativeClientMock.mockReturnValue(null);
+  });
+
+  it('skips the origin query on the native desktop client', async () => {
+    getNativeClientMock.mockReturnValue({} as unknown);
+    const { loadCurrentUser } = await loadModule();
+
+    expect(await loadCurrentUser()).toBeNull();
+    expect(getCurrentUserViaConnectMock).not.toHaveBeenCalled();
   });
 
   it('refreshes from the server on each call', async () => {

@@ -11,6 +11,7 @@ import { browser } from '$app/environment';
 import { serverConnectionManager } from '$lib/state/server/serverConnection.svelte';
 import { serverRegistry } from '$lib/state/server/registry.svelte';
 import { getCurrentUserViaConnect, type CurrentUser } from '$lib/api-client/viewer';
+import { getNativeClient } from '$lib/native/client';
 import { isAuthenticationRequiredError } from './errors';
 import { isExplicitSignOutRedirectInProgress } from './signOut';
 
@@ -32,6 +33,14 @@ export async function loadCurrentUser(): Promise<CurrentUser | null> {
   if (!browser) {
     // In SPA mode, load functions only run in the browser.
     // If somehow called on server, return null (will trigger redirect).
+    return null;
+  }
+
+  if (getNativeClient()) {
+    // The bundled desktop client is served from the app protocol, not a Chatto
+    // server, so it has no origin server to query. Remote servers authenticate
+    // through their own per-server stores; probing the origin here would just
+    // hit the app protocol and 405. Treat the origin as unauthenticated.
     return null;
   }
 
