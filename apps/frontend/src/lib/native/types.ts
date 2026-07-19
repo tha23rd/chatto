@@ -22,7 +22,7 @@ export interface DesktopUpdateSnapshot {
   readonly candidateVersion?: string;
   readonly downloadedBytes?: number;
   readonly totalBytes?: number;
-  readonly lastCheckedAt?: string;
+  readonly lastCheckedAt?: number;
   readonly errorCode?:
     | 'network'
     | 'metadata'

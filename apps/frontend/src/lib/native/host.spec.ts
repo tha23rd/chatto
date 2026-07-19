@@ -67,7 +67,7 @@ describe('NativeHost selection', () => {
         channel: 'nightly',
         phase: 'checking',
         currentVersion: '0.2.0-nightly.20260719.1',
-        lastCheckedAt: '2026-07-19T12:00:00Z'
+        lastCheckedAt: 1_784_467_200_000
       },
       {
         supported: true,
@@ -104,6 +104,7 @@ describe('NativeHost selection', () => {
     expectTypeOf<DesktopUpdateSnapshot['errorCode']>().toEqualTypeOf<
       'network' | 'metadata' | 'signature' | 'download' | 'install' | 'unavailable' | undefined
     >();
+    expectTypeOf<DesktopUpdateSnapshot['lastCheckedAt']>().toEqualTypeOf<number | undefined>();
   });
 
   it('reports unsupported desktop updates and rejects browser update mutations', async () => {
