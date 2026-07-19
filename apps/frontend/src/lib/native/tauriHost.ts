@@ -11,7 +11,7 @@ import {
   assertAllowedServerUrl
 } from './urlPolicy';
 import { createTauriRealtimeSocket } from './tauriRealtimeSocket';
-import { NATIVE_HOST_API_VERSION, type NativeHost } from './types';
+import { NATIVE_HOST_API_VERSION, type DesktopUpdateSnapshot, type NativeHost } from './types';
 
 type NativeFetchOptions = RequestInit & { maxRedirections?: number };
 
@@ -23,6 +23,11 @@ export interface TauriHostBindings {
   readonly registerPushToTalk: NativeHost['registerPushToTalk'];
   readonly onTrayAction: NativeHost['onTrayAction'];
   readonly setCallControls: NativeHost['setCallControls'];
+  readonly getDesktopUpdateState: NativeHost['getDesktopUpdateState'];
+  readonly setDesktopUpdateChannel: NativeHost['setDesktopUpdateChannel'];
+  readonly checkForDesktopUpdate: NativeHost['checkForDesktopUpdate'];
+  readonly installDesktopUpdate: NativeHost['installDesktopUpdate'];
+  readonly onDesktopUpdateState: NativeHost['onDesktopUpdateState'];
   readonly quit: NativeHost['quit'];
 }
 
@@ -56,7 +61,8 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       nativeHttp: true,
       nativeRealtime: true,
       globalPushToTalk: true,
-      tray: true
+      tray: true,
+      desktopUpdates: true
     },
 
     registerServerOrigin(value) {
@@ -118,6 +124,26 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       return bindings.setCallControls(controls);
     },
 
+    getDesktopUpdateState() {
+      return bindings.getDesktopUpdateState();
+    },
+
+    setDesktopUpdateChannel(channel) {
+      return bindings.setDesktopUpdateChannel(channel);
+    },
+
+    checkForDesktopUpdate() {
+      return bindings.checkForDesktopUpdate();
+    },
+
+    installDesktopUpdate() {
+      return bindings.installDesktopUpdate();
+    },
+
+    onDesktopUpdateState(listener) {
+      return bindings.onDesktopUpdateState(listener);
+    },
+
     quit() {
       return bindings.quit();
     }
@@ -156,5 +182,14 @@ export const tauriNativeHost = createTauriNativeHost({
       }
     }),
   setCallControls: (controls) => invoke('set_call_controls', { controls }),
+  getDesktopUpdateState: () => invoke<DesktopUpdateSnapshot>('get_desktop_update_state'),
+  setDesktopUpdateChannel: (channel) =>
+    invoke<DesktopUpdateSnapshot>('set_desktop_update_channel', { channel }),
+  checkForDesktopUpdate: () => invoke<DesktopUpdateSnapshot>('check_for_desktop_update'),
+  installDesktopUpdate: () => invoke('install_desktop_update'),
+  onDesktopUpdateState: (listener) =>
+    listen<DesktopUpdateSnapshot>('native://desktop-update-state', ({ payload }) => {
+      listener(payload);
+    }),
   quit: () => invoke('quit_desktop')
 });

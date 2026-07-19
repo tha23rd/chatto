@@ -1,9 +1,5 @@
 import { assertAllowedExternalUrl } from './urlPolicy';
-import {
-  NATIVE_HOST_API_VERSION,
-  type NativeHost,
-  type RealtimeSocketLike
-} from './types';
+import { NATIVE_HOST_API_VERSION, type NativeHost, type RealtimeSocketLike } from './types';
 
 const unsupported = (capability: string): Error =>
   new Error(`${capability} is unavailable in this client.`);
@@ -16,7 +12,8 @@ export const browserNativeHost: NativeHost = {
     nativeHttp: false,
     nativeRealtime: false,
     globalPushToTalk: false,
-    tray: false
+    tray: false,
+    desktopUpdates: false
   },
 
   registerServerOrigin() {
@@ -49,6 +46,31 @@ export const browserNativeHost: NativeHost = {
   },
 
   async setCallControls() {},
+
+  async getDesktopUpdateState() {
+    return {
+      supported: false,
+      channel: 'stable',
+      phase: 'idle',
+      currentVersion: ''
+    };
+  },
+
+  async setDesktopUpdateChannel() {
+    throw unsupported('Desktop updates');
+  },
+
+  async checkForDesktopUpdate() {
+    throw unsupported('Desktop updates');
+  },
+
+  async installDesktopUpdate() {
+    throw unsupported('Desktop updates');
+  },
+
+  async onDesktopUpdateState() {
+    return () => {};
+  },
 
   async quit() {}
 };

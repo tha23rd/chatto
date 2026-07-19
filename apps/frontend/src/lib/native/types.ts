@@ -1,4 +1,4 @@
-export const NATIVE_HOST_API_VERSION = 1 as const;
+export const NATIVE_HOST_API_VERSION = 2 as const;
 
 export type Unsubscribe = () => void | Promise<void>;
 
@@ -8,6 +8,28 @@ export interface NativeCapabilities {
   readonly nativeRealtime: boolean;
   readonly globalPushToTalk: boolean;
   readonly tray: boolean;
+  readonly desktopUpdates: boolean;
+}
+
+export type DesktopUpdateChannel = 'stable' | 'nightly';
+export type DesktopUpdatePhase = 'idle' | 'checking' | 'downloading' | 'ready' | 'failed';
+
+export interface DesktopUpdateSnapshot {
+  readonly supported: boolean;
+  readonly channel: DesktopUpdateChannel;
+  readonly phase: DesktopUpdatePhase;
+  readonly currentVersion: string;
+  readonly candidateVersion?: string;
+  readonly downloadedBytes?: number;
+  readonly totalBytes?: number;
+  readonly lastCheckedAt?: string;
+  readonly errorCode?:
+    | 'network'
+    | 'metadata'
+    | 'signature'
+    | 'download'
+    | 'install'
+    | 'unavailable';
 }
 
 export interface NativeOAuthRequest {
@@ -75,5 +97,10 @@ export interface NativeHost {
   ): Promise<Unsubscribe>;
   onTrayAction(listener: (action: NativeTrayAction) => void): Promise<Unsubscribe>;
   setCallControls(controls: NativeCallControls): Promise<void>;
+  getDesktopUpdateState(): Promise<DesktopUpdateSnapshot>;
+  setDesktopUpdateChannel(channel: DesktopUpdateChannel): Promise<DesktopUpdateSnapshot>;
+  checkForDesktopUpdate(): Promise<DesktopUpdateSnapshot>;
+  installDesktopUpdate(): Promise<void>;
+  onDesktopUpdateState(listener: (snapshot: DesktopUpdateSnapshot) => void): Promise<Unsubscribe>;
   quit(): Promise<void>;
 }
