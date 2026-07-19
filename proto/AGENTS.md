@@ -29,6 +29,11 @@ For public API packages:
 
 ## Compatibility
 
+- The public auth, discovery, integration, admin, and realtime `v1` packages
+  are experimental while Chatto is pre-1.0. Compatibility is preferred, not
+  guaranteed. Breaking changes require an explicit design benefit,
+  compatibility plan, generated-client/docs updates, release-note guidance,
+  and the `api-breaking-change` PR label.
 - Do not renumber fields that may be persisted or consumed by clients.
 - Do not change a field type at an existing tag. Add a new tag instead.
 - Removing a persisted field requires both `reserved <tag>` and
@@ -40,6 +45,17 @@ For public API packages:
   changes shape.
 - Transient live-event protos are less stable, but `chatto/realtime/v1` is still
   a public wire protocol and must consider mixed-version clients.
+- For new client behaviour, prefer stable discovery or realtime protocol
+  capability keys over software-version checks. Keep protocol support distinct
+  from server feature configuration and viewer authorization.
+- Public cursor fields are confidential, integrity-protected tokens. Never
+  serialize raw or reversibly encoded NATS/JetStream stream identities,
+  subjects, sequences, revisions, or consumer positions into them. Explicit,
+  owner-only broker diagnostics and event-log inspection messages may expose
+  clearly named operational details; do not reuse those shapes as client or
+  integration contracts.
+- The `chatto.realtime.v1` package suffix is a protobuf namespace. It currently
+  implements only behavioural protocol version 2; older handshakes are rejected.
 
 ## Presence And API Shape
 

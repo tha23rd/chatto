@@ -1,11 +1,11 @@
 # FDR-016: Voice Calls
 
 **Status:** Active
-**Last reviewed:** 2026-07-01
+**Last reviewed:** 2026-07-19
 
 ## Overview
 
-Rooms support real-time voice conversations with optional camera video and video-only screen/window/tab sharing. A phone tab in the room sidebar lets members start or join the room call; the call panel shows screen-share tiles first, then video-enabled participant cards, then compact voice-only participant cards, and provides mute, camera, screen-share, device-selection, and hang-up controls. Audio and video are routed through LiveKit (an external WebRTC service); Chatto only handles authorization, participant state, and the UI.
+Rooms support real-time voice conversations with optional camera video and screen/window/tab sharing. Supported browsers can include audio from a shared browser tab. A phone tab in the room sidebar lets members start or join the room call; the call panel shows screen-share tiles first, then video-enabled participant cards, then compact voice-only participant cards, and provides mute, camera, screen-share, device-selection, and hang-up controls. Audio and video are routed through LiveKit (an external WebRTC service); Chatto only handles authorization, participant state, and the UI.
 
 ## Behavior
 
@@ -21,12 +21,12 @@ Rooms support real-time voice conversations with optional camera video and video
 - Other rooms with an active call replace the normal room/DM icon with the same accent phone icon and animated pulse twin used by the call tab so members know there's a conversation happening; clicking that icon opens the room with the call tab selected.
 - Message author names show a compact call presence icon when the author is in the current room's active call: phone for voice-only participants, video camera when the viewer has joined the LiveKit call and can see an active camera track.
 - A member's join/leave updates active call indicators and participant lists, but call lifecycle and participant transitions are not shown as room timeline messages. Explicit user intent is recorded immediately, and LiveKit webhooks/reconciliation confirm or correct the active participant projection.
-- Losing room membership also removes the user from the room's active call. This includes voluntarily leaving the room, being removed by a moderator, being banned, and account-deletion cleanup. Chatto records the call leave from the membership transition and best-effort asks LiveKit to disconnect the participant; if that LiveKit removal fails, the room membership change still succeeds and reconciliation can catch up later.
+- Losing room membership also removes the user from the room's active call. This includes voluntarily leaving the room, being removed by a moderator, being banned, and account-deletion cleanup. The affected client immediately hides that room's call roster and disconnects its local media when the membership change arrives. Chatto records the call leave from the membership transition and best-effort asks LiveKit to disconnect the participant; if that LiveKit removal fails, the room membership change still succeeds and reconciliation can catch up later.
 - Joined call participants hear fixed synthesized cues from durable participant join/leave events, including their own join/leave events and other participants in the same active call. These call cues are separate from configurable notification sounds and do not use notification sound filters; `CallEndedEvent` does not play a separate cue.
 - The first join starts a call session, creates fresh per-call E2EE key material, and records durable call lifecycle facts. The final leave ends the call, records the end fact, and shreds the call key.
 - Hanging up disconnects from LiveKit and clears the participant from everyone else's view.
 - New clients always enable LiveKit E2EE before connecting. Chatto distributes a KMS-backed per-call shared key with the LiveKit join token; the raw key is never written to EVT and is shredded when the call ends.
-- Screen sharing is video-only in Chatto's UI. Browser tab audio sharing is not published by Chatto today.
+- Screen sharing requests browser-tab audio when the browser supports it. In Chrome, the presenter must select a browser tab and enable **Share tab audio** in the browser picker. Chatto excludes whole-system audio so remote call playback is not captured and fed back into the room.
 - Screen-share state is LiveKit track state only. Users who have not joined the call still see who is in the active call, but they do not see whether a participant is sharing a screen.
 - When LiveKit is not configured on the server, all voice UI is hidden — no button, no panel, no indicator.
 
@@ -64,9 +64,9 @@ Rooms support real-time voice conversations with optional camera video and video
 
 ### 6. Screen sharing is joined-client LiveKit track state
 
-**Decision:** Screen/window/tab sharing uses LiveKit's browser screen-share publishing path and is represented only by `Track.Source.ScreenShare` on joined clients. Chatto does not persist separate screen-share events, add public API fields, or expose screen-share state to call observers before they join.
+**Decision:** Screen/window/tab sharing uses LiveKit's browser screen-share publishing path and is represented by screen-share video plus optional browser-provided tab audio on joined clients. Chatto requests tab audio, publishes it with media-oriented stereo settings, and excludes whole-system audio. Chatto does not persist separate screen-share events, add public API fields, or expose screen-share state to call observers before they join.
 **Why:** Screen sharing is media-session state, and the existing durable room facts already answer the server-owned question of who is in the call. Keeping screen-share state inside LiveKit avoids adding durable state that can become stale when browser capture ends.
-**Tradeoff:** Non-joined observers know a call is active and who is in it, but not whether someone is sharing. Browser-tab audio sharing is also out of scope for this version.
+**Tradeoff:** Non-joined observers know a call is active and who is in it, but not whether someone is sharing. Audio capture remains browser- and surface-dependent, and presenters must opt into tab audio in the browser picker.
 
 ### 7. Big-call mode is a desktop pane state, not a separate route
 
@@ -109,7 +109,7 @@ Voice calling doesn't have a dedicated permission today; room membership is the 
 
 ## Related
 
-- **ADRs:** ADR-009 (webhook-driven voice call state), ADR-012 (two-tier real-time events), ADR-020 (build-tag gated test endpoints)
+- **ADRs:** ADR-009 (webhook-driven voice call state), ADR-012 (two-tier real-time events), ADR-020 (build-tag gated test endpoints), ADR-051 (server-scoped resumable client projection)
 - **FDRs:** FDR-001 (Roles & Permissions), FDR-019 (Room Lifecycle)
 
 ## Open Questions

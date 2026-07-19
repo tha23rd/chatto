@@ -25,10 +25,7 @@ import {
   VoiceCallJoinError,
   VoiceCallState
 } from './voiceCall.svelte';
-import {
-  DEFAULT_SCREEN_SHARE_QUALITY,
-  resolveScreenShareOptions
-} from './screenShareQuality';
+import { DEFAULT_SCREEN_SHARE_QUALITY, resolveScreenShareOptions } from './screenShareQuality';
 import { Room } from 'livekit-client';
 
 const calls: string[] = [];
@@ -204,9 +201,17 @@ vi.mock('livekit-client', () => {
     },
     Track: {
       Kind: { Audio: 'audio' },
-      Source: { Microphone: 'microphone', Camera: 'camera', ScreenShare: 'screen_share' }
+      Source: {
+        Microphone: 'microphone',
+        Camera: 'camera',
+        ScreenShare: 'screen_share',
+        ScreenShareAudio: 'screen_share_audio'
+      }
     },
-    AudioPresets: { speech: {} },
+    AudioPresets: {
+      speech: { maxBitrate: 24_000 },
+      musicStereo: { maxBitrate: 64_000 }
+    },
     VideoPresets: { h720: { resolution: {} } }
   };
 });
@@ -219,10 +224,6 @@ vi.mock('livekit-client/e2ee-worker?worker', () => ({
 
 function createVoiceCallClient(overrides: Partial<VoiceCallAPI> = {}): VoiceCallAPI {
   return {
-    listActiveCalls: vi.fn(async () => []),
-    getActiveCall: vi.fn(async () => null),
-    batchGetActiveCalls: vi.fn(async () => []),
-    listCallParticipants: vi.fn(async () => []),
     joinCall: vi.fn(async () => true),
     getCallToken: vi.fn(async () => ({
       token: 'livekit-token',
@@ -241,10 +242,13 @@ const EXPECTED_SCREEN_SHARE_CAPTURE = resolveScreenShareOptions(
   DEFAULT_SCREEN_SHARE_QUALITY,
   DEFAULT_SCREEN_SHARE_CEILING
 ).capture;
-const EXPECTED_SCREEN_SHARE_PUBLISH = resolveScreenShareOptions(
-  DEFAULT_SCREEN_SHARE_QUALITY,
-  DEFAULT_SCREEN_SHARE_CEILING
-).publish;
+const EXPECTED_SCREEN_SHARE_PUBLISH = {
+  ...resolveScreenShareOptions(DEFAULT_SCREEN_SHARE_QUALITY, DEFAULT_SCREEN_SHARE_CEILING).publish,
+  audioPreset: { maxBitrate: 64_000 },
+  forceStereo: true,
+  dtx: false,
+  red: false
+};
 
 function deferredVoid(): { promise: Promise<void>; resolve: () => void } {
   let resolve!: () => void;
@@ -333,10 +337,7 @@ describe('VoiceCallState', () => {
         dev('', 'audioinput', '')
       ])
       .mockImplementationOnce(async () => [dev('spk-1', 'audiooutput', 'Speaker')])
-      .mockImplementationOnce(async () => [
-        dev('', 'videoinput', ''),
-        dev('', 'videoinput', '')
-      ]);
+      .mockImplementationOnce(async () => [dev('', 'videoinput', ''), dev('', 'videoinput', '')]);
 
     await state.refreshDevices();
 
@@ -344,11 +345,9 @@ describe('VoiceCallState', () => {
     expect(state.audioOutputDevices.map((d) => d.deviceId)).toEqual(['spk-1']);
     expect(state.videoDevices).toEqual([]);
     // No placeholder ('') ids survive to become non-unique {#each} keys.
-    const allIds = [
-      ...state.audioDevices,
-      ...state.audioOutputDevices,
-      ...state.videoDevices
-    ].map((d) => d.deviceId);
+    const allIds = [...state.audioDevices, ...state.audioOutputDevices, ...state.videoDevices].map(
+      (d) => d.deviceId
+    );
     expect(allIds.every((id) => id !== '')).toBe(true);
     expect(new Set(allIds).size).toBe(allIds.length);
   });
@@ -551,6 +550,23 @@ describe('VoiceCallState', () => {
     expect(soundMocks.playCallSound).not.toHaveBeenCalled();
   });
 
+  it('disconnects local media without recording leave when room access is revoked', async () => {
+    const client = createVoiceCallClient();
+    const state = new VoiceCallState(client);
+    await state.join('wss://livekit.example.test', 'R1');
+    soundMocks.playCallSound.mockClear();
+
+    state.handleRoomAccessRevoked('R2');
+    expect(state.isInAnyCall).toBe(true);
+
+    state.handleRoomAccessRevoked('R1');
+
+    expect(lastRoom?.disconnect).toHaveBeenCalledOnce();
+    expect(client.leaveCall).not.toHaveBeenCalled();
+    expect(state.isInAnyCall).toBe(false);
+    expect(soundMocks.playCallSound).not.toHaveBeenCalled();
+  });
+
   it('disconnects only for the current user participant leave event', async () => {
     const client = createVoiceCallClient();
 
@@ -588,7 +604,7 @@ describe('VoiceCallState', () => {
     expect(state.matchesActiveCall('R1', null)).toBe(false);
   });
 
-  it('toggles video-only screen sharing through LiveKit', async () => {
+  it('toggles screen sharing with configured capture and publish options', async () => {
     const client = createVoiceCallClient();
     const state = new VoiceCallState(client);
     await state.join('wss://livekit.example.test', 'R1');
@@ -616,7 +632,11 @@ describe('VoiceCallState', () => {
 
     await state.toggleScreenShare();
 
-    expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(false);
+    expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(
+      false,
+      undefined,
+      undefined
+    );
     expect(state.isScreenShareEnabled).toBe(false);
     expect(state.participants[0].screenShareTrack).toBeNull();
   });
@@ -942,6 +962,42 @@ describe('VoiceCallState', () => {
     expect(state.participants[0].screenShareTrack).toBeNull();
   });
 
+  it('attaches and detaches subscribed screen-share audio', async () => {
+    const setVolume = vi.fn();
+    mockRemoteParticipants.set('remote-user', {
+      identity: 'remote-user',
+      name: 'Remote User',
+      metadata: '',
+      connectionQuality: 'good',
+      isSpeaking: false,
+      audioLevel: 0,
+      setVolume,
+      trackPublications: new Map(),
+      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+    });
+    const client = createVoiceCallClient();
+    const state = new VoiceCallState(client);
+    await state.join('wss://livekit.example.test', 'R1');
+    state.toggleParticipantLocalMute('remote-user');
+    setVolume.mockClear();
+    const screenShareAudio = {
+      kind: 'audio',
+      source: 'screen_share_audio',
+      attach: vi.fn(),
+      detach: vi.fn()
+    };
+
+    roomEventHandlers.get('TrackSubscribed')?.(screenShareAudio, {});
+
+    expect(screenShareAudio.attach).toHaveBeenCalledOnce();
+    expect(setVolume).toHaveBeenCalledWith(0, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(0, 'screen_share_audio');
+
+    roomEventHandlers.get('TrackUnsubscribed')?.(screenShareAudio, {});
+
+    expect(screenShareAudio.detach).toHaveBeenCalledOnce();
+  });
+
   it('locally mutes and unmutes remote participant audio for the current session only', async () => {
     const setVolume = vi.fn();
     mockRemoteParticipants.set('remote-user', {
@@ -964,7 +1020,8 @@ describe('VoiceCallState', () => {
     state.toggleParticipantLocalMute('remote-user');
 
     expect(state.isParticipantLocallyMuted('remote-user')).toBe(true);
-    expect(setVolume).toHaveBeenLastCalledWith(0);
+    expect(setVolume).toHaveBeenCalledWith(0, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(0, 'screen_share_audio');
     expect(state.participants.find((p) => p.identity === 'remote-user')).toMatchObject({
       isLocallyMuted: true
     });
@@ -972,7 +1029,8 @@ describe('VoiceCallState', () => {
     state.toggleParticipantLocalMute('remote-user');
 
     expect(state.isParticipantLocallyMuted('remote-user')).toBe(false);
-    expect(setVolume).toHaveBeenLastCalledWith(1);
+    expect(setVolume).toHaveBeenCalledWith(1, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(1, 'screen_share_audio');
 
     state.toggleParticipantLocalMute('local-user');
     expect(state.isParticipantLocallyMuted('local-user')).toBe(false);
@@ -1008,7 +1066,8 @@ describe('VoiceCallState', () => {
 
     state.setParticipantVolume('remote-user', 50);
     expect(state.getParticipantVolume('remote-user')).toBe(50);
-    expect(setVolume).toHaveBeenLastCalledWith(0.5);
+    expect(setVolume).toHaveBeenCalledWith(0.5, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(0.5, 'screen_share_audio');
     expect(state.participants.find((p) => p.identity === 'remote-user')).toMatchObject({
       localVolume: 50
     });
@@ -1016,19 +1075,22 @@ describe('VoiceCallState', () => {
     // Clamping + rounding.
     state.setParticipantVolume('remote-user', 150);
     expect(state.getParticipantVolume('remote-user')).toBe(100);
-    expect(setVolume).toHaveBeenLastCalledWith(1);
+    expect(setVolume).toHaveBeenCalledWith(1, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(1, 'screen_share_audio');
 
     state.setParticipantVolume('remote-user', 80);
     setVolume.mockClear();
 
     // Mute overrides stored volume (gain 0) but does not clear it.
     state.toggleParticipantLocalMute('remote-user');
-    expect(setVolume).toHaveBeenLastCalledWith(0);
+    expect(setVolume).toHaveBeenCalledWith(0, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(0, 'screen_share_audio');
     expect(state.getParticipantVolume('remote-user')).toBe(80);
 
     // Unmute restores the stored 80% => 0.8.
     state.toggleParticipantLocalMute('remote-user');
-    expect(setVolume).toHaveBeenLastCalledWith(0.8);
+    expect(setVolume).toHaveBeenCalledWith(0.8, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(0.8, 'screen_share_audio');
   });
 
   it('ignores setParticipantVolume for the local participant', async () => {
@@ -1097,7 +1159,8 @@ describe('VoiceCallState', () => {
       expect(state.isDeafened).toBe(true);
       expect(state.isMuted).toBe(true);
       expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(false);
-      expect(setVolume).toHaveBeenLastCalledWith(0);
+      expect(setVolume).toHaveBeenCalledWith(0, 'microphone');
+      expect(setVolume).toHaveBeenCalledWith(0, 'screen_share_audio');
     });
 
     it('undeafening restores the mic and incoming audio', async () => {
@@ -1114,7 +1177,8 @@ describe('VoiceCallState', () => {
       expect(state.isDeafened).toBe(false);
       expect(state.isMuted).toBe(false);
       expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(true);
-      expect(setVolume).toHaveBeenLastCalledWith(1);
+      expect(setVolume).toHaveBeenCalledWith(1, 'microphone');
+      expect(setVolume).toHaveBeenCalledWith(1, 'screen_share_audio');
     });
 
     it('stays muted after undeafen when already muted before deafening', async () => {
@@ -1154,7 +1218,8 @@ describe('VoiceCallState', () => {
 
       expect(state.isMuted).toBe(false);
       expect(state.isDeafened).toBe(false);
-      expect(setVolume).toHaveBeenLastCalledWith(1);
+      expect(setVolume).toHaveBeenCalledWith(1, 'microphone');
+      expect(setVolume).toHaveBeenCalledWith(1, 'screen_share_audio');
     });
 
     it('broadcasts deafen state via the LiveKit participant attribute', async () => {
@@ -1211,7 +1276,8 @@ describe('VoiceCallState', () => {
       addRemoteParticipant('late-user', setVolume);
       roomEventHandlers.get('ParticipantConnected')?.();
 
-      expect(setVolume).toHaveBeenLastCalledWith(0);
+      expect(setVolume).toHaveBeenCalledWith(0, 'microphone');
+      expect(setVolume).toHaveBeenCalledWith(0, 'screen_share_audio');
     });
 
     it('resets deafen state on leave', async () => {
@@ -1239,7 +1305,8 @@ describe('VoiceCallState', () => {
 
       // Incoming audio is already muted even though the mic operation is pending.
       expect(state.isDeafened).toBe(true);
-      expect(setVolume).toHaveBeenLastCalledWith(0);
+      expect(setVolume).toHaveBeenCalledWith(0, 'microphone');
+      expect(setVolume).toHaveBeenCalledWith(0, 'screen_share_audio');
       expect(state.isMuted).toBe(false);
       expect(state.isDeafenPending).toBe(true);
 
@@ -1268,7 +1335,8 @@ describe('VoiceCallState', () => {
       // isMuted must stay true rather than falsely claiming the mic is live.
       expect(state.isDeafened).toBe(false);
       expect(state.isMuted).toBe(true);
-      expect(setVolume).toHaveBeenLastCalledWith(1);
+      expect(setVolume).toHaveBeenCalledWith(1, 'microphone');
+      expect(setVolume).toHaveBeenCalledWith(1, 'screen_share_audio');
       expect(toastMocks.error).toHaveBeenCalled();
     });
 
@@ -1290,7 +1358,8 @@ describe('VoiceCallState', () => {
       // Incoming audio is silenced immediately, but deafen must not start its own
       // mic operation while the mute is still in flight.
       expect(state.isDeafened).toBe(true);
-      expect(setVolume).toHaveBeenLastCalledWith(0);
+      expect(setVolume).toHaveBeenCalledWith(0, 'microphone');
+      expect(setVolume).toHaveBeenCalledWith(0, 'screen_share_audio');
       expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenCalledTimes(1);
 
       microphoneGate.resolve();

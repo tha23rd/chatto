@@ -9,7 +9,7 @@ import { ImageUpload } from "../../api/v1/common_pb.js";
 
 /**
  * A channel webhook: a token-authorized endpoint that posts messages into a
- * specific room under a synthetic, non-human webhook identity (FDR-032). The
+ * specific room under a synthetic, non-human webhook identity (FDR-035). The
  * secret token is embedded in the post URL and is only ever returned once, at
  * creation and regeneration time.
  *

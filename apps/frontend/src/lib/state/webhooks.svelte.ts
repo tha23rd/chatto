@@ -1,5 +1,5 @@
 /**
- * Channel webhooks, per-server (FDR-032).
+ * Channel webhooks, per-server (FDR-035).
  *
  * Single source of truth for a server's admin-defined channel webhooks, used
  * by the server-admin webhooks management page. Unlike custom emojis this
@@ -11,10 +11,7 @@
  * pattern used by the custom emoji store.
  */
 
-import {
-  createAdminWebhookAPI,
-  type WebhookView,
-} from '$lib/api-client/webhooks';
+import { createAdminWebhookAPI, type WebhookView } from '$lib/api-client/webhooks';
 import type { ConnectAPIConfig } from '$lib/api-client/connect';
 import { segmentToServerId } from '$lib/navigation';
 

@@ -51,7 +51,7 @@ type createUserOptions struct {
 type CreateUserOption func(*createUserOptions)
 
 // WithUserKind marks the created account as a specific kind, such as a synthetic
-// webhook identity (FDR-032). WEBHOOK-kind users are passwordless and excluded
+// webhook identity (FDR-035). WEBHOOK-kind users are passwordless and excluded
 // from human-only surfaces; they do not count toward the server user limit.
 func WithUserKind(kind corev1.UserKind) CreateUserOption {
 	return func(o *createUserOptions) { o.kind = kind }
@@ -284,7 +284,11 @@ func (c *ChattoCore) rollbackUserCreation(ctx context.Context, user *corev1.User
 
 // GetUser retrieves a user from the user projection.
 func (c *ChattoCore) GetUser(ctx context.Context, userID string) (*corev1.User, error) {
-	if user, ok := c.Users.Get(userID); ok {
+	user, ok, err := c.Users.GetContext(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
 		return user, nil
 	}
 	return nil, ErrNotFound
@@ -293,7 +297,11 @@ func (c *ChattoCore) GetUser(ctx context.Context, userID string) (*corev1.User, 
 // GetUserReference retrieves a public user reference. Deleted or crypto-shredded
 // users are returned as tombstones; unknown users still return ErrNotFound.
 func (c *ChattoCore) GetUserReference(ctx context.Context, userID string) (*corev1.User, error) {
-	if user, ok := c.Users.GetReference(userID); ok {
+	user, ok, err := c.Users.GetReferenceContext(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
 		return user, nil
 	}
 	return nil, ErrNotFound
@@ -319,7 +327,11 @@ func (c *ChattoCore) GetUsers(ctx context.Context, userIDs []string) ([]*corev1.
 
 	userMap := make(map[string]*corev1.User, len(uniqueIDs))
 	for _, id := range uniqueIDs {
-		if user, ok := c.Users.Get(id); ok {
+		user, ok, err := c.Users.GetContext(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
 			userMap[id] = user
 		}
 	}
@@ -335,7 +347,11 @@ func (c *ChattoCore) GetUsers(ctx context.Context, userIDs []string) ([]*corev1.
 
 // GetUserByLogin retrieves a user by their login name using the login index.
 func (c *ChattoCore) GetUserByLogin(ctx context.Context, login string) (*corev1.User, error) {
-	if user, ok := c.Users.GetByLogin(login); ok {
+	user, ok, err := c.Users.GetByLoginContext(ctx, login)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
 		return user, nil
 	}
 	return nil, ErrNotFound
@@ -382,7 +398,7 @@ func (c *ChattoCore) SetOwnPassword(ctx context.Context, userID, currentPassword
 		return err
 	}
 	return c.setPasswordHash(ctx, userID, userID, newPassword, true, func() error {
-		return c.verifyUserPasswordCurrent(userID, currentPassword)
+		return c.verifyUserPasswordCurrent(ctx, userID, currentPassword)
 	})
 }
 
@@ -413,7 +429,11 @@ func (c *ChattoCore) HasPassword(ctx context.Context, userID string) (bool, erro
 	if err := c.userModel.waitForUsersCurrent(ctx, "user password", events.UserAggregate(userID).AllEventsFilter()); err != nil {
 		return false, err
 	}
-	if _, ok := c.Users.Get(userID); !ok {
+	_, ok, err := c.Users.GetContext(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	if !ok {
 		return false, ErrNotFound
 	}
 	_, hasPassword := c.Users.PasswordHash(userID)
@@ -424,11 +444,15 @@ func (c *ChattoCore) VerifyUserPassword(ctx context.Context, userID, password st
 	if err := c.userModel.waitForUsersCurrent(ctx, "user password", events.UserAggregate(userID).AllEventsFilter()); err != nil {
 		return err
 	}
-	return c.verifyUserPasswordCurrent(userID, password)
+	return c.verifyUserPasswordCurrent(ctx, userID, password)
 }
 
-func (c *ChattoCore) verifyUserPasswordCurrent(userID, password string) error {
-	if _, ok := c.Users.Get(userID); !ok {
+func (c *ChattoCore) verifyUserPasswordCurrent(ctx context.Context, userID, password string) error {
+	_, ok, err := c.Users.GetContext(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if !ok {
 		return ErrNotFound
 	}
 	passwordHash, ok := c.Users.PasswordHash(userID)
@@ -757,11 +781,14 @@ func (c *ChattoCore) CountUsers(ctx context.Context) (int, error) {
 }
 
 func (c *ChattoCore) ListUsers(ctx context.Context) ([]*corev1.User, error) {
-	all := c.Users.Users()
+	all, err := c.Users.UsersContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	users := make([]*corev1.User, 0, len(all))
 	for _, u := range all {
 		// Synthetic webhook identities are not human members and must not appear
-		// in the user directory or anything derived from it (FDR-032).
+		// in the user directory or anything derived from it (FDR-035).
 		if u.GetKind() == corev1.UserKind_USER_KIND_WEBHOOK {
 			continue
 		}

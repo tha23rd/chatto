@@ -14,6 +14,10 @@ authorization, live events, backup/restore, and backend tests.
 - Services own their domain state and projections. Do not bypass service
   boundaries to poke JetStream, KV, or projections from unrelated code.
 - Do not log PII. Use opaque IDs, counts, booleans, event names, and safe hashes.
+- Projections must not retain decrypted PII when encrypted source fields can be
+  retained and hydrated at read boundaries. Keep derived lookup state
+  non-plaintext, and never turn KMS or decryption failures into apparent
+  absence, deletion, or a free uniqueness claim.
 
 ## Architecture Touchpoints
 
@@ -21,7 +25,8 @@ authorization, live events, backup/restore, and backend tests.
 - `cli/internal/connectapi` is the protobuf/ConnectRPC API.
 - `proto/chatto/core/v1` holds persisted/internal protobufs.
 - `proto/chatto/api/v1` holds public ConnectRPC API protobufs.
-- `docs/ARCHITECTURE.md`, FDRs, and ADRs should move with architectural changes.
+- The relevant `docs/architecture/` inventories, FDRs, and ADRs should move
+  with architectural changes.
 
 ## Public APIs
 
@@ -56,10 +61,20 @@ authorization, live events, backup/restore, and backend tests.
 - Projection-backed decisions need OCC tokens for the same event-log prefix as
   the projected state. Do not decide from a projection and publish against an
   unrelated stream tail.
+- Defaults required for a newly created aggregate must commit with its creation
+  facts in the same atomic EVT batch. Do not reconstruct creation-time defaults
+  later by scanning projections during startup.
 - When a committed EVT fact requires a KMS, LiveKit, object-store, or other
   external side effect, that fact must provide a durable recovery path. Verify
   crash recovery, multi-replica discovery, lease handover, and bounded
   request-path cost.
+- Match distributed lease ownership to the work lifecycle. Continuous polling
+  workers may hold and renew a lease while running; periodic workers should
+  attempt one lease acquisition per pass and wait outside the lease. Treat the
+  lease as duplicate-work reduction rather than fencing, and log ownership
+  changes or failures rather than every successful renewal. Enforce a
+  cluster-wide periodic rate with shared expiring state, not a per-replica
+  timer; retain cooldowns only after successful work so failures can retry.
 - Subject/key shapes are part of the storage contract. When changing them,
   update constructors, parsers, tests, architecture docs, and e2e coverage.
 - For mixed records in one stream or KV bucket, encode discriminators in the key
@@ -73,6 +88,37 @@ authorization, live events, backup/restore, and backend tests.
   compatibility state preloaded before projector startup. Privacy-review every
   persisted field: do not snapshot decrypted bodies, raw PII, credentials,
   unwrapped keys, or state that would weaken crypto-shredding.
+- Give every snapshotted projection one opaque, projection-scoped contract ID.
+  The contract covers serialized state, replay semantics, consumed event
+  families, and cutoff meaning. If restoring an existing snapshot would no
+  longer equal replaying EVT through its cutoff, bump the contract ID. Treat
+  IDs only as bounded path-safe equality tokens, never as ordered versions.
+  Scope both generation paths and pointer keys by projection and contract so
+  different contracts never read or overwrite each other. Keep pointers on a
+  durable revisioned store and publish them with OCC; a process lease is not
+  fencing. Capture the contract once during projector configuration and use
+  that same value for restore and publication; do not duplicate it in wiring.
+  Carry cutoff, creation time, EVT incarnation, and contract metadata in
+  the pointer.
+  Allow same-cutoff refreshes for retention, but do not republish a fresh,
+  unchanged generation merely because a process restarted. Reject regressing
+  captures, and use pointer revision OCC to prevent concurrent writers from
+  replacing newer history.
+  Scope generation object paths by encryption-key epoch. NATS Object Store TTL
+  and marker-verified S3 age expiry may remove referenced generations; loaders
+  must treat absence as a normal cold-replay condition.
+- Most current snapshot contracts use projection-local ID `v1`;
+  the user profile projection uses `v2`. Keep password
+  verifiers, auth generations, external identity subjects, and OAuth consent in
+  the independently cold-replayed `UserAuthProjection`; never add them to a
+  profile snapshot schema or codec.
+- Every projection owns its ordered EVT consumer, snapshot restore, and replay
+  frontier. A usable snapshot starts only that consumer after its cutoff; a
+  missing snapshot cold-replays only its owning projection. Keep global boot
+  readiness gated on every required projection becoming current. Release
+  boot-time sequence waiters when installing a restored cutoff, and test
+  all-restored, partial, corrupt, future, tail-replay, and restore-in-flight
+  waiter interleavings.
 
 ## Live Events
 
@@ -158,8 +204,8 @@ authorization, live events, backup/restore, and backend tests.
   conflict modes `error`, `skip`, and `overwrite`.
 - `KV_ENCRYPTION_KEYS`/KEK material is intentionally separate from data backups.
   Use `chatto keys export`/`import` for built-in KMS key records.
-- When adding streams or KV buckets, decide whether backup should include or skip
-  them and update `skipReason()` if needed.
+- When adding streams, KV buckets, or Object Stores, decide whether backup should
+  include or skip them and update `skipReason()` if needed.
 
 ## Backend Tests
 

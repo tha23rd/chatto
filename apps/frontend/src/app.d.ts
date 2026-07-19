@@ -14,11 +14,13 @@ declare global {
           | 'logout'
           | 'leaveRoom'
           | 'deleteMessage'
-          | 'leaveServer'
+          | 'removeServer'
           | 'deleteAttachment'
           | 'deleteLinkPreview'
+          | 'aboutChatto'
           | 'imageViewer';
         spaceId?: string;
+        serverId?: string;
         roomId?: string;
         roomName?: string;
         spaceName?: string;
