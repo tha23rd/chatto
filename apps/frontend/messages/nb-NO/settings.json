@@ -155,7 +155,16 @@
       },
       "save_button": "Lagre skjerminnstillinger",
       "saved": "Skjerminnstillinger lagret",
-      "save_failed": "Kunne ikke lagre skjerminnstillinger"
+      "save_failed": "Kunne ikke lagre skjerminnstillinger",
+      "soundboard": {
+        "title": "Soundboard",
+        "description": "Bestem hvor høyt lydene fra andre medlemmers soundboard spilles av for deg i talesamtaler.",
+        "volume": "Avspillingsvolum",
+        "mute": {
+          "label": "Demp soundboardet",
+          "description": "Demp alle soundboard-lyder fra andre medlemmer."
+        }
+      }
     },
     "notifications": {
       "title": "Varsler",

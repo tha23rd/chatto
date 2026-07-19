@@ -93,6 +93,11 @@ test("Windows CI builds and transfers a commit-versioned NSIS installer", () => 
   assert.match(windowsBuilder, /tauri build --config/);
   assert.match(windowsBuilder, /verify-package\.ps1/);
   assert.match(windowsBuilder, /\.sha256/);
+  assert.match(
+    windowsBuilder,
+    /\[System\.IO\.File\]::WriteAllText\(\s*"\$stagedInstaller\.sha256",\s*"\$checksum  \$installerName`n",\s*\[System\.Text\.Encoding\]::ASCII\s*\)/s,
+    "checksum assets must use LF so sha256sum can verify them cross-platform",
+  );
 });
 
 test("the native publisher waits for CI and publishes an immutable prerelease", () => {

@@ -69,6 +69,8 @@ const callStore = vi.hoisted(() => ({
     toggleParticipantLocalMute: vi.fn(),
     refreshDevices: vi.fn().mockResolvedValue(undefined),
     getAudioLevel: vi.fn((_identity?: string) => ({ isSpeaking: false, audioLevel: 0 })),
+    isSoundboardActive: vi.fn((_identity?: string) => false),
+    refreshSoundboardPlaybackVolume: vi.fn(),
     handleParticipantLeftEvent: vi.fn(),
     handleCallEndedEvent: vi.fn()
   },

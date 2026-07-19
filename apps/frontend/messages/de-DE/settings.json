@@ -155,7 +155,16 @@
       },
       "save_button": "Darstellung speichern",
       "saved": "Darstellungseinstellungen gespeichert",
-      "save_failed": "Darstellungseinstellungen konnten nicht gespeichert werden"
+      "save_failed": "Darstellungseinstellungen konnten nicht gespeichert werden",
+      "soundboard": {
+        "title": "Soundboard",
+        "description": "Lege fest, wie laut die Soundboard-Klänge anderer Mitglieder in Sprachanrufen für dich abgespielt werden.",
+        "volume": "Wiedergabelautstärke",
+        "mute": {
+          "label": "Soundboard stummschalten",
+          "description": "Alle Soundboard-Klänge anderer Mitglieder stummschalten."
+        }
+      }
     },
     "notifications": {
       "title": "Benachrichtigungen",

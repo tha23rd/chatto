@@ -243,6 +243,11 @@ const msg_settings_preferences_time_format_24h_description = (): LocalizedString
 const msg_settings_preferences_save_button = (): LocalizedString => messages().settings_preferences_save_button(empty());
 const msg_settings_preferences_saved = (): LocalizedString => messages().settings_preferences_saved(empty());
 const msg_settings_preferences_save_failed = (): LocalizedString => messages().settings_preferences_save_failed(empty());
+const msg_settings_preferences_soundboard_title = (): LocalizedString => messages().settings_preferences_soundboard_title(empty());
+const msg_settings_preferences_soundboard_description = (): LocalizedString => messages().settings_preferences_soundboard_description(empty());
+const msg_settings_preferences_soundboard_volume = (): LocalizedString => messages().settings_preferences_soundboard_volume(empty());
+const msg_settings_preferences_soundboard_mute_label = (): LocalizedString => messages().settings_preferences_soundboard_mute_label(empty());
+const msg_settings_preferences_soundboard_mute_description = (): LocalizedString => messages().settings_preferences_soundboard_mute_description(empty());
 const msg_settings_notifications_title = (): LocalizedString => messages().settings_notifications_title(empty());
 const msg_settings_notifications_subtitle = (): LocalizedString => messages().settings_notifications_subtitle(empty());
 const msg_settings_notifications_push_title = (): LocalizedString => messages().settings_notifications_push_title(empty());
@@ -1857,6 +1862,11 @@ export { msg_settings_preferences_time_format_24h_description as 'settings.prefe
 export { msg_settings_preferences_save_button as 'settings.preferences.save_button' };
 export { msg_settings_preferences_saved as 'settings.preferences.saved' };
 export { msg_settings_preferences_save_failed as 'settings.preferences.save_failed' };
+export { msg_settings_preferences_soundboard_title as 'settings.preferences.soundboard.title' };
+export { msg_settings_preferences_soundboard_description as 'settings.preferences.soundboard.description' };
+export { msg_settings_preferences_soundboard_volume as 'settings.preferences.soundboard.volume' };
+export { msg_settings_preferences_soundboard_mute_label as 'settings.preferences.soundboard.mute.label' };
+export { msg_settings_preferences_soundboard_mute_description as 'settings.preferences.soundboard.mute.description' };
 export { msg_settings_notifications_title as 'settings.notifications.title' };
 export { msg_settings_notifications_subtitle as 'settings.notifications.subtitle' };
 export { msg_settings_notifications_push_title as 'settings.notifications.push.title' };
