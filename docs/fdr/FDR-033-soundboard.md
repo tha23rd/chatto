@@ -43,6 +43,14 @@ path for playback, so it adds no new media infrastructure.
 - A member opens the soundboard panel from the call UI, sees the catalog, and
   clicks a sound to play it. The clip is mixed into the call and every joined
   participant who is not deafened hears it; the triggering member hears it too.
+- While a member is playing a clip, their call tile lights up with the same ring
+  used for speaking, so everyone can see who triggered a sound even if that
+  member is not otherwise talking (or has their microphone muted).
+- Each listener has a personal soundboard playback control in preferences: a
+  volume level and a full mute for other members' soundboard sounds. It is a
+  per-device preference, independent of the sound's own configured volume and of
+  who is playing, and takes effect immediately. Locally muting or deafening a
+  participant also silences that participant's soundboard sounds.
 - Members who can see that a call is active but have not joined it do not hear
   soundboard sounds, consistent with all other LiveKit-carried call media.
 - Playing a sound is rate-limited per member (a minimum gap between triggers and
@@ -229,6 +237,44 @@ than the source codec (bounded by the length and size caps), and downmixed to
 mono, so any stereo image in the original is lost. Trimming depends on the
 browser successfully decoding the source; a clip that only fails to decode at
 this stage cannot be trimmed and must be uploaded whole.
+
+### 10. Listener-side volume/mute is a per-device preference applied per track
+
+**Decision:** Each listener has their own soundboard playback volume and a full
+mute, stored as a local (per-device) preference alongside theme and notification
+settings. It is applied on the receiving side to the incoming soundboard audio
+track specifically — soundboard clips are published under a distinct track name,
+so a receiver can tell them apart from the microphone and scale only them. Deafen
+and a per-participant local mute still silence a participant's soundboard too.
+
+**Why:** Playback loudness is a personal, device-specific concern (headphones vs
+speakers), so it belongs with the other local preferences, not synced server
+state. Targeting the soundboard track directly means the control is global across
+all players and never fights the per-participant voice volume, which LiveKit
+scopes to the microphone source. Applying it as a listener-side gain needs no new
+API and no change to how a sound is published.
+
+**Tradeoff:** Because it is per-device, the setting does not follow a user to
+another browser. A mid-clip change only fully applies to sounds that start after
+it, though the ≤5 s clip length makes that imperceptible.
+
+### 11. The "who's playing" highlight rides an ephemeral data signal, not audio detection
+
+**Decision:** When a member plays a clip, their tile lights up with the speaking
+ring on every client. This is driven by an ephemeral LiveKit data-channel message
+("started"/"stopped") the player broadcasts, plus a direct local highlight for
+the player's own tile — not by audio-level/active-speaker detection. The highlight
+auto-expires if a stop signal is lost, and carries no durable state.
+
+**Why:** Reusing speaking-indicator audio detection would be unreliable: it would
+miss a player whose microphone is muted, and would not light the player's own
+tile (whose level is read from the local mic, not the published clip). An explicit
+signal is deterministic and matches the "plays leave no durable fact" model
+(decision 2) — it is in-call, best-effort, and never written to EVT.
+
+**Tradeoff:** It introduces the first use of the LiveKit data channel in the app.
+A dropped "stopped" packet could briefly over-light a tile, which the auto-expiry
+bounds; a dropped "started" packet simply skips one highlight.
 
 ## Permissions
 

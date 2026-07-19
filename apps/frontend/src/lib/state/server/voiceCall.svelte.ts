@@ -16,10 +16,12 @@ import {
   type Participant,
   type RemoteTrack,
   type RemoteTrackPublication,
-  type RemoteParticipant
+  type RemoteParticipant,
+  type RemoteAudioTrack
 } from 'livekit-client';
 import { toast } from '$lib/ui/toast';
 import { playCallSound } from '$lib/audio/callSounds';
+import { userPreferences } from '$lib/state/userPreferences.svelte';
 import * as m from '$lib/i18n/messages';
 import type { VoiceCallAPI } from '$lib/api-client/voiceCalls';
 import { serverSlot, Codecs, type StorageSlot } from '$lib/storage/slot';
@@ -81,6 +83,17 @@ const SOUNDBOARD_WINDOW_MS = 10_000;
 const SOUNDBOARD_MAX_PER_WINDOW = 5;
 // How long the throttled flag stays raised so the UI can flash feedback.
 const SOUNDBOARD_THROTTLE_FEEDBACK_MS = 600;
+
+// LiveKit track name used for published soundboard clips. Lets receivers tell a
+// soundboard track apart from the microphone so listener-side volume/mute can
+// target it, and (implicitly) keeps its own source lane.
+const SOUNDBOARD_TRACK_NAME = 'soundboard';
+// LiveKit data-channel topic for the ephemeral "I'm playing a sound" signal
+// that lights up the player's tile on every client (see FDR-033).
+const SOUNDBOARD_DATA_TOPIC = 'soundboard';
+// Safety timeout to clear a remote "playing" highlight if the matching stop
+// signal is lost. Comfortably longer than the maximum clip length.
+const SOUNDBOARD_ACTIVE_MAX_MS = 7_000;
 
 /** Outcome of attempting to play a soundboard clip into the call. */
 export type SoundboardPlayResult = 'played' | 'throttled' | 'failed' | 'not-in-call';
@@ -281,6 +294,11 @@ export class VoiceCallState {
   // rate limiter, so the panel can flash subtle "slow down" feedback.
   soundboardThrottled = $state(false);
 
+  // Identities currently playing a soundboard clip, so the UI can light up the
+  // player's tile like it does for speech. Fed by local playback and by an
+  // ephemeral data-channel signal from remote players; entries auto-expire.
+  soundboardActiveIdentities = $state<Record<string, true>>({});
+
   // Participants (including local)
   participants = $state<CallParticipantInfo[]>([]);
 
@@ -382,6 +400,15 @@ export class VoiceCallState {
   // re-fetched/re-decoded on every trigger.
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive decode cache
   private soundboardBufferCache = new Map<string, AudioBuffer>();
+
+  // Subscribed remote soundboard audio tracks, so the listener-side soundboard
+  // volume/mute can be (re)applied to exactly those tracks, keyed by the owning
+  // participant identity (to also honour deafen / local mute).
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive track bookkeeping
+  private soundboardTracks = new Map<RemoteAudioTrack, string>();
+  // Auto-expiry timers for remote "playing" highlights, keyed by identity.
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive timer bookkeeping
+  private soundboardActiveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   // Lazily resolves the server-configured screen-share quality ceiling at
   // share time. Optional so tests/callers can omit it (falls back to defaults).
@@ -1128,6 +1155,12 @@ export class VoiceCallState {
         if (cleanedUp) return;
         cleanedUp = true;
         this.soundboardActiveCleanups.delete(cleanup);
+        // When the last of our clips ends, drop our own "playing" highlight and
+        // tell other clients to do the same.
+        if (this.soundboardActiveCleanups.size === 0) {
+          this.setSoundboardActive(room.localParticipant.identity, false);
+          this.broadcastSoundboardActive(false);
+        }
         try {
           source.disconnect();
           gain.disconnect();
@@ -1141,6 +1174,11 @@ export class VoiceCallState {
         mediaStreamTrack.stop();
       };
       this.soundboardActiveCleanups.add(cleanup);
+      // Light up our own tile on the first concurrent clip and announce it once.
+      if (this.soundboardActiveCleanups.size === 1) {
+        this.setSoundboardActive(room.localParticipant.identity, true);
+        this.broadcastSoundboardActive(true);
+      }
 
       source.onended = cleanup;
       source.start();
@@ -1201,6 +1239,10 @@ export class VoiceCallState {
   private teardownSoundboard(): void {
     for (const cleanup of [...this.soundboardActiveCleanups]) cleanup();
     this.soundboardActiveCleanups.clear();
+    this.soundboardTracks.clear();
+    for (const timer of this.soundboardActiveTimers.values()) clearTimeout(timer);
+    this.soundboardActiveTimers.clear();
+    this.soundboardActiveIdentities = {};
     this.soundboardPlayTimestamps = [];
     if (this.soundboardThrottleTimeout) {
       clearTimeout(this.soundboardThrottleTimeout);
@@ -1370,10 +1412,19 @@ export class VoiceCallState {
     // Video tracks are NOT attached here — VideoThumbnail manages its own lifecycle.
     this.room.on(
       RoomEvent.TrackSubscribed,
-      (track: RemoteTrack, _publication: RemoteTrackPublication) => {
+      (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
         if (track.kind === Track.Kind.Audio) {
           track.attach();
-          this.applyAllParticipantAudioVolumes();
+          if (publication.trackName === SOUNDBOARD_TRACK_NAME) {
+            // Soundboard audio gets its own listener-side volume/mute, applied
+            // to the track directly — participant.setVolume only affects the
+            // microphone source, so the two controls never fight.
+            const audioTrack = track as RemoteAudioTrack;
+            this.soundboardTracks.set(audioTrack, participant.identity);
+            this.applySoundboardTrackVolume(audioTrack, participant.identity);
+          } else {
+            this.applyAllParticipantAudioVolumes();
+          }
         }
         this.updateParticipants();
       }
@@ -1383,7 +1434,23 @@ export class VoiceCallState {
       RoomEvent.TrackUnsubscribed,
       (track: RemoteTrack, _publication: RemoteTrackPublication) => {
         track.detach();
+        this.soundboardTracks.delete(track as RemoteAudioTrack);
         this.updateParticipants();
+      }
+    );
+
+    // Ephemeral "I'm playing a soundboard clip" signal from remote players, so
+    // their tile lights up like speech does. Carries no durable state.
+    this.room.on(
+      RoomEvent.DataReceived,
+      (
+        payload: Uint8Array,
+        participant?: RemoteParticipant,
+        _kind?: unknown,
+        topic?: string
+      ) => {
+        if (topic !== SOUNDBOARD_DATA_TOPIC || !participant) return;
+        this.handleSoundboardSignal(payload, participant.identity);
       }
     );
 
@@ -1424,6 +1491,9 @@ export class VoiceCallState {
     this.isCameraEnabled = isParticipantCameraEnabled(this.room.localParticipant);
     this.isScreenShareEnabled = isParticipantScreenShareEnabled(this.room.localParticipant);
     this.applyAllParticipantAudioVolumes();
+    // Deafen / local-mute changes flow through here; keep soundboard tracks in
+    // step so muting someone also silences their sounds.
+    this.applyAllSoundboardTrackVolumes();
 
     this.participants = allParticipants.map((p) => {
       const md = parseParticipantMetadata(p.metadata);
@@ -1465,6 +1535,97 @@ export class VoiceCallState {
     const muted = this.isDeafened || this.isParticipantLocallyMuted(participant.identity);
     const gain = muted ? 0 : this.getParticipantVolume(participant.identity) / 100;
     participant.setVolume(gain);
+  }
+
+  /**
+   * Apply the listener's soundboard volume/mute preference to one remote
+   * soundboard track. Deafen and a per-participant local mute still silence it,
+   * so muting someone also mutes their sounds.
+   */
+  private applySoundboardTrackVolume(track: RemoteAudioTrack, identity: string): void {
+    const silenced = this.isDeafened || this.isParticipantLocallyMuted(identity);
+    track.setVolume(silenced ? 0 : userPreferences.soundboardPlaybackGain);
+  }
+
+  private applyAllSoundboardTrackVolumes(): void {
+    for (const [track, identity] of this.soundboardTracks) {
+      this.applySoundboardTrackVolume(track, identity);
+    }
+  }
+
+  /**
+   * Re-apply the listener-side soundboard volume/mute to every live soundboard
+   * track. Called when the preference changes while a call is active.
+   */
+  refreshSoundboardPlaybackVolume(): void {
+    this.applyAllSoundboardTrackVolumes();
+  }
+
+  /** Whether a participant is currently playing a soundboard clip. */
+  isSoundboardActive(identity: string): boolean {
+    return !!this.soundboardActiveIdentities[identity];
+  }
+
+  private setSoundboardActive(identity: string, active: boolean): void {
+    if (active) {
+      if (!this.soundboardActiveIdentities[identity]) {
+        this.soundboardActiveIdentities = { ...this.soundboardActiveIdentities, [identity]: true };
+      }
+      return;
+    }
+    if (this.soundboardActiveIdentities[identity]) {
+      const { [identity]: _removed, ...rest } = this.soundboardActiveIdentities;
+      void _removed;
+      this.soundboardActiveIdentities = rest;
+    }
+    const timer = this.soundboardActiveTimers.get(identity);
+    if (timer) {
+      clearTimeout(timer);
+      this.soundboardActiveTimers.delete(identity);
+    }
+  }
+
+  /**
+   * Handle a remote soundboard on/off signal. The highlight auto-expires if a
+   * stop signal is lost, so a dropped packet can never leave a tile stuck lit.
+   */
+  private handleSoundboardSignal(payload: Uint8Array, identity: string): void {
+    let on = false;
+    try {
+      const msg = JSON.parse(new TextDecoder().decode(payload)) as { on?: unknown };
+      on = msg.on === true;
+    } catch {
+      return;
+    }
+    const existing = this.soundboardActiveTimers.get(identity);
+    if (existing) {
+      clearTimeout(existing);
+      this.soundboardActiveTimers.delete(identity);
+    }
+    if (on) {
+      this.setSoundboardActive(identity, true);
+      this.soundboardActiveTimers.set(
+        identity,
+        setTimeout(() => this.setSoundboardActive(identity, false), SOUNDBOARD_ACTIVE_MAX_MS)
+      );
+    } else {
+      this.setSoundboardActive(identity, false);
+    }
+  }
+
+  /** Broadcast our own soundboard play start/stop so other clients light us up. */
+  private broadcastSoundboardActive(on: boolean): void {
+    const room = this.room;
+    if (!room || !this.connected) return;
+    try {
+      const payload = new TextEncoder().encode(JSON.stringify({ on }));
+      void room.localParticipant.publishData(payload, {
+        reliable: true,
+        topic: SOUNDBOARD_DATA_TOPIC
+      });
+    } catch {
+      // Best-effort cosmetic signal; ignore transport hiccups.
+    }
   }
 
   /**

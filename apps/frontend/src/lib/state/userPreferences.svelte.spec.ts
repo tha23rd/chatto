@@ -164,6 +164,57 @@ describe('UserPreferencesState', () => {
     });
   });
 
+  describe('soundboard playback', () => {
+    it('defaults to full volume, not muted, gain 1', () => {
+      const state = new UserPreferencesState();
+      expect(state.soundboardVolume).toBe(1);
+      expect(state.soundboardMuted).toBe(false);
+      expect(state.soundboardPlaybackGain).toBe(1);
+    });
+
+    it('hydrates valid persisted values', () => {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ soundboardPlayback: { volume: 0.4, muted: true } })
+      );
+      const state = new UserPreferencesState();
+      expect(state.soundboardVolume).toBe(0.4);
+      expect(state.soundboardMuted).toBe(true);
+    });
+
+    it('clamps out-of-range or non-numeric stored values back to the default', () => {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ soundboardPlayback: { volume: 5, muted: 'yes' } })
+      );
+      const state = new UserPreferencesState();
+      expect(state.soundboardVolume).toBe(1);
+      expect(state.soundboardMuted).toBe(false);
+    });
+
+    it('updates and persists the volume, clamping to [0, 1]', () => {
+      const state = new UserPreferencesState();
+      state.soundboardVolume = 0.55;
+      expect(state.soundboardVolume).toBe(0.55);
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}').soundboardPlayback.volume).toBe(
+        0.55
+      );
+      // Out-of-range assignment falls back to the default rather than persisting a bad value.
+      state.soundboardVolume = 9;
+      expect(state.soundboardVolume).toBe(1);
+    });
+
+    it('reports zero gain while muted but preserves the chosen volume', () => {
+      const state = new UserPreferencesState();
+      state.soundboardVolume = 0.6;
+      state.soundboardMuted = true;
+      expect(state.soundboardPlaybackGain).toBe(0);
+      expect(state.soundboardVolume).toBe(0.6);
+      state.soundboardMuted = false;
+      expect(state.soundboardPlaybackGain).toBe(0.6);
+    });
+  });
+
   describe('isMuted', () => {
     it('is true when sound is silent', () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ notificationSound: 'silent' }));

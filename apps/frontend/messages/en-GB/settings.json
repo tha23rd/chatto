@@ -155,7 +155,16 @@
       },
       "save_button": "Save Display Settings",
       "saved": "Display settings saved",
-      "save_failed": "Failed to save display settings"
+      "save_failed": "Failed to save display settings",
+      "soundboard": {
+        "title": "Soundboard",
+        "description": "Control how loudly other members' soundboard sounds play for you in voice calls.",
+        "volume": "Playback volume",
+        "mute": {
+          "label": "Mute the soundboard",
+          "description": "Silence all soundboard sounds from other members."
+        }
+      }
     },
     "notifications": {
       "title": "Notifications",

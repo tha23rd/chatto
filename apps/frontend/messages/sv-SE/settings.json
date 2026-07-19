@@ -155,7 +155,16 @@
       },
       "save_button": "Spara skärminställningar",
       "saved": "Skärminställningar sparade",
-      "save_failed": "Det gick inte att spara skärminställningar"
+      "save_failed": "Det gick inte att spara skärminställningar",
+      "soundboard": {
+        "title": "Soundboard",
+        "description": "Bestäm hur högt andra medlemmars soundboard-ljud spelas upp för dig i röstsamtal.",
+        "volume": "Uppspelningsvolym",
+        "mute": {
+          "label": "Tysta soundboardet",
+          "description": "Tysta alla soundboard-ljud från andra medlemmar."
+        }
+      }
     },
     "notifications": {
       "title": "Aviseringar",

@@ -155,7 +155,16 @@
       },
       "save_button": "Weergave-instellingen opslaan",
       "saved": "Weergave-instellingen opgeslagen",
-      "save_failed": "Kan weergave-instellingen niet opslaan"
+      "save_failed": "Kan weergave-instellingen niet opslaan",
+      "soundboard": {
+        "title": "Soundboard",
+        "description": "Bepaal hoe luid de soundboard-geluiden van andere leden voor jou worden afgespeeld in spraakoproepen.",
+        "volume": "Afspeelvolume",
+        "mute": {
+          "label": "Soundboard dempen",
+          "description": "Demp alle soundboard-geluiden van andere leden."
+        }
+      }
     },
     "notifications": {
       "title": "Meldingen",

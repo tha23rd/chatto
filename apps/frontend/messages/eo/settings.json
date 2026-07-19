@@ -155,7 +155,16 @@
       },
       "save_button": "Konservu ekranajn agordojn",
       "saved": "Vidigaj agordoj konservitaj",
-      "save_failed": "Malsukcesis konservi ekranajn agordojn"
+      "save_failed": "Malsukcesis konservi ekranajn agordojn",
+      "soundboard": {
+        "title": "Soundboard",
+        "description": "Control how loudly other members' soundboard sounds play for you in voice calls.",
+        "volume": "Playback volume",
+        "mute": {
+          "label": "Mute the soundboard",
+          "description": "Silence all soundboard sounds from other members."
+        }
+      }
     },
     "notifications": {
       "title": "Sciigoj",

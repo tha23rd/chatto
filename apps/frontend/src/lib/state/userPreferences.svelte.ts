@@ -17,16 +17,34 @@ import { Codecs, globalSlot } from '$lib/storage/slot';
 export type DisplayTheme = 'system' | 'light' | 'dark';
 type EffectiveTheme = 'light' | 'dark';
 
+/**
+ * Listener-side controls for soundboard playback. `volume` scales how loudly
+ * other members' soundboard sounds are heard in a call (0–1, where 1 is the
+ * sound's own configured level); `muted` silences the soundboard entirely
+ * without losing the chosen level. These are per-device preferences.
+ */
+interface SoundboardPlaybackPreferences {
+  volume: number;
+  muted: boolean;
+}
+
+const defaultSoundboardPlayback: SoundboardPlaybackPreferences = {
+  volume: 1,
+  muted: false
+};
+
 interface Preferences {
   displayTheme: DisplayTheme;
   notificationSound: NotificationSoundId;
   notificationSoundFilters: NotificationSoundFilters;
+  soundboardPlayback: SoundboardPlaybackPreferences;
 }
 
 const defaultPreferences: Preferences = {
   displayTheme: 'system',
   notificationSound: defaultSoundId,
-  notificationSoundFilters: defaultNotificationSoundFilters
+  notificationSoundFilters: defaultNotificationSoundFilters,
+  soundboardPlayback: defaultSoundboardPlayback
 };
 
 const slot = globalSlot('preferences', defaultPreferences, Codecs.json<Preferences>());
@@ -100,6 +118,14 @@ function normalizeNotificationSoundFilters(value: unknown): NotificationSoundFil
   };
 }
 
+function normalizeSoundboardPlayback(value: unknown): SoundboardPlaybackPreferences {
+  const stored = isRecord(value) ? value : {};
+  return {
+    volume: clampNumber(stored.volume, 0, 1, defaultSoundboardPlayback.volume),
+    muted: typeof stored.muted === 'boolean' ? stored.muted : defaultSoundboardPlayback.muted
+  };
+}
+
 function loadPreferences(): Preferences {
   const stored = slot.get();
   // Validate that the stored sound ID is still valid — silently fall back
@@ -112,7 +138,8 @@ function loadPreferences(): Preferences {
     ...stored,
     displayTheme,
     notificationSound: isValidSound ? stored.notificationSound : defaultSoundId,
-    notificationSoundFilters: normalizeNotificationSoundFilters(stored.notificationSoundFilters)
+    notificationSoundFilters: normalizeNotificationSoundFilters(stored.notificationSoundFilters),
+    soundboardPlayback: normalizeSoundboardPlayback(stored.soundboardPlayback)
   };
 }
 
@@ -168,6 +195,39 @@ export class UserPreferencesState {
    */
   get isMuted(): boolean {
     return this.#prefs.notificationSound === 'silent';
+  }
+
+  get soundboardVolume(): number {
+    return this.#prefs.soundboardPlayback.volume;
+  }
+
+  set soundboardVolume(value: number) {
+    this.#prefs.soundboardPlayback = normalizeSoundboardPlayback({
+      ...this.#prefs.soundboardPlayback,
+      volume: value
+    });
+    slot.set(this.#prefs);
+  }
+
+  get soundboardMuted(): boolean {
+    return this.#prefs.soundboardPlayback.muted;
+  }
+
+  set soundboardMuted(value: boolean) {
+    this.#prefs.soundboardPlayback = normalizeSoundboardPlayback({
+      ...this.#prefs.soundboardPlayback,
+      muted: value
+    });
+    slot.set(this.#prefs);
+  }
+
+  /**
+   * Effective gain to apply to other members' soundboard audio: zero when
+   * muted, otherwise the chosen volume. This is what the call layer multiplies
+   * incoming soundboard tracks by.
+   */
+  get soundboardPlaybackGain(): number {
+    return this.#prefs.soundboardPlayback.muted ? 0 : this.#prefs.soundboardPlayback.volume;
   }
 }
 
