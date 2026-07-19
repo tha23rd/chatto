@@ -52,3 +52,63 @@ fn one_named_capability_excludes_powerful_plugins() {
         );
     }
 }
+
+fn parse_http_scope_pattern(
+    value: &str,
+) -> Result<urlpattern::UrlPattern, urlpattern::quirks::Error> {
+    let mut init =
+        urlpattern::UrlPatternInit::parse_constructor_string::<regex::Regex>(value, None)?;
+    if init
+        .search
+        .as_ref()
+        .map(|part| part.is_empty())
+        .unwrap_or(true)
+    {
+        init.search.replace("*".to_string());
+    }
+    if init
+        .hash
+        .as_ref()
+        .map(|part| part.is_empty())
+        .unwrap_or(true)
+    {
+        init.hash.replace("*".to_string());
+    }
+    if init
+        .pathname
+        .as_ref()
+        .map(|part| part.is_empty() || part == "/")
+        .unwrap_or(true)
+    {
+        init.pathname.replace("*".to_string());
+    }
+    urlpattern::UrlPattern::parse(init, Default::default())
+}
+
+#[test]
+fn http_capability_url_patterns_are_valid() {
+    let capability = json("capabilities/default.json");
+    let http_permission = capability["permissions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|permission| permission["identifier"] == "http:default")
+        .expect("http:default capability permission");
+
+    let mut ipv6_loopback_pattern = None;
+    for entry in http_permission["allow"].as_array().unwrap() {
+        let value = entry["url"].as_str().expect("HTTP allow URL pattern");
+        let pattern = parse_http_scope_pattern(value)
+            .unwrap_or_else(|error| panic!("invalid HTTP allow URL pattern {value:?}: {error}"));
+        if value == r"http://[\:\:1]:*" {
+            ipv6_loopback_pattern = Some(pattern);
+        }
+    }
+
+    let ipv6_loopback_pattern =
+        ipv6_loopback_pattern.expect("escaped IPv6 loopback HTTP allow URL pattern");
+    let ipv6_endpoint = url::Url::parse("http://[::1]:4000/api/connect").unwrap();
+    assert!(ipv6_loopback_pattern
+        .test(urlpattern::UrlPatternMatchInput::Url(ipv6_endpoint))
+        .unwrap());
+}

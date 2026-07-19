@@ -34,3 +34,7 @@ tauri-plugin-single-instance = "2.4.3"
 tokio = { version = "1.53.0", features = ["io-util", "macros", "net", "rt", "sync", "time"] }
 tokio-tungstenite = { version = "0.28.0", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
 url = "2.5.8"
+
+[dev-dependencies]
+regex = "1.13.1"
+urlpattern = "0.3.0"
