@@ -37,6 +37,28 @@ describe('UserPreferencesState', () => {
       expect(state.effectiveDisplayTheme).toBe('light');
     });
 
+    it('uses the Stable desktop update channel when storage is empty', () => {
+      const state = new UserPreferencesState();
+
+      expect(state.desktopUpdateChannel).toBe('stable');
+    });
+
+    it('hydrates a persisted Nightly desktop update channel', () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ desktopUpdateChannel: 'nightly' }));
+
+      const state = new UserPreferencesState();
+
+      expect(state.desktopUpdateChannel).toBe('nightly');
+    });
+
+    it('normalizes an invalid desktop update channel to Stable', () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ desktopUpdateChannel: 'preview' }));
+
+      const state = new UserPreferencesState();
+
+      expect(state.desktopUpdateChannel).toBe('stable');
+    });
+
     it('resolves the system display theme from prefers-color-scheme', () => {
       mockSystemTheme('dark');
       const state = new UserPreferencesState();
@@ -271,6 +293,16 @@ describe('UserPreferencesState', () => {
 
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
       expect(stored.notificationSound).toBe('pop');
+    });
+
+    it('updates and immediately persists the desktop update channel', () => {
+      const state = new UserPreferencesState();
+
+      state.desktopUpdateChannel = 'nightly';
+
+      expect(state.desktopUpdateChannel).toBe('nightly');
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+      expect(stored.desktopUpdateChannel).toBe('nightly');
     });
 
     it('updates and persists individual notification sound filters', () => {
