@@ -77,10 +77,12 @@ describe('NativeCallControlsController', () => {
 
     harness.setControls({ connected: true, muted: false, deafened: true });
     controller.sync();
-    expect(harness.host.setCallControls).toHaveBeenLastCalledWith({
-      connected: true,
-      muted: false,
-      deafened: true
+    await vi.waitFor(() => {
+      expect(harness.host.setCallControls).toHaveBeenLastCalledWith({
+        connected: true,
+        muted: false,
+        deafened: true
+      });
     });
   });
 
@@ -112,12 +114,87 @@ describe('NativeCallControlsController', () => {
     controller.stop();
 
     expect(harness.target.setPushToTalkPressed).toHaveBeenLastCalledWith(false);
-    expect(harness.unsubscribePushToTalk).toHaveBeenCalledOnce();
-    expect(harness.unsubscribeTray).toHaveBeenCalledOnce();
-    expect(harness.host.setCallControls).toHaveBeenLastCalledWith({
-      connected: false,
-      muted: false,
-      deafened: false
+    await vi.waitFor(() => {
+      expect(harness.unsubscribePushToTalk).toHaveBeenCalledOnce();
+      expect(harness.unsubscribeTray).toHaveBeenCalledOnce();
+      expect(harness.host.setCallControls).toHaveBeenLastCalledWith({
+        connected: false,
+        muted: false,
+        deafened: false
+      });
     });
+  });
+
+  it('gives native ownership to one active call when multiple servers are connected', async () => {
+    const harness = createHarness();
+    const firstTarget = {
+      ...harness.target,
+      setPushToTalkPressed: vi.fn(async () => {}),
+      toggleMute: vi.fn(async () => {}),
+      toggleDeafen: vi.fn(async () => {})
+    };
+    const secondTarget = {
+      ...harness.target,
+      setPushToTalkPressed: vi.fn(async () => {}),
+      toggleMute: vi.fn(async () => {}),
+      toggleDeafen: vi.fn(async () => {})
+    };
+    const first = new NativeCallControlsController(harness.host, firstTarget);
+    const second = new NativeCallControlsController(harness.host, secondTarget);
+
+    first.start();
+    second.start();
+    await vi.waitFor(() => expect(harness.host.onTrayAction).toHaveBeenCalledOnce());
+
+    harness.emitPushToTalk('pressed');
+    harness.emitTray('toggle-mute');
+    expect(firstTarget.setPushToTalkPressed).not.toHaveBeenCalledWith(true);
+    expect(firstTarget.toggleMute).not.toHaveBeenCalled();
+    expect(secondTarget.setPushToTalkPressed).toHaveBeenCalledWith(true);
+    expect(secondTarget.toggleMute).toHaveBeenCalledOnce();
+    expect(harness.host.registerPushToTalk).toHaveBeenCalledOnce();
+
+    second.stop();
+    harness.emitTray('toggle-deafen');
+    expect(firstTarget.toggleDeafen).toHaveBeenCalledOnce();
+    expect(secondTarget.toggleDeafen).not.toHaveBeenCalled();
+  });
+
+  it('awaits delayed native cleanup before registering the next call', async () => {
+    let finishUnregister!: () => void;
+    const unregistering = new Promise<void>((resolve) => {
+      finishUnregister = resolve;
+    });
+    const unregisterPushToTalk = vi.fn(() => unregistering);
+    const host: NativeHost = {
+      ...browserNativeHost,
+      kind: 'tauri',
+      capabilities: {
+        ...browserNativeHost.capabilities,
+        globalPushToTalk: true,
+        tray: true
+      },
+      registerPushToTalk: vi.fn(async () => unregisterPushToTalk),
+      onTrayAction: vi.fn(async () => async () => {}),
+      setCallControls: vi.fn(async () => {})
+    };
+    const target = {
+      snapshot: () => ({ connected: true, muted: true, deafened: false }),
+      setPushToTalkPressed: vi.fn(async () => {}),
+      toggleMute: vi.fn(async () => {}),
+      toggleDeafen: vi.fn(async () => {})
+    };
+    const first = new NativeCallControlsController(host, target);
+    const second = new NativeCallControlsController(host, target);
+
+    first.start();
+    await vi.waitFor(() => expect(host.registerPushToTalk).toHaveBeenCalledOnce());
+    first.stop();
+    await vi.waitFor(() => expect(unregisterPushToTalk).toHaveBeenCalledOnce());
+    second.start();
+    expect(host.registerPushToTalk).toHaveBeenCalledOnce();
+
+    finishUnregister();
+    await vi.waitFor(() => expect(host.registerPushToTalk).toHaveBeenCalledTimes(2));
   });
 });

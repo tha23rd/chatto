@@ -4,14 +4,19 @@ import { register, unregister } from '@tauri-apps/plugin-global-shortcut';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { PUSH_TO_TALK_ACCELERATOR } from './callControls';
-import { assertAllowedExternalUrl, assertAllowedHttpEndpoint } from './urlPolicy';
+import {
+  assertAllowedExternalUrl,
+  assertAllowedHttpEndpoint,
+  assertAllowedRealtimeUrl,
+  assertAllowedServerUrl
+} from './urlPolicy';
 import { createTauriRealtimeSocket } from './tauriRealtimeSocket';
 import { NATIVE_HOST_API_VERSION, type NativeHost } from './types';
 
-type NativeFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type NativeFetchOptions = RequestInit & { maxRedirections?: number };
 
 export interface TauriHostBindings {
-  readonly fetch: NativeFetch;
+  readonly fetch: (input: RequestInfo | URL, init?: NativeFetchOptions) => Promise<Response>;
   readonly openUrl: (url: string) => Promise<void>;
   readonly createRealtimeSocket: NativeHost['createRealtimeSocket'];
   readonly startServerOAuth: NativeHost['startServerOAuth'];
@@ -27,8 +32,22 @@ function requestUrl(input: RequestInfo | URL): string {
   return input.url;
 }
 
+function realtimeServerOrigin(endpoint: string): string {
+  const url = new URL(endpoint);
+  url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+  return url.origin;
+}
+
 /** Build the desktop adapter from narrow Tauri plugin bindings. */
 export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
+  const allowedOrigins = new Map<string, number>();
+
+  const requireRegisteredOrigin = (origin: string): void => {
+    if (!allowedOrigins.has(origin)) {
+      throw new Error('Server origin is not registered.');
+    }
+  };
+
   return {
     apiVersion: NATIVE_HOST_API_VERSION,
     kind: 'tauri',
@@ -40,20 +59,47 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       tray: true
     },
 
+    registerServerOrigin(value) {
+      const origin = assertAllowedServerUrl(value);
+      allowedOrigins.set(origin, (allowedOrigins.get(origin) ?? 0) + 1);
+      let registered = true;
+      return () => {
+        if (!registered) return;
+        registered = false;
+        const references = allowedOrigins.get(origin) ?? 0;
+        if (references <= 1) allowedOrigins.delete(origin);
+        else allowedOrigins.set(origin, references - 1);
+      };
+    },
+
     async fetch(input, init) {
       const endpoint = assertAllowedHttpEndpoint(requestUrl(input));
-      return bindings.fetch(
+      const origin = new URL(endpoint).origin;
+      requireRegisteredOrigin(origin);
+      const response = await bindings.fetch(
         typeof input === 'string' || input instanceof URL ? endpoint : input,
-        init
+        { ...init, maxRedirections: 0 }
       );
+      if (response.url) {
+        const responseEndpoint = assertAllowedHttpEndpoint(response.url);
+        if (new URL(responseEndpoint).origin !== origin) {
+          void response.body?.cancel().catch(() => {});
+          throw new Error('HTTP redirect left the registered server origin.');
+        }
+      }
+      return response;
     },
 
     createRealtimeSocket(url) {
-      return bindings.createRealtimeSocket(url);
+      const endpoint = assertAllowedRealtimeUrl(url);
+      requireRegisteredOrigin(realtimeServerOrigin(endpoint));
+      return bindings.createRealtimeSocket(endpoint);
     },
 
-    startServerOAuth(request) {
-      return bindings.startServerOAuth(request);
+    async startServerOAuth(request) {
+      const serverUrl = assertAllowedServerUrl(request.serverUrl);
+      requireRegisteredOrigin(serverUrl);
+      return bindings.startServerOAuth({ ...request, serverUrl });
     },
 
     async openExternal(url) {
@@ -91,10 +137,10 @@ export const tauriNativeHost = createTauriNativeHost({
       listener(state === 'Pressed' ? 'pressed' : 'released');
     });
     let registered = true;
-    return () => {
+    return async () => {
       if (!registered) return;
       registered = false;
-      void unregister(accelerator).catch(() => {});
+      await unregister(accelerator);
     };
   },
   onTrayAction: (listener) =>

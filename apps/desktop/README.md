@@ -84,12 +84,23 @@ The callback listener uses an ephemeral port and closes after one bounded
 response or a timeout. Tokens and callback query strings must not appear in
 logs, screenshots, or acceptance evidence.
 
+The desktop client leases native network access only for saved server origins
+and for the server currently being probed in the Add Server dialog. HTTP
+redirects are disabled and a response that reports another origin is rejected.
+The ordinary web client keeps its browser transports, including support for
+operator-approved non-loopback HTTP deployments; the desktop POC deliberately
+requires HTTPS except for local development.
+
 ## Native call controls
 
 While connected to a call, hold `Control+Shift+Space` to talk if the microphone
 was muted when the key was pressed. Releasing the keys restores mute. The
 shortcut works while Chatto is unfocused, never overrides deafen, and is
 unregistered when the call ends.
+
+Chatto has one process-wide global shortcut and tray menu. If calls remain
+connected on multiple servers, the most recently started call owns those
+controls. Ending it returns ownership to the previously connected call.
 
 Closing the window hides it to the notification area. The tray menu can show
 Chatto, mute/unmute, deafen/undeafen, or quit. Only **Quit** terminates the
@@ -120,6 +131,11 @@ GPU-engine utilisation for Chatto and its descendant WebView2 processes. It
 does not collect window titles, command lines, URLs, account data, or network
 payloads. Use [`tests/windows-acceptance.md`](tests/windows-acceptance.md) to
 keep manual evidence separate from unrun requirements.
+
+During a live screen share, open the quality gear on the local share tile and
+choose **Copy to clipboard**. The versioned JSON contains only a bounded set of
+normalized WebRTC sender statistics. Inspect it before attaching it to a PR and
+keep the acceptance record free of user or server data.
 
 ## Unsigned POC packages and troubleshooting
 

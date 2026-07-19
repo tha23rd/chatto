@@ -21,7 +21,9 @@ common cause of "why is my stream blocky" — showing the number makes the trade
 - `ceiling` - Server's advisory quality ceiling; tiers above it are not offered
 - `mode` - `'preflight'` (with Go Live) or `'live'` (applies immediately)
 - `retuneFailed` - Show the "applies to your next share" notice
+- `diagnosticsAvailable` - Whether a bounded stats sample is ready to copy
 - `onchange` - Called with the new preference whenever a control changes
+- `oncopydiagnostics` - Copies privacy-safe local WebRTC stats (`live` mode only)
 - `ongolive` - Called when Go Live is pressed (`preflight` only)
 - `onclose` - Called when the popover should dismiss
 -->
@@ -44,8 +46,10 @@ common cause of "why is my stream blocky" — showing the number makes the trade
     ceiling,
     mode,
     retuneFailed = false,
+    diagnosticsAvailable = false,
     onchange,
     ongolive,
+    oncopydiagnostics,
     onclose
   }: {
     anchor: { top: number; bottom: number; left: number };
@@ -53,8 +57,10 @@ common cause of "why is my stream blocky" — showing the number makes the trade
     ceiling: ScreenShareCeiling;
     mode: 'preflight' | 'live';
     retuneFailed?: boolean;
+    diagnosticsAvailable?: boolean;
     onchange: (prefs: ScreenShareQualityPrefs) => void;
     ongolive?: () => void;
+    oncopydiagnostics?: () => void;
     onclose: () => void;
   } = $props();
 
@@ -150,6 +156,19 @@ common cause of "why is my stream blocky" — showing the number makes the trade
       <p class="text-xs text-muted" data-testid="stream-quality-retune-failed">
         {m['voice.stream_quality_next_share']()}
       </p>
+    {/if}
+
+    {#if mode === 'live'}
+      <button
+        type="button"
+        class="btn btn-secondary w-full cursor-pointer"
+        data-testid="stream-quality-copy-diagnostics"
+        disabled={!diagnosticsAvailable}
+        onclick={() => oncopydiagnostics?.()}
+      >
+        <span class="iconify uil--clipboard-notes" aria-hidden="true"></span>
+        {m['common.copy_to_clipboard']()}
+      </button>
     {/if}
 
     {#if mode === 'preflight'}

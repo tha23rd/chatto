@@ -104,6 +104,21 @@ describe('startServerOAuthFlow', () => {
     );
   });
 
+  it('preserves non-loopback HTTP server OAuth in the web client', async () => {
+    mocks.getNativeHost.mockReturnValue(nativeHost(false));
+    const location = { origin: 'http://client.lan', href: '' };
+    vi.stubGlobal('window', { location });
+
+    await startServerOAuthFlow('http://192.168.1.20:4000', {
+      name: 'LAN server',
+      authorizeUrl: '/oauth/authorize',
+      iconUrl: null
+    });
+
+    expect(new URL(location.href).origin).toBe('http://192.168.1.20:4000');
+    expect(mocks.startServerOAuth).not.toHaveBeenCalled();
+  });
+
   it('rejects an authorization endpoint on a different origin', async () => {
     mocks.getNativeHost.mockReturnValue(nativeHost(true));
 

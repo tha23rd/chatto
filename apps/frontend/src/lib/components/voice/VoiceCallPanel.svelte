@@ -51,6 +51,7 @@ Room sidebar panel for voice/video calls.
   import type { Attachment } from 'svelte/attachments';
   import { startDMWith } from '$lib/dm/startDM';
   import { toast } from '$lib/ui/toast';
+  import { serializeScreenShareDiagnostics } from '$lib/voice/webrtcDiagnostics';
 
   let {
     roomId,
@@ -408,6 +409,18 @@ Room sidebar panel for voice/video calls.
   function onStreamQualityGoLive() {
     closeStreamQuality();
     voiceCallState.toggleScreenShare();
+  }
+
+  async function copyScreenShareDiagnostics(): Promise<void> {
+    if (voiceCallState.screenShareDiagnostics.history.length === 0) return;
+    try {
+      await navigator.clipboard.writeText(
+        serializeScreenShareDiagnostics(voiceCallState.screenShareDiagnostics)
+      );
+      toast.success(m['common.copied_to_clipboard']());
+    } catch {
+      toast.error(m['common.error.generic']());
+    }
   }
 
   // Soundboard. Only meaningful once joined to the call and only when LiveKit
@@ -1065,8 +1078,10 @@ Room sidebar panel for voice/video calls.
     ceiling={voiceCallState.screenShareCeiling}
     mode={streamQualityMode}
     retuneFailed={voiceCallState.screenShareRetuneFailed}
+    diagnosticsAvailable={voiceCallState.screenShareDiagnostics.history.length > 0}
     onchange={(prefs) => voiceCallState.setScreenShareQuality(prefs)}
     ongolive={onStreamQualityGoLive}
+    oncopydiagnostics={() => void copyScreenShareDiagnostics()}
     onclose={closeStreamQuality}
   />
 {/if}

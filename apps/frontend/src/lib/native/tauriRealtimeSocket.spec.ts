@@ -4,9 +4,9 @@ import { createTauriRealtimeSocket } from './tauriRealtimeSocket';
 
 class FakeNativeSocket {
   readonly sent: Array<Message | string | number[]> = [];
-  listener: ((message: Message) => void) | null = null;
+  listener: ((message: unknown) => void) | null = null;
 
-  addListener(listener: (message: Message) => void): () => void {
+  addListener(listener: (message: unknown) => void): () => void {
     this.listener = listener;
     return () => {
       if (this.listener === listener) this.listener = null;
@@ -19,7 +19,7 @@ class FakeNativeSocket {
 
   async disconnect(): Promise<void> {}
 
-  receive(message: Message): void {
+  receive(message: unknown): void {
     this.listener?.(message);
   }
 }
@@ -77,5 +77,29 @@ describe('Tauri realtime socket adapter', () => {
       type: 'Close',
       data: { code: 1001, reason: 'replaced' }
     });
+  });
+
+  it('turns plugin read errors into an abnormal close so callers reconnect', async () => {
+    const native = new FakeNativeSocket();
+    const socket = createTauriRealtimeSocket('wss://chatto.example/api/realtime', {
+      connect: async () => native
+    });
+    const onerror = vi.fn();
+    const onclose = vi.fn();
+    socket.onerror = onerror;
+    socket.onclose = onclose;
+    await vi.waitFor(() => expect(socket.readyState).toBe(1));
+
+    // tauri-plugin-websocket serializes tungstenite read errors as strings even
+    // though its TypeScript declaration currently omits that channel payload.
+    native.receive('Connection reset without closing handshake');
+
+    expect(socket.readyState).toBe(3);
+    expect(onerror).toHaveBeenCalledOnce();
+    expect(onclose).toHaveBeenCalledWith({
+      code: 1006,
+      reason: 'Native WebSocket connection failed.'
+    });
+    expect(native.listener).toBeNull();
   });
 });

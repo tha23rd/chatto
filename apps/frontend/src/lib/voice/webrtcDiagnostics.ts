@@ -26,6 +26,8 @@ export interface ScreenShareDiagnosticsSample {
   readonly packetsSent: number | null;
   readonly retransmittedPacketsSent: number | null;
   readonly roundTripTimeMs: number | null;
+  readonly packetsLost: number | null;
+  readonly jitterMs: number | null;
 }
 
 export interface ScreenShareDiagnosticsSnapshot {
@@ -124,6 +126,7 @@ export function normalizeScreenShareStats(
         (stat) => stat.type === 'remote-inbound-rtp' && outboundId && stat.localId === outboundId
       );
   const roundTripTimeSeconds = finiteNonNegative(remoteStat?.roundTripTime);
+  const jitterSeconds = finiteNonNegative(remoteStat?.jitter);
 
   const bitrate = deltaRate(
     bytesSent,
@@ -169,8 +172,26 @@ export function normalizeScreenShareStats(
     qualityLimitationReason: qualityLimitation(outbound?.qualityLimitationReason),
     packetsSent: finiteNonNegative(outbound?.packetsSent),
     retransmittedPacketsSent: finiteNonNegative(outbound?.retransmittedPacketsSent),
-    roundTripTimeMs: rounded(roundTripTimeSeconds === null ? null : roundTripTimeSeconds * 1_000, 3)
+    roundTripTimeMs: rounded(roundTripTimeSeconds === null ? null : roundTripTimeSeconds * 1_000, 3),
+    packetsLost: finiteNonNegative(remoteStat?.packetsLost),
+    jitterMs: rounded(jitterSeconds === null ? null : jitterSeconds * 1_000, 3)
   };
+}
+
+/** Serialize bounded local stats without server, room, user, or track identifiers. */
+export function serializeScreenShareDiagnostics(
+  snapshot: ScreenShareDiagnosticsSnapshot,
+  generatedAtMs = Date.now()
+): string {
+  return JSON.stringify(
+    {
+      schemaVersion: 1,
+      generatedAtMs,
+      samples: snapshot.history
+    },
+    null,
+    2
+  );
 }
 
 export interface ScreenShareDiagnosticsCollectorOptions {

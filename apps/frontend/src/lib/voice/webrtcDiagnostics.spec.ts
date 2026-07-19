@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ScreenShareDiagnosticsCollector,
   normalizeScreenShareStats,
+  serializeScreenShareDiagnostics,
   type RTCStatsReportLike
 } from './webrtcDiagnostics';
 
@@ -51,7 +52,9 @@ function videoReport(overrides: Record<string, unknown> = {}): RTCStatsReportLik
       id: 'remote',
       type: 'remote-inbound-rtp',
       localId: 'outbound-video',
-      roundTripTime: 0.04
+      roundTripTime: 0.04,
+      packetsLost: 3,
+      jitter: 0.006
     }
   );
 }
@@ -94,7 +97,9 @@ describe('normalizeScreenShareStats', () => {
       qualityLimitationReason: 'cpu',
       packetsSent: 100,
       retransmittedPacketsSent: 5,
-      roundTripTimeMs: 40
+      roundTripTimeMs: 40,
+      packetsLost: 3,
+      jitterMs: 6
     });
     expect(second).toMatchObject({
       sampledAtMs: 12_000,
@@ -136,12 +141,28 @@ describe('normalizeScreenShareStats', () => {
       qualityLimitationReason: null,
       packetsSent: null,
       retransmittedPacketsSent: null,
-      roundTripTimeMs: null
+      roundTripTimeMs: null,
+      packetsLost: null,
+      jitterMs: null
     });
     expect(malformed.bytesSent).toBeNull();
     expect(malformed.framesEncoded).toBeNull();
     expect(malformed.framesDropped).toBe(0);
     expect(malformed.qualityLimitationReason).toBeNull();
+  });
+
+  it('serializes only the bounded, privacy-safe diagnostics evidence shape', () => {
+    const sample = normalizeScreenShareStats(videoReport(), null, 10_000);
+    const evidence = JSON.parse(
+      serializeScreenShareDiagnostics({ latest: sample, history: [sample] }, 12_000)
+    );
+
+    expect(evidence).toEqual({
+      schemaVersion: 1,
+      generatedAtMs: 12_000,
+      samples: [sample]
+    });
+    expect(JSON.stringify(evidence)).not.toMatch(/server|room|user|token|url/i);
   });
 });
 

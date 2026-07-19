@@ -46,6 +46,7 @@ private URLs, window titles, or message/media payloads.
 | Share 1080p30       | Share motion/content at 1920x1080/30; record actual diagnostics and remote quality.                                                                   | UNRUN  |                                |
 | Share 1080p60       | Share motion/content at 1920x1080/60; record actual diagnostics and remote quality.                                                                   | UNRUN  |                                |
 | Share retune        | Change quality during an active share; confirm no second picker appears and diagnostics reflect the new ceiling.                                      | UNRUN  |                                |
+| Diagnostics export  | From the live share quality gear, copy diagnostics JSON; confirm it parses, includes packet loss/jitter fields, and contains no identifiers or URLs.  | UNRUN  |                                |
 | Entire-screen audio | Select an entire Windows display with share-audio enabled and verify remote system audio plus video. Record `BLOCKED` if WebView2 does not expose it. | UNRUN  |                                |
 | PTT muted           | Mute, unfocus/minimise Chatto, hold `Control+Shift+Space`, verify speech only while held, then verify mute restoration.                               | UNRUN  |                                |
 | PTT unmuted         | While already unmuted, press/release PTT and verify the microphone remains unmuted.                                                                   | UNRUN  |                                |
@@ -53,6 +54,7 @@ private URLs, window titles, or message/media payloads.
 | PTT cleanup         | Hold/release around call leave and immediately join another call; confirm no stale shortcut or enabled microphone.                                    | UNRUN  |                                |
 | Tray close          | Close the window; process/call continue, tray remains, and Show restores/focuses the window.                                                          | UNRUN  |                                |
 | Tray call controls  | Toggle mute and deafen from the tray; labels and renderer state remain in sync.                                                                       | UNRUN  |                                |
+| Multi-server calls  | Keep calls connected on two servers; verify PTT/tray control the latest call and return to the earlier call when the latest one ends.                 | UNRUN  |                                |
 | Tray quit           | Choose Quit; host and descendant WebView2 processes terminate and the shortcut unregisters.                                                           | UNRUN  |                                |
 | Navigation          | Open an approved HTTPS link in the system browser; confirm remote top-level navigation, popups, `file:`, and script URLs are denied.                  | UNRUN  |                                |
 | Uninstall           | Uninstall from Windows settings; installed application files/shortcuts are removed without changing user server data outside documented scope.        | UNRUN  |                                |
@@ -80,12 +82,12 @@ and note when GPU counters are unavailable rather than substituting zero.
 Record a representative steady-state sample and the worst sample for each
 quality tier. Unavailable WebRTC fields remain `null`.
 
-| Tier    | Actual resolution/FPS | Bitrate | Codec | Avg encode ms | Limitation reason | Packets/retransmits | RTT   | Frames sent/dropped | Status |
-| ------- | --------------------- | ------- | ----- | ------------- | ----------------- | ------------------- | ----- | ------------------- | ------ |
-| 720p30  | UNRUN                 | UNRUN   | UNRUN | UNRUN         | UNRUN             | UNRUN               | UNRUN | UNRUN               | UNRUN  |
-| 720p60  | UNRUN                 | UNRUN   | UNRUN | UNRUN         | UNRUN             | UNRUN               | UNRUN | UNRUN               | UNRUN  |
-| 1080p30 | UNRUN                 | UNRUN   | UNRUN | UNRUN         | UNRUN             | UNRUN               | UNRUN | UNRUN               | UNRUN  |
-| 1080p60 | UNRUN                 | UNRUN   | UNRUN | UNRUN         | UNRUN             | UNRUN               | UNRUN | UNRUN               | UNRUN  |
+| Tier    | Actual resolution/FPS | Bitrate | Codec | Avg encode ms | Limitation reason | Packets lost/retransmits | RTT/jitter | Frames sent/dropped | Status |
+| ------- | --------------------- | ------- | ----- | ------------- | ----------------- | ------------------------ | ---------- | ------------------- | ------ |
+| 720p30  | UNRUN                 | UNRUN   | UNRUN | UNRUN         | UNRUN             | UNRUN                    | UNRUN      | UNRUN               | UNRUN  |
+| 720p60  | UNRUN                 | UNRUN   | UNRUN | UNRUN         | UNRUN             | UNRUN                    | UNRUN      | UNRUN               | UNRUN  |
+| 1080p30 | UNRUN                 | UNRUN   | UNRUN | UNRUN         | UNRUN             | UNRUN                    | UNRUN      | UNRUN               | UNRUN  |
+| 1080p60 | UNRUN                 | UNRUN   | UNRUN | UNRUN         | UNRUN             | UNRUN                    | UNRUN      | UNRUN               | UNRUN  |
 
 ## Decision gate
 

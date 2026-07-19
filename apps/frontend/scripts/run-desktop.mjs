@@ -19,6 +19,19 @@ export function desktopEnvironment(environment) {
 }
 
 /**
+ * Return the single-page fallback expected by the selected shell.
+ *
+ * Tauri boots `index.html` directly from its asset protocol. The web image is
+ * served by nginx, which intentionally keeps using `200.html` as its fallback.
+ *
+ * @param {string | undefined} target
+ * @returns {'index.html' | '200.html'}
+ */
+export function frontendFallback(target) {
+  return target === 'desktop' ? 'index.html' : '200.html';
+}
+
+/**
  * Run a pnpm command with the desktop build target selected.
  *
  * @param {string[]} args

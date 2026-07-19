@@ -34,7 +34,10 @@ export async function startServerOAuthFlow(
     throw new Error('This server does not support OAuth sign-in.');
   }
 
-  const remoteUrl = assertAllowedServerUrl(serverUrl);
+  const nativeHost = getNativeHost();
+  const remoteUrl = nativeHost.capabilities.nativeOAuth
+    ? assertAllowedServerUrl(serverUrl)
+    : serverUrl;
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
   const state = generateState();
@@ -44,8 +47,6 @@ export async function startServerOAuthFlow(
     code_challenge_method: 'S256',
     state
   });
-  const nativeHost = getNativeHost();
-
   if (nativeHost.capabilities.nativeOAuth) {
     // Validate the discovered path before it crosses the native boundary.
     serverAuthorizeUrl(remoteUrl, serverInfo.authorizeUrl, params);

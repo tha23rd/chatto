@@ -4,7 +4,7 @@
 
 **Goal:** Deliver a runnable Windows Tauri/WebView2 proof of concept that reuses Chatto's Svelte frontend, authenticates self-hosted servers safely, preserves realtime and LiveKit behavior, and adds global push-to-talk plus tray lifecycle.
 
-**Architecture:** `apps/desktop` owns the Windows process, OAuth loopback listener, tray, and Tauri permissions. The existing static Svelte build remains the renderer and reaches native behavior through a frontend-owned `NativeHost`; browser behavior remains the default when the desktop capability is absent. LiveKit and E2EE stay in the renderer, while Tauri's HTTP and WebSocket plugins provide narrowly validated CORS/origin-policy escape hatches.
+**Architecture:** `apps/desktop` owns the Windows process, OAuth loopback listener, tray, and Tauri permissions. The existing static Svelte build remains the renderer and reaches native behavior through a frontend-owned `NativeHost`; browser behavior remains the default when the desktop capability is absent. LiveKit and E2EE stay in the renderer, while the desktop build routes registered-server HTTP and WebSocket traffic through Tauri plugins behind reference-counted origin leases.
 
 **Tech Stack:** SvelteKit/Svelte 5, Vitest, LiveKit JS, Tauri 2, Rust, WebView2, Tauri HTTP/WebSocket/global-shortcut/opener/single-instance plugins, GitHub Actions Windows runner.
 
@@ -218,7 +218,9 @@ Expected: FAIL before the adapter exists.
 
 Wrap `@tauri-apps/plugin-http`'s Fetch-compatible API. Pass it as the optional
 `fetch` implementation to `createConnectTransport` for allowed absolute desktop
-server endpoints. Preserve browser fetch for relative/web-origin calls.
+server endpoints. Preserve browser fetch for relative/web-origin calls. Require
+a reference-counted origin lease from the saved-server registry or Add Server
+probe, disable redirects, and reject a response that reports another origin.
 
 **Step 3: Restrict capability scope**
 

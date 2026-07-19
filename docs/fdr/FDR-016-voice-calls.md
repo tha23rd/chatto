@@ -27,6 +27,7 @@ Rooms support real-time voice conversations with optional camera video and scree
 - Hanging up disconnects from LiveKit and clears the participant from everyone else's view.
 - New clients always enable LiveKit E2EE before connecting. Chatto distributes a KMS-backed per-call shared key with the LiveKit join token; the raw key is never written to EVT and is shredded when the call ends.
 - Screen sharing can request capture audio when the user enables Share audio. Browser support varies; the Windows desktop POC validates entire-screen system audio and does not promise arbitrary per-application audio.
+- While a screen share is live, its quality popover can copy a versioned, bounded diagnostics snapshot containing non-content WebRTC sender statistics such as negotiated codec, dimensions, frame rate, bitrate, encoder limits, packet loss, retransmissions, RTT, and jitter. Missing browser fields remain unavailable rather than becoming healthy-looking zeroes.
 - Screen-share state is LiveKit track state only. Users who have not joined the call still see who is in the active call, but they do not see whether a participant is sharing a screen.
 - When LiveKit is not configured on the server, all voice UI is hidden — no button, no panel, no indicator.
 
@@ -97,6 +98,12 @@ Rooms support real-time voice conversations with optional camera video and scree
 **Decision:** Deafen (silence incoming audio + force-mute own mic) is a personal, in-call media state. Like microphone mute — which rides LiveKit track state rather than any Chatto stream — deafen is not persisted in EVT and is broadcast to other participants through the LiveKit `deafened` participant attribute (`'1'` while deafened, cleared otherwise). Clients read remote attributes on `RoomEvent.ParticipantAttributesChanged` to show a headphone-off tile indicator. The join token grants `canUpdateOwnMetadata` so the local participant can publish its own attribute.
 **Why:** The audience for a deafen indicator is exactly the peers in the LiveKit room, and the state is ephemeral with no durability or audit value. Attributes deliver only to those peers, sync automatically to late joiners, and keep deafen consistent with mute instead of routing transient UI presence through EVT projections and realtime fan-out. See ADR-009.
 **Tradeoff:** One additive grant flag (`canUpdateOwnMetadata`). Older servers that do not issue it reject the attribute write; deafen still works locally for the viewer, but remote tiles won't show the indicator until the server is upgraded. Non-participants who see the call roster but have not joined see neither mute nor deafen state, consistent with other LiveKit-only media state.
+
+### 12. Screen-share diagnostics are bounded, local acceptance evidence
+
+**Decision:** The client samples a bounded history of non-content WebRTC outbound-video statistics while screen sharing and exposes a versioned JSON copy action in the live stream-quality popover. The payload contains its generation time and normalized samples only; it excludes server URLs, room/member identifiers, track identifiers, SDP, ICE candidates, media, and application state. Unsupported statistics remain `null`.
+**Why:** Requested resolution, frame rate, bitrate, codec, and degradation behavior are advisory in WebRTC. Streaming decisions need the negotiated outcome from the actual WebView/browser and network without turning operational evidence into a user-data export.
+**Tradeoff:** The available fields differ by browser and WebView2 version, and a local sample cannot explain every remote quality problem. The bounded history is diagnostic evidence, not telemetry, and is collected only while a local screen share is published.
 
 ## Permissions
 

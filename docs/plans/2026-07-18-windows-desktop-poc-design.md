@@ -111,9 +111,20 @@ The initial contract is capability-oriented and versioned. It covers:
 
 Callers choose behavior from capabilities rather than checking `win32`,
 `__TAURI__`, or an application version. Inputs crossing the boundary are
-validated on both sides. Native network operations are restricted to origins
-already present in Chatto's local server registry, and redirects may not escape
-that allowlist.
+validated at the narrowest owning layer. The desktop adapter keeps a
+reference-counted set of origins from Chatto's local server registry (plus a
+temporary lease while adding a server), rejects requests outside that set,
+disables HTTP redirects, and verifies the final response origin. A source guard
+keeps direct Tauri imports inside the adapter. The native HTTP plugin separately
+enforces the outer HTTPS-or-loopback policy.
+
+Tauri's WebSocket plugin does not expose a dynamic native origin scope, and
+self-hosted server domains cannot be enumerated in the packaged capability
+file. Consequently, the POC's registered-origin check is a trusted-renderer
+boundary rather than protection from already-compromised bundled renderer
+code. Advancing this architecture to production requires accepting that
+residual risk or replacing the plugin transports with Rust-owned commands and
+a native allowlist.
 
 ## Authentication And Connectivity
 
@@ -132,12 +143,14 @@ The native flow will:
 The existing browser flow remains unchanged when the native capability is
 absent.
 
-Browser ConnectRPC fetch and WebSocket remain the default. When the bundled
-origin is rejected by a server's explicit CORS or WebSocket origin policy, the
-transport factories use the native adapters for that registered server. This
-is an application transport seam, not a global response-header rewrite. The
-POC must cover public discovery, authenticated unary calls, server streaming,
-and the realtime protobuf socket.
+The web build retains browser ConnectRPC fetch and WebSocket behavior. The
+desktop build routes absolute registered-server ConnectRPC requests and its
+realtime protobuf socket through the native adapters. This is an application
+transport seam, not a global response-header rewrite, and it avoids requiring
+self-hosters to recognize a packaged application origin. The POC must cover
+public discovery, authenticated unary calls, server streaming, and realtime
+reconnect behavior, and its resource measurements must include any IPC cost of
+the plugin transports.
 
 ## Media And Streaming
 

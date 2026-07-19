@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { desktopEnvironment } from './run-desktop.mjs';
+import { desktopEnvironment, frontendFallback } from './run-desktop.mjs';
 
 describe('desktopEnvironment', () => {
   it('adds desktop build markers without dropping the caller environment', () => {
@@ -26,5 +26,16 @@ describe('desktopEnvironment', () => {
         VITE_CHATTO_DESKTOP: '1'
       }
     );
+  });
+});
+
+describe('frontendFallback', () => {
+  it('emits the index document Tauri expects for desktop builds', () => {
+    assert.equal(frontendFallback('desktop'), 'index.html');
+  });
+
+  it('preserves the existing web-server fallback', () => {
+    assert.equal(frontendFallback('web'), '200.html');
+    assert.equal(frontendFallback(undefined), '200.html');
   });
 });

@@ -1,6 +1,6 @@
 export const NATIVE_HOST_API_VERSION = 1 as const;
 
-export type Unsubscribe = () => void;
+export type Unsubscribe = () => void | Promise<void>;
 
 export interface NativeCapabilities {
   readonly nativeOAuth: boolean;
@@ -63,6 +63,8 @@ export interface NativeHost {
   readonly kind: 'browser' | 'tauri';
   readonly capabilities: NativeCapabilities;
 
+  /** Temporarily allow one validated Chatto server origin for native networking. */
+  registerServerOrigin(url: string): Unsubscribe;
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
   createRealtimeSocket(url: string): RealtimeSocketLike;
   startServerOAuth(request: NativeOAuthRequest): Promise<NativeOAuthResult>;

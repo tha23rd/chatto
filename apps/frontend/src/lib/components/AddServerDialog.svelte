@@ -13,8 +13,11 @@ Internal naming stays "instance" (registry, file name, route ids) per
 ADR-027 — only user-facing copy says "server".
 -->
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { ConnectError } from '@connectrpc/connect';
   import { startServerOAuthFlow } from '$lib/auth/reauth';
+  import { getNativeHost } from '$lib/native/host';
+  import type { Unsubscribe } from '$lib/native/types';
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { getPublicServerInfo, type PublicServerInfo } from '$lib/api-client/server';
   import * as m from '$lib/i18n/messages';
@@ -38,8 +41,15 @@ ADR-027 — only user-facing copy says "server".
   let formError = $state('');
   let probing = $state(false);
   let connecting = $state(false);
+  let releaseProbedOrigin: Unsubscribe | null = null;
+
+  function clearProbedOrigin() {
+    releaseProbedOrigin?.();
+    releaseProbedOrigin = null;
+  }
 
   function reset() {
+    clearProbedOrigin();
     stage = 'url';
     serverUrl = '';
     probedUrl = '';
@@ -48,6 +58,8 @@ ADR-027 — only user-facing copy says "server".
     probing = false;
     connecting = false;
   }
+
+  onDestroy(clearProbedOrigin);
 
   function handleClose() {
     reset();
@@ -79,17 +91,26 @@ ADR-027 — only user-facing copy says "server".
   async function probeWithFallback(
     rawInput: string,
     initialUrl: string
-  ): Promise<{ url: string; info: PublicServerInfo }> {
-    const fetchOnce = (u: string) => getPublicServerInfo(u, { signal: AbortSignal.timeout(10000) });
+  ): Promise<{ url: string; info: PublicServerInfo; releaseOrigin: Unsubscribe }> {
+    const fetchOnce = async (u: string) => {
+      const releaseOrigin = getNativeHost().registerServerOrigin(u);
+      try {
+        const info = await getPublicServerInfo(u, { signal: AbortSignal.timeout(10000) });
+        return { url: u, info, releaseOrigin };
+      } catch (error) {
+        await releaseOrigin();
+        throw error;
+      }
+    };
 
     try {
-      return { url: initialUrl, info: await fetchOnce(initialUrl) };
+      return await fetchOnce(initialUrl);
     } catch (err) {
       if (hasScheme(rawInput) || !initialUrl.startsWith('https://')) {
         throw err;
       }
       const httpUrl = 'http://' + initialUrl.slice('https://'.length);
-      return { url: httpUrl, info: await fetchOnce(httpUrl) };
+      return await fetchOnce(httpUrl);
     }
   }
 
@@ -122,18 +143,22 @@ ADR-027 — only user-facing copy says "server".
     probing = true;
 
     try {
-      const { url: probedFromUrl, info } = await probeWithFallback(serverUrl, url);
+      const { url: probedFromUrl, info, releaseOrigin } = await probeWithFallback(serverUrl, url);
 
       if (!info.name) {
+        await releaseOrigin();
         formError = m['add_server.not_chatto_server']();
         return;
       }
 
       if (!info.authorizeUrl) {
+        await releaseOrigin();
         formError = m['add_server.oauth_unsupported']();
         return;
       }
 
+      clearProbedOrigin();
+      releaseProbedOrigin = releaseOrigin;
       probedUrl = probedFromUrl;
       probedInfo = info;
       stage = 'preview';
@@ -158,10 +183,16 @@ ADR-027 — only user-facing copy says "server".
 
     try {
       await startServerOAuthFlow(probedUrl, probedInfo);
+      clearProbedOrigin();
     } catch (err) {
       connecting = false;
       formError = err instanceof Error ? err.message : m['add_server.start_failed']();
     }
+  }
+
+  function editServerUrl() {
+    clearProbedOrigin();
+    stage = 'url';
   }
 
   // The button label is intentionally static. The server-supplied `name`
@@ -242,7 +273,7 @@ ADR-027 — only user-facing copy says "server".
     <button
       type="button"
       class="cursor-pointer text-left text-sm text-muted hover:text-text hover:underline"
-      onclick={() => (stage = 'url')}
+      onclick={editServerUrl}
     >
       {m['add_server.edit_url']()}
     </button>

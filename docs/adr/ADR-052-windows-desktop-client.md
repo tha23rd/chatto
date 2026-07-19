@@ -74,7 +74,7 @@ while the Tauri implementation supplies the approved operations.
 Callers select behavior from capabilities rather than platform names or host
 versions. The POC boundary covers native OAuth, HTTP fetch, realtime sockets,
 global push-to-talk, tray call controls, external URL opening, and lifecycle
-events. Inputs and events are validated on both sides.
+events. Inputs and events are validated at the narrowest owning layer.
 
 Shared source does not require byte-identical builds. The desktop target
 disables the PWA service worker and SvelteKit version polling because packaged
@@ -90,10 +90,20 @@ capabilities apply only to the main window and grant no generic filesystem or
 shell access.
 
 Native networking accepts HTTPS/WSS destinations and plaintext HTTP/WS only on
-loopback for development. Plugin scopes enforce the same outer boundary, and
-the frontend transport policy validates each requested server endpoint. Tokens,
-authorization codes, URLs containing queries, and user identifiers are not
-logged by the native host.
+loopback for development. The native HTTP plugin scope enforces that outer
+boundary. The desktop adapter additionally maintains reference-counted leases
+for origins in the local server registry (and the server currently being
+added), rejects other HTTP/WebSocket/OAuth destinations, disables HTTP
+redirects, and verifies the final response origin. A source guard prevents
+Tauri plugin imports outside that adapter. Tokens, authorization codes, URLs
+containing queries, and user identifiers are not logged by the native host.
+
+This is intentionally recorded as a POC limitation: the WebSocket plugin has no
+native dynamic origin scope, and arbitrary self-hosted origins cannot be listed
+in a static capability file. Registered-origin enforcement therefore assumes
+the bundled renderer and adapter have not already been compromised. A
+production decision must explicitly accept that residual authority or replace
+the plugin networking with Rust-owned commands and a native allowlist.
 
 ### Use system-browser OAuth with PKCE and an ephemeral loopback callback
 
@@ -130,7 +140,8 @@ The client retains its existing resolution, frame-rate, bitrate, content-hint,
 degradation-preference, simulcast, dynacast, and adaptive-stream controls. The
 POC adds bounded, non-PII WebRTC diagnostics so requested settings can be
 compared with negotiated codec, bitrate, frames, encoder limits, packet loss,
-retransmissions, RTT, and jitter.
+retransmissions, RTT, and jitter. While sharing, the stream-quality popover can
+copy a versioned JSON snapshot for the acceptance record.
 
 For this POC, screen-share audio means Windows system/loopback audio offered by
 the entire-screen capture path. It does not promise arbitrary selected-process
@@ -148,7 +159,10 @@ media cleanup guard.
 The tray exposes mute/deafen toggles while the renderer has an active call.
 The native global-shortcut plugin supplies both pressed and released events for
 momentary push-to-talk while Chatto is unfocused. The initial POC accelerator is
-documented rather than exposed as a new settings surface.
+documented rather than exposed as a new settings surface. If calls remain
+connected to multiple servers, the most recently started call owns the one
+process-wide shortcut and tray actions; ownership returns to the previous call
+when the newer call ends.
 
 Notifications after explicit process exit, launch-on-startup, deep links,
 automatic updates, production signing, inline notification replies,
@@ -171,7 +185,9 @@ measurements of cold start, idle, tray, voice, and screen-share states.
 The desktop application adds a Rust toolchain, Windows packaging, Tauri plugin
 updates, a native security boundary, and platform-specific tests. OAuth and
 realtime transport behavior become more complex than the web-only path, though
-their public server protocols remain unchanged.
+their public server protocols remain unchanged. The native plugin transports
+also cross the WebView/Tauri IPC boundary; their resource and throughput cost
+must be measured rather than assumed to outperform browser networking.
 
 WebView2 updates with Windows rather than with Chatto. This reduces bundle size
 but means the exact embedded Chromium build is not pinned by an application

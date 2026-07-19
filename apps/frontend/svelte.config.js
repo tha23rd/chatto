@@ -1,6 +1,7 @@
 import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { execSync } from 'node:child_process';
+import { frontendFallback } from './scripts/run-desktop.mjs';
 
 const precompress = process.env.CHATTO_FRONTEND_PRECOMPRESS === '1';
 const desktopBuild = process.env.CHATTO_FRONTEND_TARGET === 'desktop';
@@ -23,7 +24,7 @@ const config = {
   preprocess: vitePreprocess(),
   kit: {
     adapter: adapter({
-      fallback: '200.html',
+      fallback: frontendFallback(process.env.CHATTO_FRONTEND_TARGET),
       precompress
     }),
     serviceWorker: {

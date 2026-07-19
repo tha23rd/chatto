@@ -19,6 +19,10 @@ export const browserNativeHost: NativeHost = {
     tray: false
   },
 
+  registerServerOrigin() {
+    return () => {};
+  },
+
   fetch(input, init) {
     return globalThis.fetch(input, init);
   },

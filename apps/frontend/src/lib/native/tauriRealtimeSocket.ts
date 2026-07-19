@@ -3,7 +3,7 @@ import type { RealtimeMessageData, RealtimeSocketLike } from './types';
 import { assertAllowedRealtimeUrl } from './urlPolicy';
 
 interface NativeWebSocket {
-  addListener(listener: (message: Message) => void): () => void;
+  addListener(listener: (message: unknown) => void): () => void;
   send(message: Message | string | number[]): Promise<void>;
   disconnect(): Promise<void>;
 }
@@ -40,7 +40,9 @@ class TauriRealtimeSocketAdapter implements RealtimeSocketLike {
     if (this.readyState !== 1 || !this.#socket) {
       throw new Error('Realtime socket is not open.');
     }
-    void this.#socket.send(Array.from(data)).catch(() => this.#emitError());
+    void this.#socket.send(Array.from(data)).catch(() => {
+      this.#fail('Native WebSocket send failed.');
+    });
   }
 
   close(code = 1000, reason = ''): void {
@@ -76,21 +78,34 @@ class TauriRealtimeSocketAdapter implements RealtimeSocketLike {
     });
   }
 
-  #handleMessage(message: Message): void {
-    switch (message.type) {
+  #handleMessage(message: unknown): void {
+    if (!message || typeof message !== 'object' || !('type' in message)) {
+      this.#fail('Native WebSocket connection failed.');
+      return;
+    }
+
+    const nativeMessage = message as Message;
+    switch (nativeMessage.type) {
       case 'Binary':
-        this.onmessage?.({ data: this.#binaryMessageData(message.data) });
+        this.onmessage?.({ data: this.#binaryMessageData(nativeMessage.data) });
         return;
       case 'Text':
-        this.onmessage?.({ data: new TextEncoder().encode(message.data) });
+        this.onmessage?.({ data: new TextEncoder().encode(nativeMessage.data) });
         return;
       case 'Close':
-        this.#finishClose(message.data ?? { code: 1000, reason: '' });
+        this.#finishClose(nativeMessage.data ?? { code: 1000, reason: '' });
         return;
       case 'Ping':
       case 'Pong':
         return;
     }
+  }
+
+  #fail(reason: string): void {
+    if (this.readyState === 3) return;
+    this.#emitError();
+    void this.#socket?.disconnect().catch(() => {});
+    this.#finishClose({ code: 1006, reason });
   }
 
   #binaryMessageData(data: number[]): RealtimeMessageData {
@@ -107,6 +122,7 @@ class TauriRealtimeSocketAdapter implements RealtimeSocketLike {
     this.readyState = 3;
     this.#removeListener?.();
     this.#removeListener = null;
+    this.#socket = null;
     this.onclose?.(event);
   }
 }
