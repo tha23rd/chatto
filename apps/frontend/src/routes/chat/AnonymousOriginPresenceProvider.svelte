@@ -5,6 +5,7 @@
     updateAuthenticatedCurrentUserPresenceEntries,
     type PresenceCache
   } from '$lib/state/presenceCache.svelte';
+  import { presencePreference } from '$lib/state/presencePreference.svelte';
   import { eventBusManager } from '$lib/state/server/eventBus.svelte';
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { serverConnectionManager } from '$lib/state/server/serverConnection.svelte';
@@ -44,6 +45,14 @@
   );
 
   onDestroy(stopPresenceTracking);
+
+  $effect(() => {
+    updateAuthenticatedCurrentUserPresenceEntries(
+      presenceCache,
+      currentUserPresenceStores(),
+      presencePreference.effectiveStatus
+    );
+  });
 
   function currentUserPresenceStores() {
     return serverRegistry.servers.map((server) => {
