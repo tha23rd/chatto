@@ -1674,7 +1674,8 @@ Result of leaving a room.
 
 ### ListMembers
 
-Lists explicit members of a room. The caller must be a member of the room.
+Lists effective room members. Existing members may list their room;
+nonmembers of a channel room need both room.list and room.join.
 
 ```http
 POST /api/connect/chatto.api.v1.RoomService/ListMembers
@@ -1688,7 +1689,7 @@ Request for members of one room.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `room_id` | `string` | Required. Room whose explicit members should be listed. |
+| `room_id` | `string` | Required. Room whose effective members should be listed. Existing members may list their room; nonmembers of a channel room need both room.list and room.join. |
 | `search` | `string` | Optional case-insensitive search against login and display name. |
 | `page` | [`PageRequest`](#chatto-api-v1-PageRequest) | Page request. Defaults to 250 results when absent or limit is zero. |
 
@@ -3674,6 +3675,74 @@ client-provided metadata fields.
 | `site_name` | `optional string` | Site name, when known. |
 | `embed_type` | `optional string` | Embed provider or type, when recognized. |
 | `embed_id` | `optional string` | Provider-specific embed ID, when recognized. |
+| `social_post` | [`SocialPostPreview`](#chatto-api-v1-SocialPostPreview) | Structured, provider-neutral social-post data for native rendering. |
+
+
+
+<a id="chatto-api-v1-SocialPostAuthor"></a>
+
+### SocialPostAuthor
+
+Author shown on a social-post preview.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `display_name` | `string` | Author display name. |
+| `handle` | `string` | Provider-native handle without a leading at-sign when applicable. |
+| `avatar_url` | `optional string` | Locally served author avatar URL, when available. |
+| `avatar_asset_id` | `optional string` | Locally stored author avatar asset ID, when available. |
+
+
+
+<a id="chatto-api-v1-SocialPostExternalLink"></a>
+
+### SocialPostExternalLink
+
+Website card embedded in a social post.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `url` | `string` | Destination URL. |
+| `title` | `optional string` | Card title, when available. |
+| `description` | `optional string` | Card description, when available. |
+| `image_url` | `optional string` | Locally served card image URL, when available. |
+| `image_asset_id` | `optional string` | Locally stored card image asset ID, when available. |
+
+
+
+<a id="chatto-api-v1-SocialPostImage"></a>
+
+### SocialPostImage
+
+One image attached directly to a social post.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `url` | `string` | Locally served image URL. |
+| `asset_id` | `string` | Locally stored image asset ID. |
+| `alt` | `optional string` | Author-provided alternative text. |
+| `width` | `optional uint32` | Source aspect-ratio width, when known. |
+| `height` | `optional uint32` | Source aspect-ratio height, when known. |
+
+
+
+<a id="chatto-api-v1-SocialPostPreview"></a>
+
+### SocialPostPreview
+
+Bounded, provider-neutral social-post data used for native preview cards.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `provider` | `string` | Stable lowercase provider identifier, such as "bluesky". |
+| `author` | [`SocialPostAuthor`](#chatto-api-v1-SocialPostAuthor) | Author shown on the post. |
+| `text` | `string` | Plain-text post body. |
+| `published_at` | `google.protobuf.Timestamp` | Post publication time. |
+| `images` | repeated [`SocialPostImage`](#chatto-api-v1-SocialPostImage) | Images attached directly to the post, in display order. |
+| `external_link` | [`SocialPostExternalLink`](#chatto-api-v1-SocialPostExternalLink) | Website card embedded in the post, when present. |
+| `content_warning` | `optional string` | Provider-supplied content warning, when present. |
+| `url` | `string` | Canonical URL for this post. Always set for quoted posts; the outer post may also use LinkPreview.url. |
+| `quoted_post` | [`SocialPostPreview`](#chatto-api-v1-SocialPostPreview) | Post quoted by this post, when present. Quotes inside this snapshot are omitted so preview size and rendering depth remain bounded. |
 
 
 
@@ -3706,7 +3775,7 @@ requests.
 | `reactions` | repeated [`MessageReaction`](#chatto-api-v1-MessageReaction) | Reaction summaries for this message. |
 | `thread` | [`ThreadSummary`](#chatto-api-v1-ThreadSummary) | Aggregated thread state, when known for a thread root message. |
 | `deleted_at` | `google.protobuf.Timestamp` | Time when the message content was deleted through retraction or account crypto-shredding. Absent when unavailable body content is not a deletion. |
-| `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-032). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile. |
+| `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-035). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile. |
 
 
 
@@ -3810,7 +3879,7 @@ One transcoded video rendition.
 ### MessageWebhookOverride
 
 MessageWebhookOverride is the per-message display identity a channel webhook
-set on an individual post (FDR-032).
+set on an individual post (FDR-035).
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -4026,7 +4095,9 @@ Cursor page of room or thread timeline events.
 
 Use opaque start_cursor and end_cursor values with before/after requests to
 continue paging in either direction. Clients must treat cursor values as
-server-owned tokens and must not parse or construct them. The has_older and
+server-owned tokens and must not parse, construct, share between users, or
+reuse them for another room or thread. The server binds each cursor to the
+authenticated viewer and exact timeline resource. The has_older and
 has_newer flags tell clients whether another request can extend the current
 window.
 
@@ -4365,7 +4436,7 @@ Authenticated server runtime settings used by clients.
 A server-wide soundboard sound: a short audio clip uploaded by an admin that
 any member connected to a room's voice call can play so that every joined
 participant hears it. The catalog is shared by the whole server; there are no
-per-user or per-room sound sets. See FDR-033.
+per-user or per-room sound sets. See FDR-036.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -4476,7 +4547,7 @@ the server's live presence record expire.
 ### UserKind
 
 UserKind discriminates human accounts from synthetic, non-human identities
-such as channel webhook authors (FDR-032).
+such as channel webhook authors (FDR-035).
 
 | Name | Number | Description |
 | --- | --- | --- |

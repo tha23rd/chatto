@@ -11,7 +11,7 @@ Use this skill whenever touching durable domain state in Chatto. It is a guardra
 
 Read only what is relevant to the task:
 
-- `docs/ARCHITECTURE.md` for the current runtime inventory, registered projections, EVT subject patterns, and live delivery shape.
+- `docs/architecture/INDEX.md` and the relevant category files for the current runtime inventory, registered projections, EVT subject patterns, and live delivery shape.
 - `docs/adr/INDEX.md` to find relevant architecture decisions; read only the ADRs that apply to the current event-sourcing, stream, projection, or runtime-state question.
 - Relevant FDRs in `docs/fdr/` before changing user-visible behavior.
 - `AGENTS.md` and `cli/AGENTS.md` when changing backend writes, auth, or room visibility.
@@ -107,10 +107,36 @@ Projection implementations should be boring and replay-safe:
 - Keep derived indexes consistent when events remove, replace, tombstone, or supersede prior state.
 - Return cloned/protective values from projection read methods.
 - Let the projector framework own JetStream message metadata. Projection code should use the stream sequence passed into `Apply`; do not parse `msg.Metadata()` or substitute consumer sequence numbers in projection logic.
-- Use stable stream sequence numbers for reconnect replay and delivery cursors.
+- Use stable stream sequence numbers internally for reconnect replay and
+  delivery positions, but seal them before crossing a normal client or
+  integration boundary. Public cursors must provide confidentiality and
+  integrity rather than merely encoding the sequence.
 - Add admin projection estimates when adding meaningful in-memory indexes.
 
 When a projection consumes legacy lanes, name them as legacy compatibility in comments/docs/tests. New writes should still have one canonical subject family.
+
+### Snapshot Evolution Checklist
+
+A projection's opaque snapshot contract ID is its complete restore-equivalence
+boundary. Review the contract whenever changing projection state, `Apply`,
+`Snapshot`, `Restore`, `Subjects`, `ReplaySubjects`, consumer construction, or
+cutoff handling.
+
+- Keep the existing contract only when restoring its snapshot still produces
+  the same state as replaying EVT through the recorded cutoff.
+- Bump the projection's contract ID when that equivalence can change. Contract
+  IDs are bounded path-safe, projection-local equality tokens, not Chatto
+  versions or ordered schema versions.
+- Scope pointers and generation objects by projection plus contract. Different
+  contracts must never read, rotate, delete, or apply no-regression checks to
+  each other's generations.
+- Capture the contract once when configuring the projector and use that value
+  for both restore and publication. Do not restate contract IDs in worker or
+  application wiring.
+- Test forward deployment and rollback when changing a contract: both old and
+  new contracts must remain independently loadable, and either may safely fall
+  back to cold EVT replay.
+
 When optimizing projection replay or retained memory, follow the projection
 benchmark workflow in `cli/AGENTS.md`: capture repeated before/after results
 with `mise bench-projections`, use `mise bench-projections-profile` for exact
@@ -141,6 +167,12 @@ object-store, webhook, or other external side effect as a crash boundary.
   only way to discover unfinished work.
 - An elected worker must discover facts committed later by non-holder replicas;
   a one-time startup scan is not sufficient on a stable multi-replica cluster.
+- Match lease tenure to the worker lifecycle. Continuous recovery loops may
+  retain leadership, while periodic passes should attempt the lease once,
+  release it after the pass, and wait without ownership. Leases reduce
+  duplicate work but do not fence durable writes. When work must run at most
+  once per interval across the cluster, use a shared cooldown and retain it
+  only after success; per-process clocks do not provide a global throttle.
 - Use an incremental stream cursor or durable consumer for ongoing recovery.
   Do not repeatedly materialize unbounded event history.
 - Before a destructive external action based on projected state, wait for the
@@ -167,6 +199,12 @@ When adding or moving deliverable events:
 - If the subject is not room-scoped, add a path to resolve room/user visibility from payload/projections.
 - Include the event family in reconnect replay if clients need to recover it after disconnect.
 - Keep replay ordered by global stream sequence and deduplicate by event ID where room and non-room projections can both see legacy facts.
+- Internal stream positions may back a public resume cursor, but must never be
+  exposed directly or through reversible encoding. Seal cursors with
+  confidentiality and integrity, domain-separate their keys, and bind them to
+  the authenticated viewer/resource scope. Invalid, foreign, or stale cursors
+  must select a safe reset or documented public error without revealing the
+  failed internal coordinate.
 - Transient `LiveEvent`s on `live.sync.>` are not replayed and are not projection input.
 
 ## Compatibility And Deployment
@@ -212,9 +250,12 @@ For event-sourced changes, look for focused tests in addition to end-to-end beha
 
 Update docs in the same change when architecture behavior shifts:
 
-- `docs/ARCHITECTURE.md` for current services, projections, resources, subject patterns, and event inventories.
+- The relevant files in `docs/architecture/` for current components,
+  projections, resources, subject patterns, event inventories, and durable
+  effects.
 - `docs/adr/` for new or changed cross-cutting architectural decisions.
 - `docs/fdr/` for user-facing behavior and rationale.
 - `docs/GLOSSARY.md` when canonical terms change.
 
-Keep docs crisp: current architecture in `ARCHITECTURE.md`, decisions in ADRs/FDRs, and pitfalls/checklists here.
+Keep docs crisp: current facts in `docs/architecture/`, decisions in ADRs/FDRs,
+and event-sourcing pitfalls/checklists here.

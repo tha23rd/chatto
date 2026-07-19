@@ -21,6 +21,15 @@
       "action": "Se joindre à la salle",
       "prompt": "Joignez-vous à #{room} pour lire et participer à cette salle.",
       "inline_prompt": "Joignez-vous à cette salle pour lire et participer.",
+      "group_label": "Dans {group}",
+      "member_preview_label": "Membres de la salle",
+      "member_count": [
+        {
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
+          "match": { "countPlural=one": "{count} membre", "countPlural=other": "{count} membres" }
+        }
+      ],
       "success": "S'est joint à #{room}",
       "success_generic": "Le salon se joint",
       "failed": "Échec de la connexion au salon",
@@ -57,9 +66,12 @@
       "leave_confirm": "Êtes-vous certain de vouloir quitter #{room} ?"
     },
     "server": {
-      "leave_title": "Sortir du serveur",
-      "leave_action": "Sortir du serveur",
-      "leave_prompt": "Êtes-vous certain de vouloir quitter {server} ? Vous perdrez l'accès à ses salles et votre client oubliera ce serveur. Vous pourrez l'ajouter plus tard à partir de la barre latérale."
+      "remove_title": "Retirer le serveur",
+      "remove_action": "Retirer le serveur",
+      "remove_prompt": "Retirer {server} de cette barre latérale? Cette action retire uniquement le serveur de cet appareil. Votre compte et vos données sur le serveur ne seront pas supprimés.",
+      "remove_account_prefix": "Pour supprimer définitivement votre compte, ouvrez les ",
+      "remove_account_link": "Paramètres du compte",
+      "remove_account_suffix": " de ce serveur avant de le retirer."
     },
     "timeline": {
       "beginning": "Voici le début de cette conversation."
@@ -83,6 +95,8 @@
         "edit": "Modifier le message",
         "more": "Plus d'actions",
         "edit_short": "Modifier",
+        "copy_text": "Copier le texte",
+        "copy_text_failed": "Échec de la copie du texte",
         "copy_link": "Copier le lien"
       },
       "meta": {
@@ -98,18 +112,18 @@
         "in_reply_to": "en réponse à",
         "reply_preview_fallback": "Message",
         "deleted": "Ce message a été supprimé."
+      },
+      "timestamp": {
+        "details_title": "Date et heure",
+        "local_time": "Locale",
+        "relative_time": "Relative"
       }
     },
     "system_events": {
       "joined": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "s'est joint à la salle",
             "countPlural=other": "s'est joint à la salle"
@@ -118,13 +132,8 @@
       ],
       "left": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "a quitté la pièce",
             "countPlural=other": "a quitté la pièce"
@@ -136,13 +145,8 @@
       "and": "et",
       "other_people": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "autre",
             "countPlural=other": "autres"

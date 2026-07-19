@@ -89,7 +89,7 @@ const SOUNDBOARD_THROTTLE_FEEDBACK_MS = 600;
 // target it, and (implicitly) keeps its own source lane.
 const SOUNDBOARD_TRACK_NAME = 'soundboard';
 // LiveKit data-channel topic for the ephemeral "I'm playing a sound" signal
-// that lights up the player's tile on every client (see FDR-033).
+// that lights up the player's tile on every client (see FDR-036).
 const SOUNDBOARD_DATA_TOPIC = 'soundboard';
 // Safety timeout to clear a remote "playing" highlight if the matching stop
 // signal is lost. Comfortably longer than the maximum clip length.
@@ -802,6 +802,18 @@ export class VoiceCallState {
     this.disconnectFromServerEvent(roomId, callId);
   }
 
+  /** Disconnect local media immediately when this viewer loses room access. */
+  handleRoomAccessRevoked(roomId: string): void {
+    if (this.roomId !== roomId) return;
+    const room = this.room;
+    if (room) {
+      this.suppressDisconnectToast = true;
+      room.disconnect();
+    }
+    this.cleanup();
+    this.suppressDisconnectToast = false;
+  }
+
   private disconnectFromServerEvent(roomId: string, callId: string | null): void {
     if (this.roomId !== roomId) return;
     if (!callId || this.activeCallId !== callId) return;
@@ -1075,13 +1087,19 @@ export class VoiceCallState {
     );
     try {
       await this.runExplicitMediaDeviceOperation(() =>
-        newEnabled
-          ? room.localParticipant.setScreenShareEnabled(
-              newEnabled,
-              screenShareCapture,
-              screenSharePublish
-            )
-          : room.localParticipant.setScreenShareEnabled(newEnabled)
+        room.localParticipant.setScreenShareEnabled(
+          newEnabled,
+          newEnabled ? screenShareCapture : undefined,
+          newEnabled
+            ? {
+                ...screenSharePublish,
+                audioPreset: AudioPresets.musicStereo,
+                forceStereo: true,
+                dtx: false,
+                red: false
+              }
+            : undefined
+        )
       );
       if (this.room !== room) return;
 
@@ -1443,12 +1461,7 @@ export class VoiceCallState {
     // their tile lights up like speech does. Carries no durable state.
     this.room.on(
       RoomEvent.DataReceived,
-      (
-        payload: Uint8Array,
-        participant?: RemoteParticipant,
-        _kind?: unknown,
-        topic?: string
-      ) => {
+      (payload: Uint8Array, participant?: RemoteParticipant, _kind?: unknown, topic?: string) => {
         if (topic !== SOUNDBOARD_DATA_TOPIC || !participant) return;
         this.handleSoundboardSignal(payload, participant.identity);
       }
@@ -1534,7 +1547,8 @@ export class VoiceCallState {
   private applyRemoteParticipantAudioVolume(participant: RemoteParticipant): void {
     const muted = this.isDeafened || this.isParticipantLocallyMuted(participant.identity);
     const gain = muted ? 0 : this.getParticipantVolume(participant.identity) / 100;
-    participant.setVolume(gain);
+    participant.setVolume(gain, Track.Source.Microphone);
+    participant.setVolume(gain, Track.Source.ScreenShareAudio);
   }
 
   /**

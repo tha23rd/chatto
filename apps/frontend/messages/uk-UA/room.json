@@ -21,6 +21,18 @@
       "action": "Приєднатися до кімнати",
       "prompt": "Приєднуйтесь до #{room}, щоб читати та брати участь у цій кімнаті.",
       "inline_prompt": "Приєднуйтеся до цієї кімнати, щоб читати та брати участь.",
+      "group_label": "У групі {group}",
+      "member_preview_label": "Учасники кімнати",
+      "member_count": [
+        {
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
+          "match": {
+            "countPlural=one": "{count} учасник",
+            "countPlural=other": "{count} учасників"
+          }
+        }
+      ],
       "success": "Приєднався до #{room}",
       "success_generic": "Приєднався до кімнати",
       "failed": "Не вдалося приєднатися до кімнати",
@@ -57,9 +69,12 @@
       "leave_confirm": "Ви впевнені, що хочете залишити #{room}?"
     },
     "server": {
-      "leave_title": "Залишити сервер",
-      "leave_action": "Залишити сервер",
-      "leave_prompt": "Ви впевнені, що хочете залишити {server}? Ви втратите доступ до його кімнат, а ваш клієнт забуде про цей сервер. Ви можете повторно додати його пізніше з бічної панелі."
+      "remove_title": "Видалити сервер",
+      "remove_action": "Видалити сервер",
+      "remove_prompt": "Видалити {server} із цієї бічної панелі? Це лише видалить сервер із цього пристрою. Ваш обліковий запис і дані на сервері не буде видалено.",
+      "remove_account_prefix": "Щоб назавжди видалити обліковий запис, перед видаленням сервера відкрийте його ",
+      "remove_account_link": "Налаштування облікового запису",
+      "remove_account_suffix": "."
     },
     "timeline": {
       "beginning": "Це початок цієї розмови."
@@ -83,6 +98,8 @@
         "edit": "Редагувати повідомлення",
         "more": "Більше дій",
         "edit_short": "Редагувати",
+        "copy_text": "Копіювати текст",
+        "copy_text_failed": "Не вдалося скопіювати текст",
         "copy_link": "Копіювати посилання"
       },
       "meta": {
@@ -98,18 +115,18 @@
         "in_reply_to": "у відповідь на",
         "reply_preview_fallback": "Повідомлення",
         "deleted": "Це повідомлення видалено."
+      },
+      "timestamp": {
+        "details_title": "Дата й час",
+        "local_time": "Локальний час",
+        "relative_time": "Відносний час"
       }
     },
     "system_events": {
       "joined": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "приєднався до кімнати",
             "countPlural=few": "приєдналися до кімнати",
@@ -120,13 +137,8 @@
       ],
       "left": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "залишив кімнату",
             "countPlural=few": "залишили кімнату",
@@ -140,13 +152,8 @@
       "and": "і",
       "other_people": [
         {
-          "declarations": [
-            "input count",
-            "local countPlural = count: plural"
-          ],
-          "selectors": [
-            "countPlural"
-          ],
+          "declarations": ["input count", "local countPlural = count: plural"],
+          "selectors": ["countPlural"],
           "match": {
             "countPlural=one": "інша людина",
             "countPlural=few": "інші людини",

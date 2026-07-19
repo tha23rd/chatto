@@ -13,17 +13,18 @@ path-specific guidance.
 - [proto/chatto/admin/v1/AGENTS.md](proto/chatto/admin/v1/AGENTS.md) — administrative ConnectRPC API consistency rules for `chatto.admin.v1`.
 - [proto/chatto/realtime/v1/AGENTS.md](proto/chatto/realtime/v1/AGENTS.md) — realtime WebSocket protobuf protocol rules for `chatto.realtime.v1`.
 - [apps/docs-website/AGENTS.md](apps/docs-website/AGENTS.md) — public docs website guidance.
-- `.agents/skills/**` — workflow skills. Use them when the task names one or clearly matches one, especially `chatto-architecture`, `glossary`, Svelte skills, ADR/FDR skills, and security/release workflows.
+- `.agents/skills/**` — workflow skills. Use them when the task names one or clearly matches one, especially `chatto-architecture-inventory`, `glossary`, Svelte skills, ADR/FDR skills, and security/release workflows.
 - `docs/fdr/INDEX.md` — feature behavior and rationale.
 - `docs/adr/INDEX.md` — cross-cutting architecture decisions.
-- `docs/ARCHITECTURE.md` — current inventory of services, streams, buckets, subjects, projections, realtime delivery, and ConnectRPC APIs.
+- `docs/architecture/INDEX.md` — current runtime inventory, split by components, projections, NATS resources, subjects, runtime state, effects, interfaces, and realtime delivery.
 - `docs/GLOSSARY.md` — canonical Chatto terminology.
 
 ## Project Status
 
 - Chatto is public, self-hosted, and has real user data.
-- The project is pre-1.0, but people are already self-hosting Chatto, so we want to avoid breaking changes where possible. For new API surface, prefer new protobuf fields on existing protobuf types, then new protobuf types. Only implement _breaking_ API changes if absolutely necessary, but discuss this with the user first. Changes to the `core` protobuf messages (used by our persistence layer) must never be breaking.
+- The project is pre-1.0, but people are already self-hosting Chatto. The public API is experimental: compatibility is preferred, not guaranteed, and `v1` identifies the current wire namespace rather than a long-term stability promise. Prefer additive changes. Breaking public API changes are allowed when they materially improve the design, but discuss them with the user first and include an explicit compatibility plan, generated-client/docs updates, and release-note guidance. Changes to the `core` protobuf messages used by persistence must never be breaking. Follow ADR-045.
 - Assume that mixed versions are in use in the wider ecosystem; but self-hosters have been advised to track `:latest`, or upgrade to newly released versions quickly.
+- The next planned version is `0.5.0`. There's a 0.5.0 milestone on GitHub, but also we're locally tracking planned features and changes for 0.5.0 in `docs/TODO-0-5.md`. Please use these for guidance, and update them as we cross off features from the list. Do not add to the list unless the user specifically asks you to.
 
 ## Prime Directives
 
@@ -39,6 +40,15 @@ path-specific guidance.
 - Never log PII: no raw login names, display names, email addresses, submitted
   auth identifiers, OAuth/OIDC provider subjects, tokens, passwords, auth codes,
   reset links, raw IPs, or full query strings.
+- Never expose NATS or JetStream storage coordinates through normal client or
+  integration APIs. Public cursors and tokens must not reveal stream names or
+  incarnations, subjects, sequence numbers, revisions, consumer positions, or
+  equivalent internal facts, including through reversible encodings such as
+  base64. Opaque coordinates must be integrity-protected and confidential;
+  bind them to their viewer/resource scope where applicable, and reject or
+  safely reset when validation fails. Explicit owner-only broker diagnostics
+  and event-log inspection APIs are the sole exception: their operational
+  purpose and fields must clearly identify the NATS/JetStream details exposed.
 - Treat optional operational telemetry as best-effort: its failure must not make
   broader diagnostics unavailable. Preserve an explicit unavailable state across
   API and UI boundaries instead of replacing unknown values with healthy-looking
@@ -74,6 +84,13 @@ For ad-hoc tool invocations, use `mise x -- ...` rather than assuming `go`,
   Avoid direct JetStream/KV/projection access from unrelated code.
 - New public API surface should favor ConnectRPC/protobuf or the planned wire
   protocol.
+- A realtime resume cursor must never advance beyond the projection state used
+  to authorize and assemble its public operations. Capture a durable boundary,
+  wait for the serving projections through it, and fail the catch-up instead of
+  publishing stale state at a newer cursor.
+- Treat projected authorization loss as a persistent privacy boundary. Purge
+  every copied content-bearing or room-sensitive mirror, reject older async
+  responses, and reopen the resource only after an explicit positive grant.
 - `ServerDiscoveryService.GetServer` is the high-compatibility discovery
   endpoint. Prefer additive changes and preserve public CORS and OAuth
   discovery semantics.
@@ -101,6 +118,16 @@ For ad-hoc tool invocations, use `mise x -- ...` rather than assuming `go`,
 
 ## Public API And Compatibility
 
+- Treat `chatto.auth.v1`, `chatto.discovery.v1`, `chatto.api.v1`,
+  `chatto.admin.v1`, and `chatto.realtime.v1` as experimental public contracts.
+  Prefer compatibility, but do not preserve a materially worse pre-1.0 design
+  solely to avoid a break. Classify every public API change as additive,
+  behavioural, deprecated, or breaking and document client migration impact.
+- Use `ServerDiscoveryService.GetServer` protocol capabilities for feature
+  discovery. Protocol capabilities describe wire support; keep them separate
+  from server configuration and authenticated viewer permissions. Gate
+  individual features by capability and use software versions only as a legacy
+  fallback.
 - Public ConnectRPC services should live in `chatto.api.v1` for normal
   client/integration behavior and `chatto.admin.v1` for visibly administrative
   behavior. App-specific API should be exceptional, explicitly documented, and
@@ -134,8 +161,9 @@ For ad-hoc tool invocations, use `mise x -- ...` rather than assuming `go`,
 ## Documentation Updates
 
 - Use FDRs for feature behavior/rationale and ADRs for cross-cutting decisions.
-- Update `docs/ARCHITECTURE.md` when changing core services, projections, EVT
-  events or subjects, NATS resources, realtime delivery, or ConnectRPC APIs.
+- Update the relevant file in `docs/architecture/` when changing runtime
+  components, projections, EVT events or subjects, NATS resources, runtime
+  state, durable effects, realtime delivery, or mounted ConnectRPC services.
 - Update `docs/GLOSSARY.md` when introducing, renaming, or clarifying canonical
   vocabulary.
 - Update the docs website when changing user-facing features, config,

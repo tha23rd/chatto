@@ -57,10 +57,18 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
 
 ## ConnectRPC And Generated Types
 
+- Use the per-server compatibility state under `src/lib/state/server/` for
+  protocol feature gating and version-skew warnings. Prefer discovery protocol
+  capabilities; compare software versions only for legacy servers without
+  compatibility metadata. Do not conflate protocol support with enabled server
+  features or viewer permissions.
 - Use the app's connection surface from
   `$lib/state/server/serverConnection.svelte.ts` for Connect base URLs,
   `/api/realtime` URLs, bearer tokens, auth-required handling, and
   reconnect/status UI state.
+- Treat an intentionally dormant inactive-server transport as healthy retained
+  state, not as a failed connection. Only actual transport/auth/protocol
+  failures should dim its server-gutter entry.
 - `$lib/render/types` is a hand-owned temporary render DTO compatibility layer,
   not generated API output. Do not add documents or generated calls for the
   retired legacy API.
@@ -76,11 +84,17 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
   the canonical guide for choosing components, semantic utilities, tokens, and
   Storybook coverage.
 - Use Tailwind 4 utilities and established components; avoid one-off CSS.
+- Never add decorative one-sided accent borders or inset edge stripes to cards,
+  rows, panels, or selected states. Use a uniform border when a real boundary is
+  needed, and use fill plus the control's indicator to communicate selection.
 - Prefer an established component, then a semantic utility from `src/app.css`,
   then raw Tailwind for local layout. Do not use `!` overrides to invent
   missing component variants; extend the component and its story instead.
 - Svelte files use tabs; match local style.
 - Use base text size by default. Reserve smaller text for metadata.
+- Keep one text size within a compact surface such as a menu, popover, control,
+  or nested row. Do not mix smaller metadata text with base-sized actions in
+  the same surface; express hierarchy with color, weight, spacing, and icons.
 - Use browser/platform default text rendering. Do not apply global font
   smoothing such as Tailwind `antialiased`, `-webkit-font-smoothing`, or
   `-moz-osx-font-smoothing`.
@@ -147,6 +161,19 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
 - Use automatic "load more" pagination when a scroll/container edge is reached.
 - Use event-driven updates from the per-server event bus and explicit projected
   refetches rather than assuming a normalized client cache.
+- Keep a realtime resume cursor RAM-only and owned by the exact per-server
+  projection it advances. Socket teardown must not discard either one, and a
+  recreated projection must resume without a cursor so it receives a reset.
+- Treat undecodable realtime frames and unknown projection operations as fatal
+  for that socket. Validate each projection event before mutation and never
+  advance a cursor across input the reducer did not fully understand.
+- Treat authorization loss, message deletion, key shredding, and account
+  deletion as asynchronous privacy boundaries. Clearing current render state
+  is insufficient: invalidate or fence older reads and optimistic rollbacks,
+  and apply the boundary to every response that can arrive later.
+- Application code must leave realtime transport ownership to the central
+  coordinator: only the URL-active server keeps a persistent WebSocket, while
+  inactive servers use serialized short-lived catch-ups over the same stream.
 - Guard subscription creation on authentication/server availability to avoid
   reconnect loops.
 - For virtualized lists (`virtua`), use real wheel interaction in e2e tests; raw
@@ -155,6 +182,10 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
 ## Testing
 
 - `mise test-frontend` runs the frontend suite.
+- Run frontend verification commands that compile Paraglide sequentially. In
+  particular, do not run `mise lint-frontend` and `mise test-frontend` in
+  parallel: one process can read `src/lib/paraglide/` while the other is
+  rewriting it and report invalid generated-code diagnostics.
 - Unit and component specs live next to source. Route specs should not start
   with `+`; use descriptive names such as `members.page.svelte.spec.ts`.
 - Pure functions/classes can use Node Vitest. Mounted Svelte components,
@@ -167,6 +198,17 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
   mocks.
 - Use `expect.element(...)` for DOM assertions and flush after Svelte state
   mutations when needed.
+- For focused component tests, filter to the relevant test instead of initially
+  running the entire spec. Use a plain substring without regular-expression
+  characters such as `+`:
+
+```sh
+mise x -- pnpm --filter chatto-frontend exec vitest --run \
+  src/path/Component.svelte.spec.ts -t 'plain substring'
+```
+
+- If Vite reloads after first-run dependency optimization and then stops making
+  progress, terminate the test and rerun it once with the warmed cache.
 - E2E runs locally without Docker/Tilt/OrbStack; Playwright starts its own
   embedded-NATS Chatto binary.
 - Prefer targeted e2e runs before the full suite:
@@ -195,10 +237,6 @@ mise test-e2e
   Production component and route strings still require British English and
   German, plus US English overrides where wording differs.
 - The app preview uses Chatto tokens; do not retint Storybook manager/docs chrome.
-- Shared design-system visuals are covered by `pnpm run test:visual`. When a
-  reviewed visual change is intentional, refresh with
-  `pnpm run test:visual --update`, inspect the platform-specific light/dark and
-  desktop/mobile baselines, then rerun without `--update`.
 - Route accessibility coverage lives in `e2e/accessibility.test.ts`. Keep its
   representative public, authenticated, mobile, admin, and dialog scans free of
   blanket axe exclusions.

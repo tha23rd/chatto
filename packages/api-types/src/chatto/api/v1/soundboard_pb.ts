@@ -10,7 +10,7 @@ import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
  * A server-wide soundboard sound: a short audio clip uploaded by an admin that
  * any member connected to a room's voice call can play so that every joined
  * participant hears it. The catalog is shared by the whole server; there are no
- * per-user or per-room sound sets. See FDR-033.
+ * per-user or per-room sound sets. See FDR-036.
  *
  * @generated from message chatto.api.v1.Sound
  */

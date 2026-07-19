@@ -49,7 +49,7 @@ const (
 	// PermSoundboardManage allows creating and deleting server soundboard
 	// sounds without the broader server.manage capability. server.manage
 	// holders retain soundboard access too, so it can be granted on its own to
-	// a narrower "soundboard manager" role. See FDR-033.
+	// a narrower "soundboard manager" role. See FDR-036.
 	PermSoundboardManage Permission = "soundboard.manage"
 
 	// ===== Room Permissions =====
@@ -279,8 +279,8 @@ func DefaultEveryonePermissions() []Permission {
 
 // DefaultSeedEveryonePermissions returns permissions granted to everyone when
 // RBAC is freshly seeded or explicitly reset. Keep permissions here out of
-// EnsureDefaultRolePermissions when adding them would silently change existing
-// deployments on boot.
+// the legacy EnsureDefaultRolePermissions helper when adding them would
+// silently change existing deployments if that helper is invoked explicitly.
 func DefaultSeedEveryonePermissions() []Permission {
 	return append(DefaultEveryonePermissions(), PermMessageAttach)
 }

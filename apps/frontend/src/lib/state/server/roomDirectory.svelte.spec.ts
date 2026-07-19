@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { flushSync } from 'svelte';
-import type { RoomEventView } from '$lib/render/types';
-import { RoomEventKind } from '$lib/render/eventKinds';
 import {
   RoomDirectoryScope,
   RoomKind,
   type DirectoryRoomSummary,
   type RoomDirectoryAPI
 } from '$lib/api-client/roomDirectory';
+import { PresenceStatus } from '$lib/api-client/renderTypes';
+import type { MemberDirectoryAPI } from '$lib/api-client/memberDirectory';
 import { RoomDirectoryStore, type DirectoryRoom } from './roomDirectory.svelte';
 import type { RoomCommandAPI } from '$lib/api-client/rooms';
 
@@ -33,6 +33,12 @@ function makeRoomDirectoryAPI(
   };
 }
 
+function makeMemberDirectoryAPI(): Pick<MemberDirectoryAPI, 'listRoomMembers'> {
+  return {
+    listRoomMembers: vi.fn().mockResolvedValue({ members: [], totalCount: 0, hasMore: false })
+  };
+}
+
 function roomAPI(
   overrides: Partial<Pick<RoomCommandAPI, 'joinRoom' | 'leaveRoom' | 'joinGroup'>> = {}
 ): Pick<RoomCommandAPI, 'joinRoom' | 'leaveRoom' | 'joinGroup'> {
@@ -46,12 +52,14 @@ function roomAPI(
 
 function makeStore({
   roomDirectoryAPI = makeRoomDirectoryAPI(),
+  memberDirectoryAPI = makeMemberDirectoryAPI(),
   commands = roomAPI()
 }: {
   roomDirectoryAPI?: Pick<RoomDirectoryAPI, 'listRooms'>;
+  memberDirectoryAPI?: Pick<MemberDirectoryAPI, 'listRoomMembers'>;
   commands?: Pick<RoomCommandAPI, 'joinRoom' | 'leaveRoom' | 'joinGroup'>;
 } = {}) {
-  return new RoomDirectoryStore(roomDirectoryAPI, commands);
+  return new RoomDirectoryStore(roomDirectoryAPI, memberDirectoryAPI, commands);
 }
 
 async function settle() {
@@ -90,6 +98,44 @@ describe('RoomDirectoryStore - initial load', () => {
 
     expect(store.allRooms).toEqual([]);
     expect(store.isLoading).toBe(false);
+  });
+});
+
+describe('RoomDirectoryStore - join preview', () => {
+  it('returns five sampled members and the exact total from ListMembers', async () => {
+    const memberDirectoryAPI = makeMemberDirectoryAPI();
+    vi.mocked(memberDirectoryAPI.listRoomMembers).mockResolvedValue({
+      members: [
+        {
+          id: 'u1',
+          login: 'alice',
+          displayName: 'Alice',
+          deleted: false,
+          avatarUrl: null,
+          presenceStatus: PresenceStatus.Offline,
+          customStatus: null,
+          roles: [],
+          createdAt: null
+        }
+      ],
+      totalCount: 12,
+      hasMore: true
+    });
+    const store = makeStore({ memberDirectoryAPI });
+
+    await expect(store.loadJoinPreview('r1')).resolves.toMatchObject({
+      memberCount: 12,
+      sampleMembers: [{ id: 'u1', displayName: 'Alice' }]
+    });
+    expect(memberDirectoryAPI.listRoomMembers).toHaveBeenCalledWith('r1', '', 5, 0);
+  });
+
+  it('returns no preview when the member listing fails', async () => {
+    const memberDirectoryAPI = makeMemberDirectoryAPI();
+    vi.mocked(memberDirectoryAPI.listRoomMembers).mockRejectedValue(new Error('offline'));
+    const store = makeStore({ memberDirectoryAPI });
+
+    await expect(store.loadJoinPreview('r1')).resolves.toBeNull();
   });
 });
 
@@ -224,81 +270,6 @@ describe('RoomDirectoryStore - refresh clears optimistic state', () => {
 
     expect(store.justJoinedIds.size).toBe(0);
     expect(store.justLeftIds.size).toBe(0);
-  });
-});
-
-describe('RoomDirectoryStore - ingestServerEvent', () => {
-  function makeEvent(kind: RoomEventKind): RoomEventView {
-    return { event: { kind } } as unknown as RoomEventView;
-  }
-
-  it('refreshes on UserJoinedRoomEvent', async () => {
-    const roomDirectoryAPI = makeRoomDirectoryAPI([]);
-    const store = makeStore({ roomDirectoryAPI });
-    void store.refresh();
-    await settle();
-    expect(roomDirectoryAPI.listRooms).toHaveBeenCalledTimes(1);
-
-    store.ingestServerEvent(makeEvent(RoomEventKind.UserJoinedRoom));
-    await settle();
-    expect(roomDirectoryAPI.listRooms).toHaveBeenCalledTimes(2);
-  });
-
-  it('refreshes on UserLeftRoomEvent', async () => {
-    const roomDirectoryAPI = makeRoomDirectoryAPI([]);
-    const store = makeStore({ roomDirectoryAPI });
-    void store.refresh();
-    await settle();
-
-    store.ingestServerEvent(makeEvent(RoomEventKind.UserLeftRoom));
-    await settle();
-    expect(roomDirectoryAPI.listRooms).toHaveBeenCalledTimes(2);
-  });
-
-  it('refreshes on room catalog and layout changes', async () => {
-    const roomDirectoryAPI = makeRoomDirectoryAPI([]);
-    const store = makeStore({ roomDirectoryAPI });
-    void store.refresh();
-    await settle();
-
-    store.ingestServerEvent(makeEvent(RoomEventKind.RoomCreated));
-    await settle();
-    store.ingestServerEvent(makeEvent(RoomEventKind.RoomUpdated));
-    await settle();
-    store.ingestServerEvent(makeEvent(RoomEventKind.RoomArchived));
-    await settle();
-    store.ingestServerEvent(makeEvent(RoomEventKind.RoomUnarchived));
-    await settle();
-    store.ingestServerEvent(makeEvent(RoomEventKind.RoomDeleted));
-    await settle();
-    store.ingestServerEvent(makeEvent(RoomEventKind.RoomGroupsUpdated));
-    await settle();
-
-    expect(roomDirectoryAPI.listRooms).toHaveBeenCalledTimes(7);
-  });
-
-  it('does NOT refresh on irrelevant event types', async () => {
-    const roomDirectoryAPI = makeRoomDirectoryAPI([]);
-    const store = makeStore({ roomDirectoryAPI });
-    void store.refresh();
-    await settle();
-
-    store.ingestServerEvent(makeEvent(RoomEventKind.MessagePosted));
-    store.ingestServerEvent(makeEvent(RoomEventKind.ReactionAdded));
-    await settle();
-
-    expect(roomDirectoryAPI.listRooms).toHaveBeenCalledTimes(1);
-  });
-
-  it('ingestRoomLayoutUpdated triggers a refresh', async () => {
-    const roomDirectoryAPI = makeRoomDirectoryAPI([]);
-    const store = makeStore({ roomDirectoryAPI });
-    void store.refresh();
-    await settle();
-
-    store.ingestRoomLayoutUpdated();
-    await settle();
-    expect(roomDirectoryAPI.listRooms).toHaveBeenCalledTimes(2);
   });
 });
 
