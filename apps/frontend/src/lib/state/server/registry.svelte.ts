@@ -4,6 +4,8 @@ import { serverConnectionManager } from './serverConnection.svelte';
 import { eventBusManager } from './eventBus.svelte';
 import { Codecs, globalSlot } from '$lib/storage/slot';
 import { getPublicServerInfo } from '$lib/api-client/server';
+import { getNativeHost } from '$lib/native/host';
+import type { Unsubscribe } from '$lib/native/types';
 
 /**
  * A registered Chatto server in the multi-server client.
@@ -102,6 +104,7 @@ const serversSlot = globalSlot(
 class ServerRegistry {
 	servers = $state<RegisteredServer[]>(serversSlot.get().map(normalizeRegisteredServer));
 	#stores = new SvelteMap<string, ServerStateStore>();
+	#nativeOriginRegistrations = new Map<string, { url: string; release: Unsubscribe }>();
 
 	/**
 	 * Whether the async origin probe has completed (resolved or rejected).
@@ -301,6 +304,7 @@ class ServerRegistry {
 	 */
 	init(): void {
 		for (const server of this.servers) {
+			this.#registerNativeOrigin(server);
 			if (!this.#stores.has(server.id)) {
 				this.#createStore(server);
 			}
@@ -313,6 +317,7 @@ class ServerRegistry {
 			return; // Already exists
 		}
 		const registered = normalizeRegisteredServer(server);
+		this.#registerNativeOrigin(registered);
 		this.servers.push(registered);
 		serversSlot.set(this.servers);
 		const store = this.#createStore(registered);
@@ -345,6 +350,7 @@ class ServerRegistry {
 
 		// Dispose connection state
 		serverConnectionManager.destroyClient(id);
+		this.#releaseNativeOrigin(id);
 
 		this.servers = this.servers.filter((s) => s.id !== id);
 		serversSlot.set(this.servers);
@@ -359,6 +365,7 @@ class ServerRegistry {
 			this.#stores.get(server.id)?.dispose();
 			this.#stores.delete(server.id);
 			serverConnectionManager.destroyClient(server.id);
+			this.#releaseNativeOrigin(server.id);
 		}
 		this.servers = [];
 		serversSlot.set(this.servers);
@@ -371,9 +378,27 @@ class ServerRegistry {
 			return false;
 		}
 
+		if (data.url && data.url !== server.url) {
+			this.#registerNativeOrigin({ ...server, url: data.url });
+		}
 		Object.assign(server, data);
 		serversSlot.set(this.servers);
 		return true;
+	}
+
+	#registerNativeOrigin(server: Pick<RegisteredServer, 'id' | 'url'>): void {
+		const existing = this.#nativeOriginRegistrations.get(server.id);
+		if (existing?.url === server.url) return;
+		const release = getNativeHost().registerServerOrigin(server.url);
+		existing?.release();
+		this.#nativeOriginRegistrations.set(server.id, { url: server.url, release });
+	}
+
+	#releaseNativeOrigin(serverId: string): void {
+		const registration = this.#nativeOriginRegistrations.get(serverId);
+		if (!registration) return;
+		this.#nativeOriginRegistrations.delete(serverId);
+		registration.release();
 	}
 
 	replaceServerAuthentication(

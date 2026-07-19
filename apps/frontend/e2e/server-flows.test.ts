@@ -5,6 +5,7 @@ import { withServerUser } from './fixtures/serverUser';
 import { startSecondServer, stopSecondServer, createUserOnRemote } from './fixtures/multiServer';
 import { connectPost } from './fixtures/connectHelpers';
 import type { ServerInfo } from './fixtures/server';
+import { ChatPage } from './pages/ChatPage';
 import { DMPage } from './pages/DMPage';
 import * as routes from './routes';
 import { TIMEOUTS } from './constants';
@@ -364,6 +365,21 @@ test.describe('Add Server - Remote Auth Flow', () => {
       page.locator(`[data-testid="server-icon"][href*="${remoteHostname}"]`).first()
     ).toBeVisible({ timeout: TIMEOUTS.UI_STANDARD });
     await expect(page.getByTestId('server-subscription-active')).toBeAttached();
+
+    const currentUserPresenceDot = page
+      .getByTestId('current-user-presence-menu')
+      .getByTestId('presence-dot');
+    await expect(currentUserPresenceDot).toHaveClass(/bg-presence-online/, {
+      timeout: TIMEOUTS.REALTIME_EVENT
+    });
+
+    const remoteChatPage = new ChatPage(page);
+    const roomPage = await remoteChatPage.enterRoom('general');
+    await roomPage.expectMemberVisible('remoteonlyuser');
+    await expect(roomPage.getMemberPresenceDot('remoteonlyuser')).toHaveClass(
+      /bg-presence-online/,
+      { timeout: TIMEOUTS.REALTIME_EVENT }
+    );
     expect(pageErrors).toEqual([]);
   });
 

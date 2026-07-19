@@ -18,6 +18,8 @@ import type {
 import { attachRealtimeEventEnvelope } from '$lib/eventBus.svelte';
 import { roomEventKind } from '$lib/render/eventKinds';
 import { realtimeEventToEventEnvelope } from '$lib/realtimeEventMapper';
+import { getNativeHost } from '$lib/native/host';
+import type { RealtimeSocketLike } from '$lib/native/types';
 import {
   RealtimeClientFrame,
   RealtimeClientHello,
@@ -34,23 +36,16 @@ const CATCH_UP_RETRY_MS = 2_500;
 const RECONNECT_WAIT_MS = 5_000;
 
 type RealtimeMessageEvent = { data: ArrayBuffer | Blob | Uint8Array };
-type RealtimeCloseEvent = { code?: number; reason?: string };
-type RealtimeSocket = {
-  binaryType: BinaryType;
-  readyState: number;
-  onopen: (() => void) | null;
-  onmessage: ((event: RealtimeMessageEvent) => void) | null;
-  onerror: ((event: Event) => void) | null;
-  onclose: ((event: RealtimeCloseEvent) => void) | null;
-  send(data: Uint8Array): void;
-  close(code?: number, reason?: string): void;
-};
+type RealtimeSocket = RealtimeSocketLike;
 type RealtimeSocketFactory = (url: string) => RealtimeSocket;
 
-let realtimeSocketFactory: RealtimeSocketFactory = (url) => new WebSocket(url) as RealtimeSocket;
+const defaultRealtimeSocketFactory: RealtimeSocketFactory = (url) =>
+  getNativeHost().createRealtimeSocket(url);
+
+let realtimeSocketFactory: RealtimeSocketFactory = defaultRealtimeSocketFactory;
 
 export function setRealtimeSocketFactoryForTests(factory: RealtimeSocketFactory | null): void {
-  realtimeSocketFactory = factory ?? ((url) => new WebSocket(url) as RealtimeSocket);
+  realtimeSocketFactory = factory ?? defaultRealtimeSocketFactory;
 }
 
 async function messageDataToBytes(data: RealtimeMessageEvent['data']): Promise<Uint8Array> {

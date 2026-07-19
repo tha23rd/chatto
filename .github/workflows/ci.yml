@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - main-native
       - 'release-[0-9]*'
   pull_request:
     types:
@@ -15,6 +16,7 @@ on:
       - ready_for_review
     branches:
       - main
+      - main-native
       - 'release-[0-9]*'
 
 concurrency:
@@ -193,6 +195,69 @@ jobs:
 
       - name: Build Storybook design-system catalog
         run: pnpm run build:storybook
+
+  test-desktop-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.native_release.outputs.version }}
+      tag: ${{ steps.native_release.outputs.tag }}
+      installer_name: ${{ steps.native_release.outputs.installer_name }}
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+        with:
+          install-cli-deps: "false"
+
+      - name: Setup stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Install Chromium for renderer tests
+        run: pnpm --dir apps/frontend exec playwright install chromium
+
+      - name: Run desktop adapter and native tests
+        run: mise test-desktop
+
+      - name: Run desktop typechecks
+        run: mise check-desktop
+
+      - name: Build desktop renderer
+        run: pnpm --dir apps/frontend run build:desktop
+
+      - name: Build Windows desktop executable
+        if: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main-native' }}
+        run: pnpm --dir apps/desktop tauri build --no-bundle
+
+      - name: Build, verify, and stage main-native Windows installer
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main-native' }}
+        id: native_release
+        shell: pwsh
+        run: |
+          & ./apps/desktop/scripts/build-prerelease.ps1 `
+              -CommitSha $env:GITHUB_SHA `
+              -OutputDirectory '.context\release\windows' `
+              -VerificationDirectory (Join-Path $env:RUNNER_TEMP 'chatto-package-verification') `
+              -GitHubOutputPath $env:GITHUB_OUTPUT
+
+      - name: Upload main-native Windows installer artifact
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main-native' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer-${{ github.sha }}
+          path: .context/release/windows/*
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
   test-cli:
     # runs-on: ubicloud-standard-4
@@ -403,3 +468,37 @@ jobs:
             echo
             echo "Version: \`${{ needs.build-main-image-contexts.outputs.image-version }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  publish-main-native-installer:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main-native' }}
+    needs:
+      - license-check
+      - codegen-proto-drift
+      - test-frontend-unit
+      - test-desktop-windows
+      - test-cli
+      - test-e2e
+      - test-e2e-media
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout native release scripts
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Download main-native Windows installer artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: windows-installer-${{ github.sha }}
+          path: .context/release/windows
+
+      - name: Publish immutable main-native GitHub prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.test-desktop-windows.outputs.version }}
+          RELEASE_TAG: ${{ needs.test-desktop-windows.outputs.tag }}
+          INSTALLER_NAME: ${{ needs.test-desktop-windows.outputs.installer_name }}
+        run: bash apps/desktop/scripts/publish-prerelease.sh

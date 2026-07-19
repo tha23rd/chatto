@@ -3,9 +3,8 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
+  import { completeServerOAuth, parseServerOAuthTokenResponse } from '$lib/auth/serverOAuth';
   import { loadAndClearFlowState } from '$lib/oauth/pkce';
-  import { serverRegistry, generateServerId } from '$lib/state/server/registry.svelte';
-  import { serverIdToSegment } from '$lib/navigation';
   import * as m from '$lib/i18n/messages';
   import PageTitle from '$lib/ui/PageTitle.svelte';
   import { Button } from '$lib/ui/form';
@@ -65,71 +64,33 @@
         signal: AbortSignal.timeout(10000)
       });
 
-      const result = await response.json();
+      const result: unknown = await response.json();
 
       if (!response.ok) {
+        const error =
+          result !== null && typeof result === 'object' ? (result as Record<string, unknown>) : {};
         status = 'error';
         errorMessage =
-          result.error_description || result.error || m['auth.callback.token_exchange_failed']();
+          (typeof error.error_description === 'string' && error.error_description) ||
+          (typeof error.error === 'string' && error.error) ||
+          m['auth.callback.token_exchange_failed']();
         return;
       }
 
-      if (!result.access_token) {
-        status = 'error';
-        errorMessage = m['auth.callback.no_access_token']();
-        return;
-      }
-
-      // Register or update the instance
-      const existing = serverRegistry.servers.find(
-        (i) => i.url.toLowerCase() === flow.remoteUrl.toLowerCase()
-      );
-
-      let serverId: string;
-      if (existing) {
-        serverRegistry.updateServer(existing.id, {
-          name: flow.serverName ?? existing.name,
-          iconUrl: flow.serverIconUrl ?? existing.iconUrl
-        });
-        serverRegistry.replaceServerAuthentication(existing.id, {
-          token: result.access_token,
-          userId: result.user?.id ?? null,
-          userLogin: result.user?.login ?? null,
-          userDisplayName: result.user?.displayName ?? null,
-          userAvatarUrl: result.user?.avatarUrl ?? null,
-          reauthRequiredAt: null
-        });
-        serverId = existing.id;
-      } else {
-        const id = generateServerId(
-          flow.remoteUrl,
-          serverRegistry.servers.map((i) => i.id)
-        );
-
-        serverRegistry.addServer({
-          id,
-          url: flow.remoteUrl,
-          name: flow.serverName ?? 'Chatto',
-          iconUrl: flow.serverIconUrl ?? null,
-          token: result.access_token,
-          userId: result.user?.id ?? null,
-          userLogin: result.user?.login ?? null,
-          userDisplayName: result.user?.displayName ?? null,
-          userAvatarUrl: result.user?.avatarUrl ?? null,
-          reauthRequiredAt: null,
-          addedAt: Date.now()
-        });
-        serverId = id;
-      }
-
-      goto(resolve('/chat/[serverId]', { serverId: serverIdToSegment(serverId) }));
+      const destination = completeServerOAuth(flow, parseServerOAuthTokenResponse(result));
+      await goto(resolve('/chat/[serverId]', destination));
     } catch (err) {
       status = 'error';
       if (err instanceof DOMException && err.name === 'AbortError') {
         errorMessage = m['auth.callback.token_exchange_timeout']();
       } else {
         errorMessage =
-          err instanceof Error ? err.message : m['auth.callback.token_exchange_failed']();
+          err instanceof Error &&
+          err.message === 'OAuth token response did not include an access token.'
+            ? m['auth.callback.no_access_token']()
+            : err instanceof Error
+              ? err.message
+              : m['auth.callback.token_exchange_failed']();
       }
     }
   });

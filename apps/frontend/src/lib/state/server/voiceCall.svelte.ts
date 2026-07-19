@@ -21,9 +21,17 @@ import {
 import { toast } from '$lib/ui/toast';
 import { playCallSound } from '$lib/audio/callSounds';
 import * as m from '$lib/i18n/messages';
+import { NativeCallControlsController } from '$lib/native/callControls';
+import { getNativeHost } from '$lib/native/host';
 import type { VoiceCallAPI } from '$lib/api-client/voiceCalls';
 import { serverSlot, Codecs, type StorageSlot } from '$lib/storage/slot';
 import { NoiseSuppressionController } from '$lib/voice/noiseSuppression.svelte';
+import {
+  EMPTY_SCREEN_SHARE_DIAGNOSTICS,
+  ScreenShareDiagnosticsCollector,
+  type RTCStatsReportLike,
+  type ScreenShareDiagnosticsSnapshot
+} from '$lib/voice/webrtcDiagnostics';
 import {
   DEFAULT_SCREEN_SHARE_QUALITY,
   clampQualityPrefs,
@@ -304,6 +312,7 @@ export class VoiceCallState {
   // True when the last quality change could not be applied to the live share and will only
   // take effect on the next one. Lets the UI be honest instead of silently doing nothing.
   screenShareRetuneFailed = $state(false);
+  screenShareDiagnostics = $state<ScreenShareDiagnosticsSnapshot>(EMPTY_SCREEN_SHARE_DIAGNOSTICS);
 
   // Audio input devices
   audioDevices = $state<MediaDeviceInfo[]>([]);
@@ -338,6 +347,11 @@ export class VoiceCallState {
   private deafenToggleInFlight: Promise<void> | null = null;
   // Mic mute state captured when deafening, restored on undeafen.
   private mutedBeforeDeafen = false;
+  private pushToTalkPressed = false;
+  private pushToTalkOwnsMicrophone = false;
+  private pushToTalkReconcileInFlight: Promise<void> | null = null;
+  private readonly nativeCallControls: NativeCallControlsController;
+  private readonly screenShareDiagnosticsCollector: ScreenShareDiagnosticsCollector;
   private e2eeWorker: Worker | null = null;
   private audioLevelInterval: ReturnType<typeof setInterval> | null = null;
   private suppressDisconnectToast = false;
@@ -404,6 +418,19 @@ export class VoiceCallState {
   ) {
     this.#api = api;
     this.#screenShareConfigProvider = screenShareConfigProvider;
+    this.nativeCallControls = new NativeCallControlsController(getNativeHost(), {
+      snapshot: () => ({
+        connected: this.connected,
+        muted: this.isMuted,
+        deafened: this.isDeafened
+      }),
+      setPushToTalkPressed: (pressed) => this.setPushToTalkPressed(pressed),
+      toggleMute: () => this.toggleMute(),
+      toggleDeafen: () => this.toggleDeafen()
+    });
+    this.screenShareDiagnosticsCollector = new ScreenShareDiagnosticsCollector((snapshot) => {
+      this.screenShareDiagnostics = snapshot;
+    });
     if (serverId) {
       this.#volumesSlot = serverSlot(serverId, CALL_VOLUMES_SUFFIX, {}, volumeMapCodec);
       this.participantVolumes = sanitizeVolumeMap(this.#volumesSlot.get());
@@ -710,6 +737,7 @@ export class VoiceCallState {
 
       this.connected = true;
       this.updateParticipants();
+      this.nativeCallControls.start();
       await this.refreshDevices();
       if (this.consumePendingOwnJoinSound()) {
         void playCallSound('join');
@@ -854,6 +882,107 @@ export class VoiceCallState {
     }
 
     this.updateParticipants();
+    this.nativeCallControls.sync();
+  }
+
+  /**
+   * Apply the global shortcut as momentary microphone state.
+   *
+   * Push-to-talk takes ownership only when the press begins muted. Releases
+   * restore that mute, including when they race a pending LiveKit enable.
+   */
+  async setPushToTalkPressed(pressed: boolean): Promise<void> {
+    const needsReleaseRetry = !pressed && this.pushToTalkOwnsMicrophone;
+    if (this.pushToTalkPressed === pressed && !needsReleaseRetry) {
+      return this.pushToTalkReconcileInFlight ?? Promise.resolve();
+    }
+    this.pushToTalkPressed = pressed;
+
+    if (this.pushToTalkReconcileInFlight) return this.pushToTalkReconcileInFlight;
+    const room = this.room;
+    if (!room || !this.connected) return;
+
+    const reconcile = this.performPushToTalkReconciliation(room);
+    this.pushToTalkReconcileInFlight = reconcile;
+    try {
+      await reconcile;
+    } finally {
+      if (this.pushToTalkReconcileInFlight === reconcile) {
+        this.pushToTalkReconcileInFlight = null;
+      }
+    }
+  }
+
+  private async performPushToTalkReconciliation(room: Room): Promise<void> {
+    while (this.room === room && this.connected) {
+      if (this.pushToTalkPressed) {
+        if (this.isDeafened || this.pushToTalkOwnsMicrophone || !this.isMuted) return;
+
+        const inFlightMic = this.microphoneToggleInFlight;
+        if (inFlightMic) {
+          await inFlightMic.catch(() => {});
+          continue;
+        }
+        if (!this.pushToTalkPressed || this.isDeafened) continue;
+
+        if (await this.applyPushToTalkMicState(room, true)) {
+          this.pushToTalkOwnsMicrophone = true;
+          continue;
+        }
+        return;
+      }
+
+      if (!this.pushToTalkOwnsMicrophone) return;
+      if (this.isMuted) {
+        this.pushToTalkOwnsMicrophone = false;
+        return;
+      }
+
+      const inFlightMic = this.microphoneToggleInFlight;
+      if (inFlightMic) {
+        await inFlightMic.catch(() => {});
+        continue;
+      }
+
+      if (await this.applyPushToTalkMicState(room, false)) {
+        this.pushToTalkOwnsMicrophone = false;
+      }
+      return;
+    }
+  }
+
+  private async applyPushToTalkMicState(room: Room, enabled: boolean): Promise<boolean> {
+    const operation: Promise<void> = this.runExplicitMediaDeviceOperation(() =>
+      room.localParticipant.setMicrophoneEnabled(enabled)
+    ).then(() => {});
+    this.microphoneToggleInFlight = operation;
+    this.isMicrophonePending = true;
+    try {
+      await operation;
+      if (this.room !== room) return false;
+      this.isMuted = !enabled;
+      if (enabled) {
+        this.setupLocalAudioAnalyser();
+        void this.noiseSuppression.applyToCall(room);
+      } else {
+        this.teardownLocalAudioAnalyser();
+      }
+      this.updateParticipants();
+      this.nativeCallControls.sync();
+      return true;
+    } catch (err) {
+      if (this.room === room && enabled) {
+        this.notifyMediaDeviceError(
+          getVoiceCallMediaDeviceErrorMessage('microphone', err, 'enable')
+        );
+      }
+      return false;
+    } finally {
+      if (this.microphoneToggleInFlight === operation) {
+        this.microphoneToggleInFlight = null;
+        this.isMicrophonePending = false;
+      }
+    }
   }
 
   /**
@@ -891,6 +1020,7 @@ export class VoiceCallState {
     this.isDeafened = newDeafened;
     this.applyAllParticipantAudioVolumes();
     this.syncDeafenAttribute(room);
+    this.nativeCallControls.sync();
 
     // The mic is shared with toggleMute; wait for any in-flight mic toggle to
     // settle so we capture and mutate a committed mic state, never a stale one.
@@ -918,6 +1048,7 @@ export class VoiceCallState {
     }
 
     this.updateParticipants();
+    this.nativeCallControls.sync();
   }
 
   /**
@@ -941,6 +1072,7 @@ export class VoiceCallState {
       } else {
         this.teardownLocalAudioAnalyser();
       }
+      this.nativeCallControls.sync();
     } catch (err) {
       // Re-enabling failure is user-visible (they asked to speak again). A failed
       // disable leaves the mic live, so isMuted is deliberately left unchanged.
@@ -1067,6 +1199,23 @@ export class VoiceCallState {
       this.isScreenShareEnabled = newEnabled ? false : this.isScreenShareEnabled;
     }
     this.updateParticipants();
+    this.syncScreenShareDiagnostics(room);
+  }
+
+  private syncScreenShareDiagnostics(room: Room): void {
+    if (!this.isScreenShareEnabled || this.room !== room) {
+      this.screenShareDiagnosticsCollector.stop();
+      return;
+    }
+
+    const track = room.localParticipant.getTrackPublication(Track.Source.ScreenShare)?.track;
+    if (!track) {
+      this.screenShareDiagnosticsCollector.stop();
+      return;
+    }
+    this.screenShareDiagnosticsCollector.start(
+      () => track.getRTCStatsReport() as Promise<RTCStatsReportLike | undefined>
+    );
   }
 
   /**
@@ -1560,6 +1709,7 @@ export class VoiceCallState {
       this.audioLevelInterval = null;
     }
     this.noiseSuppression.handleCallEnded();
+    this.screenShareDiagnosticsCollector.stop();
     this.teardownLocalAudioAnalyser();
     this.teardownSoundboard();
     if (this.room) {
@@ -1590,6 +1740,9 @@ export class VoiceCallState {
     this.screenShareToggleInFlight = null;
     this.deafenToggleInFlight = null;
     this.mutedBeforeDeafen = false;
+    this.pushToTalkPressed = false;
+    this.pushToTalkOwnsMicrophone = false;
+    this.pushToTalkReconcileInFlight = null;
     this.suppressDisconnectToast = false;
     this.connected = false;
     this.connecting = false;
@@ -1614,6 +1767,7 @@ export class VoiceCallState {
     this.audioLevelCache.clear();
     this.explicitMediaDeviceOperationDepth = 0;
     this.lastMediaDeviceToast = null;
+    this.nativeCallControls.stop();
   }
 
   private async runExplicitMediaDeviceOperation<T>(operation: () => Promise<T>): Promise<T> {

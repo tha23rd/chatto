@@ -64,6 +64,7 @@ const callStore = vi.hoisted(() => ({
       maxBitrate: 8_000_000
     },
     screenShareRetuneFailed: false,
+    screenShareDiagnostics: { latest: null, history: [] },
     setScreenShareQuality: vi.fn().mockResolvedValue(undefined),
     toggleParticipantLocalMute: vi.fn(),
     refreshDevices: vi.fn().mockResolvedValue(undefined),

@@ -25,10 +25,7 @@ import {
   VoiceCallJoinError,
   VoiceCallState
 } from './voiceCall.svelte';
-import {
-  DEFAULT_SCREEN_SHARE_QUALITY,
-  resolveScreenShareOptions
-} from './screenShareQuality';
+import { DEFAULT_SCREEN_SHARE_QUALITY, resolveScreenShareOptions } from './screenShareQuality';
 import { Room } from 'livekit-client';
 
 const calls: string[] = [];
@@ -333,10 +330,7 @@ describe('VoiceCallState', () => {
         dev('', 'audioinput', '')
       ])
       .mockImplementationOnce(async () => [dev('spk-1', 'audiooutput', 'Speaker')])
-      .mockImplementationOnce(async () => [
-        dev('', 'videoinput', ''),
-        dev('', 'videoinput', '')
-      ]);
+      .mockImplementationOnce(async () => [dev('', 'videoinput', ''), dev('', 'videoinput', '')]);
 
     await state.refreshDevices();
 
@@ -344,11 +338,9 @@ describe('VoiceCallState', () => {
     expect(state.audioOutputDevices.map((d) => d.deviceId)).toEqual(['spk-1']);
     expect(state.videoDevices).toEqual([]);
     // No placeholder ('') ids survive to become non-unique {#each} keys.
-    const allIds = [
-      ...state.audioDevices,
-      ...state.audioOutputDevices,
-      ...state.videoDevices
-    ].map((d) => d.deviceId);
+    const allIds = [...state.audioDevices, ...state.audioOutputDevices, ...state.videoDevices].map(
+      (d) => d.deviceId
+    );
     expect(allIds.every((id) => id !== '')).toBe(true);
     expect(new Set(allIds).size).toBe(allIds.length);
   });
@@ -516,6 +508,111 @@ describe('VoiceCallState', () => {
     expect(soundMocks.playCallSound).not.toHaveBeenCalled();
   });
 
+  describe('push-to-talk', () => {
+    async function joinMuted(): Promise<VoiceCallState> {
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+      await state.toggleMute();
+      lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+      return state;
+    }
+
+    it('temporarily unmutes on press and restores mute on release', async () => {
+      const state = await joinMuted();
+
+      await state.setPushToTalkPressed(true);
+      expect(state.isMuted).toBe(false);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(true);
+
+      await state.setPushToTalkPressed(false);
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(false);
+    });
+
+    it('does not take ownership of a microphone that was already unmuted', async () => {
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+      lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+
+      await state.setPushToTalkPressed(true);
+      await state.setPushToTalkPressed(false);
+
+      expect(state.isMuted).toBe(false);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).not.toHaveBeenCalled();
+    });
+
+    it('never undeafens or enables the microphone while deafened', async () => {
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+      await state.toggleDeafen();
+      lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+
+      await state.setPushToTalkPressed(true);
+      await state.setPushToTalkPressed(false);
+
+      expect(state.isDeafened).toBe(true);
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).not.toHaveBeenCalled();
+    });
+
+    it('coalesces duplicate press and release events', async () => {
+      const state = await joinMuted();
+
+      await state.setPushToTalkPressed(true);
+      await state.setPushToTalkPressed(true);
+      await state.setPushToTalkPressed(false);
+      await state.setPushToTalkPressed(false);
+
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled.mock.calls).toEqual([[true], [false]]);
+    });
+
+    it('restores mute when release arrives while microphone enable is pending', async () => {
+      const state = await joinMuted();
+      microphoneGate = deferredVoid();
+
+      const press = state.setPushToTalkPressed(true);
+      await flushPromises();
+      const release = state.setPushToTalkPressed(false);
+
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled.mock.calls).toEqual([[true]]);
+
+      microphoneGate.resolve();
+      await Promise.all([press, release]);
+
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled.mock.calls).toEqual([[true], [false]]);
+    });
+
+    it('stays muted if push-to-talk cannot enable the microphone', async () => {
+      const state = await joinMuted();
+      microphoneFailure = new Error('microphone unavailable');
+
+      await state.setPushToTalkPressed(true);
+      await state.setPushToTalkPressed(false);
+
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled.mock.calls).toEqual([[true]]);
+      expect(toastMocks.error).toHaveBeenCalled();
+    });
+
+    it('ignores a late push-to-talk completion after leaving', async () => {
+      const state = await joinMuted();
+      microphoneGate = deferredVoid();
+      const press = state.setPushToTalkPressed(true);
+      await flushPromises();
+
+      await state.leave();
+      microphoneGate.resolve();
+      await press;
+      await state.setPushToTalkPressed(false);
+
+      expect(state.isInAnyCall).toBe(false);
+      expect(lastRoom?.disconnect).toHaveBeenCalledOnce();
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled.mock.calls).toEqual([[true]]);
+    });
+  });
+
   it('records a compensating leave when LiveKit connect fails after join intent', async () => {
     connectFailure = new Error('connect failed');
     const client = createVoiceCallClient();
@@ -619,6 +716,45 @@ describe('VoiceCallState', () => {
     expect(lastRoom?.localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(false);
     expect(state.isScreenShareEnabled).toBe(false);
     expect(state.participants[0].screenShareTrack).toBeNull();
+  });
+
+  it('collects diagnostics from the published local screen-share track', async () => {
+    const getRTCStatsReport = vi.fn(
+      async () =>
+        new Map([
+          [
+            'outbound-video',
+            {
+              id: 'outbound-video',
+              type: 'outbound-rtp',
+              kind: 'video',
+              timestamp: 1_000,
+              bytesSent: 2_000,
+              framesEncoded: 30,
+              packetsSent: 20,
+              qualityLimitationReason: 'none'
+            }
+          ]
+        ]) as unknown as RTCStatsReport
+    );
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    lastRoom!.localParticipant.getTrackPublication = vi.fn(() => ({
+      track: { getRTCStatsReport }
+    }));
+
+    await state.toggleScreenShare();
+    await vi.waitFor(() => expect(getRTCStatsReport).toHaveBeenCalledOnce());
+
+    expect(state.screenShareDiagnostics.latest).toMatchObject({
+      bytesSent: 2_000,
+      bitrateBps: null,
+      framesEncoded: 30,
+      packetsSent: 20,
+      qualityLimitationReason: 'none'
+    });
+
+    await state.toggleScreenShare();
   });
 
   it('retunes a live screen share in place instead of republishing it', async () => {

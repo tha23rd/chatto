@@ -1,6 +1,8 @@
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import { getPublicServerInfo, type PublicServerInfo } from '$lib/api-client/server';
+import { getNativeHost } from '$lib/native/host';
+import { assertAllowedServerUrl } from '$lib/native/urlPolicy';
 import {
   generateCodeChallenge,
   generateCodeVerifier,
@@ -9,6 +11,20 @@ import {
 } from '$lib/oauth/pkce';
 import { serverRegistry, type RegisteredServer } from '$lib/state/server/registry.svelte';
 import { clearCachedUser } from './loadAuth';
+import { completeServerOAuth } from './serverOAuth';
+
+function serverAuthorizeUrl(
+  serverUrl: string,
+  authorizePath: string,
+  params: URLSearchParams
+): string {
+  const endpoint = new URL(authorizePath, `${serverUrl}/`);
+  if (endpoint.origin !== serverUrl || endpoint.hash) {
+    throw new Error('OAuth authorization URL is not allowed.');
+  }
+  endpoint.search = params.toString();
+  return endpoint.toString();
+}
 
 export async function startServerOAuthFlow(
   serverUrl: string,
@@ -18,28 +34,52 @@ export async function startServerOAuthFlow(
     throw new Error('This server does not support OAuth sign-in.');
   }
 
+  const nativeHost = getNativeHost();
+  const remoteUrl = nativeHost.capabilities.nativeOAuth
+    ? assertAllowedServerUrl(serverUrl)
+    : serverUrl;
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
   const state = generateState();
-  const redirectUri = `${window.location.origin}/servers/callback`;
-
-  saveFlowState({
-    verifier,
-    state,
-    remoteUrl: serverUrl,
-    serverName: serverInfo.name,
-    serverIconUrl: serverInfo.iconUrl ?? null
-  });
-
   const params = new URLSearchParams({
     response_type: 'code',
-    redirect_uri: redirectUri,
     code_challenge: challenge,
     code_challenge_method: 'S256',
     state
   });
+  if (nativeHost.capabilities.nativeOAuth) {
+    // Validate the discovered path before it crosses the native boundary.
+    serverAuthorizeUrl(remoteUrl, serverInfo.authorizeUrl, params);
+    const result = await nativeHost.startServerOAuth({
+      serverUrl: remoteUrl,
+      authorizePath: serverInfo.authorizeUrl,
+      codeChallenge: challenge,
+      codeVerifier: verifier,
+      state
+    });
+    const destination = completeServerOAuth(
+      {
+        remoteUrl,
+        serverName: serverInfo.name,
+        serverIconUrl: serverInfo.iconUrl ?? null
+      },
+      result
+    );
+    await goto(resolve('/chat/[serverId]', destination));
+    return;
+  }
 
-  window.location.href = `${serverUrl}${serverInfo.authorizeUrl}?${params}`;
+  const redirectUri = `${window.location.origin}/servers/callback`;
+  saveFlowState({
+    verifier,
+    state,
+    remoteUrl,
+    serverName: serverInfo.name,
+    serverIconUrl: serverInfo.iconUrl ?? null
+  });
+  params.set('redirect_uri', redirectUri);
+
+  window.location.href = serverAuthorizeUrl(remoteUrl, serverInfo.authorizeUrl, params);
 }
 
 export async function startRemoteReauthentication(server: RegisteredServer): Promise<void> {
@@ -57,10 +97,13 @@ export function beginOriginReauthentication(): void {
   clearCachedUser();
   serverRegistry.clearOriginAuthentication();
 
-  const redirect = resolve('/login') + '?' + new URLSearchParams({
-    error: 'authentication_required',
-    redirect: path
-  });
+  const redirect =
+    resolve('/login') +
+    '?' +
+    new URLSearchParams({
+      error: 'authentication_required',
+      redirect: path
+    });
   // eslint-disable-next-line svelte/no-navigation-without-resolve -- base route is resolved above; query parameters preserve the current app path
   void goto(redirect, { invalidateAll: true });
 }

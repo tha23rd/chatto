@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { relative, resolve } from 'node:path';
+import { relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const frontendRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -63,10 +63,23 @@ async function svelteFiles(directory) {
   return files.flat();
 }
 
+async function nativeImportFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const path = resolve(directory, entry.name);
+      if (entry.isDirectory()) return nativeImportFiles(path);
+      if (!/\.(?:svelte|ts|js)$/.test(entry.name)) return [];
+      return [path];
+    })
+  );
+  return files.flat();
+}
+
 const failures = [];
 
 for (const file of await svelteFiles(sourceRoot)) {
-  const path = relative(frontendRoot, file);
+  const path = relative(frontendRoot, file).split(sep).join('/');
   const source = await readFile(file, 'utf8');
   const utilitySource = source
     .replace(/<style[\s\S]*?<\/style>/g, '')
@@ -85,6 +98,15 @@ for (const file of await svelteFiles(sourceRoot)) {
       const line = utilitySource.slice(0, match.index).split('\n').length;
       failures.push(`${path}:${line}: ${description} (${match[0].trim()})`);
     }
+  }
+}
+
+for (const file of await nativeImportFiles(sourceRoot)) {
+  const path = relative(frontendRoot, file).split(sep).join('/');
+  if (path.startsWith('src/lib/native/')) continue;
+  const source = await readFile(file, 'utf8');
+  if (/(?:from\s*|import\s*(?:\(\s*)?)['"]@tauri-apps\//.test(source)) {
+    failures.push(`${path}: Tauri imports must stay behind src/lib/native/`);
   }
 }
 
