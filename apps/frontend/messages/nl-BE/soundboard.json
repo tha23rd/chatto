@@ -13,7 +13,7 @@
     "choose_file": "Choose audio",
     "change_file": "Change audio",
     "drop_audio": "Drop an audio file",
-    "drop_subtitle": "MP3, OGG, WAV or WebM, up to 512 KB and 5 seconds",
+    "drop_subtitle": "MP3, OGG, WAV or WebM, up to 512 KB. Trim longer clips to 5 seconds.",
     "add_button": "Add sound",
     "uploading": "Uploading…",
     "list_title": "Sounds",
