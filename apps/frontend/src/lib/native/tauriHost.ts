@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { assertAllowedExternalUrl, assertAllowedHttpEndpoint } from './urlPolicy';
@@ -10,6 +11,7 @@ export interface TauriHostBindings {
   readonly fetch: NativeFetch;
   readonly openUrl: (url: string) => Promise<void>;
   readonly createRealtimeSocket: NativeHost['createRealtimeSocket'];
+  readonly startServerOAuth: NativeHost['startServerOAuth'];
 }
 
 const unsupported = (capability: string): Error =>
@@ -27,7 +29,7 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
     apiVersion: NATIVE_HOST_API_VERSION,
     kind: 'tauri',
     capabilities: {
-      nativeOAuth: false,
+      nativeOAuth: true,
       nativeHttp: true,
       nativeRealtime: true,
       globalPushToTalk: false,
@@ -46,8 +48,8 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       return bindings.createRealtimeSocket(url);
     },
 
-    async startServerOAuth() {
-      throw unsupported('Native OAuth');
+    startServerOAuth(request) {
+      return bindings.startServerOAuth(request);
     },
 
     async openExternal(url) {
@@ -73,5 +75,6 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
 export const tauriNativeHost = createTauriNativeHost({
   fetch: tauriFetch,
   openUrl,
-  createRealtimeSocket: createTauriRealtimeSocket
+  createRealtimeSocket: createTauriRealtimeSocket,
+  startServerOAuth: (request) => invoke('start_server_oauth', { request })
 });

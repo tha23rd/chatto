@@ -5,7 +5,8 @@ function bindings() {
   return {
     fetch: vi.fn(async () => new Response(null, { status: 204 })),
     openUrl: vi.fn(async () => {}),
-    createRealtimeSocket: vi.fn()
+    createRealtimeSocket: vi.fn(),
+    startServerOAuth: vi.fn()
   };
 }
 
@@ -15,7 +16,7 @@ describe('Tauri NativeHost', () => {
 
     expect(host.kind).toBe('tauri');
     expect(host.capabilities).toEqual({
-      nativeOAuth: false,
+      nativeOAuth: true,
       nativeHttp: true,
       nativeRealtime: true,
       globalPushToTalk: false,
