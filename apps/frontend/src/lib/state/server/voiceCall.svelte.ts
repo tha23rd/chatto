@@ -43,7 +43,7 @@ export type CallParticipantInfo = {
    * Whether this participant has deafened (silenced all incoming call audio).
    * Propagated between participants via the LiveKit `deafened` attribute; the
    * local participant reflects its own live deafen state. Deafen implies muted,
-   * so a deafened tile also shows the muted indicator, matching Discord.
+   * so a deafened tile also shows the muted indicator.
    */
   isDeafened: boolean;
   isLocal: boolean;
@@ -247,6 +247,21 @@ function uniqueDevices(devices: MediaDeviceInfo[]): MediaDeviceInfo[] {
   return result;
 }
 
+/** Keep a selected device when present, otherwise prefer the OS default. */
+export function availableDeviceId(
+  selectedDeviceId: string | null,
+  devices: Pick<MediaDeviceInfo, 'deviceId'>[]
+): string | null {
+  if (selectedDeviceId && devices.some((device) => device.deviceId === selectedDeviceId)) {
+    return selectedDeviceId;
+  }
+  return (
+    devices.find((device) => device.deviceId === 'default')?.deviceId ??
+    devices[0]?.deviceId ??
+    null
+  );
+}
+
 export class VoiceCallState {
   #api: VoiceCallAPI;
 
@@ -263,7 +278,7 @@ export class VoiceCallState {
   isMicrophonePending = $state(false);
 
   // Deafen: mutes your own mic AND silences all incoming call audio together.
-  // Discord parity — deafening implies muted; undeafening restores the mic to
+  // Deafening implies muted; undeafening restores the mic to
   // whatever state it had before you deafened.
   isDeafened = $state(false);
   // True while LiveKit is applying the deafen-driven mic enable/disable change.
@@ -336,6 +351,8 @@ export class VoiceCallState {
   private cameraToggleInFlight: Promise<void> | null = null;
   private screenShareToggleInFlight: Promise<void> | null = null;
   private deafenToggleInFlight: Promise<void> | null = null;
+  private deviceRefreshGeneration = 0;
+  private devicesEnumerated = false;
   // Mic mute state captured when deafening, restored on undeafen.
   private mutedBeforeDeafen = false;
   private e2eeWorker: Worker | null = null;
@@ -423,7 +440,7 @@ export class VoiceCallState {
   }
 
   /**
-   * The server's advertised screen-share quality ceiling, or a Discord-Nitro-equivalent
+   * The server's advertised screen-share quality ceiling, or the backwards-compatible
    * default (1080p60 @ 8 Mbps) when the server does not advertise one.
    *
    * Advisory only — see `ScreenShareCeiling`.
@@ -680,7 +697,15 @@ export class VoiceCallState {
           audioPreset: AudioPresets.speech,
           forceStereo: false,
           dtx: true,
-          red: true,
+          // RED (redundant Opus coding) duplicates the Opus payload; when a
+          // stereo source (e.g. soundboard) and the mono mic share payload
+          // type 111, the duplicated fmtp collides (stereo:1 vs mono) and
+          // Electron's bundled Chromium rejects the SDP with INVALID_PARAMETER,
+          // so calls fail to connect there. Chromium versions in mainstream
+          // browsers tolerate it. Disabling RED keeps a single codepath that
+          // negotiates cleanly everywhere; the only cost is slightly less
+          // packet-loss resilience.
+          red: false,
           simulcast: true
         },
         adaptiveStream: true,
@@ -800,12 +825,17 @@ export class VoiceCallState {
    * Toggle microphone mute.
    */
   async toggleMute(): Promise<void> {
-    if (this.microphoneToggleInFlight) return this.microphoneToggleInFlight;
+    return this.setMuted(!this.isMuted);
+  }
+
+  /** Set microphone mute to an explicit state, used by press-and-hold controls. */
+  async setMuted(muted: boolean): Promise<void> {
+    while (this.microphoneToggleInFlight) await this.microphoneToggleInFlight;
 
     const room = this.room;
-    if (!room) return;
+    if (!room || this.isMuted === muted) return;
 
-    const togglePromise = this.performToggleMute(room);
+    const togglePromise = this.performSetMuted(room, muted);
     this.microphoneToggleInFlight = togglePromise;
     this.isMicrophonePending = true;
     try {
@@ -818,8 +848,7 @@ export class VoiceCallState {
     }
   }
 
-  private async performToggleMute(room: Room): Promise<void> {
-    const newMuted = !this.isMuted;
+  private async performSetMuted(room: Room, newMuted: boolean): Promise<void> {
     try {
       await this.runExplicitMediaDeviceOperation(() =>
         room.localParticipant.setMicrophoneEnabled(!newMuted)
@@ -846,7 +875,7 @@ export class VoiceCallState {
     }
 
     // Turning your mic back on while deafened is contradictory — undeafen so
-    // you can hear again, matching Discord.
+    // you can hear again.
     if (!newMuted && this.isDeafened) {
       this.isDeafened = false;
       this.applyAllParticipantAudioVolumes();
@@ -1016,9 +1045,7 @@ export class VoiceCallState {
     this.updateParticipants();
   }
 
-  /**
-   * Toggle video-only screen/window/tab sharing.
-   */
+  /** Toggle screen/window/tab sharing with audio when the chosen source supports it. */
   async toggleScreenShare(): Promise<void> {
     if (this.screenShareToggleInFlight) return this.screenShareToggleInFlight;
 
@@ -1218,6 +1245,7 @@ export class VoiceCallState {
    * Refresh available audio and video devices.
    */
   async refreshDevices(options: { requestVideoPermissions?: boolean } = {}): Promise<void> {
+    const generation = ++this.deviceRefreshGeneration;
     try {
       const requestVideoPermissions = options.requestVideoPermissions ?? this.isCameraEnabled;
       const [rawInputDevices, rawOutputDevices, rawVideoInputDevices] = await Promise.all([
@@ -1228,22 +1256,69 @@ export class VoiceCallState {
       const inputDevices = uniqueDevices(rawInputDevices);
       const outputDevices = uniqueDevices(rawOutputDevices);
       const videoInputDevices = uniqueDevices(rawVideoInputDevices);
+      if (generation !== this.deviceRefreshGeneration) return;
+
+      const previousInput = this.selectedDeviceId;
+      const previousOutput = this.selectedOutputDeviceId;
+      const previousVideo = this.selectedVideoDeviceId;
 
       this.audioDevices = inputDevices;
       this.audioOutputDevices = outputDevices;
       this.videoDevices = videoInputDevices;
 
-      // Set default selections if not already set
-      if (!this.selectedDeviceId && inputDevices.length > 0) {
-        this.selectedDeviceId = inputDevices[0].deviceId;
+      const nextInput = availableDeviceId(previousInput, inputDevices);
+      const nextOutput = availableDeviceId(previousOutput, outputDevices);
+      const nextVideo = availableDeviceId(previousVideo, videoInputDevices);
+      let switchAttempted = false;
+
+      // A removed active device must not leave the call attached to a dead
+      // hardware ID. Switch to the OS default (or first available device)
+      // while preserving ordinary initial enumeration as selection-only. A
+      // failed switch leaves the previous selection intact instead of
+      // claiming that the fallback is active.
+      const canSwitch = this.room !== null && this.connected;
+      if (
+        canSwitch &&
+        this.devicesEnumerated &&
+        nextInput &&
+        previousInput !== nextInput
+      ) {
+        switchAttempted = true;
+        await this.setAudioDevice(nextInput);
+      } else {
+        this.selectedDeviceId = nextInput;
       }
-      if (!this.selectedOutputDeviceId && outputDevices.length > 0) {
-        this.selectedOutputDeviceId = outputDevices[0].deviceId;
+      if (!this.#deviceRefreshIsCurrent(generation, switchAttempted)) return;
+
+      if (
+        canSwitch &&
+        this.devicesEnumerated &&
+        nextOutput &&
+        previousOutput !== nextOutput
+      ) {
+        switchAttempted = true;
+        await this.setAudioOutputDevice(nextOutput);
+      } else {
+        this.selectedOutputDeviceId = nextOutput;
       }
-      if (!this.selectedVideoDeviceId && videoInputDevices.length > 0) {
-        this.selectedVideoDeviceId = videoInputDevices[0].deviceId;
+      if (!this.#deviceRefreshIsCurrent(generation, switchAttempted)) return;
+
+      if (
+        canSwitch &&
+        this.devicesEnumerated &&
+        this.isCameraEnabled &&
+        nextVideo &&
+        previousVideo !== nextVideo
+      ) {
+        switchAttempted = true;
+        await this.setVideoDevice(nextVideo);
+      } else {
+        this.selectedVideoDeviceId = nextVideo;
       }
+      if (!this.#deviceRefreshIsCurrent(generation, switchAttempted)) return;
+      this.devicesEnumerated = true;
     } catch {
+      if (generation !== this.deviceRefreshGeneration) return;
       this.audioDevices = [];
       this.audioOutputDevices = [];
       this.videoDevices = [];
@@ -1255,16 +1330,25 @@ export class VoiceCallState {
     return this.refreshDevices();
   }
 
+  /** Re-enumerate after an older refresh completed a now-stale hardware switch. */
+  #deviceRefreshIsCurrent(generation: number, switchAttempted: boolean): boolean {
+    if (generation === this.deviceRefreshGeneration) return true;
+    if (switchAttempted && this.connected && this.room) void this.refreshDevices();
+    return false;
+  }
+
   /**
    * Switch to a different audio input device.
    */
   async setAudioDevice(deviceId: string): Promise<void> {
-    if (!this.room) return;
+    const room = this.room;
+    if (!room) return;
 
     try {
       await this.runExplicitMediaDeviceOperation(() =>
-        this.room!.switchActiveDevice('audioinput', deviceId)
+        room.switchActiveDevice('audioinput', deviceId)
       );
+      if (this.room !== room) return;
       this.selectedDeviceId = deviceId;
     } catch (err) {
       this.notifyMediaDeviceError(getVoiceCallMediaDeviceErrorMessage('microphone', err, 'switch'));
@@ -1276,8 +1360,8 @@ export class VoiceCallState {
     // and can re-request it underneath the enhanced processor. Re-apply the
     // suppression mode so the new track matches the selected mode; the
     // controller's callback reconnects the analyser to the reconciled track.
-    if (this.room) {
-      await this.noiseSuppression.applyToCall(this.room);
+    if (this.room === room) {
+      await this.noiseSuppression.applyToCall(room);
     }
     // Reconnect analyser to the new mic track if the controller did not
     // (e.g. suppression disabled, or currently muted-then-unmuted paths).
@@ -1290,12 +1374,14 @@ export class VoiceCallState {
    * Switch to a different audio output device.
    */
   async setAudioOutputDevice(deviceId: string): Promise<void> {
-    if (!this.room) return;
+    const room = this.room;
+    if (!room) return;
 
     try {
       await this.runExplicitMediaDeviceOperation(() =>
-        this.room!.switchActiveDevice('audiooutput', deviceId)
+        room.switchActiveDevice('audiooutput', deviceId)
       );
+      if (this.room !== room) return;
       this.selectedOutputDeviceId = deviceId;
     } catch (err) {
       this.notifyMediaDeviceError(getVoiceCallMediaDeviceErrorMessage('speaker', err, 'switch'));
@@ -1306,12 +1392,14 @@ export class VoiceCallState {
    * Switch to a different video input device.
    */
   async setVideoDevice(deviceId: string): Promise<void> {
-    if (!this.room) return;
+    const room = this.room;
+    if (!room) return;
 
     try {
       await this.runExplicitMediaDeviceOperation(() =>
-        this.room!.switchActiveDevice('videoinput', deviceId)
+        room.switchActiveDevice('videoinput', deviceId)
       );
+      if (this.room !== room) return;
       this.selectedVideoDeviceId = deviceId;
     } catch (err) {
       this.notifyMediaDeviceError(getVoiceCallMediaDeviceErrorMessage('camera', err, 'switch'));
@@ -1346,7 +1434,7 @@ export class VoiceCallState {
     });
 
     this.room.on(RoomEvent.MediaDevicesChanged, () => {
-      this.refreshDevices();
+      void this.refreshDevices();
     });
 
     this.room.on(RoomEvent.MediaDevicesError, (err: Error) => {
@@ -1551,6 +1639,8 @@ export class VoiceCallState {
   }
 
   private cleanup(): void {
+    this.deviceRefreshGeneration += 1;
+    this.devicesEnumerated = false;
     const disconnectedRoomId = this.roomId;
     const disconnectedCallId = this.activeCallId;
     const wasConnected = this.connected;

@@ -20,6 +20,7 @@ vi.mock('$lib/ui/toast', () => ({
 
 import {
   DEFAULT_SCREEN_SHARE_CEILING,
+  availableDeviceId,
   getVoiceCallMediaDeviceErrorMessage,
   getVoiceCallJoinErrorMessage,
   VoiceCallJoinError,
@@ -286,7 +287,19 @@ describe('VoiceCallState', () => {
     vi.stubGlobal('crypto', { subtle: {} });
     soundMocks.playCallSound.mockClear();
     toastMocks.error.mockClear();
-    vi.mocked(Room.getLocalDevices).mockClear();
+    vi.mocked(Room.getLocalDevices).mockReset();
+    vi.mocked(Room.getLocalDevices).mockImplementation(async (kind?: MediaDeviceKind) => {
+      if (kind === 'audioinput') {
+        return [{ deviceId: 'audio-input-1', kind, label: 'Microphone' }] as MediaDeviceInfo[];
+      }
+      if (kind === 'audiooutput') {
+        return [{ deviceId: 'audio-output-1', kind, label: 'Speaker' }] as MediaDeviceInfo[];
+      }
+      if (kind === 'videoinput') {
+        return [{ deviceId: 'video-input-1', kind, label: 'Camera' }] as MediaDeviceInfo[];
+      }
+      return [];
+    });
   });
 
   afterEach(() => {
@@ -351,6 +364,14 @@ describe('VoiceCallState', () => {
     ].map((d) => d.deviceId);
     expect(allIds.every((id) => id !== '')).toBe(true);
     expect(new Set(allIds).size).toBe(allIds.length);
+  });
+
+  it('prefers the OS default when a selected device disappears', () => {
+    expect(availableDeviceId('removed', [{ deviceId: 'other' }, { deviceId: 'default' }])).toBe(
+      'default'
+    );
+    expect(availableDeviceId('kept', [{ deviceId: 'kept' }, { deviceId: 'default' }])).toBe('kept');
+    expect(availableDeviceId('removed', [])).toBeNull();
   });
 
   it('requests voiceIsolation at capture when the voice isolation mode is selected', async () => {
@@ -653,7 +674,7 @@ describe('VoiceCallState', () => {
     );
     expect(applyConstraints).toHaveBeenCalledWith({ width: 1280, height: 720, frameRate: 30 });
     expect(setParameters).toHaveBeenCalledTimes(1);
-    // 720p30 -> 2.5 Mbps on Discord's ladder.
+    // 720p30 uses the established 2.5 Mbps quality tier.
     expect(params.encodings[0]).toMatchObject({ maxBitrate: 2_500_000, maxFramerate: 30 });
     expect(params.degradationPreference).toBe('maintain-framerate');
     expect(state.screenShareQuality).toEqual({
@@ -722,6 +743,44 @@ describe('VoiceCallState', () => {
     expect(state.isMuted).toBe(true);
   });
 
+  it('sets microphone mute idempotently for press-and-hold controls', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+
+    await state.setMuted(true);
+    await state.setMuted(true);
+    expect(state.isMuted).toBe(true);
+    expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenCalledOnce();
+    expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(false);
+
+    await state.setMuted(false);
+    expect(state.isMuted).toBe(false);
+    expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(true);
+  });
+
+  it('applies overlapping explicit mute requests in order', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+    microphoneGate = deferredVoid();
+
+    const mute = state.setMuted(true);
+    await flushPromises();
+    const unmute = state.setMuted(false);
+    const remute = state.setMuted(true);
+
+    microphoneGate.resolve();
+    await Promise.all([mute, unmute, remute]);
+
+    expect(state.isMuted).toBe(true);
+    expect(lastRoom?.localParticipant.setMicrophoneEnabled.mock.calls).toEqual([
+      [false],
+      [true],
+      [false]
+    ]);
+  });
+
   it('keeps camera pending until LiveKit applies the toggle', async () => {
     const client = createVoiceCallClient();
     const state = new VoiceCallState(client);
@@ -760,6 +819,108 @@ describe('VoiceCallState', () => {
 
     expect(lastRoom?.localParticipant.setCameraEnabled).toHaveBeenCalledWith(true);
     expect(Room.getLocalDevices).toHaveBeenCalledWith('videoinput', true);
+  });
+
+  it('switches active call tracks when selected devices are unplugged', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    await state.toggleCamera();
+    lastRoom?.switchActiveDevice.mockClear();
+
+    const device = (deviceId: string, kind: MediaDeviceKind): MediaDeviceInfo => ({
+      deviceId,
+      kind,
+      label: deviceId,
+      groupId: 'group',
+      toJSON: () => ({})
+    });
+    vi.mocked(Room.getLocalDevices).mockImplementation(async (kind?: MediaDeviceKind) => {
+      if (kind === 'audioinput') return [device('default', kind), device('new-mic', kind)];
+      if (kind === 'audiooutput') return [device('default', kind)];
+      if (kind === 'videoinput') return [device('default', kind), device('new-camera', kind)];
+      return [];
+    });
+
+    await state.refreshDevices();
+
+    expect(state.selectedDeviceId).toBe('default');
+    expect(state.selectedOutputDeviceId).toBe('default');
+    expect(state.selectedVideoDeviceId).toBe('default');
+    expect(lastRoom?.switchActiveDevice).toHaveBeenCalledWith('audioinput', 'default');
+    expect(lastRoom?.switchActiveDevice).toHaveBeenCalledWith('audiooutput', 'default');
+    expect(lastRoom?.switchActiveDevice).toHaveBeenCalledWith('videoinput', 'default');
+  });
+
+  it('recovers active audio tracks when devices return after an empty device list', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+
+    vi.mocked(Room.getLocalDevices).mockResolvedValue([]);
+    await state.refreshDevices();
+    expect(state.selectedDeviceId).toBeNull();
+    expect(state.selectedOutputDeviceId).toBeNull();
+
+    const device = (deviceId: string, kind: MediaDeviceKind): MediaDeviceInfo => ({
+      deviceId,
+      kind,
+      label: deviceId,
+      groupId: 'group',
+      toJSON: () => ({})
+    });
+    vi.mocked(Room.getLocalDevices).mockImplementation(async (kind?: MediaDeviceKind) => {
+      if (kind === 'audioinput' || kind === 'audiooutput') return [device('default', kind)];
+      return [];
+    });
+    lastRoom?.switchActiveDevice.mockClear();
+
+    await state.refreshDevices();
+
+    expect(lastRoom?.switchActiveDevice).toHaveBeenCalledWith('audioinput', 'default');
+    expect(lastRoom?.switchActiveDevice).toHaveBeenCalledWith('audiooutput', 'default');
+    expect(state.selectedDeviceId).toBe('default');
+    expect(state.selectedOutputDeviceId).toBe('default');
+  });
+
+  it('reconciles a stale hardware switch after a newer device refresh wins', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    const firstSwitch = deferredVoid();
+    let inputEnumeration = 0;
+    let heldFirstSwitch = false;
+    const device = (deviceId: string, kind: MediaDeviceKind): MediaDeviceInfo => ({
+      deviceId,
+      kind,
+      label: deviceId,
+      groupId: 'group',
+      toJSON: () => ({})
+    });
+    vi.mocked(Room.getLocalDevices).mockImplementation(async (kind?: MediaDeviceKind) => {
+      if (kind === 'audioinput') {
+        inputEnumeration += 1;
+        return [device(inputEnumeration === 1 ? 'fallback-one' : 'fallback-two', kind)];
+      }
+      if (kind === 'audiooutput') return [device('audio-output-1', kind)];
+      if (kind === 'videoinput') return [device('video-input-1', kind)];
+      return [];
+    });
+    lastRoom?.switchActiveDevice.mockImplementation(
+      async (kind: MediaDeviceKind, deviceId: string) => {
+        if (kind === 'audioinput' && deviceId === 'fallback-one' && !heldFirstSwitch) {
+          heldFirstSwitch = true;
+          await firstSwitch.promise;
+        }
+      }
+    );
+
+    const staleRefresh = state.refreshDevices();
+    await flushPromises(10);
+    await state.refreshDevices();
+    firstSwitch.resolve();
+    await staleRefresh;
+    await flushPromises(20);
+
+    expect(state.selectedDeviceId).toBe('fallback-two');
+    expect(lastRoom?.switchActiveDevice).toHaveBeenLastCalledWith('audioinput', 'fallback-two');
   });
 
   it('keeps screen share pending until LiveKit applies the toggle', async () => {
