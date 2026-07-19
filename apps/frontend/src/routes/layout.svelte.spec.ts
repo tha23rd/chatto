@@ -30,6 +30,7 @@ vi.mock('$app/navigation', () => ({
 }));
 
 vi.mock('$app/paths', () => ({
+  base: '',
   resolve: (path: string) => path
 }));
 
