@@ -1,4 +1,3 @@
-import { resolve } from '$app/paths';
 import {
   generateServerId,
   serverRegistry,
@@ -10,6 +9,10 @@ export interface ServerOAuthFlowMetadata {
   readonly remoteUrl: string;
   readonly serverName?: string | null;
   readonly serverIconUrl?: string | null;
+}
+
+export interface ServerOAuthDestination {
+  readonly serverId: string;
 }
 
 export interface ServerOAuthRegistry {
@@ -57,7 +60,7 @@ export function parseServerOAuthTokenResponse(value: unknown): NativeOAuthResult
   };
 }
 
-function chatRoute(server: RegisteredServer): string {
+function chatServerSegment(server: RegisteredServer): string {
   let segment = server.id;
   try {
     const url = new URL(server.url);
@@ -66,7 +69,7 @@ function chatRoute(server: RegisteredServer): string {
   } catch {
     // The registry already accepted this server ID; retain it as a safe fallback.
   }
-  return resolve('/chat/[serverId]', { serverId: segment });
+  return segment;
 }
 
 /** Apply a successful browser or native OAuth result to the shared registry. */
@@ -74,7 +77,7 @@ export function completeServerOAuth(
   flow: ServerOAuthFlowMetadata,
   result: NativeOAuthResult,
   registry: ServerOAuthRegistry = serverRegistry
-): string {
+): ServerOAuthDestination {
   if (!result.accessToken) {
     throw new Error('OAuth token response did not include an access token.');
   }
@@ -119,5 +122,5 @@ export function completeServerOAuth(
     registry.addServer(registered);
   }
 
-  return chatRoute(registered);
+  return { serverId: chatServerSegment(registered) };
 }

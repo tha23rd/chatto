@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
 vi.mock('$app/paths', () => ({
-  resolve: (route: string) => route
+  resolve: (route: string, params?: { serverId: string }) =>
+    params ? route.replace('[serverId]', params.serverId) : route
 }));
 vi.mock('$lib/api-client/server', () => ({ getPublicServerInfo: vi.fn() }));
 vi.mock('$lib/native/host', () => ({ getNativeHost: mocks.getNativeHost }));
@@ -39,7 +40,7 @@ function nativeHost(nativeOAuth: boolean): NativeHost {
 beforeEach(() => {
   mocks.goto.mockReset().mockResolvedValue(undefined);
   mocks.saveFlowState.mockReset();
-  mocks.completeServerOAuth.mockReset().mockReturnValue('/chat/chatto.example');
+  mocks.completeServerOAuth.mockReset().mockReturnValue({ serverId: 'chatto.example' });
   mocks.startServerOAuth.mockReset().mockResolvedValue({ accessToken: 'token' });
 });
 

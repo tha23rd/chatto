@@ -77,8 +77,8 @@
         return;
       }
 
-      const route = completeServerOAuth(flow, parseServerOAuthTokenResponse(result));
-      await goto(route);
+      const destination = completeServerOAuth(flow, parseServerOAuthTokenResponse(result));
+      await goto(resolve('/chat/[serverId]', destination));
     } catch (err) {
       status = 'error';
       if (err instanceof DOMException && err.name === 'AbortError') {

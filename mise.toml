@@ -52,7 +52,7 @@ depends = ["deps-frontend"]
 
 [tasks.license-check]
 description = "Check SPDX/REUSE license metadata"
-run = "mise x uv@latest -- uvx reuse lint"
+run = "mise x uv@latest -- uvx --from 'reuse[charset-normalizer]' reuse lint"
 
 # =============================================================================
 # Code Generation
@@ -160,6 +160,16 @@ description = "Build the Windows NSIS desktop installer"
 depends = ["desktop-setup", "build-api-types"]
 dir = "apps/desktop"
 run = "pnpm build"
+
+[tasks.check-desktop]
+description = "Typecheck the shared renderer and Windows desktop host"
+depends = ["desktop-setup", "build-api-types"]
+run = "pnpm run check:desktop"
+
+[tasks.test-desktop]
+description = "Run the desktop adapter and native host test suites"
+depends = ["desktop-setup", "build-api-types"]
+run = "pnpm run test:desktop"
 
 [tasks.build-dev-cli]
 description = "Build the development CLI application for the current architecture"

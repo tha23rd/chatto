@@ -75,7 +75,7 @@ describe('server OAuth completion', () => {
       registry
     );
 
-    expect(route).toBe('/chat/chatto.example');
+    expect(route).toEqual({ serverId: 'chatto.example' });
     expect(registry.servers).toEqual([
       server({
         name: 'Example Community',
@@ -108,7 +108,7 @@ describe('server OAuth completion', () => {
       registry
     );
 
-    expect(route).toBe('/chat/chatto.example');
+    expect(route).toEqual({ serverId: 'chatto.example' });
     expect(registry.servers).toHaveLength(1);
     expect(existing).toMatchObject({
       id: 'chatto-example',

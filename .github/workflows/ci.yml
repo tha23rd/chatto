@@ -194,6 +194,43 @@ jobs:
       - name: Build Storybook design-system catalog
         run: pnpm run build:storybook
 
+  test-desktop-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+        with:
+          install-cli-deps: "false"
+
+      - name: Setup stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Install Chromium for renderer tests
+        run: pnpm --dir apps/frontend exec playwright install chromium
+
+      - name: Run desktop adapter and native tests
+        run: mise test-desktop
+
+      - name: Run desktop typechecks
+        run: mise check-desktop
+
+      - name: Build desktop renderer
+        run: pnpm --dir apps/frontend run build:desktop
+
+      - name: Build Windows desktop executable
+        run: pnpm --dir apps/desktop tauri build --no-bundle
+
   test-cli:
     # runs-on: ubicloud-standard-4
     runs-on: ubuntu-latest

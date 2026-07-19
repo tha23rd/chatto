@@ -56,7 +56,7 @@ export async function startServerOAuthFlow(
       codeVerifier: verifier,
       state
     });
-    const route = completeServerOAuth(
+    const destination = completeServerOAuth(
       {
         remoteUrl,
         serverName: serverInfo.name,
@@ -64,7 +64,7 @@ export async function startServerOAuthFlow(
       },
       result
     );
-    await goto(route);
+    await goto(resolve('/chat/[serverId]', destination));
     return;
   }
 
