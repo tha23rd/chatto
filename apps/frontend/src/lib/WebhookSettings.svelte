@@ -1,7 +1,7 @@
 <!--
 @component
 
-Server-admin management UI for channel webhooks (FDR-035). Lists the
+Server-admin management UI for channel webhooks (FDR-902). Lists the
 server's existing webhooks with their target room and status, and lets an
 admin create a new webhook by picking a room, a name, and an optional avatar.
 

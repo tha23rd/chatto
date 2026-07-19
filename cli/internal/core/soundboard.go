@@ -187,7 +187,7 @@ func (c *ChattoCore) ListSounds() []*Sound {
 // SoundURL builds the public URL that serves a sound clip's audio bytes. Sound
 // assets live in the shared server-asset backends but are served under a
 // dedicated /assets/sound/ path so the public sound URL namespace stays stable
-// and independent of server branding. See FDR-036.
+// and independent of server branding. See FDR-903.
 func (c *ChattoCore) SoundURL(assetID string) string {
 	if assetID == "" {
 		return ""

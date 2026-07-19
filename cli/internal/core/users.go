@@ -51,7 +51,7 @@ type createUserOptions struct {
 type CreateUserOption func(*createUserOptions)
 
 // WithUserKind marks the created account as a specific kind, such as a synthetic
-// webhook identity (FDR-035). WEBHOOK-kind users are passwordless and excluded
+// webhook identity (FDR-902). WEBHOOK-kind users are passwordless and excluded
 // from human-only surfaces; they do not count toward the server user limit.
 func WithUserKind(kind corev1.UserKind) CreateUserOption {
 	return func(o *createUserOptions) { o.kind = kind }
@@ -788,7 +788,7 @@ func (c *ChattoCore) ListUsers(ctx context.Context) ([]*corev1.User, error) {
 	users := make([]*corev1.User, 0, len(all))
 	for _, u := range all {
 		// Synthetic webhook identities are not human members and must not appear
-		// in the user directory or anything derived from it (FDR-035).
+		// in the user directory or anything derived from it (FDR-902).
 		if u.GetKind() == corev1.UserKind_USER_KIND_WEBHOOK {
 			continue
 		}

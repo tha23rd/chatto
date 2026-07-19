@@ -280,7 +280,7 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
           <img
             src={customEmoji.url}
             alt={reaction.emoji}
-            class="inline-block h-[1.35rem] w-auto"
+            class="inline-block h-[1.35rem] w-auto translate-y-0.5"
           />
         {:else}
           <span aria-hidden="true">{getEmojiByName(reaction.emoji) ?? reaction.emoji}</span>

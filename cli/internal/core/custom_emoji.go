@@ -28,9 +28,10 @@ func validateCustomEmojiName(name string) error {
 	return nil
 }
 
-// CreateCustomEmoji processes an uploaded image into a small square WebP,
-// uploads it to the server asset store, and records the emoji in the durable
-// server catalog. Requires the emoji.manage or server.manage permission.
+// CreateCustomEmoji processes an uploaded image into a small WebP bounded by
+// the emoji dimensions while preserving its aspect ratio, uploads it to the
+// server asset store, and records the emoji in the durable server catalog.
+// Requires the emoji.manage or server.manage permission.
 // Returns the created emoji. On failure after the asset upload, the orphaned
 // asset is cleaned up.
 func (c *ChattoCore) CreateCustomEmoji(ctx context.Context, actorID, name string, reader io.Reader) (*CustomEmoji, error) {
@@ -125,7 +126,7 @@ func (c *ChattoCore) ListCustomEmojis() []*CustomEmoji {
 // CustomEmojiURL builds the public URL that renders a custom emoji's image.
 // Emoji assets live in the shared server-asset backends but are served under a
 // dedicated /assets/emoji/ path so the public emoji URL namespace stays stable
-// and independent of server branding. See FDR-033.
+// and independent of server branding. See FDR-900.
 func (c *ChattoCore) CustomEmojiURL(assetID string) string {
 	if assetID == "" {
 		return ""

@@ -1,4 +1,4 @@
-# FDR-035: Channel Webhooks
+# FDR-902: Channel Webhooks
 
 **Status:** Active
 **Last reviewed:** 2026-07-16
@@ -195,7 +195,7 @@ additive follow-up.
   for webhooks/callbacks), the per-user message encryption ADR.
 - **FDRs:** FDR-001 (Roles & Permissions), FDR-008 (File Attachments), FDR-022
   (User Profile), FDR-023 (Authentication & Sessions), FDR-025 (User Search &
-  Member Directory), FDR-033 (Custom Emoji).
+  Member Directory), FDR-900 (Custom Emoji).
 
 ## Open Questions
 

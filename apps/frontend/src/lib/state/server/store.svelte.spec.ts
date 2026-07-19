@@ -2,12 +2,13 @@ import { Timestamp } from '@bufbuild/protobuf';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { flushSync } from 'svelte';
 import type { PublicServerInfo } from '$lib/api-client/server';
+import type { RoomFileItem } from '$lib/api-client/attachments';
 import { ServerPublicProfile } from '@chatto/api-types/api/v1/server_pb';
 import { ScreenShareConfig, ServerRuntimeConfig } from '@chatto/api-types/api/v1/server_state_pb';
 import { ActiveCall, CallParticipant } from '@chatto/api-types/api/v1/voice_calls_pb';
 import { User } from '@chatto/api-types/api/v1/users_pb';
 import { DirectoryMember } from '@chatto/api-types/api/v1/member_directory_pb';
-import { Message } from '@chatto/api-types/api/v1/message_types_pb';
+import { Message, MessageAttachment } from '@chatto/api-types/api/v1/message_types_pb';
 import { Room } from '@chatto/api-types/api/v1/rooms_pb';
 import { RoomViewerState, RoomWithViewerState } from '@chatto/api-types/api/v1/room_directory_pb';
 import {
@@ -21,6 +22,8 @@ import {
   RealtimeProjectionOperation,
   RealtimeProjectionRoomActivity,
   RealtimeProjectionRoomViewerStateReplace,
+  RealtimeProjectionReactionChange,
+  RealtimeProjectionRoomTimelineEventRemove,
   RealtimeProjectionRoomTimelineEventUpsert,
   RealtimeProjectionRoomTimelineReplace,
   RealtimeProjectionServerState,
@@ -111,7 +114,11 @@ const { soundMocks, apiMocks } = vi.hoisted(() => ({
         lastLoginChange: null,
         settings: null
       })
-    )
+    ),
+    listRoomAttachments: vi.fn<
+      () => Promise<{ items: RoomFileItem[]; totalCount: number; hasMore: boolean }>
+    >(() => Promise.resolve({ items: [], totalCount: 0, hasMore: false })),
+    refreshAssetUrls: vi.fn(() => Promise.resolve(new Map()))
   }
 }));
 
@@ -191,6 +198,17 @@ vi.mock('$lib/api-client/viewer', () => ({
   getCurrentUserViaConnect: apiMocks.getCurrentUserViaConnect,
   viewerResponseToState: (viewer: unknown) => viewer
 }));
+
+vi.mock('$lib/api-client/attachments', async (importActual) => {
+  const actual = await importActual<typeof import('$lib/api-client/attachments')>();
+  return {
+    ...actual,
+    createAttachmentAPI: vi.fn(() => ({
+      listRoomAttachments: apiMocks.listRoomAttachments,
+      refreshAssetUrls: apiMocks.refreshAssetUrls
+    }))
+  };
+});
 
 import { ServerStateStore } from './store.svelte';
 import { eventBusManager, setRealtimeSocketFactoryForTests } from './eventBus.svelte';
@@ -272,7 +290,11 @@ function adminRoomLayoutResult(rooms: unknown[] = [], roomGroups: unknown[] = []
   return { server: { rooms, roomGroups } };
 }
 
-function projectedMessage(id: string, createdAt: Date): RoomTimelineEvent {
+function projectedMessage(
+  id: string,
+  createdAt: Date,
+  attachmentIds: string[] = []
+): RoomTimelineEvent {
   return new RoomTimelineEvent({
     id,
     actorId: 'U1',
@@ -285,11 +307,37 @@ function projectedMessage(id: string, createdAt: Date): RoomTimelineEvent {
           roomId: 'R1',
           actorId: 'U1',
           body: id,
-          createdAt: Timestamp.fromDate(createdAt)
+          createdAt: Timestamp.fromDate(createdAt),
+          attachments: attachmentIds.map(
+            (attachmentId) =>
+              new MessageAttachment({
+                id: attachmentId,
+                filename: `${attachmentId}.jpg`,
+                contentType: 'image/jpeg'
+              })
+          )
         })
       })
     }
   });
+}
+
+function projectedRoomFile(attachmentId = 'A1', messageEventId = 'M1'): RoomFileItem {
+  return {
+    messageEventId,
+    threadRootEventId: 'ROOT-1',
+    createdAt: '2026-07-19T12:00:00.000Z',
+    attachment: {
+      id: attachmentId,
+      filename: `${attachmentId}.jpg`,
+      contentType: 'image/jpeg',
+      width: 0,
+      height: 0,
+      assetUrl: null,
+      thumbnailAssetUrl: null,
+      videoProcessing: null
+    }
+  };
 }
 
 beforeEach(() => {
@@ -300,6 +348,10 @@ beforeEach(() => {
     totalCount: 0,
     hasMore: false
   });
+  apiMocks.listRoomAttachments.mockReset();
+  apiMocks.listRoomAttachments.mockResolvedValue({ items: [], totalCount: 0, hasMore: false });
+  apiMocks.refreshAssetUrls.mockReset();
+  apiMocks.refreshAssetUrls.mockResolvedValue(new Map());
   apiMocks.joinCall.mockResolvedValue(true);
   apiMocks.getCallToken.mockResolvedValue(null);
   apiMocks.leaveCall.mockResolvedValue(true);
@@ -924,6 +976,210 @@ describe('ServerStateStore live server updates', () => {
     }
 
     expect(store.activeCallRooms.has('R1')).toBe(true);
+  });
+
+  it('owns one lazy file cache per room', async () => {
+    const store = makeStore(new FakeServerConnection([]));
+    const files = store.filesForRoom('R1');
+
+    expect(store.filesForRoom('R1')).toBe(files);
+    expect(files.items).toEqual([]);
+    expect(apiMocks.listRoomAttachments).not.toHaveBeenCalled();
+
+    await files.hydrate();
+
+    expect(apiMocks.listRoomAttachments).toHaveBeenCalledOnce();
+  });
+
+  it('reconciles realtime message attachments into a hydrated room file cache', async () => {
+    const fake = new FakeServerConnection([]);
+    const store = makeStore(fake);
+    const files = store.filesForRoom('R1');
+    await files.hydrate();
+    eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
+    flushSync();
+    const bus = eventBusManager.getBus(registered.id);
+    if (!bus) throw new Error('event bus did not start');
+
+    for (const handler of bus.projectionHandlers) {
+      handler(
+        new RealtimeProjectionEvent({
+          id: 'M1',
+          operations: [
+            new RealtimeProjectionOperation({
+              operation: {
+                case: 'roomTimelineEventUpsert',
+                value: new RealtimeProjectionRoomTimelineEventUpsert({
+                  roomId: 'R1',
+                  event: projectedMessage('M1', new Date('2026-07-19T12:00:00Z'), ['A1'])
+                })
+              }
+            })
+          ]
+        })
+      );
+    }
+
+    expect(files.items.map((item) => item.attachment.id)).toEqual(['A1']);
+    expect(apiMocks.listRoomAttachments).toHaveBeenCalledOnce();
+
+    for (const handler of bus.projectionHandlers) {
+      handler(
+        new RealtimeProjectionEvent({
+          id: 'EDIT-1',
+          operations: [
+            new RealtimeProjectionOperation({
+              operation: {
+                case: 'roomTimelineEventUpsert',
+                value: new RealtimeProjectionRoomTimelineEventUpsert({
+                  roomId: 'R1',
+                  event: projectedMessage('M1', new Date('2026-07-19T12:00:00Z'))
+                })
+              }
+            })
+          ]
+        })
+      );
+    }
+
+    expect(files.items).toEqual([]);
+    expect(apiMocks.listRoomAttachments).toHaveBeenCalledOnce();
+  });
+
+  it('ignores reaction upserts and projection-only row removals for room files', async () => {
+    apiMocks.listRoomAttachments.mockResolvedValue({
+      items: [projectedRoomFile()],
+      totalCount: 1,
+      hasMore: false
+    });
+    const fake = new FakeServerConnection([]);
+    const store = makeStore(fake);
+    const files = store.filesForRoom('R1');
+    await files.hydrate();
+    const applyTimelineEvent = vi.spyOn(files, 'applyTimelineEvent');
+    eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
+    flushSync();
+    const bus = eventBusManager.getBus(registered.id);
+    if (!bus) throw new Error('event bus did not start');
+
+    for (const handler of bus.projectionHandlers) {
+      handler(
+        new RealtimeProjectionEvent({
+          id: 'REACTION-1',
+          operations: [
+            new RealtimeProjectionOperation({
+              operation: {
+                case: 'roomTimelineEventUpsert',
+                value: new RealtimeProjectionRoomTimelineEventUpsert({
+                  roomId: 'R1',
+                  event: projectedMessage('M1', new Date('2026-07-19T12:00:00Z'), ['A1']),
+                  reactionChange: new RealtimeProjectionReactionChange()
+                })
+              }
+            })
+          ]
+        })
+      );
+      handler(
+        new RealtimeProjectionEvent({
+          id: 'ECHO-REMOVED-1',
+          operations: [
+            new RealtimeProjectionOperation({
+              operation: {
+                case: 'roomTimelineEventRemove',
+                value: new RealtimeProjectionRoomTimelineEventRemove({
+                  roomId: 'R1',
+                  eventId: 'M1'
+                })
+              }
+            })
+          ]
+        })
+      );
+    }
+
+    expect(applyTimelineEvent).not.toHaveBeenCalled();
+    expect(files.items.map((item) => item.attachment.id)).toEqual(['A1']);
+    expect(apiMocks.listRoomAttachments).toHaveBeenCalledOnce();
+  });
+
+  it('restores retained room files only after an explicit positive access grant', async () => {
+    apiMocks.listRoomAttachments
+      .mockResolvedValueOnce({
+        items: [projectedRoomFile()],
+        totalCount: 1,
+        hasMore: false
+      })
+      .mockResolvedValueOnce({
+        items: [projectedRoomFile('A2', 'M2')],
+        totalCount: 1,
+        hasMore: false
+      });
+    const fake = new FakeServerConnection([]);
+    const store = makeStore(fake);
+    const files = store.filesForRoom('R1');
+    const release = files.retain();
+    await vi.waitFor(() => expect(files.items.map((item) => item.attachment.id)).toEqual(['A1']));
+    eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
+    flushSync();
+    const bus = eventBusManager.getBus(registered.id);
+    if (!bus) throw new Error('event bus did not start');
+    const dispatch = (operation: RealtimeProjectionOperation) => {
+      for (const handler of bus.projectionHandlers) {
+        handler(new RealtimeProjectionEvent({ operations: [operation] }));
+      }
+    };
+
+    dispatch(
+      new RealtimeProjectionOperation({
+        operation: {
+          case: 'roomUpsert',
+          value: new RealtimeProjectionRoom({
+            room: new RoomWithViewerState({
+              room: new Room({ id: 'R1' }),
+              viewerState: new RoomViewerState({ isMember: false })
+            })
+          })
+        }
+      })
+    );
+    expect(files.items).toEqual([]);
+
+    dispatch(
+      new RealtimeProjectionOperation({
+        operation: {
+          case: 'roomUpsert',
+          value: new RealtimeProjectionRoom({
+            room: new RoomWithViewerState({ room: new Room({ id: 'R1' }) })
+          })
+        }
+      })
+    );
+    dispatch(
+      new RealtimeProjectionOperation({
+        operation: {
+          case: 'roomViewerStateReplace',
+          value: new RealtimeProjectionRoomViewerStateReplace({ roomId: 'R1' })
+        }
+      })
+    );
+    expect(apiMocks.listRoomAttachments).toHaveBeenCalledOnce();
+    expect(files.items).toEqual([]);
+
+    dispatch(
+      new RealtimeProjectionOperation({
+        operation: {
+          case: 'roomViewerStateReplace',
+          value: new RealtimeProjectionRoomViewerStateReplace({
+            roomId: 'R1',
+            viewerState: new RoomViewerState({ isMember: true })
+          })
+        }
+      })
+    );
+    await vi.waitFor(() => expect(files.items.map((item) => item.attachment.id)).toEqual(['A2']));
+    expect(apiMocks.listRoomAttachments).toHaveBeenCalledTimes(2);
+    release();
   });
 
   it('does not inject an old mutation outside the retained room window or bump the room', () => {

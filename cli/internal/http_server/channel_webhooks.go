@@ -104,7 +104,7 @@ func (s *HTTPServer) authorizeInboundWebhook(c *gin.Context, logger *log.Logger)
 }
 
 // handleChannelWebhook accepts an inbound channel-webhook post. Authorization is
-// the webhook token in the URL; no user session is involved (FDR-035).
+// the webhook token in the URL; no user session is involved (FDR-902).
 func (s *HTTPServer) handleChannelWebhook(c *gin.Context) {
 	logger := log.WithPrefix("webhook.channel")
 	ctx := c.Request.Context()

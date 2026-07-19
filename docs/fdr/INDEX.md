@@ -10,7 +10,7 @@ See [`.agents/skills/fdr/SKILL.md`](../../.agents/skills/fdr/SKILL.md) for the F
 
 | # | Feature | Status | Last reviewed |
 |---|---------|--------|---------------|
-| [FDR-001](FDR-001-roles-and-permissions.md) | Roles & Permissions (RBAC) | Active | 2026-07-15 |
+| [FDR-001](FDR-001-roles-and-permissions.md) | Roles & Permissions (RBAC) | Active | 2026-07-19 |
 | [FDR-002](FDR-002-replies-and-threads.md) | Replies & Threads | Active | 2026-07-16 |
 | [FDR-003](FDR-003-thread-reply-echo.md) | Thread Reply Echo | Active | 2026-06-01 |
 | [FDR-004](FDR-004-message-editing-and-deletion.md) | Message Editing & Deletion | Active | 2026-07-10 |
@@ -42,7 +42,3 @@ See [`.agents/skills/fdr/SKILL.md`](../../.agents/skills/fdr/SKILL.md) for the F
 | [FDR-030](FDR-030-inline-message-timestamps.md) | Inline Message Timestamps | Active | 2026-07-12 |
 | [FDR-031](FDR-031-client-server-compatibility-discovery.md) | Client–Server Compatibility Discovery | Experimental | 2026-07-16 |
 | [FDR-032](FDR-032-message-formatting.md) | Message Formatting | Active | 2026-07-19 |
-| [FDR-033](FDR-033-custom-emoji.md) | Custom Emoji | Active | 2026-07-12 |
-| [FDR-034](FDR-034-microphone-noise-suppression.md) | Microphone Noise Suppression | Experimental | 2026-07-14 |
-| [FDR-035](FDR-035-channel-webhooks.md) | Channel Webhooks | Active | 2026-07-16 |
-| [FDR-036](FDR-036-soundboard.md) | Soundboard | Active | 2026-07-19 |

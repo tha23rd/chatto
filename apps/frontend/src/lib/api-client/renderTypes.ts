@@ -114,13 +114,13 @@ export type UserAvatarUserView = {
   presenceStatus: PresenceStatus;
   customStatus?: CustomUserStatusView | null;
   /**
-   * True when this identity is a synthetic channel-webhook author (FDR-035)
+   * True when this identity is a synthetic channel-webhook author (FDR-902)
    * rather than a human account. Drives the "automated" badge on messages.
    */
   isWebhookAuthor?: boolean;
 };
 
-/** Per-message webhook identity override (FDR-035). See `MessageWebhookOverride`. */
+/** Per-message webhook identity override (FDR-902). See `MessageWebhookOverride`. */
 export type MessageWebhookOverrideView = {
   displayName?: string | null;
   avatarUrl?: string | null;
