@@ -597,6 +597,11 @@ function launchArguments(
     ...(packagedExecutable ? [] : [mainEntry]),
     `--user-data-dir=${userDataDirectory}`,
     "--no-sandbox",
+    // GPU init under a headless Xvfb server is a common cause of Electron launch
+    // hangs on CI; software rendering off a small /dev/shm makes the launch
+    // reliable without changing what the smoke test exercises.
+    "--disable-gpu",
+    "--disable-dev-shm-usage",
     deepLink,
   ];
 }
