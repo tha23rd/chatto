@@ -21,10 +21,23 @@ sliders so they work with the keyboard as well as the pointer.
     start: number;
     /** Selection end, in seconds. */
     end: number;
+    /**
+     * Largest allowed selection span, in seconds. The handles are constrained
+     * so `end - start` never exceeds this, which lets an admin slide a
+     * fixed-length window over a clip that is longer than the upload limit.
+     * Defaults to unlimited.
+     */
+    maxSelectionSeconds?: number;
     disabled?: boolean;
   }
 
-  let { buffer, start = $bindable(), end = $bindable(), disabled = false }: Props = $props();
+  let {
+    buffer,
+    start = $bindable(),
+    end = $bindable(),
+    maxSelectionSeconds = Infinity,
+    disabled = false
+  }: Props = $props();
 
   // Smallest selectable region, so the two handles can never cross or collapse.
   const MIN_GAP_SECONDS = 0.1;
@@ -60,9 +73,10 @@ sliders so they work with the keyboard as well as the pointer.
 
   function setHandle(which: 'start' | 'end', seconds: number): void {
     if (which === 'start') {
-      start = clamp(seconds, 0, end - MIN_GAP_SECONDS);
+      // Lower bound keeps the window within maxSelectionSeconds of the end.
+      start = clamp(seconds, Math.max(0, end - maxSelectionSeconds), end - MIN_GAP_SECONDS);
     } else {
-      end = clamp(seconds, start + MIN_GAP_SECONDS, duration);
+      end = clamp(seconds, start + MIN_GAP_SECONDS, Math.min(duration, start + maxSelectionSeconds));
     }
   }
 
@@ -112,7 +126,9 @@ sliders so they work with the keyboard as well as the pointer.
   function reset(): void {
     stopPreview();
     start = 0;
-    end = duration;
+    // Reset to the largest valid default window rather than the whole clip,
+    // which may exceed the allowed selection length.
+    end = Math.min(duration, maxSelectionSeconds);
   }
 
   const isTrimmed = $derived(start > 0.001 || end < duration - 0.001);
