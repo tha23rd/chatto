@@ -18,7 +18,7 @@
     "knip:prepare": "pnpm --dir apps/frontend run paraglide && pnpm --dir apps/frontend run prepare",
     "lint:frontend": "pnpm run build:api-types && pnpm --filter chatto-frontend lint",
     "test:frontend": "pnpm run build:api-types && pnpm --filter chatto-frontend exec vitest --run",
-    "test:desktop": "pnpm --filter chatto-frontend exec node --test scripts/run-desktop.test.mjs && pnpm --filter chatto-frontend exec vitest --run src/lib/native src/lib/api-client/connect.spec.ts src/lib/state/server/eventBus.svelte.spec.ts src/lib/state/server/voiceCall.svelte.spec.ts src/lib/voice/webrtcDiagnostics.spec.ts && pnpm --filter chatto-desktop test"
+    "test:desktop": "pnpm --filter chatto-frontend exec node --test scripts/run-desktop.test.mjs scripts/i18n-facade-sources.test.mjs && pnpm --filter chatto-frontend exec vitest --run src/lib/native src/lib/api-client/connect.spec.ts src/lib/state/server/eventBus.svelte.spec.ts src/lib/state/server/voiceCall.svelte.spec.ts src/lib/voice/webrtcDiagnostics.spec.ts && pnpm --filter chatto-desktop test"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

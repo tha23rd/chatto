@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
+import { readStableParaglideSources } from './i18n-facade-sources.mjs';
 
 const root = new URL('..', import.meta.url);
 const settingsUrl = new URL('./project.inlang/settings.json', root);
@@ -26,28 +27,10 @@ if (typeof baseLocale !== 'string' || !Array.isArray(locales) || !locales.includ
 // Paraglide's generated JavaScript already contains complete JSDoc types. Reading
 // those avoids asking TypeScript to emit a duplicate declaration tree, which is
 // substantially more expensive for Chatto's large locale catalog.
-const source = readFileSync(baseMessagesUrl, 'utf8');
-const messageIndex = readFileSync(messageIndexUrl, 'utf8');
-const functionNames = [...source.matchAll(/^export const ([A-Za-z0-9_]+) =/gm)].map(
-  ([, name]) => name
-);
-const aliases = new Map(
-  [...messageIndex.matchAll(/^export \{ ([A-Za-z0-9_]+) as "([^"]+)" \}$/gm)].map(
-    ([, name, alias]) => [name, alias]
-  )
-);
-
-if (functionNames.length === 0) {
-  throw new Error(
-    `No Paraglide message functions found in src/lib/paraglide/messages/${baseLocale}.js`
-  );
-}
-
-const typeNames = new Map(
-  [...source.matchAll(/^\/\*\* @typedef \{(.*)} ([A-Za-z0-9_]+Inputs) \*\/$/gm)].map(
-    ([, body, typeName]) => [typeName, body.trim()]
-  )
-);
+const { functionNames, aliases, typeNames } = await readStableParaglideSources({
+  readSource: () => readFileSync(baseMessagesUrl, 'utf8'),
+  readIndex: () => readFileSync(messageIndexUrl, 'utf8')
+});
 
 const declarationLines = [
   'export type LocalizedString = import("../runtime.js").LocalizedString;',
