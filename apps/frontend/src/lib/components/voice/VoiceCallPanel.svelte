@@ -379,7 +379,7 @@ Room sidebar panel for voice/video calls.
 
   // Stream-quality popover. Two entry points share one component:
   //  - 'preflight' from the Share Screen button, shown *before* getDisplayMedia() so the user
-  //    picks quality then confirms, mirroring Discord's Go Live dialog. A browser cannot put
+  //    picks quality then confirms. A browser cannot put
   //    these controls inside Chrome's own window picker, so they sit immediately before it.
   //  - 'live' from the gear on the local screen-share tile, which retunes the running share.
   let streamQualityAnchor = $state<{ top: number; bottom: number; left: number } | null>(null);
@@ -894,9 +894,8 @@ Room sidebar panel for voice/video calls.
         </button>
 
         {#if voiceCallState.isScreenShareEnabled}
-          <!-- Retune the running share. Discord hangs this off the stream tile itself; the
-               control bar keeps it next to the share button it belongs to, and it only exists
-               while a share is live. -->
+          <!-- Retune the running share next to the share button it belongs to. The control
+               exists only while a share is live. -->
           <button
             type="button"
             class={controlButtonClass}

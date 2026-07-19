@@ -2,7 +2,7 @@
 @component
 
 Anchored popover for choosing screen-share quality: Resolution, Frame Rate, and whether to
-share the window's audio. Modelled on Discord's Stream Quality menu.
+share the window's audio.
 
 Serves both entry points in the share flow:
 
@@ -11,9 +11,7 @@ Serves both entry points in the share flow:
 - **Live** (`mode="live"`): opened from the gear on the local screen-share tile. Changes
   retune the running share in place, so there is no confirm action.
 
-Unlike Discord, the bitrate each choice needs is shown rather than hidden. Discord's picker
-lets you select 1080p60 on a tier whose bitrate cannot carry it, which is the single most
-common cause of "why is my stream blocky" — showing the number makes the tradeoff legible.
+The bitrate each choice needs is shown so the quality tradeoff stays legible.
 
 **Props:**
 - `anchor` - Position rect for the FloatingPopover
