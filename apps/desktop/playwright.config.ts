@@ -9,7 +9,10 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: "list",
-  timeout: 45_000,
+  // The packaged Electron binary can take ~45-60s just to open its first window
+  // under CI's headless Xvfb (an identical binary launched in one run, timed out
+  // at 45s in others), so give the whole test generous headroom over that.
+  timeout: 120_000,
   use: {
     trace: "retain-on-failure",
   },
