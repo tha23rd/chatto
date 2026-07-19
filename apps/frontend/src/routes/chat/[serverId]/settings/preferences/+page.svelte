@@ -9,6 +9,7 @@
   import { userPreferences, type DisplayTheme } from '$lib/state/userPreferences.svelte';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
   import { serverRegistry } from '$lib/state/server/registry.svelte';
+  import NativeStartupPreference from '$lib/native/NativeStartupPreference.svelte';
   import { ChoiceRow, PaneHeader, FormSection } from '$lib/ui';
   import { Button, Combobox, FormError } from '$lib/ui/form';
   import { toast } from '$lib/ui/toast';
@@ -238,6 +239,8 @@
       </p>
     {/if}
   </FormSection>
+
+  <NativeStartupPreference />
 
   <!-- Time Format -->
   <FormSection title={m['settings.preferences.time_format.title']()} maxWidth="max-w-md" bordered>

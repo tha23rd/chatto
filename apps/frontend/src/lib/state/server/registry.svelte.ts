@@ -4,6 +4,7 @@ import { serverConnectionManager } from './serverConnection.svelte';
 import { eventBusManager } from './eventBus.svelte';
 import { Codecs, globalSlot } from '$lib/storage/slot';
 import { getPublicServerInfo } from '$lib/api-client/server';
+import { getNativeClient } from '$lib/native/client';
 
 /**
  * A registered Chatto server in the multi-server client.
@@ -156,6 +157,11 @@ class ServerRegistry {
 	 */
 	probeOrigin(knownServer = false): void {
 		if (typeof window === 'undefined') return;
+		if (getNativeClient()) {
+			// The bundled renderer is static content, never a Chatto server.
+			this.originProbed = true;
+			return;
+		}
 		if (this.originServer) {
 			this.originProbed = true;
 			if (!knownServer) {
@@ -300,6 +306,7 @@ class ServerRegistry {
 	 * Call once from the root layout's script init (before any $derived reads stores).
 	 */
 	init(): void {
+		this.#syncNativeServerOrigins();
 		for (const server of this.servers) {
 			if (!this.#stores.has(server.id)) {
 				this.#createStore(server);
@@ -314,7 +321,7 @@ class ServerRegistry {
 		}
 		const registered = normalizeRegisteredServer(server);
 		this.servers.push(registered);
-		serversSlot.set(this.servers);
+		this.#commitServers();
 		const store = this.#createStore(registered);
 
 		// Start the event bus eagerly for already-authenticated servers so
@@ -347,7 +354,7 @@ class ServerRegistry {
 		serverConnectionManager.destroyClient(id);
 
 		this.servers = this.servers.filter((s) => s.id !== id);
-		serversSlot.set(this.servers);
+		this.#commitServers();
 		return true;
 	}
 
@@ -361,7 +368,7 @@ class ServerRegistry {
 			serverConnectionManager.destroyClient(server.id);
 		}
 		this.servers = [];
-		serversSlot.set(this.servers);
+		this.#commitServers();
 	}
 
 	/** Update fields on an existing server. */
@@ -372,7 +379,10 @@ class ServerRegistry {
 		}
 
 		Object.assign(server, data);
-		serversSlot.set(this.servers);
+		// A URL change alters the registered-origin set the native shell mirrors;
+		// other field updates only need persistence.
+		if (data.url === undefined) serversSlot.set(this.servers);
+		else this.#commitServers();
 		return true;
 	}
 
@@ -496,6 +506,29 @@ class ServerRegistry {
 	/** Whether the server has an authenticated user. False if not registered. */
 	isAuthenticated(serverId: string): boolean {
 		return this.tryGetStore(serverId)?.isAuthenticated ?? false;
+	}
+
+	/**
+	 * Persist the registered-server list and mirror its origins to the native
+	 * shell. Use whenever the set of registered servers (or any server URL)
+	 * changes; auth-only field updates can persist with `serversSlot.set`
+	 * directly, since they never change the origin set.
+	 */
+	#commitServers(): void {
+		serversSlot.set(this.servers);
+		this.#syncNativeServerOrigins();
+	}
+
+	#syncNativeServerOrigins(): void {
+		const nativeClient = getNativeClient();
+		if (!nativeClient) return;
+		try {
+			nativeClient.setRegisteredServerOrigins(this.servers.map((server) => server.url));
+		} catch {
+			// Fail closed in the main process. Do not log the origin list because
+			// server URLs can contain private deployment hostnames.
+			console.error('The native client rejected the registered server origin set.');
+		}
 	}
 }
 

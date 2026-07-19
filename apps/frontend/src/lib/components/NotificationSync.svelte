@@ -25,6 +25,10 @@ Include this component once in the chat layout (unconditionally).
   import type { EventEnvelope, EventHandler } from '$lib/eventBus.svelte';
   import { RoomEventKind, roomEventKind } from '$lib/render/eventKinds';
   import { NotificationItemKind } from '$lib/api-client/notifications';
+  import {
+    removeNativeNotificationTarget,
+    showCreatedNativeNotification
+  } from '$lib/native/notifications';
 
   function notificationCreatedEvent(
     event: EventEnvelope['event']
@@ -71,7 +75,16 @@ Include this component once in the chat layout (unconditionally).
             const notification = notificationCreatedEvent(event.event);
             if (!notification) break;
             void Promise.allSettled([
-              notificationStore.addNotification(notification.notificationId),
+              notificationStore
+                .addNotification(notification.notificationId)
+                .then(() =>
+                  showCreatedNativeNotification(
+                    instance,
+                    notificationStore,
+                    notification.notificationId,
+                    notification.silent === true
+                  )
+                ),
               stores.rooms.refreshNotificationCounts()
             ]);
             if (!notification.silent) {
@@ -85,6 +98,7 @@ Include this component once in the chat layout (unconditionally).
           case RoomEventKind.NotificationDismissed: {
             const notification = notificationDismissedEvent(event.event);
             if (!notification) break;
+            removeNativeNotificationTarget(instance.id, notification.notificationId);
             const roomId = notificationStore.removeNotification(notification.notificationId);
             if (roomId) {
               void stores.rooms.refreshNotificationCounts();

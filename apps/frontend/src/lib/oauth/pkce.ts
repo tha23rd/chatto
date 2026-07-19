@@ -44,6 +44,8 @@ export interface OAuthFlowState {
 	remoteUrl: string;
 	serverName: string;
 	serverIconUrl: string | null;
+	/** Exact redirect URI used for both authorization and token exchange. */
+	redirectUri?: string;
 }
 
 /** Save OAuth flow state to sessionStorage before redirecting. */

@@ -8,8 +8,10 @@
   import ConnectionIndicator from '$lib/components/ConnectionIndicator.svelte';
   import ConnectionProvider from '$lib/components/ConnectionProvider.svelte';
   import GlobalKeyboardShortcuts from '$lib/components/GlobalKeyboardShortcuts.svelte';
+  import BrowserServiceWorker from '$lib/pwa/BrowserServiceWorker.svelte';
   import IdleTracker from '$lib/components/IdleTracker.svelte';
   import MobileSidebarChrome from '$lib/components/MobileSidebarChrome.svelte';
+  import NativeClientSync from '$lib/native/NativeClientSync.svelte';
   import UpdateNotifier from '$lib/components/UpdateNotifier.svelte';
   import { usePageTitle, usePinchZoomPrevention, useVisualViewport } from '$lib/hooks';
   import { sidebarSwipe } from '$lib/hooks/useSidebarSwipe.svelte';
@@ -73,8 +75,10 @@
 </script>
 
 <GlobalKeyboardShortcuts />
+<BrowserServiceWorker />
 <IdleTracker />
 <UpdateNotifier />
+<NativeClientSync />
 
 <svelte:head>
   <title>{fullTitle}</title>

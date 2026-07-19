@@ -14,18 +14,22 @@ ADR-027 — only user-facing copy says "server".
 -->
 <script lang="ts">
   import { ConnectError } from '@connectrpc/connect';
+  import { onMount } from 'svelte';
   import { startServerOAuthFlow } from '$lib/auth/reauth';
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { getPublicServerInfo, type PublicServerInfo } from '$lib/api-client/server';
   import * as m from '$lib/i18n/messages';
   import { TextInput } from '$lib/ui/form';
   import FormDialog from '$lib/ui/FormDialog.svelte';
+  import { allowNativeServerOriginForProbe } from '$lib/native/client';
 
   let {
     visible = $bindable(false),
+    initialUrl = '',
     onclose
   }: {
     visible?: boolean;
+    initialUrl?: string;
     onclose: () => void;
   } = $props();
 
@@ -39,9 +43,13 @@ ADR-027 — only user-facing copy says "server".
   let probing = $state(false);
   let connecting = $state(false);
 
+  onMount(() => {
+    serverUrl = initialUrl;
+  });
+
   function reset() {
     stage = 'url';
-    serverUrl = '';
+    serverUrl = initialUrl;
     probedUrl = '';
     probedInfo = null;
     formError = '';
@@ -80,7 +88,10 @@ ADR-027 — only user-facing copy says "server".
     rawInput: string,
     initialUrl: string
   ): Promise<{ url: string; info: PublicServerInfo }> {
-    const fetchOnce = (u: string) => getPublicServerInfo(u, { signal: AbortSignal.timeout(10000) });
+    const fetchOnce = (u: string) => {
+      allowNativeServerOriginForProbe(u);
+      return getPublicServerInfo(u, { signal: AbortSignal.timeout(10000) });
+    };
 
     try {
       return { url: initialUrl, info: await fetchOnce(initialUrl) };

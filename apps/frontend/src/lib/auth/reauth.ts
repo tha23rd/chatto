@@ -9,6 +9,7 @@ import {
 } from '$lib/oauth/pkce';
 import { serverRegistry, type RegisteredServer } from '$lib/state/server/registry.svelte';
 import { clearCachedUser } from './loadAuth';
+import { navigateToAuthorization, resolveOAuthRedirectUri } from '$lib/native/oauth';
 
 export async function startServerOAuthFlow(
   serverUrl: string,
@@ -21,14 +22,15 @@ export async function startServerOAuthFlow(
   const verifier = generateCodeVerifier();
   const challenge = await generateCodeChallenge(verifier);
   const state = generateState();
-  const redirectUri = `${window.location.origin}/servers/callback`;
+  const redirectUri = await resolveOAuthRedirectUri(serverUrl);
 
   saveFlowState({
     verifier,
     state,
     remoteUrl: serverUrl,
     serverName: serverInfo.name,
-    serverIconUrl: serverInfo.iconUrl ?? null
+    serverIconUrl: serverInfo.iconUrl ?? null,
+    redirectUri
   });
 
   const params = new URLSearchParams({
@@ -39,7 +41,9 @@ export async function startServerOAuthFlow(
     state
   });
 
-  window.location.href = `${serverUrl}${serverInfo.authorizeUrl}?${params}`;
+  const authorizeUrl = new URL(serverInfo.authorizeUrl, serverUrl);
+  authorizeUrl.search = params.toString();
+  await navigateToAuthorization(authorizeUrl.toString());
 }
 
 export async function startRemoteReauthentication(server: RegisteredServer): Promise<void> {

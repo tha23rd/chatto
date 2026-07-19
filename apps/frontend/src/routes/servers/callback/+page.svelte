@@ -49,7 +49,7 @@
     }
 
     // Build the redirect_uri that we used in the authorize request
-    const redirectUri = `${window.location.origin}/servers/callback`;
+    const redirectUri = flow.redirectUri ?? `${window.location.origin}/servers/callback`;
 
     try {
       // Exchange the authorization code for a bearer token
