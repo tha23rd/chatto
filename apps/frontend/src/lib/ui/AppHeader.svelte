@@ -29,6 +29,10 @@
   function handleSignOut() {
     pushState('', { modal: { type: 'logout' } });
   }
+
+  function showAboutChatto() {
+    pushState('', { modal: { type: 'aboutChatto' } });
+  }
 </script>
 
 <header class="app-header flex items-center justify-between gap-2 p-2 text-muted md:text-sm">
@@ -46,18 +50,20 @@
       <span class="iconify text-xl uil--bars"></span>
     </button>
 
-    <!-- Notification bell - 44px tap target for mobile accessibility -->
-    <a
-      href={resolve('/chat/notifications')}
-      aria-label={m['ui.notifications']()}
-      title={m['ui.notifications']()}
-      class="relative app-header-icon"
-    >
-      <span class="iconify text-lg uil--bell"></span>
-      {#if totalNotificationCount > 0}
-        <UnreadDot class="absolute top-2 right-2" />
-      {/if}
-    </a>
+    {#if hasInstances}
+      <!-- Notification bell - 44px tap target for mobile accessibility -->
+      <a
+        href={resolve('/chat/notifications')}
+        aria-label={m['ui.notifications']()}
+        title={m['ui.notifications']()}
+        class="relative app-header-icon"
+      >
+        <span class="iconify text-lg uil--bell"></span>
+        {#if totalNotificationCount > 0}
+          <UnreadDot class="absolute top-2 right-2" testid="notifications-unread-dot" />
+        {/if}
+      </a>
+    {/if}
 
     <!-- Quick switcher trigger -->
     {#if hasInstances}
@@ -97,7 +103,15 @@
   <!-- Actions: Version + Logout -->
   <div class="flex items-center gap-3">
     {#if version}
-      <span class="text-muted">v{version}</span>
+      <button
+        type="button"
+        class="min-h-10 cursor-pointer rounded px-2 text-muted transition-colors hover:bg-surface-emphasized hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action"
+        onclick={showAboutChatto}
+        title={m['ui.tooltip.about']({ subject: 'Chatto' })}
+        aria-label={m['ui.tooltip.about']({ subject: 'Chatto' })}
+      >
+        v{version}
+      </button>
     {/if}
 
     {#if hasInstances}

@@ -6,7 +6,6 @@
     type PresenceCache
   } from '$lib/state/presenceCache.svelte';
   import { presencePreference } from '$lib/state/presencePreference.svelte';
-  import { eventBusManager } from '$lib/state/server/eventBus.svelte';
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { serverConnectionManager } from '$lib/state/server/serverConnection.svelte';
 
@@ -30,17 +29,6 @@
         currentUserPresenceStores(),
         status
       );
-    },
-    {
-      onPauseLiveEvents: () => eventBusManager.pauseAll(),
-      onResumeLiveEvents: () => {
-        eventBusManager.resumeAll();
-        for (const server of serverRegistry.servers) {
-          if (serverRegistry.tryGetStore(server.id)?.isAuthenticated) {
-            eventBusManager.startBus(server.id, serverConnectionManager.getClient(server.id));
-          }
-        }
-      }
     }
   );
 

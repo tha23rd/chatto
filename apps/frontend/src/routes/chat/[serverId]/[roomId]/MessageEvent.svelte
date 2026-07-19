@@ -40,7 +40,6 @@
   import { getUserSettings } from '$lib/state/userSettings.svelte';
   import { formatMessageTime } from '$lib/utils/formatTime';
   import { getLocale } from '$lib/i18n/runtime';
-  import { onThreadFollowChanged } from '$lib/eventBus.svelte';
   import { useMessageActions } from '$lib/hooks';
   import { emojiToName } from '$lib/emoji';
   import { toast } from '$lib/ui/toast';
@@ -104,7 +103,7 @@
   const actor = $derived(event?.actor ? useRenderData(UserAvatarViewData, event.actor) : null);
   const deletedActor = $derived(!actor || actor.deleted);
 
-  // Per-message webhook identity override (FDR-032): a channel webhook can
+  // Per-message webhook identity override (FDR-035): a channel webhook can
   // supply a display name and/or avatar for an individual post, which takes
   // priority over the webhook author's own profile. Read directly off the
   // `event` prop (not the later `messageEvent`/`msg` consts) so this is
@@ -360,14 +359,6 @@
     isThreadFollowPending = false;
     isFollowingThread = value;
     messageStore?.setThreadRootFollowState(event.id, value);
-  }
-
-  function syncThreadFollowEvents() {
-    return onThreadFollowChanged((update) => {
-      if (update.roomId === roomId && update.threadRootEventId === event.id) {
-        setThreadFollowState(update.isFollowing);
-      }
-    });
   }
 
   async function toggleThreadFollow(e: MouseEvent) {
@@ -684,7 +675,6 @@
     ]}
     role="article"
     data-event-id={event.id}
-    {@attach syncThreadFollowEvents}
   >
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
@@ -885,6 +875,8 @@
               {members}
               roleHandles={mentionRoleHandles}
               edited={isEdited}
+              timestampSettings={userSettings}
+              timestampLocale={activeLocale}
               onMentionClick={showPopoverForMember}
             />
           </div>
@@ -1033,6 +1025,7 @@
     <ContextMenu
       position={emojiPickerPos}
       presentation={emojiPickerPresentation}
+      scrollDismissal="user"
       onclose={closeEmojiPicker}
     >
       <EmojiPicker

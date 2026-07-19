@@ -149,7 +149,7 @@ describe('computeEventMetadata', () => {
       const result = computeEventMetadata(events, defaultSettings);
 
       expect(result[0].isFirstInGroup).toBe(true);
-      // Different per-message identity must start its own author block (FDR-032).
+      // Different per-message identity must start its own author block (FDR-035).
       expect(result[1].isFirstInGroup).toBe(true);
     });
 

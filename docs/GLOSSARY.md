@@ -4,7 +4,7 @@ The canonical vocabulary for Chatto: UI surfaces, product concepts, authorizatio
 
 This document is **also a naming surface**: when we need a name for a thing we're building, we add it here first. That's how vocabulary stays consistent across code, UI, docs, and conversation.
 
-This is **not** a tutorial, design doc, or API reference. If a concept needs more than a paragraph, link to the relevant [FDR](fdr/INDEX.md), [ADR](adr/INDEX.md), [`AGENTS.md`](../AGENTS.md) and directory-specific `AGENTS.md` files, or [ARCHITECTURE.md](ARCHITECTURE.md) rather than inlining.
+This is **not** a tutorial, design doc, or API reference. If a concept needs more than a paragraph, link to the relevant [FDR](fdr/INDEX.md), [ADR](adr/INDEX.md), [`AGENTS.md`](../AGENTS.md) and directory-specific `AGENTS.md` files, or [architecture inventory](architecture/INDEX.md) rather than inlining.
 
 Entries within each section are ordered by **conceptual flow** — foundational terms first, derivatives after — not alphabetically. See [`.agents/skills/glossary/SKILL.md`](../.agents/skills/glossary/SKILL.md) for the maintenance workflow.
 
@@ -60,9 +60,9 @@ User-facing concepts. If a user might say the word, it goes here.
 
 **Reaction** — Emoji attached to a message by a user; the emoji can be a built-in gemoji or a server *Custom Emoji*. See [FDR-005](fdr/FDR-005-reactions.md).
 
-**Custom Emoji** — Admin-uploaded, named image shortcode (for example `:partyparrot:`) in a server-wide catalog that any member can use. Names match `^[a-z0-9_]{1,64}$` and must not collide with built-in gemoji shortcodes. In its first version custom emoji are usable as message *Reactions* (rendered as images); inline `:name:` substitution in message bodies is out of scope. Managed with `server.manage`. See [FDR-030](fdr/FDR-030-custom-emoji.md).
+**Custom Emoji** — Admin-uploaded, named image shortcode (for example `:partyparrot:`) in a server-wide catalog that any member can use. Names match `^[a-z0-9_]{1,64}$` and must not collide with built-in gemoji shortcodes. In its first version custom emoji are usable as message *Reactions* (rendered as images); inline `:name:` substitution in message bodies is out of scope. Managed with `server.manage`. See [FDR-033](fdr/FDR-033-custom-emoji.md).
 
-**Channel Webhook** — Per-room, token-authorized HTTP endpoint that lets an external service post messages without a user account or session, mirroring Discord's incoming webhooks. Created and managed with `server.manage`; the secret post URL is shown once at creation/regeneration and never again. Posts may override the display name/avatar per message. See [FDR-032](fdr/FDR-032-channel-webhooks.md).
+**Channel Webhook** — Per-room, token-authorized HTTP endpoint that lets an external service post messages without a user account or session, mirroring Discord's incoming webhooks. Created and managed with `server.manage`; the secret post URL is shown once at creation/regeneration and never again. Posts may override the display name/avatar per message. See [FDR-035](fdr/FDR-035-channel-webhooks.md).
 
 **Mention** — `@handle` syntax in a message that notifies referenced users, pingable roles, or virtual room groups such as `@all` and `@here`. See [FDR-006](fdr/FDR-006-mentions.md).
 
@@ -116,7 +116,7 @@ Infrastructure jargon. If only contributors say the word, it goes here.
 
 **System actor** — Synthetic actor ID used when Chatto itself, bootstrap code, or trusted operator automation performs a domain write. It is not a login-capable user account.
 
-**Webhook user** — Synthetic, non-human user of kind `USER_KIND_WEBHOOK` that backs a *Channel Webhook* and authors its messages. Passwordless and excluded from the member directory, login resolution, and mention autocomplete. See [FDR-032](fdr/FDR-032-channel-webhooks.md).
+**Webhook user** — Synthetic, non-human user of kind `USER_KIND_WEBHOOK` that backs a *Channel Webhook* and authors its messages. Passwordless and excluded from the member directory, login resolution, and mention autocomplete. See [FDR-035](fdr/FDR-035-channel-webhooks.md).
 
 **Admin API** — Public ConnectRPC administrative surface in `chatto.admin.v1`. On the public web listener it uses normal user authentication and RBAC. It is separate from the local Operator API. See [FDR-028](fdr/FDR-028-operator-api-and-cli.md).
 
@@ -128,11 +128,11 @@ Infrastructure jargon. If only contributors say the word, it goes here.
 
 **JetStream** — NATS's persistence layer (streams + KV buckets). Chatto's primary data store. See [ADR-001](adr/ADR-001-nats-jetstream-as-primary-data-store.md).
 
-**Stream** — JetStream append-only log. Chatto's event-sourcing stream is `EVT`, which stores durable domain facts. See [ADR-033](adr/ADR-033-event-sourced-state-with-projections.md) and [ARCHITECTURE.md](ARCHITECTURE.md#nats-resource-inventory).
+**Stream** — JetStream append-only log. Chatto's event-sourcing stream is `EVT`, which stores durable domain facts. See [ADR-033](adr/ADR-033-event-sourced-state-with-projections.md) and the [NATS resource inventory](architecture/nats-resources.md).
 
 **KV (Key-Value Bucket)** — JetStream-backed key/value store. Chatto uses several current buckets, especially `RUNTIME_STATE`, `MEMORY_CACHE`, and `ENCRYPTION_KEYS`; event-sourced domain state is sourced from `EVT`. See [ADR-033](adr/ADR-033-event-sourced-state-with-projections.md).
 
-**Subject** — NATS message topic. Current durable facts use `evt.{aggregateType}.{aggregateId}.{eventType}`; transient sync uses `live.sync.…`; committed EVT facts are internally republished on `live.evt.…`. See [`cli/AGENTS.md`](../cli/AGENTS.md) and [ARCHITECTURE.md](ARCHITECTURE.md#evt-subject-patterns).
+**Subject** — NATS message topic. Current durable facts use `evt.{aggregateType}.{aggregateId}.{eventType}`; transient sync uses `live.sync.…`; committed EVT facts are internally republished on `live.evt.…`. See [`cli/AGENTS.md`](../cli/AGENTS.md) and the [subject and event inventory](architecture/subjects-and-events.md#evt-subject-patterns).
 
 **Event** — Durable domain fact stored on `EVT` using the `corev1.Event` wrapper. Contrast with *Live Event*.
 
@@ -142,7 +142,9 @@ Infrastructure jargon. If only contributors say the word, it goes here.
 
 **External identity** — Provider-issued account identity linked to a user, keyed by verified issuer/provider namespace plus provider subject rather than email. See [FDR-023](fdr/FDR-023-authentication-and-sessions.md).
 
-**Live Event** — Transient `corev1.LiveEvent` published on `live.sync.>` (typing, notification sync, voice-call presence). Durable EVT facts reach live subscribers through the internal `live.evt.>` republish path after server-side projection readiness and authorization checks.
+**Live Event** — Internal `corev1.LiveEvent` signal published on `live.sync.>` for ephemeral activity and latest-value invalidation. The server may expose a genuinely transient signal such as typing or presence through `RealtimeEventEnvelope`, or use the signal to assemble an authoritative `RealtimeProjectionOperation`; the internal shape is never the public contract. Durable EVT facts reach live subscribers through `live.evt.>` after server-side projection readiness and authorization checks. See [ADR-051](adr/ADR-051-server-scoped-resumable-client-projection.md).
+
+**Client Projection** — Authenticated, server-scoped current state delivered by realtime protocol 2. Compacted bootstrap, resumable replay, live mutation, and lazy room hydration all use the same ordered projection operations and reducer. It is a convergence feed rather than an audit log and does not replace the resource-oriented `chatto.api.v1` integrations API. See [ADR-051](adr/ADR-051-server-scoped-resumable-client-projection.md).
 
 **Republish** — JetStream feature that mirrors accepted stream messages onto another NATS subject. Chatto uses it to expose committed EVT facts on `live.evt.>`; `myEvents` treats that as an internal feed, not a client contract. See [`cli/AGENTS.md`](../cli/AGENTS.md).
 

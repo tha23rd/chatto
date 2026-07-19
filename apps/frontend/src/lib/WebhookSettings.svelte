@@ -1,7 +1,7 @@
 <!--
 @component
 
-Server-admin management UI for channel webhooks (FDR-032). Lists the
+Server-admin management UI for channel webhooks (FDR-035). Lists the
 server's existing webhooks with their target room and status, and lets an
 admin create a new webhook by picking a room, a name, and an optional avatar.
 
@@ -12,10 +12,7 @@ warning, since it cannot be retrieved again afterwards.
 -->
 <script lang="ts">
   import { useConnection } from '$lib/state/server/connection.svelte';
-  import {
-    createAdminWebhookAPI,
-    type WebhookImageUpload
-  } from '$lib/api-client/webhooks';
+  import { createAdminWebhookAPI, type WebhookImageUpload } from '$lib/api-client/webhooks';
   import type { ConnectAPIConfig } from '$lib/api-client/connect';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
   import { getWebhooks, type WebhookView } from '$lib/state/webhooks.svelte';
@@ -347,7 +344,11 @@ warning, since it cannot be retrieved again afterwards.
                 class="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-emphasized text-muted"
               >
                 {#if webhook.avatarUrl}
-                  <img src={webhook.avatarUrl} alt={webhook.name} class="h-full w-full object-cover" />
+                  <img
+                    src={webhook.avatarUrl}
+                    alt={webhook.name}
+                    class="h-full w-full object-cover"
+                  />
                 {:else}
                   <span class="iconify text-sm uil--robot"></span>
                 {/if}
@@ -405,7 +406,7 @@ warning, since it cannot be retrieved again afterwards.
   <Dialog visible title={revealed.title} onclose={() => (revealed = null)}>
     <div class="flex flex-col gap-4">
       <p class="flex items-start gap-2 text-warning">
-        <span class="iconify mt-0.5 shrink-0 text-lg uil--exclamation-triangle"></span>
+        <span class="mt-0.5 iconify shrink-0 text-lg uil--exclamation-triangle"></span>
         <span>{m['server_settings.webhooks.url_warning']()}</span>
       </p>
       <div class="rounded-md border border-border bg-surface-emphasized/40 p-3">

@@ -1,9 +1,11 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import '../../app.css';
 import { q } from '$lib/test-utils';
 import type { RoomMember } from '$lib/mentions';
 import { PresenceStatus } from '$lib/render/types';
+import type { TimeFormatSettings } from '$lib/utils/formatTime';
 
 const mocks = vi.hoisted(() => ({
   goto: vi.fn(),
@@ -58,6 +60,17 @@ function renderMessage(body: string, members: RoomMember[] = [], roleHandles: st
   return render(MessageContent, { props: { body, members, roleHandles } });
 }
 
+const utc24Settings: TimeFormatSettings = {
+  get effectiveTimezone() {
+    return 'UTC';
+  },
+  get effectiveHour12() {
+    return false;
+  }
+};
+let originalShowPopover: typeof HTMLElement.prototype.showPopover;
+let originalHidePopover: typeof HTMLElement.prototype.hidePopover;
+
 function member(login: string): RoomMember {
   return {
     id: `u_${login}`,
@@ -96,7 +109,25 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+beforeAll(() => {
+  originalShowPopover = HTMLElement.prototype.showPopover;
+  originalHidePopover = HTMLElement.prototype.hidePopover;
+
+  HTMLElement.prototype.showPopover = function showPopover() {
+    this.setAttribute('popover-open', '');
+  };
+  HTMLElement.prototype.hidePopover = function hidePopover() {
+    this.removeAttribute('popover-open');
+  };
+});
+
+afterAll(() => {
+  HTMLElement.prototype.showPopover = originalShowPopover;
+  HTMLElement.prototype.hidePopover = originalHidePopover;
 });
 
 describe('renderMarkdown', () => {
@@ -285,9 +316,11 @@ describe('renderMarkdown', () => {
       expect(html).not.toContain('<hr');
     });
 
-    it('does not render tables', async () => {
+    it('renders GFM tables', async () => {
       const html = await renderMarkdown('| a | b |\n|---|---|\n| 1 | 2 |');
-      expect(html).not.toContain('<table');
+      expect(html).toContain('<div class="table-scroll" tabindex="0"><table>');
+      expect(html).toContain('<th>a</th>');
+      expect(html).toContain('<td>1</td>');
     });
   });
 
@@ -396,6 +429,116 @@ describe('MessageContent component', () => {
     expect(container.textContent).toContain('fsdfsd fsdffdsf (edited)');
   });
 
+  it('renders message timestamp tokens as localized time elements', async () => {
+    const { container } = render(MessageContent, {
+      props: {
+        body: 'Call at <t:1745764200:F>',
+        timestampSettings: utc24Settings,
+        timestampLocale: 'en-US'
+      }
+    });
+
+    await expect.poll(() => q(container, 'button.message-timestamp')).toBeTruthy();
+    const button = q(container, 'button.message-timestamp')!;
+    const time = q(container, 'button.message-timestamp time')!;
+    expect(button.querySelector('.message-timestamp-icon')).toBeTruthy();
+    expect(button.getAttribute('data-timestamp-epoch')).toBe('1745764200');
+    expect(button.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(button.getAttribute('aria-label')).toBeNull();
+    expect(time.getAttribute('datetime')).toBe('2025-04-27T14:30:00.000Z');
+    expect(time.textContent).toMatch(/April\s*27,?\s*2025/);
+    expect(time.textContent).toContain('14:30');
+  });
+
+  it('opens timestamp details from a rendered timestamp', async () => {
+    const { container } = render(MessageContent, {
+      props: {
+        body: 'Call at <t:1745764200:F>',
+        timestampSettings: utc24Settings,
+        timestampLocale: 'en-US'
+      }
+    });
+
+    await expect.poll(() => q(container, 'button.message-timestamp')).toBeTruthy();
+    (q(container, 'button.message-timestamp') as HTMLButtonElement).click();
+
+    await expect
+      .poll(() => q(container, '[data-testid="message-timestamp-details"]')?.textContent)
+      .toContain('Date and time');
+    const details = q(container, '[data-testid="message-timestamp-details"]')!;
+    expect(details.textContent).toContain('Local');
+    expect(details.textContent).toContain('Relative');
+    expect(details.textContent).not.toContain('UTC');
+    expect(details.textContent).not.toContain('1745764200');
+  });
+
+  it('updates the relative timestamp detail while the popover is open', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-04-27T14:29:59Z'));
+    const { container } = render(MessageContent, {
+      props: {
+        body: 'Call at <t:1745764200:F>',
+        timestampSettings: utc24Settings,
+        timestampLocale: 'en-US'
+      }
+    });
+
+    await expect.poll(() => q(container, 'button.message-timestamp')).toBeTruthy();
+    (q(container, 'button.message-timestamp') as HTMLButtonElement).click();
+
+    await expect
+      .poll(() => q(container, '[data-testid="message-timestamp-details"]')?.textContent)
+      .toContain('in 1 second');
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    await expect
+      .poll(() => q(container, '[data-testid="message-timestamp-details"]')?.textContent)
+      .toContain('now');
+  });
+
+  it('leaves invalid timestamp tokens literal', async () => {
+    const { container } = render(MessageContent, {
+      props: {
+        body: 'Call at <t:abc:F> or <t:1745764200:R>',
+        timestampSettings: utc24Settings,
+        timestampLocale: 'en-US'
+      }
+    });
+
+    await expect.poll(() => container.textContent).toContain('<t:abc:F>');
+    expect(container.textContent).toContain('<t:1745764200:R>');
+    expect(q(container, '.message-timestamp')).toBeNull();
+  });
+
+  it('does not render timestamp tokens inside code or blockquotes', async () => {
+    const { container } = render(MessageContent, {
+      props: {
+        body: '`<t:1745764200:F>`\n\n> <t:1745764200:F>',
+        timestampSettings: utc24Settings,
+        timestampLocale: 'en-US'
+      }
+    });
+
+    await expect.poll(() => q(container, 'code')).toBeTruthy();
+    expect(q(container, '.message-timestamp')).toBeNull();
+    expect(container.textContent).toContain('<t:1745764200:F>');
+  });
+
+  it('does not render timestamp tokens inside links', async () => {
+    const { container } = render(MessageContent, {
+      props: {
+        body: '[<t:1745764200:F>](https://example.com)',
+        timestampSettings: utc24Settings,
+        timestampLocale: 'en-US'
+      }
+    });
+
+    await expect.poll(() => q(container, 'a')).toBeTruthy();
+    expect(q(container, '.message-timestamp')).toBeNull();
+    expect(q(container, 'a')?.textContent).toContain('<t:1745764200:F>');
+  });
+
   it('applies prose classes for typography', async () => {
     const { container } = renderMessage('Hello world');
 
@@ -413,6 +556,24 @@ describe('MessageContent component', () => {
     expect(styles.borderLeftColor).not.toBe(computedBorderColorFor('--color-border'));
     expect(styles.backgroundImage).toBe('none');
     expect(styles.color).not.toBe(computedColorFor('--color-muted'));
+  });
+
+  it('shows an inset focus indicator on keyboard-scrollable tables', async () => {
+    const { container } = renderMessage(
+      '| Name | Role | Location |\n| --- | --- | --- |\n| Ada Lovelace | Administrator | London, United Kingdom |'
+    );
+
+    await expect.poll(() => q(container, '.table-scroll')).toBeTruthy();
+    const wrapper = q(container, '.prose')!;
+    const scroller = q(container, '.table-scroll')!;
+    wrapper.setAttribute('style', 'width: 240px');
+    await expect.poll(() => scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+    await userEvent.tab();
+
+    expect(document.activeElement).toBe(scroller);
+    expect(window.getComputedStyle(scroller).overflowX).toBe('auto');
+    expect(window.getComputedStyle(scroller).outlineStyle).toBe('solid');
+    expect(window.getComputedStyle(scroller).outlineOffset).toBe('-2px');
   });
 
   it('renders links with security attributes', async () => {

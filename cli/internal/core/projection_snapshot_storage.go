@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"strings"
 
 	"github.com/nats-io/nats.go/jetstream"
 
 	"hmans.de/chatto/internal/events"
+	"hmans.de/chatto/internal/jetstreamutil"
 	"hmans.de/chatto/internal/projectionsnapshot"
 )
 
@@ -17,14 +20,52 @@ type projectionSnapshotSource struct {
 	repository *projectionsnapshot.Repository
 }
 
+type natsSnapshotPointerStore struct {
+	kv jetstream.KeyValue
+}
+
+func (n natsSnapshotPointerStore) GetPointer(ctx context.Context, key string) ([]byte, uint64, error) {
+	entry, err := n.kv.Get(ctx, key)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrKeyNotFound) || errors.Is(err, jetstream.ErrKeyDeleted) {
+			return nil, 0, projectionsnapshot.ErrPointerNotFound
+		}
+		return nil, 0, fmt.Errorf("get projection snapshot pointer: %w", err)
+	}
+	return append([]byte(nil), entry.Value()...), entry.Revision(), nil
+}
+
+func (n natsSnapshotPointerStore) CreatePointer(ctx context.Context, key string, value []byte) (uint64, error) {
+	revision, err := n.kv.Create(ctx, key, value)
+	if err != nil {
+		if jetstreamutil.IsSequenceConflict(err) {
+			return 0, projectionsnapshot.ErrPointerConflict
+		}
+		return 0, fmt.Errorf("create projection snapshot pointer: %w", err)
+	}
+	return revision, nil
+}
+
+func (n natsSnapshotPointerStore) UpdatePointer(ctx context.Context, key string, value []byte, expected uint64) (uint64, error) {
+	revision, err := n.kv.Update(ctx, key, value, expected)
+	if err != nil {
+		if jetstreamutil.IsSequenceConflict(err) || errors.Is(err, jetstream.ErrKeyNotFound) || errors.Is(err, jetstream.ErrKeyDeleted) {
+			return 0, projectionsnapshot.ErrPointerConflict
+		}
+		return 0, fmt.Errorf("update projection snapshot pointer: %w", err)
+	}
+	return revision, nil
+}
+
 func (s projectionSnapshotSource) LoadProjectionSnapshot(ctx context.Context, request events.ProjectionSnapshotLoadRequest) (events.ProjectionSnapshot, error) {
-	loaded, err := s.repository.Load(ctx, request.ProjectionKey, request.CompatibilityID, request.StreamName, request.StreamIdentity, request.MaxCutoff)
+	loaded, err := s.repository.Load(ctx, request.ProjectionKey, request.ContractID, request.StreamName, request.StreamIdentity, request.MaxCutoff)
 	if err != nil {
 		return events.ProjectionSnapshot{}, err
 	}
 	return events.ProjectionSnapshot{
 		GenerationID:   loaded.GenerationID,
 		CutoffSequence: loaded.CutoffSequence,
+		CreatedAt:      loaded.CreatedAt,
 		Payload:        loaded.Payload,
 	}, nil
 }
@@ -69,6 +110,56 @@ func (n natsSnapshotBlobStore) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+func (n natsSnapshotBlobStore) Walk(ctx context.Context, prefix string, visit func(projectionsnapshot.BlobInfo) error) error {
+	watcher, err := n.store.Watch(ctx, jetstream.IgnoreDeletes())
+	if err != nil {
+		return fmt.Errorf("watch NATS snapshot objects: %w", err)
+	}
+	defer watcher.Stop()
+	for {
+		select {
+		case info, ok := <-watcher.Updates():
+			if !ok {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				return fmt.Errorf("NATS snapshot object inventory ended before completion")
+			}
+			if info == nil {
+				return nil
+			}
+			if !strings.HasPrefix(info.Name, prefix) {
+				continue
+			}
+			if info.Size > math.MaxInt64 {
+				return fmt.Errorf("NATS snapshot object size exceeds int64")
+			}
+			if err := visit(projectionsnapshot.BlobInfo{Key: info.Name, Size: int64(info.Size), ModifiedAt: info.ModTime}); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (n natsSnapshotBlobStore) Stat(ctx context.Context, key string) (projectionsnapshot.BlobInfo, error) {
+	info, err := n.store.GetInfo(ctx, key)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrObjectNotFound) {
+			return projectionsnapshot.BlobInfo{}, projectionsnapshot.ErrBlobNotFound
+		}
+		return projectionsnapshot.BlobInfo{}, fmt.Errorf("stat NATS snapshot object: %w", err)
+	}
+	if info.Size > math.MaxInt64 {
+		return projectionsnapshot.BlobInfo{}, fmt.Errorf("NATS snapshot object size exceeds int64")
+	}
+	return projectionsnapshot.BlobInfo{
+		Key: info.Name, Size: int64(info.Size), ModifiedAt: info.ModTime,
+		ContentType: info.Headers.Get("Content-Type"), Purpose: info.Headers.Get("Chatto-Object-Type"),
+	}, nil
+}
+
 type s3SnapshotBlobStore struct {
 	client *S3Client
 }
@@ -76,7 +167,8 @@ type s3SnapshotBlobStore struct {
 func (s s3SnapshotBlobStore) Backend() string { return "s3" }
 
 func (s s3SnapshotBlobStore) Put(ctx context.Context, key string, data []byte, contentType string) error {
-	if _, err := s.client.PutObjectFromBytes(ctx, key, data, contentType); err != nil {
+	metadata := map[string]string{projectionsnapshot.ObjectPurposeMetadataKey: projectionsnapshot.ObjectPurpose}
+	if _, err := s.client.PutObjectWithMetadata(ctx, key, bytes.NewReader(data), int64(len(data)), contentType, metadata); err != nil {
 		return fmt.Errorf("put S3 snapshot object: %w", err)
 	}
 	return nil
@@ -104,6 +196,26 @@ func (s s3SnapshotBlobStore) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
+func (s s3SnapshotBlobStore) Walk(ctx context.Context, prefix string, visit func(projectionsnapshot.BlobInfo) error) error {
+	return s.client.WalkObjects(ctx, prefix, func(info S3ObjectInfo) error {
+		return visit(projectionsnapshot.BlobInfo{Key: info.Key, Size: info.Size, ModifiedAt: info.ModifiedAt})
+	})
+}
+
+func (s s3SnapshotBlobStore) Stat(ctx context.Context, key string) (projectionsnapshot.BlobInfo, error) {
+	info, err := s.client.StatObject(ctx, key)
+	if err != nil {
+		if IsNoSuchKeyError(err) {
+			return projectionsnapshot.BlobInfo{}, projectionsnapshot.ErrBlobNotFound
+		}
+		return projectionsnapshot.BlobInfo{}, fmt.Errorf("stat S3 snapshot object: %w", err)
+	}
+	return projectionsnapshot.BlobInfo{
+		Key: info.Key, Size: info.Size, ModifiedAt: info.ModifiedAt, ContentType: info.ContentType,
+		Purpose: info.Metadata[projectionsnapshot.ObjectPurposeMetadataKey],
+	}, nil
+}
+
 func readSnapshotBlob(reader io.Reader, maxBytes int64) ([]byte, error) {
 	limited := io.LimitReader(reader, maxBytes+1)
 	data, err := io.ReadAll(limited)
@@ -117,8 +229,9 @@ func readSnapshotBlob(reader io.Reader, maxBytes int64) ([]byte, error) {
 }
 
 func natsHeaders(contentType string) map[string][]string {
-	if contentType == "" {
-		return nil
+	headers := map[string][]string{"Chatto-Object-Type": {projectionsnapshot.ObjectPurpose}}
+	if contentType != "" {
+		headers["Content-Type"] = []string{contentType}
 	}
-	return map[string][]string{"Content-Type": {contentType}}
+	return headers
 }

@@ -48,13 +48,15 @@ Chatto fetches link-preview metadata when a user composes a message with a URL. 
 
 The fetcher is designed to be SSRF-safe and caches successful and failed lookups for bounded periods. Operators do not need a separate preview worker.
 
+Supported public Bluesky and Mastodon post URLs render as native Chatto cards. Provider adapters capture a bounded, common snapshot containing the provider, author, post text, attached images, any embedded website card, and at most one quoted post with its media. Mastodon content warnings and accepted quote posts use the same snapshot fields; warned text and media stay concealed until the reader reveals them, and boosts show the original post but do not currently identify who boosted it. Bluesky is resolved through its oEmbed and public post APIs. Mastodon is resolved through the linked server's public oEmbed and status APIs, so compatible public servers are supported without an instance allowlist. For federated proxy permalinks that do not have oEmbed metadata, Chatto verifies the linked server's public instance metadata before using its status API. Images are persisted through the configured asset backend, and clients render the stored snapshot without contacting the provider. If structured discovery fails while composing the message, Chatto falls back to the ordinary link-preview card when OpenGraph metadata is available.
+
 ## Storage Backend Choice
 
 | Deployment | Recommended backend |
 | ---------- | ------------------- |
 | Small server with light uploads | NATS ObjectStore, the default. |
 | Active community with many files | S3-compatible storage. |
-| Video-heavy server | S3-compatible storage plus video processing. |
+| Video playback with seeking | S3-compatible storage plus video processing. |
 | Replicated NATS cluster | S3-compatible storage to avoid multiplying large binary storage. |
 
 Switching to S3 affects new assets. Existing NATS-stored assets continue to work because each asset records its own backend.
@@ -75,6 +77,10 @@ The official Docker image includes the required ffmpeg tools. Host installs need
 
 <Aside type="caution">
   Video processing is currently in-process and best-effort. Chatto records durable asset processing state and retries missed unmanifested video assets on boot, but operators should still treat transcoding as CPU-heavy background work.
+</Aside>
+
+<Aside type="caution">
+  NATS ObjectStore serves video as a complete, non-seekable response. Configure S3-compatible asset storage when members need reliable duration detection or timeline seeking; authorised S3-backed video redirects to object storage with byte-range support.
 </Aside>
 
 ## Active Document Safety

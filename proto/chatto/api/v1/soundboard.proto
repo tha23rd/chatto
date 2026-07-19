@@ -7,7 +7,7 @@ option go_package = "hmans.de/chatto/internal/pb/chatto/api/v1;apiv1";
 // A server-wide soundboard sound: a short audio clip uploaded by an admin that
 // any member connected to a room's voice call can play so that every joined
 // participant hears it. The catalog is shared by the whole server; there are no
-// per-user or per-room sound sets. See FDR-033.
+// per-user or per-room sound sets. See FDR-036.
 message Sound {
   // Sound identifier (NanoID).
   string id = 1;

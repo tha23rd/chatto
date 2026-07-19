@@ -7,9 +7,6 @@ import { PresenceCache } from '$lib/state/presenceCache.svelte';
 import AnonymousOriginPresenceProvider from './AnonymousOriginPresenceProvider.svelte';
 
 const mocks = vi.hoisted(() => ({
-  eventBusPauseAll: vi.fn(),
-  eventBusResumeAll: vi.fn(),
-  eventBusStart: vi.fn(),
   initPresenceTracking: vi.fn(),
   stopPresenceTracking: vi.fn(),
   store: {
@@ -20,14 +17,6 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('$lib/presenceTracking', () => ({
   initPresenceTracking: mocks.initPresenceTracking
-}));
-
-vi.mock('$lib/state/server/eventBus.svelte', () => ({
-  eventBusManager: {
-    pauseAll: mocks.eventBusPauseAll,
-    resumeAll: mocks.eventBusResumeAll,
-    startBus: mocks.eventBusStart
-  }
 }));
 
 vi.mock('$lib/state/server/registry.svelte', () => ({
@@ -61,6 +50,11 @@ describe('AnonymousOriginPresenceProvider', () => {
     const presenceCache = new PresenceCache();
     render(AnonymousOriginPresenceProvider, { props: { presenceCache } });
     flushSync();
+
+    expect(mocks.initPresenceTracking).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.any(Function)
+    );
 
     expect(
       presenceCache.get({ serverId: 'remote', userId: 'remote-user' }, PresenceStatus.Offline)
