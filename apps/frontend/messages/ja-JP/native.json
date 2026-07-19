@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "サインイン完了",
+      "message": "Chatto に戻り、このタブを閉じることができます。"
+    },
+    "startup": {
+      "title": "デスクトップアプリ",
+      "launch_on_startup": "サインイン時に Chatto を開く",
+      "launch_on_startup_description": "このデバイスへのサインイン後にデスクトップアプリを自動的に起動します。",
+      "startup_saved": "起動設定を保存しました",
+      "startup_failed": "起動設定を更新できませんでした"
+    },
+    "tray": {
+      "open": "Chatto を開く",
+      "mute": "ミュート",
+      "unmute": "ミュートを解除",
+      "deafen": "すべての音声をミュート",
+      "undeafen": "すべての音声を再開",
+      "quit": "終了"
+    },
+    "notification": {
+      "reply_placeholder": "返信…",
+      "reply_failed": "返信を送信できませんでした。"
+    },
+    "ptt": {
+      "unavailable": "グローバルプッシュ・トゥ・トークを有効にできませんでした。アプリの入力とアクセシビリティの権限を確認してください。"
+    },
+    "screen_share": {
+      "picker": {
+        "title": "共有する対象を選択",
+        "subtitle": "共有する画面またはアプリのウィンドウを選択してください。",
+        "audio_shared": "システム音声が画面と一緒に共有されます。",
+        "audio_unavailable": "システム音声の共有は Windows でのみ利用できます。",
+        "cancel": "キャンセル"
+      }
+    }
+  }
+}

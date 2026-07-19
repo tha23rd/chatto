@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "Ensaluto finita",
+      "message": "Vi povas reveni al Chatto kaj fermi ĉi tiun langeton."
+    },
+    "startup": {
+      "title": "Labortabla aplikaĵo",
+      "launch_on_startup": "Malfermi Chatto ĉe ensaluto",
+      "launch_on_startup_description": "Aŭtomate lanĉi la labortablan aplikaĵon post ensaluto en ĉi tiu aparato.",
+      "startup_saved": "Starta prefero konservita",
+      "startup_failed": "Ne eblis ĝisdatigi la startan preferon"
+    },
+    "tray": {
+      "open": "Malfermi Chatto",
+      "mute": "Silentigi",
+      "unmute": "Malsilentigi",
+      "deafen": "Malŝalti ĉiun sonon",
+      "undeafen": "Ŝalti ĉiun sonon",
+      "quit": "Eliri"
+    },
+    "notification": {
+      "reply_placeholder": "Respondi…",
+      "reply_failed": "Ne eblis sendi la respondon."
+    },
+    "ptt": {
+      "unavailable": "Tutmonda premu-por-paroli ne povis esti ŝaltita. Kontrolu la enigajn kaj alireblecajn permesojn de la aplikaĵo."
+    },
+    "screen_share": {
+      "picker": {
+        "title": "Elektu kion kunhavigi",
+        "subtitle": "Elektu ekranon aŭ aplikaĵan fenestron por kunhavigi.",
+        "audio_shared": "La sistema sono estos kunhavigata kune kun la ekrano.",
+        "audio_unavailable": "Kunhavigo de sistema sono disponeblas nur en Windows.",
+        "cancel": "Nuligi"
+      }
+    }
+  }
+}

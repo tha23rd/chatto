@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "Início de sessão concluído",
+      "message": "Pode voltar ao Chatto e fechar este separador."
+    },
+    "startup": {
+      "title": "Aplicação para computador",
+      "launch_on_startup": "Abrir o Chatto ao iniciar sessão",
+      "launch_on_startup_description": "Iniciar automaticamente a aplicação para computador após entrar neste dispositivo.",
+      "startup_saved": "Preferência de arranque guardada",
+      "startup_failed": "Não foi possível atualizar a preferência de arranque"
+    },
+    "tray": {
+      "open": "Abrir o Chatto",
+      "mute": "Desativar microfone",
+      "unmute": "Ativar microfone",
+      "deafen": "Desativar todo o som",
+      "undeafen": "Ativar todo o som",
+      "quit": "Sair"
+    },
+    "notification": {
+      "reply_placeholder": "Responder…",
+      "reply_failed": "Não foi possível enviar a resposta."
+    },
+    "ptt": {
+      "unavailable": "Não foi possível ativar o premir para falar global. Verifique as permissões de entrada e acessibilidade da aplicação."
+    },
+    "screen_share": {
+      "picker": {
+        "title": "Escolha o que partilhar",
+        "subtitle": "Selecione um ecrã ou uma janela de aplicação para partilhar.",
+        "audio_shared": "O áudio do sistema será partilhado juntamente com o ecrã.",
+        "audio_unavailable": "A partilha do áudio do sistema está disponível apenas no Windows.",
+        "cancel": "Cancelar"
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "Inloggningen är klar",
+      "message": "Du kan gå tillbaka till Chatto och stänga den här fliken."
+    },
+    "startup": {
+      "title": "Skrivbordsapp",
+      "launch_on_startup": "Öppna Chatto vid inloggning",
+      "launch_on_startup_description": "Starta skrivbordsappen automatiskt efter inloggning på den här enheten.",
+      "startup_saved": "Startinställningen har sparats",
+      "startup_failed": "Det gick inte att uppdatera startinställningen"
+    },
+    "tray": {
+      "open": "Öppna Chatto",
+      "mute": "Ljud av",
+      "unmute": "Slå på ljudet",
+      "deafen": "Stäng av allt ljud",
+      "undeafen": "Slå på allt ljud",
+      "quit": "Avsluta"
+    },
+    "notification": {
+      "reply_placeholder": "Svara…",
+      "reply_failed": "Det gick inte att skicka svaret."
+    },
+    "ptt": {
+      "unavailable": "Global tryck-för-att-prata kunde inte aktiveras. Kontrollera appens inmatnings- och hjälpmedelsbehörigheter."
+    },
+    "screen_share": {
+      "picker": {
+        "title": "Välj vad du vill dela",
+        "subtitle": "Välj en skärm eller ett programfönster att dela.",
+        "audio_shared": "Systemljudet delas tillsammans med skärmen.",
+        "audio_unavailable": "Delning av systemljud är endast tillgänglig i Windows.",
+        "cancel": "Avbryt"
+      }
+    }
+  }
+}

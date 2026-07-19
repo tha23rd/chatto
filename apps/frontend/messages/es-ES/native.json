@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "Inicio de sesión completado",
+      "message": "Puedes volver a Chatto y cerrar esta pestaña."
+    },
+    "startup": {
+      "title": "Aplicación de escritorio",
+      "launch_on_startup": "Abrir Chatto al iniciar sesión",
+      "launch_on_startup_description": "Iniciar la aplicación de escritorio automáticamente al iniciar sesión en este dispositivo.",
+      "startup_saved": "Preferencia de inicio guardada",
+      "startup_failed": "No se pudo actualizar la preferencia de inicio"
+    },
+    "tray": {
+      "open": "Abrir Chatto",
+      "mute": "Silenciar",
+      "unmute": "Dejar de silenciar",
+      "deafen": "Silenciar todo",
+      "undeafen": "Activar sonido",
+      "quit": "Salir"
+    },
+    "notification": {
+      "reply_placeholder": "Responder…",
+      "reply_failed": "No se pudo enviar la respuesta."
+    },
+    "ptt": {
+      "unavailable": "No se pudo activar la función global de pulsar para hablar. Comprueba los permisos de entrada y accesibilidad de la aplicación."
+    },
+    "screen_share": {
+      "picker": {
+        "title": "Elige qué compartir",
+        "subtitle": "Selecciona una pantalla o una ventana de aplicación para compartir.",
+        "audio_shared": "El audio del sistema se compartirá junto con la pantalla.",
+        "audio_unavailable": "Compartir el audio del sistema solo está disponible en Windows.",
+        "cancel": "Cancelar"
+      }
+    }
+  }
+}

@@ -25,6 +25,11 @@ const config = {
       fallback: '200.html',
       precompress
     }),
+    serviceWorker: {
+      // Browser/PWA registration is performed explicitly at runtime so the
+      // bundled native renderer can leave service workers disabled.
+      register: false
+    },
     version: {
       // Production image builds inject the same version as the server binary.
       // Other package-script builds use the package version; direct local

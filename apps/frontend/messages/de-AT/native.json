@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "Anmeldung abgeschlossen",
+      "message": "Du kannst zu Chatto zurückkehren und diesen Tab schließen."
+    },
+    "startup": {
+      "title": "Desktop-App",
+      "launch_on_startup": "Chatto bei der Anmeldung öffnen",
+      "launch_on_startup_description": "Die Desktop-App nach der Anmeldung auf diesem Gerät automatisch starten.",
+      "startup_saved": "Autostart-Einstellung gespeichert",
+      "startup_failed": "Autostart-Einstellung konnte nicht aktualisiert werden"
+    },
+    "tray": {
+      "open": "Chatto öffnen",
+      "mute": "Stummschalten",
+      "unmute": "Stummschaltung aufheben",
+      "deafen": "Ton aus",
+      "undeafen": "Ton an",
+      "quit": "Beenden"
+    },
+    "notification": {
+      "reply_placeholder": "Antworten…",
+      "reply_failed": "Die Antwort konnte nicht gesendet werden."
+    },
+    "ptt": {
+      "unavailable": "Globales Push-to-Talk konnte nicht aktiviert werden. Prüfe die Eingabe- und Bedienungshilfen-Berechtigungen der App."
+    },
+    "screen_share": {
+      "picker": {
+        "title": "Auswählen, was du teilen möchtest",
+        "subtitle": "Wähle einen Bildschirm oder ein App-Fenster zum Teilen aus.",
+        "audio_shared": "Der Systemton wird zusammen mit dem Bildschirm geteilt.",
+        "audio_unavailable": "Das Teilen des Systemtons ist nur unter Windows verfügbar.",
+        "cancel": "Abbrechen"
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "Aanmelden voltooid",
+      "message": "Je kunt teruggaan naar Chatto en dit tabblad sluiten."
+    },
+    "startup": {
+      "title": "Desktop-app",
+      "launch_on_startup": "Chatto openen bij aanmelden",
+      "launch_on_startup_description": "De desktop-app automatisch starten na aanmelden op dit apparaat.",
+      "startup_saved": "Opstartvoorkeur opgeslagen",
+      "startup_failed": "De opstartvoorkeur kon niet worden bijgewerkt"
+    },
+    "tray": {
+      "open": "Chatto openen",
+      "mute": "Dempen",
+      "unmute": "Dempen opheffen",
+      "deafen": "Geluid uit",
+      "undeafen": "Geluid aan",
+      "quit": "Afsluiten"
+    },
+    "notification": {
+      "reply_placeholder": "Beantwoorden…",
+      "reply_failed": "Het antwoord kon niet worden verzonden."
+    },
+    "ptt": {
+      "unavailable": "Globale push-to-talk kon niet worden ingeschakeld. Controleer de invoer- en toegankelijkheidsrechten van de app."
+    },
+    "screen_share": {
+      "picker": {
+        "title": "Kies wat je wilt delen",
+        "subtitle": "Selecteer een scherm of app-venster om te delen.",
+        "audio_shared": "Het systeemgeluid wordt samen met het scherm gedeeld.",
+        "audio_unavailable": "Systeemgeluid delen is alleen beschikbaar op Windows.",
+        "cancel": "Annuleren"
+      }
+    }
+  }
+}

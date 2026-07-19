@@ -1,0 +1,8 @@
+{
+  "native": {
+    "startup": {
+      "startup_saved": "Startup preference saved",
+      "startup_failed": "Could not update the startup preference"
+    }
+  }
+}

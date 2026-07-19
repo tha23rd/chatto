@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "Logowanie zakończone",
+      "message": "Możesz wrócić do Chatto i zamknąć tę kartę."
+    },
+    "startup": {
+      "title": "Aplikacja komputerowa",
+      "launch_on_startup": "Otwórz Chatto po zalogowaniu",
+      "launch_on_startup_description": "Automatycznie uruchamiaj aplikację komputerową po zalogowaniu na tym urządzeniu.",
+      "startup_saved": "Zapisano ustawienie uruchamiania",
+      "startup_failed": "Nie udało się zaktualizować ustawienia uruchamiania"
+    },
+    "tray": {
+      "open": "Otwórz Chatto",
+      "mute": "Wycisz",
+      "unmute": "Wyłącz wyciszenie",
+      "deafen": "Wyłącz dźwięk",
+      "undeafen": "Włącz dźwięk",
+      "quit": "Zakończ"
+    },
+    "notification": {
+      "reply_placeholder": "Odpowiedz…",
+      "reply_failed": "Nie udało się wysłać odpowiedzi."
+    },
+    "ptt": {
+      "unavailable": "Nie udało się włączyć globalnej funkcji „naciśnij, aby mówić”. Sprawdź uprawnienia aplikacji do obsługi wejścia i ułatwień dostępu."
+    },
+    "screen_share": {
+      "picker": {
+        "title": "Wybierz, co udostępnić",
+        "subtitle": "Wybierz ekran lub okno aplikacji do udostępnienia.",
+        "audio_shared": "Dźwięk systemowy będzie udostępniany razem z ekranem.",
+        "audio_unavailable": "Udostępnianie dźwięku systemowego jest dostępne tylko w systemie Windows.",
+        "cancel": "Anuluj"
+      }
+    }
+  }
+}

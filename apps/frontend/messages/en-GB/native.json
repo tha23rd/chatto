@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "Sign-in complete",
+      "message": "You can return to Chatto and close this tab."
+    },
+    "startup": {
+      "title": "Desktop app",
+      "launch_on_startup": "Open Chatto when I sign in",
+      "launch_on_startup_description": "Start the desktop app automatically after signing in to this device.",
+      "startup_saved": "Start-up preference saved",
+      "startup_failed": "Could not update the start-up preference"
+    },
+    "tray": {
+      "open": "Open Chatto",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "deafen": "Deafen",
+      "undeafen": "Undeafen",
+      "quit": "Quit"
+    },
+    "notification": {
+      "reply_placeholder": "Reply…",
+      "reply_failed": "Could not send the reply."
+    },
+    "ptt": {
+      "unavailable": "Global push-to-talk could not be enabled. Check the app's input and accessibility permissions."
+    },
+    "screen_share": {
+      "picker": {
+        "title": "Choose what to share",
+        "subtitle": "Select a screen or application window to share.",
+        "audio_shared": "System audio will be shared along with the screen.",
+        "audio_unavailable": "System audio sharing is available on Windows only.",
+        "cancel": "Cancel"
+      }
+    }
+  }
+}

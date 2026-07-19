@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "Connexion terminée",
+      "message": "Vous pouvez revenir à Chatto et fermer cet onglet."
+    },
+    "startup": {
+      "title": "Application de bureau",
+      "launch_on_startup": "Ouvrir Chatto à la connexion",
+      "launch_on_startup_description": "Démarrer automatiquement l’application de bureau après la connexion à cet appareil.",
+      "startup_saved": "Préférence de démarrage enregistrée",
+      "startup_failed": "Impossible de mettre à jour la préférence de démarrage"
+    },
+    "tray": {
+      "open": "Ouvrir Chatto",
+      "mute": "Muet",
+      "unmute": "Activer le son",
+      "deafen": "Couper le son",
+      "undeafen": "Rétablir le son",
+      "quit": "Quitter"
+    },
+    "notification": {
+      "reply_placeholder": "Répondre…",
+      "reply_failed": "Impossible d’envoyer la réponse."
+    },
+    "ptt": {
+      "unavailable": "Impossible d’activer la fonction globale d’appui pour parler. Vérifiez les autorisations d’entrée et d’accessibilité de l’application."
+    },
+    "screen_share": {
+      "picker": {
+        "title": "Choisir ce que vous partagez",
+        "subtitle": "Sélectionnez un écran ou une fenêtre d'application à partager.",
+        "audio_shared": "Le son du système sera partagé en même temps que l'écran.",
+        "audio_unavailable": "Le partage du son du système est disponible uniquement sous Windows.",
+        "cancel": "Annuler"
+      }
+    }
+  }
+}

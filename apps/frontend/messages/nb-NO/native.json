@@ -1,0 +1,40 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "native": {
+    "callback": {
+      "title": "Pålogging fullført",
+      "message": "Du kan gå tilbake til Chatto og lukke denne fanen."
+    },
+    "startup": {
+      "title": "Skrivebordsapp",
+      "launch_on_startup": "Åpne Chatto ved pålogging",
+      "launch_on_startup_description": "Start skrivebordsappen automatisk etter pålogging på denne enheten.",
+      "startup_saved": "Oppstartsinnstilling lagret",
+      "startup_failed": "Kunne ikke oppdatere oppstartsinnstillingen"
+    },
+    "tray": {
+      "open": "Åpne Chatto",
+      "mute": "Demp",
+      "unmute": "Slå på lyden",
+      "deafen": "Slå av all lyd",
+      "undeafen": "Slå på all lyd",
+      "quit": "Avslutt"
+    },
+    "notification": {
+      "reply_placeholder": "Svar…",
+      "reply_failed": "Kunne ikke sende svaret."
+    },
+    "ptt": {
+      "unavailable": "Global trykk-for-å-snakke kunne ikke aktiveres. Kontroller appens inndata- og tilgjengelighetstillatelser."
+    },
+    "screen_share": {
+      "picker": {
+        "title": "Velg hva du vil dele",
+        "subtitle": "Velg en skjerm eller et appvindu å dele.",
+        "audio_shared": "Systemlyden deles sammen med skjermen.",
+        "audio_unavailable": "Deling av systemlyd er kun tilgjengelig på Windows.",
+        "cancel": "Avbryt"
+      }
+    }
+  }
+}
