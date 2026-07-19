@@ -242,4 +242,3 @@ all fix files are committed.
 
 Push `feat/windows-desktop-poc`, inspect PR #20 with `gh`, and monitor its
 checks. Fix any regression introduced by this change before handoff.
-
