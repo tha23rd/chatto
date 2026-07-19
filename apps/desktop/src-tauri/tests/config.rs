@@ -44,12 +44,18 @@ fn one_named_capability_excludes_powerful_plugins() {
     let capability = json("capabilities/default.json");
     assert_eq!(capability["identifier"], "default");
     assert_eq!(capability["windows"], serde_json::json!(["main"]));
-    let encoded = serde_json::to_string(&capability["permissions"]).unwrap();
-    for forbidden in ["shell:", "fs:", "process:", "updater:", "autostart:"] {
-        assert!(
-            !encoded.contains(forbidden),
-            "unexpected permission: {forbidden}"
-        );
+    let permissions = capability["permissions"].as_array().unwrap();
+    for permission in permissions {
+        let identifier = permission
+            .as_str()
+            .or_else(|| permission["identifier"].as_str())
+            .expect("capability permission identifier");
+        for forbidden in ["shell:", "fs:", "process:", "updater:", "autostart:"] {
+            assert!(
+                !identifier.starts_with(forbidden),
+                "unexpected permission: {identifier}"
+            );
+        }
     }
 }
 
