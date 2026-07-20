@@ -107,6 +107,41 @@
     "preferences": {
       "title": "Exibição",
       "subtitle": "Escolha como Chatto aparece",
+      "desktop_updates": {
+        "title": "Atualizações para desktop",
+        "description": "Mantenha o aplicativo para Windows atualizado automaticamente.",
+        "current_version": "Versão atual: {version}",
+        "channel": {
+          "label": "Canal de atualizações",
+          "stable": {
+            "label": "Estável",
+            "description": "Recomendado. Receba versões testadas destinadas a todas as pessoas."
+          },
+          "nightly": {
+            "label": "Noturno",
+            "description": "Receba compilações antecipadas da main. Elas podem ser menos confiáveis."
+          }
+        },
+        "nightly_confirmation": {
+          "title": "Mudar para o canal Noturno?",
+          "body": "As compilações noturnas contêm as alterações mais recentes, mas podem ser instáveis. Você pode voltar ao canal Estável a qualquer momento.",
+          "confirm": "Mudar para Noturno"
+        },
+        "status_label": "Status",
+        "last_checked": "Última verificação: {time}",
+        "last_checked_unavailable": "Ainda não foi verificado",
+        "waiting_for_stable": {
+          "title": "Aguardando o canal Estável",
+          "body": "Esta versão noturna é mais recente que a última versão estável. O Chatto não instalará uma versão anterior; você receberá uma atualização quando o canal Estável alcançar esta versão."
+        },
+        "check_now": "Verificar agora",
+        "checking": "Verificando…",
+        "active_call": {
+          "title": "Reiniciar e sair da chamada?",
+          "body": "Reiniciar agora desconectará sua chamada ativa e encerrará qualquer compartilhamento de tela.",
+          "confirm": "Reiniciar e sair"
+        }
+      },
       "theme": {
         "title": "Tema",
         "system": {

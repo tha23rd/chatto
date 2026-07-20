@@ -8,6 +8,36 @@
     "realtime_paused": "Realtime updates onderbroken. Opnieuw verbinding maken...",
     "update_available": "Er is een nieuwe versie beschikbaar",
     "reload": "Opnieuw laden",
+    "desktop_updates": {
+      "status": {
+        "idle": "Bijgewerkt",
+        "checking": "Controleren op updates…",
+        "downloading": "Update downloaden…",
+        "downloading_progress": "Update downloaden… {percent}%",
+        "downloading_progress_bytes": "Update downloaden… {percent}% ({downloaded} van {total})",
+        "ready": "Klaar om te installeren",
+        "failed": "Updatecontrole mislukt"
+      },
+      "ready_version": "Versie {version} is klaar om te installeren.",
+      "restart_now": "Nu opnieuw starten",
+      "later": "Later",
+      "prompt": {
+        "title": "Update gereed",
+        "body": "Versie {version} is gedownload. Start Chatto opnieuw om de installatie te voltooien."
+      },
+      "error": {
+        "network": "De updateservice is niet bereikbaar. Controleer je verbinding en probeer het opnieuw.",
+        "metadata": "De update-informatie is ongeldig. Probeer het later opnieuw.",
+        "signature": "De update kon niet worden geverifieerd en is niet geïnstalleerd.",
+        "download": "De update kon niet worden gedownload. Probeer het opnieuw.",
+        "install": "De update kon niet worden geïnstalleerd. Start Chatto opnieuw en probeer het nogmaals.",
+        "unavailable": "Desktop-updates zijn tijdelijk niet beschikbaar."
+      },
+      "toast": {
+        "up_to_date": "Alles is bijgewerkt.",
+        "check_failed": "Kan niet controleren op updates."
+      }
+    },
     "sign_out": "Meld u af",
     "close": "Sluiten",
     "auth_status": {

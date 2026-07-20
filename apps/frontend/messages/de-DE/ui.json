@@ -8,6 +8,36 @@
     "realtime_paused": "Echtzeitaktualisierungen pausiert. Verbindung wird wiederhergestellt...",
     "update_available": "Eine neue Version ist verfügbar",
     "reload": "Neu laden",
+    "desktop_updates": {
+      "status": {
+        "idle": "Auf dem neuesten Stand",
+        "checking": "Updates werden gesucht…",
+        "downloading": "Update wird heruntergeladen…",
+        "downloading_progress": "Update wird heruntergeladen… {percent}%",
+        "downloading_progress_bytes": "Update wird heruntergeladen… {percent}% ({downloaded} von {total})",
+        "ready": "Bereit zur Installation",
+        "failed": "Update-Prüfung fehlgeschlagen"
+      },
+      "ready_version": "Version {version} ist bereit zur Installation.",
+      "restart_now": "Jetzt neu starten",
+      "later": "Später",
+      "prompt": {
+        "title": "Update bereit",
+        "body": "Version {version} wurde heruntergeladen. Starte Chatto neu, um die Installation abzuschließen."
+      },
+      "error": {
+        "network": "Der Update-Dienst ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.",
+        "metadata": "Die Update-Informationen sind ungültig. Versuche es später erneut.",
+        "signature": "Das Update konnte nicht verifiziert werden und wurde nicht installiert.",
+        "download": "Das Update konnte nicht heruntergeladen werden. Versuche es erneut.",
+        "install": "Das Update konnte nicht installiert werden. Starte Chatto neu und versuche es erneut.",
+        "unavailable": "Desktop-Updates sind vorübergehend nicht verfügbar."
+      },
+      "toast": {
+        "up_to_date": "Du bist auf dem neuesten Stand.",
+        "check_failed": "Updates konnten nicht geprüft werden."
+      }
+    },
     "sign_out": "Abmelden",
     "close": "Schließen",
     "auth_status": {

@@ -107,6 +107,41 @@
     "preferences": {
       "title": "Weergave",
       "subtitle": "Kies hoe Chatto wordt weergegeven",
+      "desktop_updates": {
+        "title": "Desktop-updates",
+        "description": "Houd de Windows-app automatisch bijgewerkt.",
+        "current_version": "Huidige versie: {version}",
+        "channel": {
+          "label": "Updatekanaal",
+          "stable": {
+            "label": "Stabiel",
+            "description": "Aanbevolen. Ontvang geteste versies die voor iedereen bedoeld zijn."
+          },
+          "nightly": {
+            "label": "Nachtelijk",
+            "description": "Ontvang vroege builds van main. Ze kunnen minder betrouwbaar zijn."
+          }
+        },
+        "nightly_confirmation": {
+          "title": "Overschakelen naar Nachtelijk?",
+          "body": "Nachtelijke builds bevatten de nieuwste wijzigingen, maar kunnen onstabiel zijn. Je kunt op elk moment terugkeren naar Stabiel.",
+          "confirm": "Overschakelen naar Nachtelijk"
+        },
+        "status_label": "Status",
+        "last_checked": "Laatst gecontroleerd: {time}",
+        "last_checked_unavailable": "Nog niet gecontroleerd",
+        "waiting_for_stable": {
+          "title": "Wachten op Stabiel",
+          "body": "Deze nachtelijke versie is nieuwer dan de laatste stabiele versie. Chatto voert geen downgrade uit; je ontvangt een update zodra Stabiel is bijgewerkt."
+        },
+        "check_now": "Nu controleren",
+        "checking": "Controleren…",
+        "active_call": {
+          "title": "Opnieuw starten en het gesprek verlaten?",
+          "body": "Als je nu opnieuw start, wordt je actieve gesprek verbroken en stopt elke schermdeling.",
+          "confirm": "Opnieuw starten en verlaten"
+        }
+      },
       "theme": {
         "title": "Thema",
         "system": {

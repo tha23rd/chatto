@@ -107,6 +107,41 @@
     "preferences": {
       "title": "Skärm",
       "subtitle": "Välj hur Chatto ska visas",
+      "desktop_updates": {
+        "title": "Skrivbordsuppdateringar",
+        "description": "Håll Windows-appen uppdaterad automatiskt.",
+        "current_version": "Aktuell version: {version}",
+        "channel": {
+          "label": "Uppdateringskanal",
+          "stable": {
+            "label": "Stabil",
+            "description": "Rekommenderas. Få testade versioner som är avsedda för alla."
+          },
+          "nightly": {
+            "label": "Nattlig",
+            "description": "Få tidiga byggen från main. De kan vara mindre tillförlitliga."
+          }
+        },
+        "nightly_confirmation": {
+          "title": "Byta till Nattlig?",
+          "body": "Nattliga byggen innehåller de senaste ändringarna, men kan vara instabila. Du kan återgå till Stabil när som helst.",
+          "confirm": "Byt till Nattlig"
+        },
+        "status_label": "Status",
+        "last_checked": "Senast kontrollerad: {time}",
+        "last_checked_unavailable": "Inte kontrollerad än",
+        "waiting_for_stable": {
+          "title": "Väntar på Stabil",
+          "body": "Den här nattliga versionen är nyare än den senaste stabila versionen. Chatto återgår inte till en äldre version. Du får en uppdatering när Stabil har kommit ikapp."
+        },
+        "check_now": "Sök nu",
+        "checking": "Söker…",
+        "active_call": {
+          "title": "Starta om och lämna samtalet?",
+          "body": "Om du startar om nu kopplas ditt aktiva samtal från och eventuell skärmdelning stoppas.",
+          "confirm": "Starta om och lämna"
+        }
+      },
       "theme": {
         "title": "Tema",
         "system": {

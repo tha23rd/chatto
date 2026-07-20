@@ -210,6 +210,31 @@ const msg_settings_profile_save_failed = (): LocalizedString => messages().setti
 const msg_settings_profile_save_button = (): LocalizedString => messages().settings_profile_save_button(empty());
 const msg_settings_preferences_title = (): LocalizedString => messages().settings_preferences_title(empty());
 const msg_settings_preferences_subtitle = (): LocalizedString => messages().settings_preferences_subtitle(empty());
+const msg_settings_preferences_desktop_updates_title = (): LocalizedString => messages().settings_preferences_desktop_updates_title(empty());
+const msg_settings_preferences_desktop_updates_description = (): LocalizedString => messages().settings_preferences_desktop_updates_description(empty());
+const msg_settings_preferences_desktop_updates_current_version = (
+  inputs: Parameters<LocaleMessages['settings_preferences_desktop_updates_current_version']>[0]
+): LocalizedString => messages().settings_preferences_desktop_updates_current_version(inputs);
+const msg_settings_preferences_desktop_updates_channel_label = (): LocalizedString => messages().settings_preferences_desktop_updates_channel_label(empty());
+const msg_settings_preferences_desktop_updates_channel_stable_label = (): LocalizedString => messages().settings_preferences_desktop_updates_channel_stable_label(empty());
+const msg_settings_preferences_desktop_updates_channel_stable_description = (): LocalizedString => messages().settings_preferences_desktop_updates_channel_stable_description(empty());
+const msg_settings_preferences_desktop_updates_channel_nightly_label = (): LocalizedString => messages().settings_preferences_desktop_updates_channel_nightly_label(empty());
+const msg_settings_preferences_desktop_updates_channel_nightly_description = (): LocalizedString => messages().settings_preferences_desktop_updates_channel_nightly_description(empty());
+const msg_settings_preferences_desktop_updates_nightly_confirmation_title = (): LocalizedString => messages().settings_preferences_desktop_updates_nightly_confirmation_title(empty());
+const msg_settings_preferences_desktop_updates_nightly_confirmation_body = (): LocalizedString => messages().settings_preferences_desktop_updates_nightly_confirmation_body(empty());
+const msg_settings_preferences_desktop_updates_nightly_confirmation_confirm = (): LocalizedString => messages().settings_preferences_desktop_updates_nightly_confirmation_confirm(empty());
+const msg_settings_preferences_desktop_updates_status_label = (): LocalizedString => messages().settings_preferences_desktop_updates_status_label(empty());
+const msg_settings_preferences_desktop_updates_last_checked = (
+  inputs: Parameters<LocaleMessages['settings_preferences_desktop_updates_last_checked']>[0]
+): LocalizedString => messages().settings_preferences_desktop_updates_last_checked(inputs);
+const msg_settings_preferences_desktop_updates_last_checked_unavailable = (): LocalizedString => messages().settings_preferences_desktop_updates_last_checked_unavailable(empty());
+const msg_settings_preferences_desktop_updates_waiting_for_stable_title = (): LocalizedString => messages().settings_preferences_desktop_updates_waiting_for_stable_title(empty());
+const msg_settings_preferences_desktop_updates_waiting_for_stable_body = (): LocalizedString => messages().settings_preferences_desktop_updates_waiting_for_stable_body(empty());
+const msg_settings_preferences_desktop_updates_check_now = (): LocalizedString => messages().settings_preferences_desktop_updates_check_now(empty());
+const msg_settings_preferences_desktop_updates_checking = (): LocalizedString => messages().settings_preferences_desktop_updates_checking(empty());
+const msg_settings_preferences_desktop_updates_active_call_title = (): LocalizedString => messages().settings_preferences_desktop_updates_active_call_title(empty());
+const msg_settings_preferences_desktop_updates_active_call_body = (): LocalizedString => messages().settings_preferences_desktop_updates_active_call_body(empty());
+const msg_settings_preferences_desktop_updates_active_call_confirm = (): LocalizedString => messages().settings_preferences_desktop_updates_active_call_confirm(empty());
 const msg_settings_preferences_theme_title = (): LocalizedString => messages().settings_preferences_theme_title(empty());
 const msg_settings_preferences_theme_system_label = (): LocalizedString => messages().settings_preferences_theme_system_label(empty());
 const msg_settings_preferences_theme_system_description = (): LocalizedString => messages().settings_preferences_theme_system_description(empty());
@@ -916,6 +941,34 @@ const msg_ui_quick_switcher_shortcut = (): LocalizedString => messages().ui_quic
 const msg_ui_realtime_paused = (): LocalizedString => messages().ui_realtime_paused(empty());
 const msg_ui_update_available = (): LocalizedString => messages().ui_update_available(empty());
 const msg_ui_reload = (): LocalizedString => messages().ui_reload(empty());
+const msg_ui_desktop_updates_status_idle = (): LocalizedString => messages().ui_desktop_updates_status_idle(empty());
+const msg_ui_desktop_updates_status_checking = (): LocalizedString => messages().ui_desktop_updates_status_checking(empty());
+const msg_ui_desktop_updates_status_downloading = (): LocalizedString => messages().ui_desktop_updates_status_downloading(empty());
+const msg_ui_desktop_updates_status_downloading_progress = (
+  inputs: Parameters<LocaleMessages['ui_desktop_updates_status_downloading_progress']>[0]
+): LocalizedString => messages().ui_desktop_updates_status_downloading_progress(inputs);
+const msg_ui_desktop_updates_status_downloading_progress_bytes = (
+  inputs: Parameters<LocaleMessages['ui_desktop_updates_status_downloading_progress_bytes']>[0]
+): LocalizedString => messages().ui_desktop_updates_status_downloading_progress_bytes(inputs);
+const msg_ui_desktop_updates_status_ready = (): LocalizedString => messages().ui_desktop_updates_status_ready(empty());
+const msg_ui_desktop_updates_status_failed = (): LocalizedString => messages().ui_desktop_updates_status_failed(empty());
+const msg_ui_desktop_updates_ready_version = (
+  inputs: Parameters<LocaleMessages['ui_desktop_updates_ready_version']>[0]
+): LocalizedString => messages().ui_desktop_updates_ready_version(inputs);
+const msg_ui_desktop_updates_restart_now = (): LocalizedString => messages().ui_desktop_updates_restart_now(empty());
+const msg_ui_desktop_updates_later = (): LocalizedString => messages().ui_desktop_updates_later(empty());
+const msg_ui_desktop_updates_prompt_title = (): LocalizedString => messages().ui_desktop_updates_prompt_title(empty());
+const msg_ui_desktop_updates_prompt_body = (
+  inputs: Parameters<LocaleMessages['ui_desktop_updates_prompt_body']>[0]
+): LocalizedString => messages().ui_desktop_updates_prompt_body(inputs);
+const msg_ui_desktop_updates_error_network = (): LocalizedString => messages().ui_desktop_updates_error_network(empty());
+const msg_ui_desktop_updates_error_metadata = (): LocalizedString => messages().ui_desktop_updates_error_metadata(empty());
+const msg_ui_desktop_updates_error_signature = (): LocalizedString => messages().ui_desktop_updates_error_signature(empty());
+const msg_ui_desktop_updates_error_download = (): LocalizedString => messages().ui_desktop_updates_error_download(empty());
+const msg_ui_desktop_updates_error_install = (): LocalizedString => messages().ui_desktop_updates_error_install(empty());
+const msg_ui_desktop_updates_error_unavailable = (): LocalizedString => messages().ui_desktop_updates_error_unavailable(empty());
+const msg_ui_desktop_updates_toast_up_to_date = (): LocalizedString => messages().ui_desktop_updates_toast_up_to_date(empty());
+const msg_ui_desktop_updates_toast_check_failed = (): LocalizedString => messages().ui_desktop_updates_toast_check_failed(empty());
 const msg_ui_sign_out = (): LocalizedString => messages().ui_sign_out(empty());
 const msg_ui_close = (): LocalizedString => messages().ui_close(empty());
 const msg_ui_auth_status_origin_title = (): LocalizedString => messages().ui_auth_status_origin_title(empty());
@@ -1910,6 +1963,27 @@ export { msg_settings_profile_save_failed as 'settings.profile.save_failed' };
 export { msg_settings_profile_save_button as 'settings.profile.save_button' };
 export { msg_settings_preferences_title as 'settings.preferences.title' };
 export { msg_settings_preferences_subtitle as 'settings.preferences.subtitle' };
+export { msg_settings_preferences_desktop_updates_title as 'settings.preferences.desktop_updates.title' };
+export { msg_settings_preferences_desktop_updates_description as 'settings.preferences.desktop_updates.description' };
+export { msg_settings_preferences_desktop_updates_current_version as 'settings.preferences.desktop_updates.current_version' };
+export { msg_settings_preferences_desktop_updates_channel_label as 'settings.preferences.desktop_updates.channel.label' };
+export { msg_settings_preferences_desktop_updates_channel_stable_label as 'settings.preferences.desktop_updates.channel.stable.label' };
+export { msg_settings_preferences_desktop_updates_channel_stable_description as 'settings.preferences.desktop_updates.channel.stable.description' };
+export { msg_settings_preferences_desktop_updates_channel_nightly_label as 'settings.preferences.desktop_updates.channel.nightly.label' };
+export { msg_settings_preferences_desktop_updates_channel_nightly_description as 'settings.preferences.desktop_updates.channel.nightly.description' };
+export { msg_settings_preferences_desktop_updates_nightly_confirmation_title as 'settings.preferences.desktop_updates.nightly_confirmation.title' };
+export { msg_settings_preferences_desktop_updates_nightly_confirmation_body as 'settings.preferences.desktop_updates.nightly_confirmation.body' };
+export { msg_settings_preferences_desktop_updates_nightly_confirmation_confirm as 'settings.preferences.desktop_updates.nightly_confirmation.confirm' };
+export { msg_settings_preferences_desktop_updates_status_label as 'settings.preferences.desktop_updates.status_label' };
+export { msg_settings_preferences_desktop_updates_last_checked as 'settings.preferences.desktop_updates.last_checked' };
+export { msg_settings_preferences_desktop_updates_last_checked_unavailable as 'settings.preferences.desktop_updates.last_checked_unavailable' };
+export { msg_settings_preferences_desktop_updates_waiting_for_stable_title as 'settings.preferences.desktop_updates.waiting_for_stable.title' };
+export { msg_settings_preferences_desktop_updates_waiting_for_stable_body as 'settings.preferences.desktop_updates.waiting_for_stable.body' };
+export { msg_settings_preferences_desktop_updates_check_now as 'settings.preferences.desktop_updates.check_now' };
+export { msg_settings_preferences_desktop_updates_checking as 'settings.preferences.desktop_updates.checking' };
+export { msg_settings_preferences_desktop_updates_active_call_title as 'settings.preferences.desktop_updates.active_call.title' };
+export { msg_settings_preferences_desktop_updates_active_call_body as 'settings.preferences.desktop_updates.active_call.body' };
+export { msg_settings_preferences_desktop_updates_active_call_confirm as 'settings.preferences.desktop_updates.active_call.confirm' };
 export { msg_settings_preferences_theme_title as 'settings.preferences.theme.title' };
 export { msg_settings_preferences_theme_system_label as 'settings.preferences.theme.system.label' };
 export { msg_settings_preferences_theme_system_description as 'settings.preferences.theme.system.description' };
@@ -2516,6 +2590,26 @@ export { msg_ui_quick_switcher_shortcut as 'ui.quick_switcher_shortcut' };
 export { msg_ui_realtime_paused as 'ui.realtime_paused' };
 export { msg_ui_update_available as 'ui.update_available' };
 export { msg_ui_reload as 'ui.reload' };
+export { msg_ui_desktop_updates_status_idle as 'ui.desktop_updates.status.idle' };
+export { msg_ui_desktop_updates_status_checking as 'ui.desktop_updates.status.checking' };
+export { msg_ui_desktop_updates_status_downloading as 'ui.desktop_updates.status.downloading' };
+export { msg_ui_desktop_updates_status_downloading_progress as 'ui.desktop_updates.status.downloading_progress' };
+export { msg_ui_desktop_updates_status_downloading_progress_bytes as 'ui.desktop_updates.status.downloading_progress_bytes' };
+export { msg_ui_desktop_updates_status_ready as 'ui.desktop_updates.status.ready' };
+export { msg_ui_desktop_updates_status_failed as 'ui.desktop_updates.status.failed' };
+export { msg_ui_desktop_updates_ready_version as 'ui.desktop_updates.ready_version' };
+export { msg_ui_desktop_updates_restart_now as 'ui.desktop_updates.restart_now' };
+export { msg_ui_desktop_updates_later as 'ui.desktop_updates.later' };
+export { msg_ui_desktop_updates_prompt_title as 'ui.desktop_updates.prompt.title' };
+export { msg_ui_desktop_updates_prompt_body as 'ui.desktop_updates.prompt.body' };
+export { msg_ui_desktop_updates_error_network as 'ui.desktop_updates.error.network' };
+export { msg_ui_desktop_updates_error_metadata as 'ui.desktop_updates.error.metadata' };
+export { msg_ui_desktop_updates_error_signature as 'ui.desktop_updates.error.signature' };
+export { msg_ui_desktop_updates_error_download as 'ui.desktop_updates.error.download' };
+export { msg_ui_desktop_updates_error_install as 'ui.desktop_updates.error.install' };
+export { msg_ui_desktop_updates_error_unavailable as 'ui.desktop_updates.error.unavailable' };
+export { msg_ui_desktop_updates_toast_up_to_date as 'ui.desktop_updates.toast.up_to_date' };
+export { msg_ui_desktop_updates_toast_check_failed as 'ui.desktop_updates.toast.check_failed' };
 export { msg_ui_sign_out as 'ui.sign_out' };
 export { msg_ui_close as 'ui.close' };
 export { msg_ui_auth_status_origin_title as 'ui.auth_status.origin_title' };

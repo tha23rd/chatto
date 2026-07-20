@@ -8,6 +8,36 @@
     "realtime_paused": "Real-time updates paused. Reconnecting...",
     "update_available": "A new version is available",
     "reload": "Reload",
+    "desktop_updates": {
+      "status": {
+        "idle": "Up to date",
+        "checking": "Checking for updates…",
+        "downloading": "Downloading update…",
+        "downloading_progress": "Downloading update… {percent}%",
+        "downloading_progress_bytes": "Downloading update… {percent}% ({downloaded} of {total})",
+        "ready": "Ready to install",
+        "failed": "Update check failed"
+      },
+      "ready_version": "Version {version} is ready to install.",
+      "restart_now": "Restart now",
+      "later": "Later",
+      "prompt": {
+        "title": "Update ready",
+        "body": "Version {version} has been downloaded. Restart Chatto to finish installing it."
+      },
+      "error": {
+        "network": "Could not reach the update service. Check your connection and try again.",
+        "metadata": "The update information is invalid. Try again later.",
+        "signature": "The update could not be verified and was not installed.",
+        "download": "The update could not be downloaded. Try again.",
+        "install": "The update could not be installed. Restart Chatto and try again.",
+        "unavailable": "Desktop updates are temporarily unavailable."
+      },
+      "toast": {
+        "up_to_date": "You are up to date.",
+        "check_failed": "Could not check for updates."
+      }
+    },
     "sign_out": "Sign out",
     "close": "Close",
     "auth_status": {

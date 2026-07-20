@@ -8,6 +8,36 @@
     "realtime_paused": "Actualizaciones en tiempo real pausadas. Reconectando...",
     "update_available": "Una nueva versión está disponible",
     "reload": "Recargar",
+    "desktop_updates": {
+      "status": {
+        "idle": "Todo está actualizado",
+        "checking": "Buscando actualizaciones…",
+        "downloading": "Descargando actualización…",
+        "downloading_progress": "Descargando actualización… {percent}%",
+        "downloading_progress_bytes": "Descargando actualización… {percent}% ({downloaded} de {total})",
+        "ready": "Lista para instalar",
+        "failed": "Ha fallado la búsqueda de actualizaciones"
+      },
+      "ready_version": "La versión {version} está lista para instalar.",
+      "restart_now": "Reiniciar ahora",
+      "later": "Más tarde",
+      "prompt": {
+        "title": "Actualización lista",
+        "body": "Se ha descargado la versión {version}. Reinicia Chatto para terminar de instalarla."
+      },
+      "error": {
+        "network": "No se ha podido contactar con el servicio de actualizaciones. Comprueba tu conexión e inténtalo de nuevo.",
+        "metadata": "La información de la actualización no es válida. Inténtalo más tarde.",
+        "signature": "No se ha podido verificar la actualización y no se ha instalado.",
+        "download": "No se ha podido descargar la actualización. Inténtalo de nuevo.",
+        "install": "No se ha podido instalar la actualización. Reinicia Chatto e inténtalo de nuevo.",
+        "unavailable": "Las actualizaciones de escritorio no están disponibles temporalmente."
+      },
+      "toast": {
+        "up_to_date": "Todo está actualizado.",
+        "check_failed": "No se han podido buscar actualizaciones."
+      }
+    },
     "sign_out": "Cerrar sesión",
     "close": "Cerrar",
     "auth_status": {

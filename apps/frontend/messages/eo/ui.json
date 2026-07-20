@@ -8,6 +8,36 @@
     "realtime_paused": "Realtempaj ĝisdatigoj paŭzis. Rekonektante...",
     "update_available": "Nova versio disponeblas",
     "reload": "Reŝargi",
+    "desktop_updates": {
+      "status": {
+        "idle": "Ĝisdata",
+        "checking": "Kontrolante ĝisdatigojn…",
+        "downloading": "Elŝutante ĝisdatigon…",
+        "downloading_progress": "Elŝutante ĝisdatigon… {percent}%",
+        "downloading_progress_bytes": "Elŝutante ĝisdatigon… {percent}% ({downloaded} el {total})",
+        "ready": "Preta por instalo",
+        "failed": "Kontrolo de ĝisdatigoj malsukcesis"
+      },
+      "ready_version": "Versio {version} estas preta por instalo.",
+      "restart_now": "Restartigi nun",
+      "later": "Poste",
+      "prompt": {
+        "title": "Ĝisdatigo preta",
+        "body": "Versio {version} estas elŝutita. Restartigu Chatto por fini ĝian instalon."
+      },
+      "error": {
+        "network": "Ne eblis atingi la ĝisdatigan servon. Kontrolu vian konekton kaj reprovu.",
+        "metadata": "La ĝisdatigaj informoj estas nevalidaj. Reprovu poste.",
+        "signature": "La ĝisdatigo ne povis esti kontrolita kaj ne estis instalita.",
+        "download": "La ĝisdatigo ne povis esti elŝutita. Reprovu.",
+        "install": "La ĝisdatigo ne povis esti instalita. Restartigu Chatto kaj reprovu.",
+        "unavailable": "Labortablaj ĝisdatigoj estas provizore nedisponeblaj."
+      },
+      "toast": {
+        "up_to_date": "Ĉio estas ĝisdata.",
+        "check_failed": "Ne eblis kontroli ĝisdatigojn."
+      }
+    },
     "sign_out": "Eliru",
     "close": "Fermu",
     "auth_status": {
