@@ -3,8 +3,7 @@
 set -euo pipefail
 
 for name in VERSION RELEASE_TAG INSTALLER_NAME MANIFEST_NAME METADATA_NAME RELEASE_KIND \
-  GITHUB_REPOSITORY GITHUB_SHA GH_TOKEN CHATTO_WINDOWS_SIGNER_SUBJECT \
-  CHATTO_DESKTOP_UPDATER_PUBLIC_KEY; do
+  GITHUB_REPOSITORY GITHUB_SHA GH_TOKEN; do
   if [[ -z "${!name:-}" ]]; then
     echo "::error::${name} is required"
     exit 1
@@ -24,7 +23,10 @@ else
   exit 1
 fi
 [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo '::error::Invalid source SHA.'; exit 1; }
-[[ "$GITHUB_REPOSITORY" == 'chattocorp/chatto' ]] || { echo '::error::Unexpected release repository.'; exit 1; }
+[[ "$GITHUB_REPOSITORY" == 'tha23rd/chatto' ]] || { echo '::error::Unexpected release repository.'; exit 1; }
+
+updater_public_key="$(tr -d '\r\n' <apps/desktop/updater-public-key.txt)"
+[[ -n "$updater_public_key" ]] || { echo '::error::Checked-in updater public key is empty.'; exit 1; }
 
 expected_tag="desktop-v${VERSION}"
 expected_installer="Chatto_${VERSION}_x64-setup.exe"
@@ -54,8 +56,8 @@ mapfile -t staged_assets < <(find "$asset_directory" -maxdepth 1 -type f -printf
   sha256sum --check "${INSTALLER_NAME}.sha256"
 )
 node apps/desktop/scripts/update-manifest.mjs verify --manifest "${asset_directory}/${MANIFEST_NAME}"
-jq -e --arg version "$VERSION" --arg sha "$GITHUB_SHA" --arg publisher "$CHATTO_WINDOWS_SIGNER_SUBJECT" \
-  '.version == $version and .sourceSha == $sha and .publisher == $publisher' \
+jq -e --arg version "$VERSION" --arg sha "$GITHUB_SHA" \
+  '.version == $version and .sourceSha == $sha and .authenticode == false and .publisher == null' \
   "${asset_directory}/${METADATA_NAME}" >/dev/null
 
 release_json="${RUNNER_TEMP:-/tmp}/desktop-release.json"
@@ -66,7 +68,7 @@ verification_directory="${RUNNER_TEMP:-/tmp}/desktop-release-verification"
   echo
   echo "- Version: \`${VERSION}\`"
   echo "- Source commit: \`${GITHUB_SHA}\`"
-  echo "- Authenticode publisher: \`${CHATTO_WINDOWS_SIGNER_SUBJECT}\`"
+  echo '- Authenticode: not enabled for this beta release'
 } >"$release_notes"
 
 load_release() {
@@ -104,9 +106,9 @@ verify_downloaded_assets() {
   pwsh -NoProfile -NonInteractive -File apps/desktop/scripts/verify-package.ps1 \
     -PackagePath "${verification_directory}/${INSTALLER_NAME}" \
     -OutputDirectory "${verification_directory}/verification-report" \
-    -ExpectedSignerSubject "$CHATTO_WINDOWS_SIGNER_SUBJECT" \
+    -SkipAuthenticode \
     -UpdaterSignaturePath "${verification_directory}/${INSTALLER_NAME}.sig" \
-    -UpdaterPublicKey "$CHATTO_DESKTOP_UPDATER_PUBLIC_KEY"
+    -UpdaterPublicKey "$updater_public_key"
 }
 
 if load_release; then
@@ -131,8 +133,8 @@ load_release
 verify_release_metadata true
 verify_downloaded_assets
 
-# Only expose the release after every stored byte, Authenticode publisher, and
-# updater signature have been reverified from GitHub.
+# Only expose the release after every stored byte and updater signature have
+# been reverified from GitHub.
 gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease="$prerelease"
 load_release
 verify_release_metadata false

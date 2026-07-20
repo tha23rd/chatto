@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 
-const REPOSITORY = "chattocorp/chatto";
+const REPOSITORY = "tha23rd/chatto";
 const STABLE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const NIGHTLY_VERSION =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-nightly\.\d{14}\.(0|[1-9]\d*)$/;

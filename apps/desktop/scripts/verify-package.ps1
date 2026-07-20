@@ -8,6 +8,8 @@ param(
 
     [string]$ExpectedSignerSubject,
 
+    [switch]$SkipAuthenticode,
+
     [string]$UpdaterSignaturePath,
 
     [string]$UpdaterPublicKey
@@ -51,7 +53,13 @@ $resolvedOutput = [System.IO.Path]::GetFullPath($OutputDirectory)
 [void](New-Item -ItemType Directory -Path $resolvedOutput -Force)
 $hash = Get-FileHash -LiteralPath $resolvedPackage -Algorithm SHA256
 $signature = Get-AuthenticodeSignature -LiteralPath $resolvedPackage
-if (-not [string]::IsNullOrWhiteSpace($ExpectedSignerSubject)) {
+if ($SkipAuthenticode -and -not [string]::IsNullOrWhiteSpace($ExpectedSignerSubject)) {
+    throw 'ExpectedSignerSubject cannot be used when Authenticode verification is skipped.'
+}
+if (-not $SkipAuthenticode) {
+    if ([string]::IsNullOrWhiteSpace($ExpectedSignerSubject)) {
+        throw 'ExpectedSignerSubject is required unless Authenticode verification is skipped.'
+    }
     if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
         throw "The Authenticode signature is not valid: $($signature.Status)."
     }
@@ -101,6 +109,7 @@ $report = [PSCustomObject]@{
     }
     ProductName = [string]$package.VersionInfo.ProductName
     ProductVersion = [string]$package.VersionInfo.ProductVersion
+    AuthenticodeRequired = -not $SkipAuthenticode
     UpdaterSignatureVerified = -not [string]::IsNullOrWhiteSpace($UpdaterSignaturePath)
 }
 
