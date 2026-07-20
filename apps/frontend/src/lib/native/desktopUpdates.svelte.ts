@@ -29,8 +29,12 @@ export class DesktopUpdatesCoordinator {
   #unsubscribe: Unsubscribe | null = null;
   #checkTimer: ReturnType<typeof setInterval> | null = null;
   #setupRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  #channelRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  #resolveChannelRetry: (() => void) | null = null;
   #checkPromise: Promise<DesktopUpdateSnapshot> | null = null;
   #channelMutation: Promise<DesktopUpdateSnapshot> | null = null;
+  #requestedChannel: DesktopUpdateChannel | null = null;
+  #nativeChannel: DesktopUpdateChannel | null = null;
   #installPromise: Promise<void> | null = null;
   #lifecycle = 0;
 
@@ -85,6 +89,7 @@ export class DesktopUpdatesCoordinator {
         this.#preferences.desktopUpdateChannel
       );
       if (lifecycle !== this.#lifecycle) return;
+      this.#nativeChannel = channelSnapshot.channel;
       this.#handleNativeSnapshot(channelSnapshot, lifecycle, host);
 
       await this.#runCheck(lifecycle, host);
@@ -111,12 +116,15 @@ export class DesktopUpdatesCoordinator {
     this.#initializing = null;
     this.#checkPromise = null;
     this.#channelMutation = null;
+    this.#requestedChannel = null;
+    this.#nativeChannel = null;
     this.#host = null;
     if (this.#checkTimer !== null) {
       clearInterval(this.#checkTimer);
       this.#checkTimer = null;
     }
     this.#clearSetupRetryTimer();
+    this.#clearChannelRetryTimer();
     const unsubscribe = this.#unsubscribe;
     this.#unsubscribe = null;
     if (unsubscribe) await this.#safelyUnsubscribe(unsubscribe);
@@ -160,16 +168,9 @@ export class DesktopUpdatesCoordinator {
     return installing;
   }
 
-  /** Persist a channel selection, discard stale presentation, and re-check it. */
+  /** Apply the latest channel selection natively before persisting and presenting it. */
   setChannel(channel: DesktopUpdateChannel): Promise<DesktopUpdateSnapshot> {
-    this.#preferences.desktopUpdateChannel = channel;
-    this.snapshot = {
-      supported: this.snapshot.supported,
-      channel,
-      phase: 'idle',
-      currentVersion: this.snapshot.currentVersion,
-      lastCheckedAt: this.snapshot.lastCheckedAt
-    };
+    this.#requestedChannel = channel;
 
     const lifecycle = this.#lifecycle;
     const previousMutation = this.#channelMutation;
@@ -184,41 +185,52 @@ export class DesktopUpdatesCoordinator {
   }
 
   async #reconcileSelectedChannel(lifecycle: number): Promise<DesktopUpdateSnapshot> {
-    if (lifecycle !== this.#lifecycle) return this.snapshot;
-    const alreadyStarted = this.#initialized || this.#initializing !== null;
-    await this.initialize();
-    if (lifecycle !== this.#lifecycle) return this.snapshot;
-    const host = this.#host;
-    if (!host?.capabilities.desktopUpdates) return this.snapshot;
-    if (!alreadyStarted) return this.snapshot;
+    while (lifecycle === this.#lifecycle && this.#requestedChannel !== null) {
+      await this.initialize();
+      if (lifecycle !== this.#lifecycle) return this.snapshot;
+      const host = this.#host;
+      if (!host?.capabilities.desktopUpdates) return this.snapshot;
 
-    const selectedChannel = this.#preferences.desktopUpdateChannel;
-    try {
-      const channelSnapshot = await host.setDesktopUpdateChannel(selectedChannel);
+      const activeCheck = this.#checkPromise;
+      if (activeCheck) await activeCheck;
       if (lifecycle !== this.#lifecycle || host !== this.#host) return this.snapshot;
-      if (selectedChannel !== this.#preferences.desktopUpdateChannel) return this.snapshot;
-      this.#handleNativeSnapshot(channelSnapshot, lifecycle, host);
-    } catch {
-      if (
-        lifecycle === this.#lifecycle &&
-        host === this.#host &&
-        selectedChannel === this.#preferences.desktopUpdateChannel
-      ) {
-        this.#recordUnavailableFailure(lifecycle, host);
-      }
-      return this.snapshot;
-    }
 
-    const previousCheck = this.#checkPromise;
-    if (previousCheck) await previousCheck;
-    if (
-      lifecycle !== this.#lifecycle ||
-      host !== this.#host ||
-      selectedChannel !== this.#preferences.desktopUpdateChannel
-    ) {
-      return this.snapshot;
+      const selectedChannel = this.#requestedChannel;
+      if (selectedChannel === null) return this.snapshot;
+      if (
+        selectedChannel === this.#preferences.desktopUpdateChannel &&
+        selectedChannel === this.#nativeChannel
+      ) {
+        this.#requestedChannel = null;
+        return this.snapshot;
+      }
+
+      let channelSnapshot: DesktopUpdateSnapshot;
+      try {
+        channelSnapshot = await host.setDesktopUpdateChannel(selectedChannel);
+      } catch {
+        if (lifecycle !== this.#lifecycle || host !== this.#host) return this.snapshot;
+        if (selectedChannel !== this.#requestedChannel) continue;
+        await this.#waitForChannelRetry(lifecycle);
+        continue;
+      }
+      if (lifecycle !== this.#lifecycle || host !== this.#host) return this.snapshot;
+      this.#nativeChannel = channelSnapshot.channel;
+
+      // A newer selection may have arrived while the native request was in flight.
+      // Leave the accepted presentation untouched and immediately converge again.
+      if (selectedChannel !== this.#requestedChannel) continue;
+      if (channelSnapshot.channel !== selectedChannel) {
+        await this.#waitForChannelRetry(lifecycle);
+        continue;
+      }
+
+      this.#preferences.desktopUpdateChannel = selectedChannel;
+      this.#requestedChannel = null;
+      this.#handleNativeSnapshot(channelSnapshot, lifecycle, host);
+      await this.#runCheck(lifecycle, host);
     }
-    return this.#runCheck(lifecycle, host);
+    return this.snapshot;
   }
 
   #handleNativeSnapshot(
@@ -289,6 +301,34 @@ export class DesktopUpdatesCoordinator {
     if (this.#setupRetryTimer === null) return;
     clearTimeout(this.#setupRetryTimer);
     this.#setupRetryTimer = null;
+  }
+
+  #waitForChannelRetry(lifecycle: number): Promise<void> {
+    if (lifecycle !== this.#lifecycle) return Promise.resolve();
+    if (this.#channelRetryTimer !== null) {
+      return new Promise((resolve) => {
+        const existingResolve = this.#resolveChannelRetry;
+        this.#resolveChannelRetry = () => {
+          existingResolve?.();
+          resolve();
+        };
+      });
+    }
+
+    return new Promise((resolve) => {
+      const finish = () => {
+        if (this.#channelRetryTimer !== null) clearTimeout(this.#channelRetryTimer);
+        this.#channelRetryTimer = null;
+        this.#resolveChannelRetry = null;
+        resolve();
+      };
+      this.#resolveChannelRetry = finish;
+      this.#channelRetryTimer = setTimeout(finish, DESKTOP_UPDATE_SETUP_RETRY_MS);
+    });
+  }
+
+  #clearChannelRetryTimer(): void {
+    this.#resolveChannelRetry?.();
   }
 
   async #safelyUnsubscribe(unsubscribe: Unsubscribe): Promise<void> {

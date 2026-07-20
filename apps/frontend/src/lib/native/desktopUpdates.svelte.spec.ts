@@ -45,10 +45,12 @@ function createDesktopHost(overrides: Partial<NativeHost> = {}) {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((fulfil) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((fulfil, fail) => {
     resolve = fulfil;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 describe('DesktopUpdatesCoordinator', () => {
@@ -347,7 +349,7 @@ describe('DesktopUpdatesCoordinator', () => {
     expect(desktop.unsubscribe).toHaveBeenCalledOnce();
   });
 
-  it('persists channel changes, discards stale candidates, and triggers a fresh check', async () => {
+  it('persists channel changes only after native acceptance and triggers a fresh check', async () => {
     const desktop = createDesktopHost();
     const preferences: TestPreferences = { desktopUpdateChannel: 'stable' };
     const coordinator = createCoordinator(desktop.host, preferences);
@@ -361,14 +363,94 @@ describe('DesktopUpdatesCoordinator', () => {
 
     const changingChannel = coordinator.setChannel('nightly');
 
+    await changingChannel;
     expect(preferences.desktopUpdateChannel).toBe('nightly');
     expect(coordinator.snapshot).toMatchObject({ channel: 'nightly', phase: 'idle' });
     expect(coordinator.snapshot.candidateVersion).toBeUndefined();
-    desktop.emit({ ...idleUpdate, phase: 'ready', candidateVersion: '0.2.0' });
-    expect(coordinator.snapshot.candidateVersion).toBeUndefined();
-    await changingChannel;
     expect(desktop.host.setDesktopUpdateChannel).toHaveBeenLastCalledWith('nightly');
     expect(desktop.host.checkForDesktopUpdate).toHaveBeenCalledTimes(2);
+
+    desktop.emit({ ...idleUpdate, phase: 'ready', candidateVersion: '0.2.0-stale' });
+    expect(coordinator.snapshot.candidateVersion).toBeUndefined();
+  });
+
+  it('waits for an active check before changing and persisting the native channel', async () => {
+    const activeCheck = deferred<DesktopUpdateSnapshot>();
+    const desktop = createDesktopHost();
+    const preferences: TestPreferences = { desktopUpdateChannel: 'stable' };
+    const coordinator = createCoordinator(desktop.host, preferences);
+    await coordinator.initialize();
+    vi.mocked(desktop.host.checkForDesktopUpdate).mockImplementationOnce(() => activeCheck.promise);
+
+    const checking = coordinator.checkNow();
+    const changingChannel = coordinator.setChannel('nightly');
+
+    expect(desktop.host.setDesktopUpdateChannel).toHaveBeenCalledTimes(1);
+    expect(preferences.desktopUpdateChannel).toBe('stable');
+    expect(coordinator.snapshot.channel).toBe('stable');
+
+    activeCheck.resolve({ ...idleUpdate, phase: 'idle' });
+    await Promise.all([checking, changingChannel]);
+
+    expect(desktop.host.setDesktopUpdateChannel).toHaveBeenLastCalledWith('nightly');
+    expect(preferences.desktopUpdateChannel).toBe('nightly');
+    expect(coordinator.snapshot.channel).toBe('nightly');
+  });
+
+  it('retries an independently busy channel change without exposing a permanent failure', async () => {
+    vi.useFakeTimers();
+    const desktop = createDesktopHost();
+    const preferences: TestPreferences = { desktopUpdateChannel: 'stable' };
+    const coordinator = createCoordinator(desktop.host, preferences);
+    await coordinator.initialize();
+    const busyAttempt = deferred<DesktopUpdateSnapshot>();
+    vi.mocked(desktop.host.setDesktopUpdateChannel)
+      .mockImplementationOnce(() => busyAttempt.promise)
+      .mockImplementationOnce(async (channel) => ({ ...idleUpdate, channel }));
+
+    const changingChannel = coordinator.setChannel('nightly');
+    await vi.waitFor(() => expect(desktop.host.setDesktopUpdateChannel).toHaveBeenCalledTimes(2));
+    busyAttempt.reject(new Error('unavailable'));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(preferences.desktopUpdateChannel).toBe('stable');
+    expect(coordinator.snapshot).toMatchObject({ channel: 'stable', phase: 'idle' });
+    await vi.advanceTimersByTimeAsync(DESKTOP_UPDATE_SETUP_RETRY_MS - 1);
+    expect(desktop.host.setDesktopUpdateChannel).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    await changingChannel;
+
+    expect(desktop.host.setDesktopUpdateChannel).toHaveBeenLastCalledWith('nightly');
+    expect(preferences.desktopUpdateChannel).toBe('nightly');
+    expect(coordinator.snapshot).toMatchObject({ channel: 'nightly', phase: 'idle' });
+  });
+
+  it('coalesces selections made while a busy channel change is waiting to retry', async () => {
+    vi.useFakeTimers();
+    const desktop = createDesktopHost();
+    const preferences: TestPreferences = { desktopUpdateChannel: 'stable' };
+    const coordinator = createCoordinator(desktop.host, preferences);
+    await coordinator.initialize();
+    const busyAttempt = deferred<DesktopUpdateSnapshot>();
+    vi.mocked(desktop.host.setDesktopUpdateChannel)
+      .mockImplementationOnce(() => busyAttempt.promise)
+      .mockImplementation(async (channel) => ({ ...idleUpdate, channel }));
+
+    const firstSelection = coordinator.setChannel('nightly');
+    await vi.waitFor(() => expect(desktop.host.setDesktopUpdateChannel).toHaveBeenCalledTimes(2));
+    busyAttempt.reject(new Error('unavailable'));
+    await vi.advanceTimersByTimeAsync(0);
+    const secondSelection = coordinator.setChannel('stable');
+    const latestSelection = coordinator.setChannel('nightly');
+
+    expect(preferences.desktopUpdateChannel).toBe('stable');
+    expect(coordinator.snapshot.channel).toBe('stable');
+    await vi.advanceTimersByTimeAsync(DESKTOP_UPDATE_SETUP_RETRY_MS);
+    await Promise.all([firstSelection, secondSelection, latestSelection]);
+
+    expect(desktop.host.setDesktopUpdateChannel).toHaveBeenLastCalledWith('nightly');
+    expect(preferences.desktopUpdateChannel).toBe('nightly');
+    expect(coordinator.snapshot.channel).toBe('nightly');
   });
 
   it('serializes concurrent channel changes so the latest preference wins natively', async () => {
