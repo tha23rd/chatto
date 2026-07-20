@@ -180,6 +180,19 @@ test("GitHub assets remain draft until stored bytes and updater signature verify
   assert.match(publisher, /-SkipAuthenticode/);
 });
 
+test("draft release source verification does not resolve an unpublished tag", () => {
+  assert.match(publisher, /targetCommitish/);
+  assert.match(publisher, /\.targetCommitish == \$sha/);
+
+  const publishedGuard = publisher.indexOf(
+    'if [[ "$expected_draft" == false ]]',
+  );
+  const tagResolution = publisher.indexOf(
+    'gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}"',
+  );
+  assert.ok(publishedGuard >= 0 && publishedGuard < tagResolution);
+});
+
 test("published release retries reuse the stored signed assets", () => {
   const publishedReleaseBranch = publisher.slice(
     publisher.indexOf("if jq -e '.isDraft == false'"),

@@ -73,19 +73,21 @@ verification_directory="${RUNNER_TEMP:-/tmp}/desktop-release-verification"
 
 load_release() {
   gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
-    --json tagName,isDraft,isPrerelease,assets >"$release_json" 2>/dev/null
+    --json tagName,targetCommitish,isDraft,isPrerelease,assets >"$release_json" 2>/dev/null
 }
 
 verify_release_metadata() {
   local expected_draft="$1"
-  jq -e --arg tag "$RELEASE_TAG" --argjson draft "$expected_draft" --argjson prerelease "$prerelease" \
-    '.tagName == $tag and .isDraft == $draft and .isPrerelease == $prerelease and
+  jq -e --arg tag "$RELEASE_TAG" --arg sha "$GITHUB_SHA" --argjson draft "$expected_draft" --argjson prerelease "$prerelease" \
+    '.tagName == $tag and .targetCommitish == $sha and .isDraft == $draft and .isPrerelease == $prerelease and
      (.assets | length) == 5' "$release_json" >/dev/null
   for expected_asset in "$INSTALLER_NAME" "${INSTALLER_NAME}.sig" "${INSTALLER_NAME}.sha256" "$MANIFEST_NAME" "$METADATA_NAME"; do
     jq -e --arg name "$expected_asset" 'any(.assets[]; .name == $name)' "$release_json" >/dev/null
   done
-  actual_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq .sha)"
-  [[ "$actual_sha" == "$GITHUB_SHA" ]] || { echo '::error::Release tag does not identify source commit.'; return 1; }
+  if [[ "$expected_draft" == false ]]; then
+    actual_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq .sha)"
+    [[ "$actual_sha" == "$GITHUB_SHA" ]] || { echo '::error::Release tag does not identify source commit.'; return 1; }
+  fi
 }
 
 verify_downloaded_assets() {
