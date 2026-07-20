@@ -663,11 +663,12 @@ mod tests {
     }
 
     #[test]
-    fn inert_development_key_is_valid_tauri_minisign_public_text() {
+    fn checked_in_beta_key_is_valid_tauri_minisign_public_text() {
+        assert_ne!(updater_public_key(), INERT_DEVELOPMENT_PUBLIC_KEY);
         let decoded = STANDARD
-            .decode(INERT_DEVELOPMENT_PUBLIC_KEY)
-            .expect("development updater public key base64");
-        let decoded = String::from_utf8(decoded).expect("development updater public key UTF-8");
+            .decode(updater_public_key())
+            .expect("checked-in updater public key base64");
+        let decoded = String::from_utf8(decoded).expect("checked-in updater public key UTF-8");
         let mut lines = decoded.lines();
         assert!(lines
             .next()
@@ -688,18 +689,14 @@ mod tests {
     }
 
     #[test]
-    fn configured_public_keys_are_trimmed_and_empty_values_fall_back() {
+    fn channels_use_fixed_github_release_manifests() {
         assert_eq!(
-            select_updater_public_key(Some("production-public-key\r\n")),
-            "production-public-key"
+            endpoint(UpdateChannel::Stable).as_str(),
+            "https://github.com/tha23rd/chatto/releases/download/desktop-stable/windows-x86_64.json"
         );
         assert_eq!(
-            select_updater_public_key(Some(" \t\r\n")),
-            INERT_DEVELOPMENT_PUBLIC_KEY
-        );
-        assert_eq!(
-            select_updater_public_key(None),
-            INERT_DEVELOPMENT_PUBLIC_KEY
+            endpoint(UpdateChannel::Nightly).as_str(),
+            "https://github.com/tha23rd/chatto/releases/download/desktop-nightly/windows-x86_64.json"
         );
     }
 

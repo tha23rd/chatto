@@ -5,11 +5,11 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { buildUpdateManifest } from "./update-manifest.mjs";
-import {
-  channelObjectKeys,
-  publishUpdateChannel,
-} from "./publish-update-channel.mjs";
+import * as channelPublisher from "./publish-update-channel.mjs";
 
+const { compareChannelVersions, publishUpdateChannel } = channelPublisher;
+const repository = "tha23rd/chatto";
+const sourceSha = "28d085ced6b97af1d774b5bbaf1bd637eda80abf";
 const version = "0.1.0-nightly.20260719183045.812";
 
 async function fixture({
@@ -42,56 +42,52 @@ function options(directory, manifestPath, channel = "nightly") {
   return {
     channel,
     manifestPath,
-    bucket: "chatto-desktop-updates",
-    endpoint: "https://objects.example.test",
-    region: "auto",
-    publicBaseUrl: "https://updates.chatto.run",
+    repository,
+    sourceSha,
     temporaryDirectory: directory,
   };
 }
 
-test("allowlists channel object keys", () => {
-  assert.deepEqual(channelObjectKeys("nightly", version), {
-    immutable: `desktop/nightly/versions/${version}/windows-x86_64.json`,
-    canonical: "desktop/nightly/windows-x86_64.json",
+test("derives allowlisted rolling GitHub channel releases", () => {
+  assert.equal(typeof channelPublisher.channelRelease, "function");
+  assert.deepEqual(channelPublisher.channelRelease("nightly", repository), {
+    tag: "desktop-nightly",
+    assetName: "windows-x86_64.json",
+    publicUrl:
+      "https://github.com/tha23rd/chatto/releases/download/desktop-nightly/windows-x86_64.json",
   });
-  assert.throws(() => channelObjectKeys("../../stable", version), /channel/);
-  assert.throws(() => channelObjectKeys("nightly", "../latest"), /version/);
-  assert.throws(() => channelObjectKeys("stable", version), /stable/);
+  assert.throws(
+    () => channelPublisher.channelRelease("../../stable", repository),
+    /channel/,
+  );
+  assert.throws(
+    () => channelPublisher.channelRelease("nightly", "../evil"),
+    /repository/,
+  );
 });
 
-test("publishes immutable then canonical and verifies every stored/public byte", async () => {
+test("creates a rolling prerelease, uploads the canonical manifest, and verifies public bytes", async () => {
   const { directory, manifestPath, manifest } = await fixture();
   const calls = [];
-  const stored = new Map();
-  const runner = async (_command, args) => {
-    calls.push([...args]);
-    const operation = args[args.indexOf("s3api") + 1];
-    const value = (flag) => args[args.indexOf(flag) + 1];
-    if (operation === "put-object") {
-      stored.set(value("--key"), await readFile(value("--body")));
-    } else if (operation === "get-object") {
-      await writeFile(args.at(-1), stored.get(value("--key")));
-    } else if (operation === "copy-object") {
-      const source = decodeURIComponent(value("--copy-source"));
-      stored.set(
-        value("--key"),
-        stored.get(source.slice(source.indexOf("/") + 1)),
-      );
+  const runner = async (command, args) => {
+    calls.push([command, ...args]);
+    if (args[0] === "release" && args[1] === "view") {
+      const error = new Error("release not found");
+      error.stderr = "release not found";
+      throw error;
     }
   };
-  const fetchImpl = async (url, options = {}) => {
-    if (options.method === "HEAD") return { ok: true, status: 200 };
+  let canonicalReads = 0;
+  const fetchImpl = async (url, request = {}) => {
+    if (request.method === "HEAD") return { ok: true, status: 200 };
     assert.equal(
       url,
-      "https://updates.chatto.run/desktop/nightly/windows-x86_64.json",
+      "https://github.com/tha23rd/chatto/releases/download/desktop-nightly/windows-x86_64.json",
     );
     canonicalReads += 1;
     if (canonicalReads === 1) return response(Buffer.alloc(0), 404);
     return response(await readFile(manifestPath));
   };
-
-  let canonicalReads = 0;
 
   await publishUpdateChannel(options(directory, manifestPath), {
     runner,
@@ -99,15 +95,50 @@ test("publishes immutable then canonical and verifies every stored/public byte",
   });
 
   assert.deepEqual(
-    calls.map((args) => args[args.indexOf("s3api") + 1]),
-    ["put-object", "get-object", "copy-object", "get-object"],
+    calls.map((call) => call.slice(1, 3)),
+    [
+      ["release", "view"],
+      ["release", "create"],
+      ["release", "upload"],
+    ],
   );
-  assert.ok(calls[0].includes("--if-none-match"));
-  assert.ok(calls[2].includes("no-cache"));
+  assert.ok(calls[1].includes("--prerelease"));
+  assert.ok(calls[1].includes(sourceSha));
+  assert.ok(calls[2].includes("--clobber"));
+  assert.ok(calls[2].some((value) => value.endsWith("windows-x86_64.json")));
   assert.equal(manifest.version, version);
 });
 
-test("rejects a Stable rollback before writing any object", async () => {
+test("reuses an existing rolling release", async () => {
+  const candidate = await fixture();
+  const candidateBytes = await readFile(candidate.manifestPath);
+  const calls = [];
+  let canonicalReads = 0;
+
+  await publishUpdateChannel(
+    options(candidate.directory, candidate.manifestPath),
+    {
+      runner: async (command, args) => calls.push([command, ...args]),
+      fetchImpl: async (_url, request = {}) => {
+        if (request.method === "HEAD") return { ok: true, status: 200 };
+        canonicalReads += 1;
+        return canonicalReads === 1
+          ? response(Buffer.alloc(0), 404)
+          : response(candidateBytes);
+      },
+    },
+  );
+
+  assert.deepEqual(
+    calls.map((call) => call.slice(1, 3)),
+    [
+      ["release", "view"],
+      ["release", "upload"],
+    ],
+  );
+});
+
+test("rejects a Stable rollback before mutating GitHub", async () => {
   const local = await fixture({
     releaseVersion: "0.1.9",
     notes: "Older Stable update.",
@@ -201,7 +232,7 @@ test("orders Nightly versions by base, immutable UTC timestamp, then run number"
     const older = await fixture({ releaseVersion: olderVersion });
     await assert.rejects(
       publishUpdateChannel(options(older.directory, older.manifestPath), {
-        runner: async () => assert.fail("rollback must not call AWS"),
+        runner: async () => assert.fail("rollback must not call GitHub"),
         fetchImpl: async (_url, request = {}) =>
           request.method === "HEAD"
             ? { ok: true, status: 200 }
@@ -222,42 +253,30 @@ test("advances Nightly only when the candidate is strictly newer", async () => {
   const currentBytes = await readFile(current.manifestPath);
   const candidateBytes = await readFile(candidate.manifestPath);
   const calls = [];
-  const stored = new Map();
-  const runner = async (_command, args) => {
-    calls.push([...args]);
-    const operation = args[args.indexOf("s3api") + 1];
-    const value = (flag) => args[args.indexOf(flag) + 1];
-    if (operation === "put-object") {
-      stored.set(value("--key"), await readFile(value("--body")));
-    } else if (operation === "get-object") {
-      await writeFile(args.at(-1), stored.get(value("--key")));
-    } else if (operation === "copy-object") {
-      const source = decodeURIComponent(value("--copy-source"));
-      stored.set(
-        value("--key"),
-        stored.get(source.slice(source.indexOf("/") + 1)),
-      );
-    }
-  };
   let canonicalReads = 0;
-  const fetchImpl = async (_url, request = {}) => {
-    if (request.method === "HEAD") return { ok: true, status: 200 };
-    canonicalReads += 1;
-    return response(canonicalReads === 1 ? currentBytes : candidateBytes);
-  };
 
   await publishUpdateChannel(
     options(candidate.directory, candidate.manifestPath),
-    { runner, fetchImpl },
+    {
+      runner: async (command, args) => calls.push([command, ...args]),
+      fetchImpl: async (_url, request = {}) => {
+        if (request.method === "HEAD") return { ok: true, status: 200 };
+        canonicalReads += 1;
+        return response(canonicalReads === 1 ? currentBytes : candidateBytes);
+      },
+    },
   );
 
   assert.deepEqual(
-    calls.map((args) => args[args.indexOf("s3api") + 1]),
-    ["put-object", "get-object", "copy-object", "get-object"],
+    calls.map((call) => call.slice(1, 3)),
+    [
+      ["release", "view"],
+      ["release", "upload"],
+    ],
   );
 });
 
-test("rejects arbitrary endpoints, buckets, and public bases before running AWS", async () => {
+test("rejects arbitrary repositories and source SHAs before invoking GitHub", async () => {
   const { directory, manifestPath } = await fixture();
   let ran = false;
   const deps = {
@@ -269,22 +288,49 @@ test("rejects arbitrary endpoints, buckets, and public bases before running AWS"
   const common = options(directory, manifestPath);
 
   await assert.rejects(
-    publishUpdateChannel({ ...common, bucket: "../bucket" }, deps),
-    /bucket/,
+    publishUpdateChannel({ ...common, repository: "../evil" }, deps),
+    /repository/,
   );
   await assert.rejects(
-    publishUpdateChannel(
-      { ...common, endpoint: "http://localhost:9000" },
-      deps,
-    ),
-    /HTTPS/,
-  );
-  await assert.rejects(
-    publishUpdateChannel(
-      { ...common, publicBaseUrl: "https://evil.test" },
-      deps,
-    ),
-    /public base/,
+    publishUpdateChannel({ ...common, sourceSha: "main-native" }, deps),
+    /source SHA/,
   );
   assert.equal(ran, false);
+});
+
+test("propagates unexpected rolling release lookup failures", async () => {
+  const candidate = await fixture();
+  const calls = [];
+  const failure = new Error("GitHub API unavailable");
+  failure.stderr = "HTTP 503";
+
+  await assert.rejects(
+    publishUpdateChannel(
+      options(candidate.directory, candidate.manifestPath),
+      {
+        runner: async (command, args) => {
+          calls.push([command, ...args]);
+          throw failure;
+        },
+        fetchImpl: async (_url, request = {}) =>
+          request.method === "HEAD"
+            ? { ok: true, status: 200 }
+            : response(Buffer.alloc(0), 404),
+      },
+    ),
+    /GitHub API unavailable/,
+  );
+  assert.equal(calls.length, 1);
+});
+
+test("compares channel versions without lexical timestamp mistakes", () => {
+  assert.equal(
+    compareChannelVersions(
+      "nightly",
+      "0.1.0-nightly.20260719183045.9",
+      "0.1.0-nightly.20260719183045.10",
+    ),
+    -1,
+  );
+  assert.equal(compareChannelVersions("stable", "0.10.0", "0.9.9"), 1);
 });
