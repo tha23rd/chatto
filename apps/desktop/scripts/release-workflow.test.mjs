@@ -158,6 +158,14 @@ test("Nightly beta publication uses only GitHub contents and the updater key", (
   );
 });
 
+test("Nightly publisher builds generated API types before the signed release", () => {
+  const release = job(ci, "publish-main-native-installer");
+  const apiTypes = release.indexOf("mise build-api-types");
+  const signedBuild = release.indexOf("build-prerelease.ps1");
+
+  assert.ok(apiTypes >= 0 && apiTypes < signedBuild);
+});
+
 test("GitHub assets remain draft until stored bytes and updater signature verify", () => {
   const draft = publisher.lastIndexOf("gh release create");
   const download = publisher.indexOf("gh release download");
