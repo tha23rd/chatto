@@ -28,6 +28,95 @@ function job(workflow, name) {
     : workflow.slice(start, start + marker.length + next);
 }
 
+function step(jobText, name) {
+  const marker = `      - name: ${name}\n`;
+  const start = jobText.indexOf(marker);
+  assert.notEqual(start, -1, `job is missing step: ${name}`);
+  const remainder = jobText.slice(start + marker.length);
+  const next = remainder.search(/^      - name: /m);
+  return next === -1
+    ? jobText.slice(start)
+    : jobText.slice(start, start + marker.length + next);
+}
+
+function assertPrivilegedActionsArePinned(jobText) {
+  const actions = [...jobText.matchAll(/^\s+uses: ([^\s#]+)(?:\s+#.*)?$/gm)];
+  assert.ok(actions.length > 0, "privileged job must declare its actions");
+  for (const [, action] of actions) {
+    if (action.startsWith("./")) continue;
+    assert.match(
+      action,
+      /^[^@]+@[0-9a-f]{40}$/,
+      `${action} must use a full immutable commit SHA`,
+    );
+  }
+}
+
+function assertReleaseSecretsAreStepScoped(release, buildName, channelName) {
+  const build = step(release, buildName);
+  const publishRelease = step(
+    release,
+    /Stable/.test(buildName)
+      ? "Create, reverify, and publish immutable Stable release"
+      : "Create, reverify, and publish immutable Nightly prerelease",
+  );
+  const publishChannel = step(release, channelName);
+
+  assert.doesNotMatch(
+    release.slice(0, release.indexOf("    steps:")),
+    /secrets\.|GH_TOKEN|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|TAURI_SIGNING_PRIVATE_KEY/,
+  );
+  assert.match(
+    build,
+    /TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/,
+  );
+  assert.match(
+    build,
+    /TAURI_SIGNING_PRIVATE_KEY_PASSWORD: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY_PASSWORD \}\}/,
+  );
+  assert.doesNotMatch(
+    build,
+    /AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GH_TOKEN/,
+  );
+  assert.match(publishRelease, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+  assert.doesNotMatch(
+    publishRelease,
+    /TAURI_SIGNING_PRIVATE_KEY|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY/,
+  );
+  assert.match(
+    publishChannel,
+    /AWS_ACCESS_KEY_ID: \$\{\{ secrets\.CHATTO_UPDATE_STORE_ACCESS_KEY_ID \}\}/,
+  );
+  assert.match(
+    publishChannel,
+    /AWS_SECRET_ACCESS_KEY: \$\{\{ secrets\.CHATTO_UPDATE_STORE_SECRET_ACCESS_KEY \}\}/,
+  );
+  assert.doesNotMatch(publishChannel, /TAURI_SIGNING_PRIVATE_KEY|GH_TOKEN/);
+
+  for (const secret of [
+    "secrets.TAURI_SIGNING_PRIVATE_KEY ",
+    "secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ",
+    "secrets.CHATTO_UPDATE_STORE_ACCESS_KEY_ID ",
+    "secrets.CHATTO_UPDATE_STORE_SECRET_ACCESS_KEY ",
+    "GH_TOKEN:",
+  ]) {
+    assert.equal(
+      release.split(secret).length - 1,
+      1,
+      `${secret.trim()} must occur in exactly one release step`,
+    );
+  }
+
+  const azureLogin = release.indexOf("Login to Azure with GitHub OIDC");
+  const afterAzureLogin = release.slice(azureLogin);
+  const usesAfterLogin = [
+    ...afterAzureLogin.matchAll(/^\s+uses: ([^\s#]+)(?:\s+#.*)?$/gm),
+  ].map((match) => match[1]);
+  assert.deepEqual(usesAfterLogin, [
+    "azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43",
+  ]);
+}
+
 test("PR desktop CI is secret-free and never bundles an installer", () => {
   const tests = job(ci, "test-desktop-windows");
   assert.match(tests, /tauri build --no-bundle/);
@@ -42,9 +131,15 @@ test("Nightly versions are monotonic SemVer derived from UTC and run number", ()
   assert.match(nightlyBuilder, /yyyyMMddHHmmss/);
   assert.match(nightlyBuilder, /-nightly\.\$\(\$timestamp/);
   assert.match(nightlyBuilder, /\$RunNumber/);
-  assert.match(ci, /NIGHTLY_TIMESTAMP=.*Get-Date.*ToUniversalTime/);
+  assert.match(ci, /git show -s --format=%cI \$env:GITHUB_SHA/);
+  assert.doesNotMatch(
+    job(ci, "publish-main-native-installer"),
+    /NIGHTLY_TIMESTAMP=.*Get-Date/,
+  );
   assert.match(ci, /-TimestampUtc \$env:NIGHTLY_TIMESTAMP/);
   assert.match(ci, /-RunNumber \$env:GITHUB_RUN_NUMBER/);
+  assert.match(ci, /git fetch --no-tags origin main-native/);
+  assert.match(ci, /\$branchSha -cne \$env:GITHUB_SHA/);
 });
 
 test("release builds fail closed and sign before Tauri updater artifacts", () => {
@@ -81,6 +176,14 @@ test("Nightly publication is protected, least-privilege, and OIDC-only", () => {
   );
   assert.doesNotMatch(release, /client-secret:/);
   assert.match(release, /ArtifactSigning -RequiredVersion 0\.1\.8/);
+  assert.match(release, /group: desktop-update-nightly/);
+  assert.match(release, /cancel-in-progress: false/);
+  assertPrivilegedActionsArePinned(release);
+  assertReleaseSecretsAreStepScoped(
+    release,
+    "Build signed monotonic Nightly release",
+    "Advance the Nightly update channel",
+  );
   assert.ok(
     release.indexOf("publish-prerelease.sh") <
       release.indexOf("publish-update-channel.mjs nightly"),
@@ -115,8 +218,33 @@ test("Stable tags are exact, version-aligned, and reachable from main-native", (
   assert.match(release, /environment: desktop-release/);
   assert.match(release, /contents: write\n\s+id-token: write/);
   assert.doesNotMatch(release, /client-secret:/);
+  assert.match(release, /group: desktop-update-stable/);
+  assert.match(release, /cancel-in-progress: false/);
+  assertPrivilegedActionsArePinned(release);
+  assertReleaseSecretsAreStepScoped(
+    release,
+    "Build signed Stable release",
+    "Advance the Stable update channel",
+  );
   assert.ok(
     release.indexOf("publish-prerelease.sh") <
       release.indexOf("publish-update-channel.mjs stable"),
   );
+});
+
+test("channel publisher compares canonical bytes before immutable publication or copy", () => {
+  const channelPublisher = read(
+    "apps/desktop/scripts/publish-update-channel.mjs",
+  );
+  const canonicalRead = channelPublisher.indexOf("existingCanonicalResponse");
+  const versionComparison = channelPublisher.indexOf(
+    "compareChannelVersions(",
+    canonicalRead,
+  );
+  const immutablePut = channelPublisher.indexOf('"put-object"');
+  const canonicalCopy = channelPublisher.indexOf('"copy-object"');
+  assert.ok(canonicalRead >= 0 && canonicalRead < versionComparison);
+  assert.ok(versionComparison < immutablePut && immutablePut < canonicalCopy);
+  assert.match(channelPublisher, /same .* version.*different bytes/i);
+  assert.match(channelPublisher, /backwards/i);
 });

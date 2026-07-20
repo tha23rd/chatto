@@ -9,16 +9,37 @@ import { validateUpdateManifest } from "./update-manifest.mjs";
 
 const execFileAsync = promisify(execFile);
 const PUBLIC_BASE_URL = "https://updates.chatto.run";
-const VERSION =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-nightly\.\d{14}\.(0|[1-9]\d*))?$/;
+const STABLE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+const NIGHTLY_VERSION =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-nightly\.(\d{14})\.(0|[1-9]\d*)$/;
 
-export function channelObjectKeys(channel, version) {
+function versionIdentifiers(channel, version) {
+  const pattern = channel === "stable" ? STABLE_VERSION : NIGHTLY_VERSION;
   if (channel !== "stable" && channel !== "nightly") {
     throw new Error("channel must be stable or nightly");
   }
-  if (typeof version !== "string" || !VERSION.test(version)) {
+  const match = pattern.exec(version);
+  if (!match) {
+    throw new Error(`version does not match the ${channel} update channel`);
+  }
+  return match.slice(1).map((identifier) => BigInt(identifier));
+}
+
+export function compareChannelVersions(channel, left, right) {
+  const leftIdentifiers = versionIdentifiers(channel, left);
+  const rightIdentifiers = versionIdentifiers(channel, right);
+  for (let index = 0; index < leftIdentifiers.length; index += 1) {
+    if (leftIdentifiers[index] < rightIdentifiers[index]) return -1;
+    if (leftIdentifiers[index] > rightIdentifiers[index]) return 1;
+  }
+  return 0;
+}
+
+export function channelObjectKeys(channel, version) {
+  if (typeof version !== "string") {
     throw new Error("invalid desktop release version");
   }
+  versionIdentifiers(channel, version);
   return {
     immutable: `desktop/${channel}/versions/${version}/windows-x86_64.json`,
     canonical: `desktop/${channel}/windows-x86_64.json`,
@@ -75,6 +96,10 @@ function equalBytes(left, right, description) {
     throw new Error(`${description} did not match local manifest`);
 }
 
+async function responseBytes(response) {
+  return Buffer.from(await response.arrayBuffer());
+}
+
 export async function publishUpdateChannel(
   options,
   { runner = defaultRunner, fetchImpl = fetch } = {},
@@ -85,6 +110,7 @@ export async function publishUpdateChannel(
     JSON.parse(localBytes.toString("utf8")),
   );
   const keys = channelObjectKeys(options.channel, manifest.version);
+  const canonicalUrl = `${PUBLIC_BASE_URL}/${keys.canonical}`;
   const assetUrl = manifest.platforms["windows-x86_64"].url;
   const assetResponse = await fetchImpl(assetUrl, {
     method: "HEAD",
@@ -93,6 +119,48 @@ export async function publishUpdateChannel(
   if (!assetResponse.ok) {
     throw new Error(
       `immutable GitHub asset is unavailable (${assetResponse.status})`,
+    );
+  }
+
+  // Read the client-visible channel before creating or copying any object. The
+  // workflows serialize each channel, and this guard makes stale or replayed
+  // publishers fail closed instead of moving a channel backwards.
+  const existingCanonicalResponse = await fetchImpl(canonicalUrl, {
+    cache: "no-store",
+  });
+  if (existingCanonicalResponse.ok) {
+    const existingBytes = await responseBytes(existingCanonicalResponse);
+    let existingManifest;
+    try {
+      existingManifest = validateUpdateManifest(
+        JSON.parse(existingBytes.toString("utf8")),
+      );
+    } catch (error) {
+      throw new Error(
+        `existing canonical manifest is invalid: ${error.message}`,
+      );
+    }
+    const comparison = compareChannelVersions(
+      options.channel,
+      manifest.version,
+      existingManifest.version,
+    );
+    if (comparison < 0) {
+      throw new Error(
+        `refusing to move ${options.channel} update channel backwards from ${existingManifest.version} to ${manifest.version}`,
+      );
+    }
+    if (comparison === 0) {
+      if (!localBytes.equals(existingBytes)) {
+        throw new Error(
+          `same ${options.channel} version has different bytes in the canonical manifest`,
+        );
+      }
+      return;
+    }
+  } else if (existingCanonicalResponse.status !== 404) {
+    throw new Error(
+      `existing public update channel is unavailable (${existingCanonicalResponse.status})`,
     );
   }
 
@@ -171,12 +239,7 @@ export async function publishUpdateChannel(
   );
   equalBytes(localBytes, await readFile(canonicalReadback), "canonical object");
 
-  const publicResponse = await fetchImpl(
-    `${PUBLIC_BASE_URL}/${keys.canonical}`,
-    {
-      cache: "no-store",
-    },
-  );
+  const publicResponse = await fetchImpl(canonicalUrl, { cache: "no-store" });
   if (!publicResponse.ok) {
     throw new Error(
       `public update channel is unavailable (${publicResponse.status})`,
@@ -184,7 +247,7 @@ export async function publishUpdateChannel(
   }
   equalBytes(
     localBytes,
-    Buffer.from(await publicResponse.arrayBuffer()),
+    await responseBytes(publicResponse),
     "public update channel",
   );
 }
