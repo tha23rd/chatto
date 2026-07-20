@@ -124,3 +124,17 @@ fn desktop_logger_filters_updater_dependency_records() {
     let source = fs::read_to_string(manifest_path("src/lib.rs")).unwrap();
     assert!(source.contains(".filter(updates::allow_desktop_log_record)"));
 }
+
+#[test]
+fn updater_uses_separate_bounded_check_and_download_timeouts() {
+    let source = fs::read_to_string(manifest_path("src/updates.rs")).unwrap();
+    assert!(source.contains(".timeout(CHECK_TIMEOUT)"));
+    assert!(source.contains("update.timeout = Some(DOWNLOAD_TIMEOUT)"));
+}
+
+#[test]
+fn notice_lists_the_shipped_tauri_updater_plugin() {
+    let notice = fs::read_to_string(manifest_path("../../../NOTICE")).unwrap();
+    assert!(notice
+        .contains("Tauri HTTP, global shortcut, opener, single-instance, and updater plugins"));
+}

@@ -10,7 +10,8 @@ use url::Url;
 const STABLE_ENDPOINT: &str = "https://updates.chatto.run/desktop/stable/windows-x86_64.json";
 const NIGHTLY_ENDPOINT: &str = "https://updates.chatto.run/desktop/nightly/windows-x86_64.json";
 const UPDATE_STATE_EVENT: &str = "native://desktop-update-state";
-const UPDATE_TIMEOUT: Duration = Duration::from_secs(30);
+const CHECK_TIMEOUT: Duration = Duration::from_secs(30);
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 // Generated only for local builds. Production release workflows replace this
 // public key at compile time and never possess the matching development key.
@@ -338,11 +339,15 @@ fn is_strictly_newer(current: &str, candidate: &str) -> bool {
     }
 }
 
+fn select_updater_public_key(configured: Option<&str>) -> &str {
+    configured
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+        .unwrap_or(INERT_DEVELOPMENT_PUBLIC_KEY)
+}
+
 pub(crate) fn updater_public_key() -> &'static str {
-    match option_env!("CHATTO_DESKTOP_UPDATER_PUBLIC_KEY") {
-        Some(key) if !key.trim().is_empty() => key,
-        _ => INERT_DEVELOPMENT_PUBLIC_KEY,
-    }
+    select_updater_public_key(option_env!("CHATTO_DESKTOP_UPDATER_PUBLIC_KEY"))
 }
 
 fn allow_desktop_log_target(target: &str) -> bool {
@@ -389,7 +394,7 @@ fn log_snapshot(snapshot: &DesktopUpdateSnapshot) {
 fn runtime_updater(app: &AppHandle, channel: UpdateChannel) -> Result<Updater, UpdaterError> {
     app.updater_builder()
         .endpoints(vec![endpoint(channel)])?
-        .timeout(UPDATE_TIMEOUT)
+        .timeout(CHECK_TIMEOUT)
         .build()
 }
 
@@ -511,7 +516,7 @@ pub(crate) async fn check_for_desktop_update(
         return Ok(snapshot);
     }
 
-    update.timeout = Some(UPDATE_TIMEOUT);
+    update.timeout = Some(DOWNLOAD_TIMEOUT);
 
     let candidate_version = update.version.clone();
     let downloading_snapshot = {
@@ -673,6 +678,29 @@ mod tests {
             .expect("minisign public key line");
         assert_eq!(STANDARD.decode(key_line).unwrap().len(), 42);
         assert!(lines.next().is_none());
+    }
+
+    #[test]
+    fn updater_timeout_policy_distinguishes_checks_from_downloads() {
+        assert_eq!(CHECK_TIMEOUT, Duration::from_secs(30));
+        assert_eq!(DOWNLOAD_TIMEOUT, Duration::from_secs(30 * 60));
+        assert!(DOWNLOAD_TIMEOUT > CHECK_TIMEOUT);
+    }
+
+    #[test]
+    fn configured_public_keys_are_trimmed_and_empty_values_fall_back() {
+        assert_eq!(
+            select_updater_public_key(Some("production-public-key\r\n")),
+            "production-public-key"
+        );
+        assert_eq!(
+            select_updater_public_key(Some(" \t\r\n")),
+            INERT_DEVELOPMENT_PUBLIC_KEY
+        );
+        assert_eq!(
+            select_updater_public_key(None),
+            INERT_DEVELOPMENT_PUBLIC_KEY
+        );
     }
 
     #[test]
