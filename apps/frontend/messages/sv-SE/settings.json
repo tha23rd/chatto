@@ -119,7 +119,7 @@
           },
           "nightly": {
             "label": "Nattlig",
-            "description": "Få tidiga byggen från main. De kan vara mindre tillförlitliga."
+            "description": "Få tidiga byggen med de senaste ändringarna. De kan vara mindre tillförlitliga."
           }
         },
         "nightly_confirmation": {

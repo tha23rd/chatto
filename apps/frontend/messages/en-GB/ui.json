@@ -16,7 +16,7 @@
         "downloading_progress": "Downloading update… {percent}%",
         "downloading_progress_bytes": "Downloading update… {percent}% ({downloaded} of {total})",
         "ready": "Ready to install",
-        "failed": "Update check failed"
+        "failed": "Update failed"
       },
       "ready_version": "Version {version} is ready to install.",
       "restart_now": "Restart now",

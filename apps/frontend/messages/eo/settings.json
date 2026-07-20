@@ -119,7 +119,7 @@
           },
           "nightly": {
             "label": "Nokta",
-            "description": "Ricevu fruajn konstruaĵojn el main. Ili povas esti malpli fidindaj."
+            "description": "Ricevu fruajn konstruaĵojn kun la plej novaj ŝanĝoj. Ili povas esti malpli fidindaj."
           }
         },
         "nightly_confirmation": {

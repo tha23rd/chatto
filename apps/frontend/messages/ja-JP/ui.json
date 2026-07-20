@@ -16,7 +16,7 @@
         "downloading_progress": "アップデートをダウンロード中… {percent}%",
         "downloading_progress_bytes": "アップデートをダウンロード中… {percent}%（{downloaded}/{total}）",
         "ready": "インストールの準備完了",
-        "failed": "アップデートの確認に失敗しました"
+        "failed": "アップデートに失敗しました"
       },
       "ready_version": "バージョン {version} をインストールできます。",
       "restart_now": "今すぐ再起動",

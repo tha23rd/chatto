@@ -16,7 +16,7 @@
         "downloading_progress": "Update wird heruntergeladen… {percent}%",
         "downloading_progress_bytes": "Update wird heruntergeladen… {percent}% ({downloaded} von {total})",
         "ready": "Bereit zur Installation",
-        "failed": "Update-Prüfung fehlgeschlagen"
+        "failed": "Update fehlgeschlagen"
       },
       "ready_version": "Version {version} ist bereit zur Installation.",
       "restart_now": "Jetzt neu starten",

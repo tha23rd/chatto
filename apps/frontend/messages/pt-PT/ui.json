@@ -16,7 +16,7 @@
         "downloading_progress": "A transferir atualização… {percent}%",
         "downloading_progress_bytes": "A transferir atualização… {percent}% ({downloaded} de {total})",
         "ready": "Pronta para instalar",
-        "failed": "Falha na verificação de atualizações"
+        "failed": "Falha na atualização"
       },
       "ready_version": "A versão {version} está pronta para instalar.",
       "restart_now": "Reiniciar agora",

@@ -16,7 +16,7 @@
         "downloading_progress": "Laster ned oppdatering… {percent}%",
         "downloading_progress_bytes": "Laster ned oppdatering… {percent}% ({downloaded} av {total})",
         "ready": "Klar til installasjon",
-        "failed": "Oppdateringskontrollen mislyktes"
+        "failed": "Oppdateringen mislyktes"
       },
       "ready_version": "Versjon {version} er klar til installasjon.",
       "restart_now": "Start på nytt nå",

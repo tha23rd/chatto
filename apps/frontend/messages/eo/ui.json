@@ -16,7 +16,7 @@
         "downloading_progress": "Elŝutante ĝisdatigon… {percent}%",
         "downloading_progress_bytes": "Elŝutante ĝisdatigon… {percent}% ({downloaded} el {total})",
         "ready": "Preta por instalo",
-        "failed": "Kontrolo de ĝisdatigoj malsukcesis"
+        "failed": "Ĝisdatigo malsukcesis"
       },
       "ready_version": "Versio {version} estas preta por instalo.",
       "restart_now": "Restartigi nun",

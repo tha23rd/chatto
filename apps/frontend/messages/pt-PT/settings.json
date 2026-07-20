@@ -119,7 +119,7 @@
           },
           "nightly": {
             "label": "Noturno",
-            "description": "Receba compilações antecipadas da main. Podem ser menos fiáveis."
+            "description": "Receba compilações antecipadas com as alterações mais recentes. Podem ser menos fiáveis."
           }
         },
         "nightly_confirmation": {

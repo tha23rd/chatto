@@ -16,7 +16,7 @@
         "downloading_progress": "Hämtar uppdatering… {percent}%",
         "downloading_progress_bytes": "Hämtar uppdatering… {percent}% ({downloaded} av {total})",
         "ready": "Klar att installera",
-        "failed": "Uppdateringskontrollen misslyckades"
+        "failed": "Uppdateringen misslyckades"
       },
       "ready_version": "Version {version} är klar att installera.",
       "restart_now": "Starta om nu",

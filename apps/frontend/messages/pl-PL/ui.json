@@ -16,7 +16,7 @@
         "downloading_progress": "Pobieranie aktualizacji… {percent}%",
         "downloading_progress_bytes": "Pobieranie aktualizacji… {percent}% ({downloaded} z {total})",
         "ready": "Gotowa do instalacji",
-        "failed": "Sprawdzanie aktualizacji nie powiodło się"
+        "failed": "Aktualizacja nie powiodła się"
       },
       "ready_version": "Wersja {version} jest gotowa do instalacji.",
       "restart_now": "Uruchom ponownie teraz",

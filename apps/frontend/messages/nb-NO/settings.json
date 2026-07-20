@@ -119,7 +119,7 @@
           },
           "nightly": {
             "label": "Nattlig",
-            "description": "Motta tidlige bygg fra main. De kan være mindre pålitelige."
+            "description": "Motta tidlige bygg med de nyeste endringene. De kan være mindre pålitelige."
           }
         },
         "nightly_confirmation": {

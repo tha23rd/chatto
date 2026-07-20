@@ -119,7 +119,7 @@
           },
           "nightly": {
             "label": "ナイトリー",
-            "description": "main の早期ビルドを受け取ります。信頼性が低い場合があります。"
+            "description": "最新の変更を含む早期ビルドを受け取ります。信頼性が低い場合があります。"
           }
         },
         "nightly_confirmation": {

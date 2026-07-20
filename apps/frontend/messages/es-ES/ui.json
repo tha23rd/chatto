@@ -16,7 +16,7 @@
         "downloading_progress": "Descargando actualización… {percent}%",
         "downloading_progress_bytes": "Descargando actualización… {percent}% ({downloaded} de {total})",
         "ready": "Lista para instalar",
-        "failed": "Ha fallado la búsqueda de actualizaciones"
+        "failed": "Ha fallado la actualización"
       },
       "ready_version": "La versión {version} está lista para instalar.",
       "restart_now": "Reiniciar ahora",

@@ -16,7 +16,7 @@
         "downloading_progress": "Завантаження оновлення… {percent}%",
         "downloading_progress_bytes": "Завантаження оновлення… {percent}% ({downloaded} із {total})",
         "ready": "Готове до встановлення",
-        "failed": "Не вдалося перевірити оновлення"
+        "failed": "Помилка оновлення"
       },
       "ready_version": "Версія {version} готова до встановлення.",
       "restart_now": "Перезапустити зараз",

@@ -119,7 +119,7 @@
           },
           "nightly": {
             "label": "Nightly",
-            "description": "Erhalte frühe Builds aus main. Sie können weniger zuverlässig sein."
+            "description": "Erhalte frühe Builds mit den neuesten Änderungen. Sie können weniger zuverlässig sein."
           }
         },
         "nightly_confirmation": {

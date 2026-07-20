@@ -119,7 +119,7 @@
           },
           "nightly": {
             "label": "Nocny",
-            "description": "Otrzymuj wczesne kompilacje z gałęzi main. Mogą być mniej niezawodne."
+            "description": "Otrzymuj wczesne kompilacje z najnowszymi zmianami. Mogą być mniej niezawodne."
           }
         },
         "nightly_confirmation": {

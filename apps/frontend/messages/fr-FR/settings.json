@@ -119,7 +119,7 @@
           },
           "nightly": {
             "label": "Nocturne",
-            "description": "Recevez des versions préliminaires de main. Elles peuvent être moins fiables."
+            "description": "Recevez des versions préliminaires avec les changements les plus récents. Elles peuvent être moins fiables."
           }
         },
         "nightly_confirmation": {

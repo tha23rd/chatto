@@ -119,7 +119,7 @@
           },
           "nightly": {
             "label": "Nightly",
-            "description": "Receive early builds from main. They may be less reliable."
+            "description": "Receive early builds with the newest changes. They may be less reliable."
           }
         },
         "nightly_confirmation": {

@@ -119,7 +119,7 @@
           },
           "nightly": {
             "label": "Nachtelijk",
-            "description": "Ontvang vroege builds van main. Ze kunnen minder betrouwbaar zijn."
+            "description": "Ontvang vroege builds met de nieuwste wijzigingen. Ze kunnen minder betrouwbaar zijn."
           }
         },
         "nightly_confirmation": {

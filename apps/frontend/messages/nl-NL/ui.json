@@ -16,7 +16,7 @@
         "downloading_progress": "Update downloaden… {percent}%",
         "downloading_progress_bytes": "Update downloaden… {percent}% ({downloaded} van {total})",
         "ready": "Klaar om te installeren",
-        "failed": "Updatecontrole mislukt"
+        "failed": "Update mislukt"
       },
       "ready_version": "Versie {version} is klaar om te installeren.",
       "restart_now": "Nu opnieuw starten",
