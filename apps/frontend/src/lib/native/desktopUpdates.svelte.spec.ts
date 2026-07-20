@@ -129,6 +129,88 @@ describe('DesktopUpdatesCoordinator', () => {
     expect(desktop.host.checkForDesktopUpdate).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps concurrent install requests single-flight across the frontend', async () => {
+    const nativeInstall = deferred<void>();
+    const installDesktopUpdate = vi.fn<NativeHost['installDesktopUpdate']>(
+      () => nativeInstall.promise
+    );
+    const desktop = createDesktopHost({ installDesktopUpdate });
+    const coordinator = createCoordinator(desktop.host, { desktopUpdateChannel: 'stable' });
+    await coordinator.initialize();
+    desktop.emit({ ...idleUpdate, phase: 'ready', candidateVersion: '0.2.0' });
+
+    const first = coordinator.installNow();
+    const overlapping = coordinator.installNow();
+
+    expect(coordinator.installing).toBe(true);
+    expect(installDesktopUpdate).toHaveBeenCalledOnce();
+    nativeInstall.resolve(undefined);
+    await Promise.all([first, overlapping]);
+    expect(coordinator.installing).toBe(false);
+  });
+
+  it('rejects install requests when desktop updates are unavailable', async () => {
+    const installDesktopUpdate = vi.spyOn(browserNativeHost, 'installDesktopUpdate');
+    const coordinator = createCoordinator(browserNativeHost, { desktopUpdateChannel: 'stable' });
+    await coordinator.initialize();
+
+    await expect(coordinator.installNow()).rejects.toThrow('Desktop updates are unavailable');
+
+    expect(installDesktopUpdate).not.toHaveBeenCalled();
+    expect(coordinator.installing).toBe(false);
+  });
+
+  it('rejects install requests until a candidate is ready', async () => {
+    const installDesktopUpdate = vi.fn<NativeHost['installDesktopUpdate']>();
+    const desktop = createDesktopHost({ installDesktopUpdate });
+    const coordinator = createCoordinator(desktop.host, { desktopUpdateChannel: 'stable' });
+    await coordinator.initialize();
+
+    await expect(coordinator.installNow()).rejects.toThrow('No desktop update is ready to install');
+
+    expect(installDesktopUpdate).not.toHaveBeenCalled();
+    expect(coordinator.installing).toBe(false);
+  });
+
+  it('allows an explicit install retry after the native install rejects', async () => {
+    const installDesktopUpdate = vi
+      .fn<NativeHost['installDesktopUpdate']>()
+      .mockRejectedValueOnce(new Error('native install failed'))
+      .mockResolvedValueOnce(undefined);
+    const desktop = createDesktopHost({ installDesktopUpdate });
+    const coordinator = createCoordinator(desktop.host, { desktopUpdateChannel: 'stable' });
+    await coordinator.initialize();
+    desktop.emit({ ...idleUpdate, phase: 'ready', candidateVersion: '0.2.0' });
+
+    await expect(coordinator.installNow()).rejects.toThrow('native install failed');
+    expect(coordinator.installing).toBe(false);
+    await coordinator.installNow();
+
+    expect(installDesktopUpdate).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not start a second native install when destroyed and remounted while one is pending', async () => {
+    const nativeInstall = deferred<void>();
+    const installDesktopUpdate = vi.fn<NativeHost['installDesktopUpdate']>(
+      () => nativeInstall.promise
+    );
+    const desktop = createDesktopHost({ installDesktopUpdate });
+    const coordinator = createCoordinator(desktop.host, { desktopUpdateChannel: 'stable' });
+    await coordinator.initialize();
+    desktop.emit({ ...idleUpdate, phase: 'ready', candidateVersion: '0.2.0' });
+
+    const beforeDestroy = coordinator.installNow();
+    await coordinator.destroy();
+    await coordinator.initialize();
+    const afterRemount = coordinator.installNow();
+
+    expect(coordinator.installing).toBe(true);
+    expect(installDesktopUpdate).toHaveBeenCalledOnce();
+    nativeInstall.resolve(undefined);
+    await Promise.all([beforeDestroy, afterRemount]);
+    expect(coordinator.installing).toBe(false);
+  });
+
   it('establishes a fresh subscription and timer when remounted during an old subscription', async () => {
     vi.useFakeTimers();
     const oldSubscription = deferred<Unsubscribe>();

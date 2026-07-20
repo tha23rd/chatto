@@ -2,10 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { flushSync } from 'svelte';
 import { render } from 'vitest-browser-svelte';
-import { browserNativeHost } from '$lib/native/browserHost';
 import { desktopUpdates } from '$lib/native/desktopUpdates.svelte';
-import { installNativeHost, resetNativeHostForTests } from '$lib/native/host';
-import type { DesktopUpdateSnapshot, NativeHost } from '$lib/native/types';
+import type { DesktopUpdateSnapshot } from '$lib/native/types';
 import { getToasts, toast } from '$lib/ui/toast';
 import DesktopUpdateSettings from './DesktopUpdateSettings.svelte';
 
@@ -28,31 +26,16 @@ function setSnapshot(snapshot: DesktopUpdateSnapshot): void {
   flushSync();
 }
 
-function installTestHost(installDesktopUpdate = vi.fn(async () => {})): {
-  host: NativeHost;
-  installDesktopUpdate: ReturnType<typeof vi.fn>;
-} {
-  const host: NativeHost = {
-    ...browserNativeHost,
-    kind: 'tauri',
-    capabilities: { ...browserNativeHost.capabilities, desktopUpdates: true },
-    installDesktopUpdate
-  };
-  installNativeHost(host);
-  return { host, installDesktopUpdate };
-}
-
 describe('DesktopUpdateSettings', () => {
   beforeEach(() => {
-    resetNativeHostForTests();
     toast.clear();
     idleMock.isInAnyCall = false;
+    desktopUpdates.installing = false;
     setSnapshot(stableIdle);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    resetNativeHostForTests();
     toast.clear();
   });
 
@@ -64,21 +47,18 @@ describe('DesktopUpdateSettings', () => {
   });
 
   it('renders the current Stable state and an unavailable last check', async () => {
-    installTestHost();
     render(DesktopUpdateSettings);
 
     await expect.element(page.getByText('Current version: 0.2.0')).toBeVisible();
-    await expect.element(page.getByRole('radio', { name: /Stable/ })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
+    await expect
+      .element(page.getByRole('radio', { name: /Stable/ }))
+      .toHaveAttribute('aria-checked', 'true');
     await expect.element(page.getByText(/^Status: Up to date$/)).toBeVisible();
     await expect.element(page.getByText('Not checked yet')).toBeVisible();
     await expect.element(page.getByRole('button', { name: 'Check now' })).toBeVisible();
   });
 
   it('renders known and unknown download progress', async () => {
-    installTestHost();
     setSnapshot({
       ...stableIdle,
       phase: 'downloading',
@@ -105,7 +85,12 @@ describe('DesktopUpdateSettings', () => {
     const pending = new Promise<void>((resolve) => {
       resolveInstall = resolve;
     });
-    const { installDesktopUpdate } = installTestHost(vi.fn(() => pending));
+    const installNow = vi.spyOn(desktopUpdates, 'installNow').mockImplementation(() => {
+      desktopUpdates.installing = true;
+      return pending.finally(() => {
+        desktopUpdates.installing = false;
+      });
+    });
     setSnapshot({
       ...stableIdle,
       phase: 'ready',
@@ -116,13 +101,12 @@ describe('DesktopUpdateSettings', () => {
     await expect.element(page.getByText('Version 0.3.0 is ready to install.')).toBeVisible();
     await userEvent.click(page.getByRole('button', { name: 'Restart now' }));
 
-    expect(installDesktopUpdate).toHaveBeenCalledTimes(1);
+    expect(installNow).toHaveBeenCalledTimes(1);
     await expect.element(page.getByRole('button', { name: 'Restart now' })).toBeDisabled();
     resolveInstall();
   });
 
   it('saves Stable immediately', async () => {
-    installTestHost();
     setSnapshot({ ...stableIdle, channel: 'nightly', currentVersion: '0.3.0-nightly.1' });
     const setChannel = vi
       .spyOn(desktopUpdates, 'setChannel')
@@ -135,7 +119,6 @@ describe('DesktopUpdateSettings', () => {
   });
 
   it('requires confirmation before saving Nightly and cancellation leaves Stable selected', async () => {
-    installTestHost();
     const setChannel = vi.spyOn(desktopUpdates, 'setChannel').mockResolvedValue(stableIdle);
     render(DesktopUpdateSettings);
 
@@ -144,10 +127,9 @@ describe('DesktopUpdateSettings', () => {
     expect(setChannel).not.toHaveBeenCalled();
 
     await userEvent.click(page.getByRole('button', { name: 'Cancel' }));
-    await expect.element(page.getByRole('radio', { name: /Stable/ })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
+    await expect
+      .element(page.getByRole('radio', { name: /Stable/ }))
+      .toHaveAttribute('aria-checked', 'true');
     expect(setChannel).not.toHaveBeenCalled();
 
     await userEvent.click(page.getByRole('radio', { name: /Nightly/ }));
@@ -155,22 +137,49 @@ describe('DesktopUpdateSettings', () => {
     expect(setChannel).toHaveBeenCalledWith('nightly');
   });
 
-  it('explains when Stable is waiting to supersede the installed Nightly', async () => {
-    installTestHost();
+  it('keeps waiting-for-Stable guidance until a candidate is offered', async () => {
     setSnapshot({
       ...stableIdle,
-      currentVersion: '0.3.0-nightly.20260719.1',
-      lastCheckedAt: Date.parse('2026-07-19T18:00:00Z')
+      currentVersion: '0.3.0-nightly.20260719.1'
     });
     render(DesktopUpdateSettings);
 
     await expect.element(page.getByText('Waiting for Stable')).toBeVisible();
     await expect.element(page.getByText(/Chatto will not downgrade/)).toBeVisible();
+
+    setSnapshot({
+      ...stableIdle,
+      currentVersion: '0.3.0-nightly.20260719.1',
+      phase: 'checking'
+    });
+    await expect.element(page.getByText('Waiting for Stable')).toBeVisible();
+
+    setSnapshot({
+      ...stableIdle,
+      currentVersion: '0.3.0-nightly.20260719.1',
+      phase: 'failed',
+      errorCode: 'network'
+    });
+    await expect.element(page.getByText('Waiting for Stable')).toBeVisible();
+
+    setSnapshot({
+      ...stableIdle,
+      currentVersion: '0.3.0-nightly.20260719.1',
+      phase: 'downloading',
+      candidateVersion: '0.4.0',
+      downloadedBytes: 1
+    });
+    await expect.element(page.getByText('Waiting for Stable')).not.toBeInTheDocument();
+  });
+
+  it('renders a localized last-checked date when one is available', async () => {
+    setSnapshot({ ...stableIdle, lastCheckedAt: Date.parse('2026-07-19T18:00:00Z') });
+    render(DesktopUpdateSettings);
+
     await expect.element(page.getByText(/^Last checked .*2026/)).toBeVisible();
   });
 
   it('keeps a background failure quiet while rendering its localized state', async () => {
-    installTestHost();
     setSnapshot({ ...stableIdle, phase: 'failed', errorCode: 'network' });
     render(DesktopUpdateSettings);
 
@@ -180,7 +189,6 @@ describe('DesktopUpdateSettings', () => {
   });
 
   it('toasts only the result of an explicit manual check', async () => {
-    installTestHost();
     const checkNow = vi.spyOn(desktopUpdates, 'checkNow');
     checkNow.mockResolvedValueOnce(stableIdle).mockResolvedValueOnce({
       ...stableIdle,
@@ -197,7 +205,7 @@ describe('DesktopUpdateSettings', () => {
   });
 
   it('warns before an explicit restart disconnects an active call', async () => {
-    const { installDesktopUpdate } = installTestHost();
+    const installNow = vi.spyOn(desktopUpdates, 'installNow').mockResolvedValue(undefined);
     idleMock.isInAnyCall = true;
     setSnapshot({ ...stableIdle, phase: 'ready', candidateVersion: '0.3.0' });
     render(DesktopUpdateSettings);
@@ -206,9 +214,9 @@ describe('DesktopUpdateSettings', () => {
     await expect
       .element(page.getByRole('dialog', { name: 'Restart and leave the call?' }))
       .toBeVisible();
-    expect(installDesktopUpdate).not.toHaveBeenCalled();
+    expect(installNow).not.toHaveBeenCalled();
 
     await userEvent.click(page.getByRole('button', { name: 'Restart and leave' }));
-    expect(installDesktopUpdate).toHaveBeenCalledTimes(1);
+    expect(installNow).toHaveBeenCalledTimes(1);
   });
 });

@@ -9,7 +9,6 @@ current snapshot and explicit user actions.
   import { getLocale } from '$lib/i18n/runtime';
   import * as m from '$lib/i18n/messages';
   import { desktopUpdates } from '$lib/native/desktopUpdates.svelte';
-  import { getNativeHost } from '$lib/native/host';
   import type { DesktopUpdateSnapshot } from '$lib/native/types';
   import { idleState } from '$lib/state/idle.svelte';
   import { getUserSettings } from '$lib/state/userSettings.svelte';
@@ -25,13 +24,10 @@ current snapshot and explicit user actions.
   let activeCallConfirmationVisible = $state(false);
   let channelPending = $state(false);
   let manualCheckPending = $state(false);
-  let installPending = $state(false);
 
   const waitingForStable = $derived(
     desktopUpdates.snapshot.channel === 'stable' &&
       desktopUpdates.snapshot.currentVersion.includes('-nightly.') &&
-      desktopUpdates.snapshot.phase === 'idle' &&
-      desktopUpdates.snapshot.lastCheckedAt !== undefined &&
       desktopUpdates.snapshot.candidateVersion === undefined
   );
 
@@ -136,17 +132,15 @@ current snapshot and explicit user actions.
   }
 
   async function installUpdate(): Promise<void> {
-    if (installPending) return;
-    installPending = true;
     try {
-      await getNativeHost().installDesktopUpdate();
-    } finally {
-      installPending = false;
+      await desktopUpdates.installNow();
+    } catch {
+      // The native snapshot carries the normalized failure shown in this section.
     }
   }
 
   function restartNow(): void {
-    if (installPending) return;
+    if (desktopUpdates.installing) return;
     if (idleState.isInAnyCall) {
       activeCallConfirmationVisible = true;
       return;
@@ -206,7 +200,7 @@ current snapshot and explicit user actions.
         </Hint>
       {/if}
 
-      <div class="surface-box flex flex-col gap-2" aria-live="polite">
+      <div class="flex flex-col gap-2 surface-box" aria-live="polite">
         <p>
           <span class="font-medium"
             >{m['settings.preferences.desktop_updates.status_label']()}:</span
@@ -225,7 +219,7 @@ current snapshot and explicit user actions.
             })}
           </p>
           <div>
-            <Button onclick={restartNow} loading={installPending}>
+            <Button onclick={restartNow} loading={desktopUpdates.installing}>
               {m['ui.desktop_updates.restart_now']()}
             </Button>
           </div>
@@ -262,7 +256,7 @@ current snapshot and explicit user actions.
     title={m['settings.preferences.desktop_updates.active_call.title']()}
     tone="warning"
     actionLabel={m['settings.preferences.desktop_updates.active_call.confirm']()}
-    loading={installPending}
+    loading={desktopUpdates.installing}
     onconfirm={confirmActiveCallRestart}
     onclose={() => (activeCallConfirmationVisible = false)}
   >

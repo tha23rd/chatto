@@ -19,6 +19,7 @@ const initialSnapshot: DesktopUpdateSnapshot = {
 /** Coordinates update presentation and scheduling across the native host boundary. */
 export class DesktopUpdatesCoordinator {
   snapshot = $state.raw<DesktopUpdateSnapshot>(initialSnapshot);
+  installing = $state(false);
 
   readonly #getHost: () => NativeHost;
   readonly #preferences: DesktopUpdatePreferences;
@@ -30,6 +31,7 @@ export class DesktopUpdatesCoordinator {
   #setupRetryTimer: ReturnType<typeof setTimeout> | null = null;
   #checkPromise: Promise<DesktopUpdateSnapshot> | null = null;
   #channelMutation: Promise<DesktopUpdateSnapshot> | null = null;
+  #installPromise: Promise<void> | null = null;
   #lifecycle = 0;
 
   constructor(
@@ -126,6 +128,36 @@ export class DesktopUpdatesCoordinator {
       return this.initialize().then(() => this.snapshot);
     }
     return this.#runCheck(this.#lifecycle, this.#host);
+  }
+
+  /** Install the ready update after an explicit user action, with one process-wide request. */
+  installNow(): Promise<void> {
+    if (this.#installPromise) return this.#installPromise;
+
+    const host = this.#host;
+    if (!host?.capabilities.desktopUpdates || !this.snapshot.supported) {
+      return Promise.reject(new Error('Desktop updates are unavailable'));
+    }
+    if (this.snapshot.phase !== 'ready' || !this.snapshot.candidateVersion) {
+      return Promise.reject(new Error('No desktop update is ready to install'));
+    }
+
+    this.installing = true;
+    let nativeInstall: Promise<void>;
+    try {
+      nativeInstall = host.installDesktopUpdate();
+    } catch (error) {
+      this.installing = false;
+      return Promise.reject(error);
+    }
+    const installing = nativeInstall.finally(() => {
+      if (this.#installPromise === installing) {
+        this.#installPromise = null;
+        this.installing = false;
+      }
+    });
+    this.#installPromise = installing;
+    return installing;
   }
 
   /** Persist a channel selection, discard stale presentation, and re-check it. */

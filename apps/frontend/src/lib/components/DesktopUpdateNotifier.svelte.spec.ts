@@ -2,10 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { flushSync } from 'svelte';
 import { render } from 'vitest-browser-svelte';
-import { browserNativeHost } from '$lib/native/browserHost';
 import { desktopUpdates } from '$lib/native/desktopUpdates.svelte';
-import { installNativeHost, resetNativeHostForTests } from '$lib/native/host';
-import type { DesktopUpdateSnapshot, NativeHost } from '$lib/native/types';
+import type { DesktopUpdateSnapshot } from '$lib/native/types';
 import DesktopUpdateNotifier from './DesktopUpdateNotifier.svelte';
 
 const idleMock = vi.hoisted(() => ({ isInAnyCall: false }));
@@ -25,25 +23,11 @@ function setSnapshot(snapshot: DesktopUpdateSnapshot): void {
   flushSync();
 }
 
-function installTestHost(installDesktopUpdate = vi.fn(async () => {})): {
-  host: NativeHost;
-  installDesktopUpdate: ReturnType<typeof vi.fn>;
-} {
-  const host: NativeHost = {
-    ...browserNativeHost,
-    kind: 'tauri',
-    capabilities: { ...browserNativeHost.capabilities, desktopUpdates: true },
-    installDesktopUpdate
-  };
-  installNativeHost(host);
-  return { host, installDesktopUpdate };
-}
-
 describe('DesktopUpdateNotifier', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    resetNativeHostForTests();
     idleMock.isInAnyCall = false;
+    desktopUpdates.installing = false;
     setSnapshot(readySnapshot);
   });
 
@@ -55,7 +39,6 @@ describe('DesktopUpdateNotifier', () => {
   });
 
   it('offers Restart now and Later only when an update is ready', async () => {
-    installTestHost();
     render(DesktopUpdateNotifier);
 
     await expect.element(page.getByText('Update ready')).toBeVisible();
@@ -64,7 +47,7 @@ describe('DesktopUpdateNotifier', () => {
   });
 
   it('keeps Later dismissed for the same candidate but permits a new candidate', async () => {
-    const { installDesktopUpdate } = installTestHost();
+    const installNow = vi.spyOn(desktopUpdates, 'installNow').mockResolvedValue(undefined);
     render(DesktopUpdateNotifier);
 
     await userEvent.click(page.getByRole('button', { name: 'Later' }));
@@ -72,19 +55,19 @@ describe('DesktopUpdateNotifier', () => {
 
     setSnapshot({ ...readySnapshot });
     await expect.element(page.getByText('Update ready')).not.toBeInTheDocument();
-    expect(installDesktopUpdate).not.toHaveBeenCalled();
+    expect(installNow).not.toHaveBeenCalled();
 
     setSnapshot({ ...readySnapshot, candidateVersion: '0.3.1' });
     await expect.element(page.getByText('Update ready')).toBeVisible();
   });
 
   it('suppresses the prompt during a call without installing automatically', async () => {
-    const { installDesktopUpdate } = installTestHost();
+    const installNow = vi.spyOn(desktopUpdates, 'installNow').mockResolvedValue(undefined);
     idleMock.isInAnyCall = true;
     const { container } = render(DesktopUpdateNotifier);
 
     await expect.element(container).not.toHaveTextContent('Update ready');
-    expect(installDesktopUpdate).not.toHaveBeenCalled();
+    expect(installNow).not.toHaveBeenCalled();
   });
 
   it('installs only after Restart now and disables duplicate invocations while pending', async () => {
@@ -92,13 +75,18 @@ describe('DesktopUpdateNotifier', () => {
     const pending = new Promise<void>((resolve) => {
       resolveInstall = resolve;
     });
-    const { installDesktopUpdate } = installTestHost(vi.fn(() => pending));
+    const installNow = vi.spyOn(desktopUpdates, 'installNow').mockImplementation(() => {
+      desktopUpdates.installing = true;
+      return pending.finally(() => {
+        desktopUpdates.installing = false;
+      });
+    });
     render(DesktopUpdateNotifier);
 
     const restart = page.getByRole('button', { name: 'Restart now' });
     await userEvent.click(restart);
 
-    expect(installDesktopUpdate).toHaveBeenCalledTimes(1);
+    expect(installNow).toHaveBeenCalledTimes(1);
     await expect.element(restart).toBeDisabled();
     resolveInstall();
   });
