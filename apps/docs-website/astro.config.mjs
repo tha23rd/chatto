@@ -54,6 +54,7 @@ export default defineConfig({
           items: [
             "getting-started/introduction",
             "getting-started/quick-start",
+            "getting-started/desktop-client",
             "getting-started/faq",
           ],
         },

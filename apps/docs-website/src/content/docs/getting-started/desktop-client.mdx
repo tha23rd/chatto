@@ -1,0 +1,57 @@
+---
+title: Windows Desktop Client
+description: Install Chatto for Windows and choose an automatic update channel.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+Chatto's desktop client supports Windows 10 and Windows 11. It uses the same
+accounts, servers, rooms, and calls as the web client, with native tray and call
+controls.
+
+## Install the updater bridge
+
+<Steps>
+
+1. Download the latest Windows installer from [GitHub Releases](https://github.com/chattocorp/chatto/releases).
+2. Run the installer and confirm that Windows shows the expected Chatto publisher.
+3. Launch Chatto and add your server.
+
+</Steps>
+
+If you installed Chatto before automatic updates were introduced, this is the
+one manual bridge install you need. Future releases arrive automatically.
+
+## Choose Stable or Nightly
+
+Open **Preferences** and find **Desktop updates**:
+
+- **Stable** is the default and is recommended for normal use.
+- **Nightly** contains every successful desktop build from `main-native`. It
+  provides fixes and features sooner, but receives less testing. Chatto shows
+  this warning and asks you to confirm before changing channels.
+
+<Aside type="caution" title="Switching back to Stable">
+  Chatto never installs an older version. If your Nightly version is newer than
+  the current Stable version, you stay on it until a newer Stable release is
+  available.
+</Aside>
+
+## What happens during an update
+
+Chatto checks for a release and downloads it in the background. When the signed
+update is ready, choose **Restart now** to install it or **Later** to keep
+working. Chatto never forces a restart.
+
+The restart prompt is held back while you are in a call or sharing your screen.
+It appears after the call ends, and the ready update remains visible in
+Preferences in the meantime.
+
+## Troubleshooting
+
+- If a check fails while you are offline, reconnect and use **Check now** in
+  Preferences. Your current version keeps working.
+- If a download or verification fails, Chatto does not run the update. Retry the
+  check after confirming your connection is stable.
+- If automatic updates are not shown in Preferences, install the latest bridge
+  release manually from [GitHub Releases](https://github.com/chattocorp/chatto/releases).

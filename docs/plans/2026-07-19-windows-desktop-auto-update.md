@@ -175,7 +175,7 @@ Use a process-wide async mutex containing the channel, public snapshot, pending 
 - return the current snapshot;
 - validate and switch only between the two hard-coded channels;
 - check with a 30-second timeout and the matching runtime endpoint;
-- download and signature-verify automatically while emitting `native://update-state` snapshots;
+- download and signature-verify automatically while emitting `native://desktop-update-state` snapshots;
 - keep only one check/download active;
 - re-check that the same candidate is still offered immediately before installation;
 - restore the ready candidate after transient revalidation/install errors;

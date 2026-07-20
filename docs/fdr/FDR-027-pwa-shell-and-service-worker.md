@@ -15,6 +15,11 @@ Reconnect catch-up is owned by the foreground web app, not the service worker. W
 
 - The service worker is registered by SvelteKit in production builds.
 - The Windows desktop target uses the same frontend source but disables service-worker registration and SvelteKit version polling because the packaged application owns its shell lifecycle.
+- Windows desktop updates use the Stable channel by default. People can opt in to Nightly in Preferences; every successful `main-native` release is eligible for that channel.
+- The desktop downloads and verifies an available update in the background, then offers **Restart now** or **Later**. It never forces a restart.
+- The restart prompt stays hidden during an active call or screen share and appears after the call ends. The update remains ready in Preferences while the prompt is suppressed or deferred.
+- Nightly is explicitly described as less tested. Switching from Nightly to Stable never downgrades the installed client; the client waits for a newer Stable release.
+- Existing desktop installations require one final manual download from GitHub Releases to install the first updater-capable bridge release.
 - On install, the worker caches the SPA fallback shell and SvelteKit build assets required to boot it.
 - On activate, old Chatto shell caches are deleted and the new worker claims open clients.
 - Known shell assets are served cache-first from the versioned cache; static PWA assets other than the web manifest are cached lazily on first request.
@@ -56,6 +61,12 @@ Reconnect catch-up is owned by the foreground web app, not the service worker. W
 **Decision:** The HTTP frontend server generates the web manifest from the bundled manifest, uses the current server name for the installed app name, and swaps in transformed server-logo URLs for install icons when a logo is configured. Stable favicon and Apple touch icon endpoints redirect to purpose-sized transforms of the current server logo, or to the bundled Chatto icons when no logo is configured.
 **Why:** Self-hosted servers should install with their own visible identity without requiring a custom frontend build.
 **Tradeoff:** Browsers decide when to refresh installed PWA metadata and may cache it aggressively, so existing installs or tabs may keep the previous name or icon until the browser revalidates the metadata or the user reinstalls the app.
+
+### 6. Native packages own desktop updates
+
+**Decision:** Keep browser/PWA shell updates under the service worker, but let the packaged Windows host check, download, verify, and install desktop releases. The shared frontend only selects the channel and presents updater state.
+**Why:** A packaged executable needs a signed installer and a trusted native update boundary; browser version polling cannot safely replace the running application.
+**Tradeoff:** Desktop releases need separate signing, publishing, rollback, and acceptance procedures, and installations predating the updater need a manual bridge release.
 
 ## Related
 

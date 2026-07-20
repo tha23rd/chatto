@@ -5,29 +5,81 @@ SvelteKit client in `apps/frontend`. It deliberately owns only native transport,
 authentication, shortcuts, tray/window lifecycle, and future media capture
 integration. Product UI and domain behaviour remain in the shared frontend.
 
-## Main-native prereleases
+## Desktop release channels
 
 Native development targets the downstream `main-native` branch so `main` can
 remain focused on the upstream web/server code. Merge `main` into
 `main-native` to pick up upstream changes; native feature pull requests should
 use `main-native` as their base.
 
-Every successful push to `main-native` publishes an immutable Windows POC
+Every successful push to `main-native` publishes a signed, immutable Nightly
 prerelease on the repository's
-[GitHub Releases page](https://github.com/tha23rd/chatto/releases). The base
-version and source commit are encoded in the tag and installer name:
+[GitHub Releases page](https://github.com/chattocorp/chatto/releases). Nightly
+versions are monotonic and use a UTC timestamp plus the GitHub Actions run
+number:
 
 ```text
-desktop-v0.1.0-main-native.sha-af3ce2e42586
-Chatto_0.1.0-main-native.sha-af3ce2e42586_x64-setup.exe
-Chatto_0.1.0-main-native.sha-af3ce2e42586_x64-setup.exe.sha256
+desktop-v0.1.0-nightly.20260719091530.1234
+Chatto_0.1.0-nightly.20260719091530.1234_x64-setup.exe
+Chatto_0.1.0-nightly.20260719091530.1234_x64-setup.exe.sig
+Chatto_0.1.0-nightly.20260719091530.1234_x64-setup.exe.sha256
 ```
 
-The workflow waits for the relevant CI jobs, verifies the package and checksum,
-and uploads both files to a draft before exposing it as a prerelease. Verify the
-downloaded installer against its adjacent `.sha256` file before running it.
-These POC packages are intentionally unsigned, so Windows SmartScreen may warn
-about or block them.
+Stable releases are created only from an exact `desktop-vX.Y.Z` tag reachable
+from `main-native`. The tag, desktop package versions, installer version, and
+manifest version must all match. Stable is the default application channel;
+Nightly is opt-in.
+
+Both workflows build an Authenticode-signed installer and a Tauri updater
+signature. They upload exactly five assets to a draft GitHub release, download
+and reverify those stored bytes, publish the release, then atomically advance
+the matching manifest under `https://updates.chatto.run/desktop/`. A pull
+request never publishes a release or changes a live channel.
+
+An existing installation without updater support needs one final manual bridge
+install. After that, the native host downloads and verifies updates in the
+background and the frontend offers a user-controlled restart.
+
+### Maintainer release configuration
+
+Configure a protected GitHub environment named `desktop-release`. Require
+reviewers for production publishing and define these environment variables:
+
+- `CHATTO_DESKTOP_UPDATER_PUBLIC_KEY`
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+- `AZURE_ARTIFACT_SIGNING_ENDPOINT`
+- `AZURE_ARTIFACT_SIGNING_ACCOUNT`
+- `AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE`
+- `CHATTO_WINDOWS_SIGNER_SUBJECT`
+- `CHATTO_UPDATE_STORE_ENDPOINT`
+- `CHATTO_UPDATE_STORE_BUCKET`
+- `CHATTO_UPDATE_STORE_REGION`
+
+Define these environment secrets:
+
+- `TAURI_SIGNING_PRIVATE_KEY`
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (optional for an unencrypted CI key)
+- `CHATTO_UPDATE_STORE_ACCESS_KEY_ID`
+- `CHATTO_UPDATE_STORE_SECRET_ACCESS_KEY`
+
+Keep the updater private key outside GitHub as an access-controlled, tested
+backup. Record its custodians and recovery procedure. A public-key rotation
+requires a bridge release that trusts the replacement key before later releases
+are signed only by that key.
+
+Before creating a Stable tag, update every desktop version to the same `X.Y.Z`,
+merge the release commit to `main-native`, and create `desktop-vX.Y.Z` on that
+commit. Nightly publishing needs no tag: it follows each successful
+`main-native` build. Both routes intentionally publish draft-first and expose a
+channel only after the GitHub assets, Authenticode publisher, checksum, and
+updater signature pass read-back verification.
+
+To withdraw a bad update, remove its canonical channel manifest from the object
+store, then publish a higher fixed version. Never repoint Stable or Nightly to a
+lower version. Immutable versioned manifests and GitHub assets remain as the
+audit record; an already installed release cannot be recalled.
 
 ## Development
 
@@ -161,13 +213,11 @@ choose **Copy to clipboard**. The versioned JSON contains only a bounded set of
 normalized WebRTC sender statistics. Inspect it before attaching it to a PR and
 keep the acceptance record free of user or server data.
 
-## Unsigned POC packages and troubleshooting
+## Troubleshooting
 
-POC installers are intentionally unsigned and may be blocked or warned about by
-Windows. Test only an installer you built from a reviewed commit or whose
-SHA-256 hash you independently verified. Do not disable Defender, SmartScreen,
-TLS validation, or browser security controls; use a disposable Windows VM when
-local policy does not permit unsigned software.
+Test only an installer built from a reviewed commit or downloaded from the
+project's GitHub Releases page. Do not disable Defender, SmartScreen, TLS
+validation, or browser security controls.
 
 - If the window cannot open, confirm the WebView2 Evergreen Runtime is installed
   and current through normal Microsoft/Windows Update channels.
