@@ -2,12 +2,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushSync } from 'svelte';
 import { render } from 'vitest-browser-svelte';
 import { q } from '$lib/test-utils';
+import '../../../../app.css';
 import MessageMetaBar from './MessageMetaBar.svelte';
+
+// 1x1 transparent PNG so the custom-emoji <img> resolves to a real element.
+const CUSTOM_EMOJI_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
 
 const mocks = vi.hoisted(() => ({
   reactionActions: {
     toggleReaction: vi.fn()
   }
+}));
+
+// Treat only the `custom` emoji name as a server custom emoji; everything else
+// falls through to the built-in gemoji path.
+vi.mock('$lib/state/customEmojis.svelte', () => ({
+  getCustomEmoji: (_server: string, name: string) =>
+    name === 'custom' ? { name: 'custom', url: CUSTOM_EMOJI_URL } : undefined,
+  getCustomEmojis: () => ({ ensureLoaded: vi.fn() })
 }));
 
 vi.mock('$lib/hooks', () => ({
@@ -308,6 +321,43 @@ describe('MessageMetaBar', () => {
     const tooltip = q(container, '[role="tooltip"]')!;
     expect(q(tooltip, 'strong')?.textContent?.trim()).toBe('Heart');
     expect(q(tooltip, '[data-testid="reaction-tooltip-user"]')?.textContent?.trim()).toBe('Alice');
+  });
+
+  it('vertically aligns custom-emoji reaction pills with unicode ones', async () => {
+    const { container } = render(MessageMetaBar, {
+      props: {
+        ...baseProps,
+        reactions: [
+          reaction({ emoji: 'thumbsup', count: 2 }),
+          reaction({ emoji: 'custom', count: 1 })
+        ]
+      }
+    });
+
+    const unicodeButton = q(container, 'button[aria-label="Add 👍 reaction (2)"]') as HTMLElement;
+    const customButton = q(container, 'button[aria-label="Add custom reaction (1)"]') as HTMLElement;
+    expect(unicodeButton).not.toBeNull();
+    expect(customButton).not.toBeNull();
+
+    // Let the custom-emoji image resolve so layout settles.
+    const img = q(customButton, 'img') as HTMLImageElement;
+    if (!img.complete) {
+      await new Promise((resolve) => {
+        img.addEventListener('load', resolve, { once: true });
+        img.addEventListener('error', resolve, { once: true });
+      });
+    }
+    flushSync();
+
+    const unicodeRect = unicodeButton.getBoundingClientRect();
+    const customRect = customButton.getBoundingClientRect();
+    const unicodeCenter = unicodeRect.top + unicodeRect.height / 2;
+    const customCenter = customRect.top + customRect.height / 2;
+
+    // Before the wrapper became `inline-flex`, the custom pill floated ~1px
+    // above the unicode pill because its inline-flex button sat at the top of
+    // an oversized text line box. Guard that they stay centered together.
+    expect(Math.abs(customCenter - unicodeCenter)).toBeLessThan(0.75);
   });
 
   it('routes reaction pill clicks through shared reaction actions', async () => {
