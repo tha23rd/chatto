@@ -190,4 +190,3 @@ if (-not [string]::IsNullOrWhiteSpace($GitHubOutputPath)) {
     MetadataName = $metadataName
     Sha256 = $checksum
 }
-

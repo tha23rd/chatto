@@ -53,4 +53,3 @@ if ($null -eq $signature.SignerCertificate -or
     $signature.SignerCertificate.Subject -cne $env:CHATTO_WINDOWS_SIGNER_SUBJECT) {
     throw 'The Authenticode signer does not match CHATTO_WINDOWS_SIGNER_SUBJECT.'
 }
-
