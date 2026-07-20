@@ -2,173 +2,147 @@
 
 set -euo pipefail
 
-: "${VERSION:?VERSION is required}"
-: "${RELEASE_TAG:?RELEASE_TAG is required}"
-: "${INSTALLER_NAME:?INSTALLER_NAME is required}"
-: "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
-: "${GITHUB_SHA:?GITHUB_SHA is required}"
-: "${GH_TOKEN:?GH_TOKEN is required}"
-
-if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-main-native\.sha-[0-9a-f]{12}$ ]]; then
-  echo "::error::Invalid main-native prerelease version."
-  exit 1
-fi
-if [[ ! "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-  echo "::error::GitHub did not provide a full commit SHA."
-  exit 1
-fi
-if [[ ! "$GITHUB_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
-  echo "::error::Invalid GitHub repository identifier."
-  exit 1
-fi
-
-expected_tag="desktop-v${VERSION}"
-expected_installer="Chatto_${VERSION}_x64-setup.exe"
-if [[ "$RELEASE_TAG" != "$expected_tag" || "$INSTALLER_NAME" != "$expected_installer" ]]; then
-  echo "::error::Windows release metadata is internally inconsistent."
-  exit 1
-fi
-if [[ "$VERSION" != *"${GITHUB_SHA:0:12}" ]]; then
-  echo "::error::Windows release version does not identify the source commit."
-  exit 1
-fi
-
-asset_directory="${ASSET_DIRECTORY:-.context/release/windows}"
-installer="${asset_directory}/${INSTALLER_NAME}"
-checksum="${installer}.sha256"
-for asset in "$installer" "$checksum"; do
-  if [[ ! -f "$asset" ]]; then
-    echo "::error::Missing Windows release asset: $(basename "$asset")"
+for name in VERSION RELEASE_TAG INSTALLER_NAME MANIFEST_NAME METADATA_NAME RELEASE_KIND \
+  GITHUB_REPOSITORY GITHUB_SHA GH_TOKEN CHATTO_WINDOWS_SIGNER_SUBJECT \
+  CHATTO_DESKTOP_UPDATER_PUBLIC_KEY; do
+  if [[ -z "${!name:-}" ]]; then
+    echo "::error::${name} is required"
     exit 1
   fi
 done
 
-mapfile -t staged_assets < <(find "$asset_directory" -maxdepth 1 -type f -printf '%f\n' | sort)
-if (( ${#staged_assets[@]} != 2 )); then
-  echo "::error::Expected exactly two Windows release assets, found ${#staged_assets[@]}."
-  printf 'Staged asset: %s\n' "${staged_assets[@]}"
+stable_pattern='^[0-9]+\.[0-9]+\.[0-9]+$'
+nightly_pattern='^[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]{14}\.[0-9]+$'
+if [[ "$RELEASE_KIND" == "stable" ]]; then
+  [[ "$VERSION" =~ $stable_pattern ]] || { echo '::error::Invalid stable version.'; exit 1; }
+  prerelease=false
+elif [[ "$RELEASE_KIND" == "nightly" ]]; then
+  [[ "$VERSION" =~ $nightly_pattern ]] || { echo '::error::Invalid nightly version.'; exit 1; }
+  prerelease=true
+else
+  echo '::error::RELEASE_KIND must be stable or nightly.'
   exit 1
 fi
+[[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo '::error::Invalid source SHA.'; exit 1; }
+[[ "$GITHUB_REPOSITORY" == 'chattocorp/chatto' ]] || { echo '::error::Unexpected release repository.'; exit 1; }
+
+expected_tag="desktop-v${VERSION}"
+expected_installer="Chatto_${VERSION}_x64-setup.exe"
+expected_manifest="Chatto_${VERSION}_windows-x86_64.update.json"
+expected_metadata="Chatto_${VERSION}_windows-x86_64.metadata.json"
+if [[ "$RELEASE_TAG" != "$expected_tag" || "$INSTALLER_NAME" != "$expected_installer" || \
+      "$MANIFEST_NAME" != "$expected_manifest" || "$METADATA_NAME" != "$expected_metadata" ]]; then
+  echo '::error::Desktop release metadata is internally inconsistent.'
+  exit 1
+fi
+asset_directory="${ASSET_DIRECTORY:-.context/release/windows}"
+assets=(
+  "${asset_directory}/${INSTALLER_NAME}"
+  "${asset_directory}/${INSTALLER_NAME}.sig"
+  "${asset_directory}/${INSTALLER_NAME}.sha256"
+  "${asset_directory}/${MANIFEST_NAME}"
+  "${asset_directory}/${METADATA_NAME}"
+)
+for asset in "${assets[@]}"; do
+  [[ -f "$asset" ]] || { echo "::error::Missing release asset: $(basename "$asset")"; exit 1; }
+done
+mapfile -t staged_assets < <(find "$asset_directory" -maxdepth 1 -type f -printf '%f\n' | sort)
+[[ ${#staged_assets[@]} -eq 5 ]] || { echo '::error::Expected exactly five release assets.'; exit 1; }
 
 (
   cd "$asset_directory"
   sha256sum --check "${INSTALLER_NAME}.sha256"
 )
+node apps/desktop/scripts/update-manifest.mjs verify --manifest "${asset_directory}/${MANIFEST_NAME}"
+jq -e --arg version "$VERSION" --arg sha "$GITHUB_SHA" --arg publisher "$CHATTO_WINDOWS_SIGNER_SUBJECT" \
+  '.version == $version and .sourceSha == $sha and .publisher == $publisher' \
+  "${asset_directory}/${METADATA_NAME}" >/dev/null
 
-release_title="Chatto Windows POC ${VERSION}"
-notes_file="${RUNNER_TEMP:-/tmp}/main-native-release-notes.md"
-release_json="${RUNNER_TEMP:-/tmp}/main-native-release.json"
-release_error="${RUNNER_TEMP:-/tmp}/main-native-release-error.txt"
-release_page="${RUNNER_TEMP:-/tmp}/main-native-release-page.json"
-tag_json="${RUNNER_TEMP:-/tmp}/main-native-tag.json"
-
+release_json="${RUNNER_TEMP:-/tmp}/desktop-release.json"
+release_notes="${RUNNER_TEMP:-/tmp}/desktop-release-notes.md"
+verification_directory="${RUNNER_TEMP:-/tmp}/desktop-release-verification"
 {
-  echo "Automated Windows POC build from \`main-native\`."
+  echo "Automated Chatto Windows ${RELEASE_KIND} release."
   echo
+  echo "- Version: \`${VERSION}\`"
   echo "- Source commit: \`${GITHUB_SHA}\`"
-  echo "- Installer: \`${INSTALLER_NAME}\`"
-  echo "- Checksum: \`${INSTALLER_NAME}.sha256\`"
-  echo
-  echo "**Unsigned POC:** Windows SmartScreen may warn about or block this installer."
-} > "$notes_file"
+  echo "- Authenticode publisher: \`${CHATTO_WINDOWS_SIGNER_SUBJECT}\`"
+} >"$release_notes"
 
-verify_release_assets() {
-  local metadata_file="$1"
-  for expected_asset in "$INSTALLER_NAME" "${INSTALLER_NAME}.sha256"; do
-    if ! jq -e --arg name "$expected_asset" 'any(.assets[]; .name == $name)' "$metadata_file" > /dev/null; then
-      echo "::error::GitHub Release is missing ${expected_asset}."
-      return 1
-    fi
+load_release() {
+  gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+    --json tagName,isDraft,isPrerelease,assets >"$release_json" 2>/dev/null
+}
+
+verify_release_metadata() {
+  local expected_draft="$1"
+  jq -e --arg tag "$RELEASE_TAG" --argjson draft "$expected_draft" --argjson prerelease "$prerelease" \
+    '.tagName == $tag and .isDraft == $draft and .isPrerelease == $prerelease and
+     (.assets | length) == 5' "$release_json" >/dev/null
+  for expected_asset in "$INSTALLER_NAME" "${INSTALLER_NAME}.sig" "${INSTALLER_NAME}.sha256" "$MANIFEST_NAME" "$METADATA_NAME"; do
+    jq -e --arg name "$expected_asset" 'any(.assets[]; .name == $name)' "$release_json" >/dev/null
   done
+  actual_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}" --jq .sha)"
+  [[ "$actual_sha" == "$GITHUB_SHA" ]] || { echo '::error::Release tag does not identify source commit.'; return 1; }
 }
 
-verify_tag_ref() {
-  if ! gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" > "$tag_json"; then
-    echo "::error::Native release tag is missing."
-    return 1
-  fi
-  if [[ "$(jq -r '.object.type' "$tag_json")" != "commit" || "$(jq -r '.object.sha' "$tag_json")" != "$GITHUB_SHA" ]]; then
-    echo "::error::Native release tag does not identify the source commit."
-    return 1
-  fi
+verify_downloaded_assets() {
+  rm -rf "$verification_directory"
+  mkdir -p "$verification_directory"
+  gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$verification_directory"
+  for asset in "${assets[@]}"; do
+    cmp --silent "$asset" "${verification_directory}/$(basename "$asset")" || {
+      echo "::error::Stored release asset differs: $(basename "$asset")"
+      return 1
+    }
+  done
+  (
+    cd "$verification_directory"
+    sha256sum --check "${INSTALLER_NAME}.sha256"
+  )
+  node apps/desktop/scripts/update-manifest.mjs verify --manifest "${verification_directory}/${MANIFEST_NAME}"
+  pwsh -NoProfile -NonInteractive -File apps/desktop/scripts/verify-package.ps1 \
+    -PackagePath "${verification_directory}/${INSTALLER_NAME}" \
+    -OutputDirectory "${verification_directory}/verification-report" \
+    -ExpectedSignerSubject "$CHATTO_WINDOWS_SIGNER_SUBJECT" \
+    -UpdaterSignaturePath "${verification_directory}/${INSTALLER_NAME}.sig" \
+    -UpdaterPublicKey "$CHATTO_DESKTOP_UPDATER_PUBLIC_KEY"
 }
 
-if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > "$release_json" 2> "$release_error"; then
-  verify_tag_ref
-  if [[ "$(jq -r '.draft' "$release_json")" != "false" || "$(jq -r '.prerelease' "$release_json")" != "true" ]]; then
-    echo "::error::Existing native release is not a published prerelease."
+if load_release; then
+  if jq -e '.isDraft == false' "$release_json" >/dev/null; then
+    verify_release_metadata false
+    verify_downloaded_assets
+    echo "Immutable desktop release ${RELEASE_TAG} already verified."
+    exit 0
+  fi
+  verify_release_metadata true || {
+    echo '::error::Existing draft does not match this release.'
     exit 1
-  fi
-  verify_release_assets "$release_json"
-  echo "Immutable prerelease ${RELEASE_TAG} is already published."
-  exit 0
-elif ! grep -q 'HTTP 404' "$release_error"; then
-  sed 's/^/::error::/' "$release_error" >&2
-  exit 1
+  }
+  gh release upload "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+else
+  create_arguments=(--repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Chatto Windows ${VERSION}" --notes-file "$release_notes" --draft)
+  [[ "$prerelease" == true ]] && create_arguments+=(--prerelease)
+  gh release create "$RELEASE_TAG" "${assets[@]}" "${create_arguments[@]}"
 fi
 
-incomplete_release_found=false
-release_page_number=1
-while true; do
-  gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100&page=${release_page_number}" > "$release_page"
-  if jq -e --arg tag "$RELEASE_TAG" '.[] | select(.tag_name == $tag)' "$release_page" > "$release_json"; then
-    incomplete_release_found=true
-    break
-  fi
+load_release
+verify_release_metadata true
+verify_downloaded_assets
 
-  if (( $(jq 'length' "$release_page") < 100 )); then
-    break
-  fi
-  ((release_page_number += 1))
-done
-
-if [[ "$incomplete_release_found" == "true" ]]; then
-  if [[ "$(jq -r '.draft' "$release_json")" != "true" ]]; then
-    echo "::error::Refusing to replace a native release that is already public."
-    exit 1
-  fi
-  verify_tag_ref
-
-  incomplete_release_id="$(jq -r '.id' "$release_json")"
-  if [[ ! "$incomplete_release_id" =~ ^[0-9]+$ ]]; then
-    echo "::error::Incomplete native release has an invalid identifier."
-    exit 1
-  fi
-  gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/${incomplete_release_id}"
-fi
-
-tag_arguments=(--target "$GITHUB_SHA")
-if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" > "$tag_json" 2> "$release_error"; then
-  verify_tag_ref
-  tag_arguments=(--verify-tag)
-elif ! grep -q 'HTTP 404' "$release_error"; then
-  sed 's/^/::error::/' "$release_error" >&2
-  exit 1
-fi
-
-gh release create "$RELEASE_TAG" \
-  "$installer" \
-  "$checksum" \
-  --repo "$GITHUB_REPOSITORY" \
-  "${tag_arguments[@]}" \
-  --title "$release_title" \
-  --notes-file "$notes_file" \
-  --prerelease
-
-gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > "$release_json"
-if [[ "$(jq -r '.draft' "$release_json")" != "false" || "$(jq -r '.prerelease' "$release_json")" != "true" ]]; then
-  echo "::error::GitHub Release was not published as a prerelease."
-  exit 1
-fi
-verify_tag_ref
-verify_release_assets "$release_json"
+# Only expose the release after every stored byte, Authenticode publisher, and
+# updater signature have been reverified from GitHub.
+gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease="$prerelease"
+load_release
+verify_release_metadata false
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
-    echo "### Main-native GitHub prerelease"
+    echo "### Windows desktop ${RELEASE_KIND}"
     echo
     echo "- Tag: \`${RELEASE_TAG}\`"
     echo "- Installer: \`${INSTALLER_NAME}\`"
     echo "- Source: \`${GITHUB_SHA}\`"
-  } >> "$GITHUB_STEP_SUMMARY"
+  } >>"$GITHUB_STEP_SUMMARY"
 fi

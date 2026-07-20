@@ -4,7 +4,13 @@ param(
 
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
-    [string]$OutputDirectory
+    [string]$OutputDirectory,
+
+    [string]$ExpectedSignerSubject,
+
+    [string]$UpdaterSignaturePath,
+
+    [string]$UpdaterPublicKey
 )
 
 Set-StrictMode -Version Latest
@@ -45,6 +51,39 @@ $resolvedOutput = [System.IO.Path]::GetFullPath($OutputDirectory)
 [void](New-Item -ItemType Directory -Path $resolvedOutput -Force)
 $hash = Get-FileHash -LiteralPath $resolvedPackage -Algorithm SHA256
 $signature = Get-AuthenticodeSignature -LiteralPath $resolvedPackage
+if (-not [string]::IsNullOrWhiteSpace($ExpectedSignerSubject)) {
+    if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
+        throw "The Authenticode signature is not valid: $($signature.Status)."
+    }
+    if ($null -eq $signature.SignerCertificate -or
+        $signature.SignerCertificate.Subject -cne $ExpectedSignerSubject) {
+        throw 'The Authenticode signer does not match the configured publisher.'
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($UpdaterSignaturePath) -xor
+    [string]::IsNullOrWhiteSpace($UpdaterPublicKey)) {
+    throw 'UpdaterSignaturePath and UpdaterPublicKey must be provided together.'
+}
+if (-not [string]::IsNullOrWhiteSpace($UpdaterSignaturePath)) {
+    if (-not (Test-Path -LiteralPath $UpdaterSignaturePath -PathType Leaf)) {
+        throw 'The updater signature file was not found.'
+    }
+    Push-Location ([System.IO.Path]::GetFullPath((Join-Path $desktopRoot '..\..')))
+    try {
+        & cargo run --quiet `
+            --manifest-path apps/desktop/src-tauri/Cargo.toml `
+            --features release-verifier `
+            --bin verify-updater-signature `
+            -- $resolvedPackage $UpdaterSignaturePath $UpdaterPublicKey
+        if ($LASTEXITCODE -ne 0) {
+            throw 'The Tauri updater signature does not verify against the configured public key.'
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
 $fileTimestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
 $reportPath = Join-Path $resolvedOutput "chatto-package-$fileTimestamp.json"
 
@@ -62,7 +101,7 @@ $report = [PSCustomObject]@{
     }
     ProductName = [string]$package.VersionInfo.ProductName
     ProductVersion = [string]$package.VersionInfo.ProductVersion
-    IsUnsignedPoc = $signature.Status -eq [System.Management.Automation.SignatureStatus]::NotSigned
+    UpdaterSignatureVerified = -not [string]::IsNullOrWhiteSpace($UpdaterSignaturePath)
 }
 
 $report | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $reportPath -Encoding UTF8
