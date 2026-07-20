@@ -88,21 +88,23 @@ The Windows client has its own SemVer release line. Stable releases use exact
 monotonic Nightly prerelease. A server release does not imply a desktop release.
 
 Rust owns update authority. It selects one of two hard-coded first-party
-manifests under `https://updates.chatto.run`, checks versions, downloads the
-candidate, verifies the Tauri updater signature, and installs only an already
-verified candidate. The renderer receives typed state and may choose Stable or
-Nightly, request a check, and ask to install; it cannot provide an endpoint,
-signature, installer path, or generic updater/process command. Switching from
-Nightly to Stable does not permit a downgrade.
+manifests on rolling `desktop-stable` and `desktop-nightly` GitHub Releases,
+checks versions, downloads the candidate, verifies the Tauri updater signature,
+and installs only an already verified candidate. The renderer receives typed
+state and may choose Stable or Nightly, request a check, and ask to install; it
+cannot provide an endpoint, signature, installer path, or generic
+updater/process command. Switching from Nightly to Stable does not permit a
+downgrade.
 
-Release installers are immutable GitHub release assets. The channel manifests
-at `updates.chatto.run` are small mutable pointers to those assets and are
-advanced only after a draft release has been downloaded and reverified. Each
-installer has both an Authenticode publisher signature and a Tauri updater
-signature. Publishing runs only in the protected `desktop-release` environment
-with GitHub OIDC for Azure Artifact Signing, separately custodied updater keys,
-and scoped object-store credentials. Pull requests can exercise release tests
-but cannot publish a live release or channel.
+Release installers are immutable GitHub release assets. Rolling GitHub releases
+hold the small mutable channel manifests and are advanced only after a draft
+versioned release has been downloaded and reverified. Beta installers have a
+mandatory Tauri updater signature but are not Authenticode-signed, so Windows
+may show an Unknown publisher or SmartScreen warning. The updater public key is
+checked in and its separately backed-up private key is the only release secret.
+Pull requests can exercise release tests but cannot publish a live release or
+channel. Azure Artifact Signing, Authenticode, protected production approvals,
+and a dedicated atomic manifest origin are deferred until broader distribution.
 
 ### Keep renderer authority narrow
 
@@ -227,14 +229,15 @@ unchanged. The native transports also cross the WebView/Tauri IPC boundary;
 their resource and throughput cost must be measured rather than assumed to
 outperform browser networking.
 
-Desktop releases now also require two signing systems, protected release
-configuration, immutable GitHub assets, and a separately operated manifest
-origin. If a release is unsafe, maintainers withdraw its canonical channel
-manifest and publish a fixed version; they never repoint a channel to an older
-version. Already downloaded or installed releases cannot be remotely recalled,
-so rollback is withdrawal plus fix-forward. Rotating the updater key requires a
-bridge release signed by the old key before publishing artifacts signed only by
-the new key.
+Desktop beta releases require one updater signing key plus immutable and rolling
+GitHub Releases. This is easier to operate, but the initial installer lacks a
+verified Windows publisher identity and rolling asset replacement can briefly
+make a channel manifest unavailable. If a release is unsafe, maintainers remove
+its rolling channel manifest and publish a fixed version; they never repoint a
+channel to an older version. Already downloaded or installed releases cannot be
+remotely recalled, so rollback is withdrawal plus fix-forward. Rotating the
+updater key requires a bridge release signed by the old key before publishing
+artifacts signed only by the new key.
 
 WebView2 updates with Windows rather than with Chatto. This reduces bundle size
 but means the exact embedded Chromium build is not pinned by an application

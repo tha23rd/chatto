@@ -1,7 +1,7 @@
 # FDR-027: PWA Shell & Service Worker
 
 **Status:** Active
-**Last reviewed:** 2026-07-19
+**Last reviewed:** 2026-07-20
 
 ## Overview
 
@@ -20,6 +20,7 @@ Reconnect catch-up is owned by the foreground web app, not the service worker. W
 - The restart prompt stays hidden during an active call or screen share and appears after the call ends. The update remains ready in Preferences while the prompt is suppressed or deferred.
 - Nightly is explicitly described as less tested. Switching from Nightly to Stable never downgrades the installed client; the client waits for a newer Stable release.
 - Existing desktop installations require one final manual download from GitHub Releases to install the first updater-capable bridge release.
+- Windows may show an Unknown publisher or SmartScreen warning while the desktop client is in beta; automatic update artifacts are still verified against Chatto's embedded updater key.
 - On install, the worker caches the SPA fallback shell and SvelteKit build assets required to boot it.
 - On activate, old Chatto shell caches are deleted and the new worker claims open clients.
 - Known shell assets are served cache-first from the versioned cache; static PWA assets other than the web manifest are cached lazily on first request.
@@ -65,8 +66,8 @@ Reconnect catch-up is owned by the foreground web app, not the service worker. W
 ### 6. Native packages own desktop updates
 
 **Decision:** Keep browser/PWA shell updates under the service worker, but let the packaged Windows host check, download, verify, and install desktop releases. The shared frontend only selects the channel and presents updater state.
-**Why:** A packaged executable needs a signed installer and a trusted native update boundary; browser version polling cannot safely replace the running application.
-**Tradeoff:** Desktop releases need separate signing, publishing, rollback, and acceptance procedures, and installations predating the updater need a manual bridge release.
+**Why:** A packaged executable needs a trusted native update boundary; browser version polling cannot safely replace the running application. The beta route keeps mandatory Tauri updater signatures while hosting immutable assets and rolling channel manifests on GitHub Releases.
+**Tradeoff:** Installations predating the updater need a manual bridge release, beta installers can trigger Windows publisher warnings until Authenticode is introduced, and rolling manifest replacement can be briefly unavailable.
 
 ## Related
 

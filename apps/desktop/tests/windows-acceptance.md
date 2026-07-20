@@ -28,8 +28,8 @@ private URLs, window titles, or message/media payloads.
 
 | Area                | Exact check                                                                                                                                           | Status | Evidence / non-sensitive notes |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------ |
-| Package             | Run `verify-package.ps1`; record size, hash, signature state, product name, and version.                                                              | UNRUN  |                                |
-| Install             | Install the signed package without disabling Windows security controls.                                                                                | UNRUN  |                                |
+| Package             | Run `verify-package.ps1 -SkipAuthenticode`; record size, hash, unsigned beta signature state, product name, version, and verified updater signature.                  | UNRUN  |                                |
+| Install             | Install the beta package through the normal Windows warning flow without disabling Windows security controls.                                                        | UNRUN  |                                |
 | Launch              | Launch from the Start menu with no development server; the packaged renderer appears and DevTools are unavailable.                                    | UNRUN  |                                |
 | Single instance     | Launch a second copy; no second window/process tree persists and the existing window is focused.                                                      | UNRUN  |                                |
 | First server        | Add an HTTPS self-hosted server from a fresh client profile and reach its login choice.                                                               | UNRUN  |                                |
@@ -67,10 +67,10 @@ not substitutes.
 
 | Case | Exact check | Status | Evidence / non-sensitive notes |
 | ---- | ----------- | ------ | ------------------------------ |
-| Bridge install | Install the final pre-updater release, manually install the signed bridge from GitHub Releases, then confirm automatic update controls are available. | UNRUN | |
-| Stable upgrade | Install the preceding signed Stable version, publish a higher Stable test release, and confirm the client downloads, prompts, restarts, and reports the new version. | UNRUN | |
-| Nightly upgrade | Install the preceding signed Nightly version, publish the next monotonic Nightly test release, and confirm the client downloads, prompts, restarts, and reports the new version. | UNRUN | |
-| Authenticode | Confirm Windows reports the expected Chatto publisher before install and the installed executable retains a valid Authenticode signature. | UNRUN | |
+| Bridge install | Install the final pre-updater release, manually install the unsigned beta bridge from GitHub Releases through the normal Windows warning, then confirm automatic update controls are available. | UNRUN | |
+| Stable upgrade | Install the preceding Tauri-signed Stable beta, publish a higher Stable test release, and confirm the client downloads, prompts, restarts, and reports the new version. | UNRUN | |
+| Nightly upgrade | Install the preceding Tauri-signed Nightly beta, publish the next monotonic Nightly test release, and confirm the client downloads, prompts, restarts, and reports the new version. | UNRUN | |
+| Beta publisher warning | Confirm Windows identifies the installer as unsigned/Unknown publisher, the warning can be handled without disabling security controls, and the package hash matches the immutable GitHub release. | UNRUN | |
 | Updater signature | Confirm the update succeeds with the expected Tauri updater signature and is rejected after changing the signature without changing the installer. | UNRUN | |
 | Offline check | Check while offline; confirm the current client remains usable, the failure is understandable, and a later online retry succeeds. | UNRUN | |
 | Missing manifest | Return HTTP 404 for the selected channel; confirm no installer runs, the failure is shown, and retry works after restoration. | UNRUN | |
