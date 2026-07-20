@@ -627,11 +627,11 @@ mod tests {
     fn channels_use_fixed_first_party_https_endpoints() {
         assert_eq!(
             endpoint(UpdateChannel::Stable).as_str(),
-            "https://updates.chatto.run/desktop/stable/windows-x86_64.json"
+            "https://github.com/tha23rd/chatto/releases/download/desktop-stable/windows-x86_64.json"
         );
         assert_eq!(
             endpoint(UpdateChannel::Nightly).as_str(),
-            "https://updates.chatto.run/desktop/nightly/windows-x86_64.json"
+            "https://github.com/tha23rd/chatto/releases/download/desktop-nightly/windows-x86_64.json"
         );
         assert_eq!(UPDATE_STATE_EVENT, "native://desktop-update-state");
     }
@@ -682,18 +682,6 @@ mod tests {
         assert_eq!(CHECK_TIMEOUT, Duration::from_secs(30));
         assert_eq!(DOWNLOAD_TIMEOUT, Duration::from_secs(30 * 60));
         assert!(DOWNLOAD_TIMEOUT > CHECK_TIMEOUT);
-    }
-
-    #[test]
-    fn channels_use_fixed_github_release_manifests() {
-        assert_eq!(
-            endpoint(UpdateChannel::Stable).as_str(),
-            "https://github.com/tha23rd/chatto/releases/download/desktop-stable/windows-x86_64.json"
-        );
-        assert_eq!(
-            endpoint(UpdateChannel::Nightly).as_str(),
-            "https://github.com/tha23rd/chatto/releases/download/desktop-nightly/windows-x86_64.json"
-        );
     }
 
     #[test]

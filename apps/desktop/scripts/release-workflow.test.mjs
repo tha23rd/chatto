@@ -172,6 +172,20 @@ test("GitHub assets remain draft until stored bytes and updater signature verify
   assert.match(publisher, /-SkipAuthenticode/);
 });
 
+test("published release retries reuse the stored signed assets", () => {
+  const publishedReleaseBranch = publisher.slice(
+    publisher.indexOf("if jq -e '.isDraft == false'"),
+    publisher.indexOf("  fi\n", publisher.indexOf("if jq -e '.isDraft == false'")),
+  );
+
+  assert.match(publishedReleaseBranch, /verify_downloaded_assets false/);
+  assert.match(publishedReleaseBranch, /adopt_downloaded_assets/);
+  assert.match(
+    publisher,
+    /cp .*verification_directory.*asset.*asset_directory/,
+  );
+});
+
 test("Stable tags are exact, version-aligned, and reachable from main-native", () => {
   assert.match(stable, /tags:\n\s+- desktop-v\*/);
   assert.match(stable, /\^desktop-v\(\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+\)\$/);

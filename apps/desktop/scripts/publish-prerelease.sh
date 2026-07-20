@@ -89,20 +89,26 @@ verify_release_metadata() {
 }
 
 verify_downloaded_assets() {
+  local compare_to_staged="${1:-true}"
   rm -rf "$verification_directory"
   mkdir -p "$verification_directory"
   gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$verification_directory"
-  for asset in "${assets[@]}"; do
-    cmp --silent "$asset" "${verification_directory}/$(basename "$asset")" || {
-      echo "::error::Stored release asset differs: $(basename "$asset")"
-      return 1
-    }
-  done
+  if [[ "$compare_to_staged" == true ]]; then
+    for asset in "${assets[@]}"; do
+      cmp --silent "$asset" "${verification_directory}/$(basename "$asset")" || {
+        echo "::error::Stored release asset differs: $(basename "$asset")"
+        return 1
+      }
+    done
+  fi
   (
     cd "$verification_directory"
     sha256sum --check "${INSTALLER_NAME}.sha256"
   )
   node apps/desktop/scripts/update-manifest.mjs verify --manifest "${verification_directory}/${MANIFEST_NAME}"
+  jq -e --arg version "$VERSION" --arg sha "$GITHUB_SHA" \
+    '.version == $version and .sourceSha == $sha and .authenticode == false and .publisher == null' \
+    "${verification_directory}/${METADATA_NAME}" >/dev/null
   pwsh -NoProfile -NonInteractive -File apps/desktop/scripts/verify-package.ps1 \
     -PackagePath "${verification_directory}/${INSTALLER_NAME}" \
     -OutputDirectory "${verification_directory}/verification-report" \
@@ -111,11 +117,18 @@ verify_downloaded_assets() {
     -UpdaterPublicKey "$updater_public_key"
 }
 
+adopt_downloaded_assets() {
+  for asset in "${assets[@]}"; do
+    cp "${verification_directory}/$(basename "$asset")" "${asset_directory}/$(basename "$asset")"
+  done
+}
+
 if load_release; then
   if jq -e '.isDraft == false' "$release_json" >/dev/null; then
     verify_release_metadata false
-    verify_downloaded_assets
-    echo "Immutable desktop release ${RELEASE_TAG} already verified."
+    verify_downloaded_assets false
+    adopt_downloaded_assets
+    echo "Immutable desktop release ${RELEASE_TAG} already verified and staged for channel publication."
     exit 0
   fi
   verify_release_metadata true || {
@@ -131,7 +144,7 @@ fi
 
 load_release
 verify_release_metadata true
-verify_downloaded_assets
+verify_downloaded_assets true
 
 # Only expose the release after every stored byte and updater signature have
 # been reverified from GitHub.
