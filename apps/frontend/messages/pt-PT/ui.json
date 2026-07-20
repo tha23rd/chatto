@@ -8,6 +8,36 @@
     "realtime_paused": "Atualizações em tempo real pausadas. Reconectando...",
     "update_available": "Está disponível uma nova versão",
     "reload": "Recarregar",
+    "desktop_updates": {
+      "status": {
+        "idle": "Tudo atualizado",
+        "checking": "A procurar atualizações…",
+        "downloading": "A transferir atualização…",
+        "downloading_progress": "A transferir atualização… {percent}%",
+        "downloading_progress_bytes": "A transferir atualização… {percent}% ({downloaded} de {total})",
+        "ready": "Pronta para instalar",
+        "failed": "Falha na atualização"
+      },
+      "ready_version": "A versão {version} está pronta para instalar.",
+      "restart_now": "Reiniciar agora",
+      "later": "Mais tarde",
+      "prompt": {
+        "title": "Atualização pronta",
+        "body": "A versão {version} foi transferida. Reinicie o Chatto para concluir a instalação."
+      },
+      "error": {
+        "network": "Não foi possível aceder ao serviço de atualizações. Verifique a ligação e tente novamente.",
+        "metadata": "As informações da atualização são inválidas. Tente novamente mais tarde.",
+        "signature": "Não foi possível verificar a atualização, pelo que não foi instalada.",
+        "download": "Não foi possível transferir a atualização. Tente novamente.",
+        "install": "Não foi possível instalar a atualização. Reinicie o Chatto e tente novamente.",
+        "unavailable": "As atualizações do ambiente de trabalho estão temporariamente indisponíveis."
+      },
+      "toast": {
+        "up_to_date": "Tudo está atualizado.",
+        "check_failed": "Não foi possível verificar as atualizações."
+      }
+    },
     "sign_out": "Sair",
     "close": "Fechar",
     "auth_status": {

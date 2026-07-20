@@ -8,6 +8,36 @@
     "realtime_paused": "Aktualizacje w czasie rzeczywistym wstrzymane. Ponowne łączenie...",
     "update_available": "Dostępna jest nowa wersja",
     "reload": "Załaduj ponownie",
+    "desktop_updates": {
+      "status": {
+        "idle": "Wszystko jest aktualne",
+        "checking": "Sprawdzanie aktualizacji…",
+        "downloading": "Pobieranie aktualizacji…",
+        "downloading_progress": "Pobieranie aktualizacji… {percent}%",
+        "downloading_progress_bytes": "Pobieranie aktualizacji… {percent}% ({downloaded} z {total})",
+        "ready": "Gotowa do instalacji",
+        "failed": "Aktualizacja nie powiodła się"
+      },
+      "ready_version": "Wersja {version} jest gotowa do instalacji.",
+      "restart_now": "Uruchom ponownie teraz",
+      "later": "Później",
+      "prompt": {
+        "title": "Aktualizacja jest gotowa",
+        "body": "Wersja {version} została pobrana. Uruchom Chatto ponownie, aby zakończyć instalację."
+      },
+      "error": {
+        "network": "Nie można połączyć się z usługą aktualizacji. Sprawdź połączenie i spróbuj ponownie.",
+        "metadata": "Informacje o aktualizacji są nieprawidłowe. Spróbuj ponownie później.",
+        "signature": "Nie udało się zweryfikować aktualizacji, więc nie została zainstalowana.",
+        "download": "Nie udało się pobrać aktualizacji. Spróbuj ponownie.",
+        "install": "Nie udało się zainstalować aktualizacji. Uruchom Chatto ponownie i spróbuj jeszcze raz.",
+        "unavailable": "Aktualizacje aplikacji są tymczasowo niedostępne."
+      },
+      "toast": {
+        "up_to_date": "Wszystko jest aktualne.",
+        "check_failed": "Nie udało się sprawdzić aktualizacji."
+      }
+    },
     "sign_out": "Wyloguj się",
     "close": "Zamknij",
     "auth_status": {

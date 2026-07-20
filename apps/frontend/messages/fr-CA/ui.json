@@ -8,6 +8,36 @@
     "realtime_paused": "Les mises à jour en temps réel ont été suspendues. Reconnexion...",
     "update_available": "Une nouvelle version est disponible",
     "reload": "Recharger",
+    "desktop_updates": {
+      "status": {
+        "idle": "À jour",
+        "checking": "Recherche de mises à jour…",
+        "downloading": "Téléchargement de la mise à jour…",
+        "downloading_progress": "Téléchargement de la mise à jour… {percent}%",
+        "downloading_progress_bytes": "Téléchargement de la mise à jour… {percent}% ({downloaded} sur {total})",
+        "ready": "Prête à être installée",
+        "failed": "Échec de la mise à jour"
+      },
+      "ready_version": "La version {version} est prête à être installée.",
+      "restart_now": "Redémarrer maintenant",
+      "later": "Plus tard",
+      "prompt": {
+        "title": "Mise à jour prête",
+        "body": "La version {version} a été téléchargée. Redémarrez Chatto pour terminer son installation."
+      },
+      "error": {
+        "network": "Impossible de joindre le service de mise à jour. Vérifiez votre connexion et réessayez.",
+        "metadata": "Les informations de mise à jour sont invalides. Réessayez plus tard.",
+        "signature": "La mise à jour n’a pas pu être vérifiée et n’a pas été installée.",
+        "download": "La mise à jour n’a pas pu être téléchargée. Réessayez.",
+        "install": "La mise à jour n’a pas pu être installée. Redémarrez Chatto et réessayez.",
+        "unavailable": "Les mises à jour de l’application sont temporairement indisponibles."
+      },
+      "toast": {
+        "up_to_date": "Vous êtes à jour.",
+        "check_failed": "Impossible de rechercher les mises à jour."
+      }
+    },
     "sign_out": "Déconnecter",
     "close": "Fermer",
     "auth_status": {

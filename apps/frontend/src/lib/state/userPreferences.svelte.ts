@@ -12,6 +12,7 @@ import {
   defaultSoundId,
   notificationSounds
 } from '$lib/audio/notificationSounds';
+import type { DesktopUpdateChannel } from '$lib/native/types';
 import { Codecs, globalSlot } from '$lib/storage/slot';
 
 export type DisplayTheme = 'system' | 'light' | 'dark';
@@ -35,6 +36,7 @@ const defaultSoundboardPlayback: SoundboardPlaybackPreferences = {
 
 interface Preferences {
   displayTheme: DisplayTheme;
+  desktopUpdateChannel: DesktopUpdateChannel;
   notificationSound: NotificationSoundId;
   notificationSoundFilters: NotificationSoundFilters;
   soundboardPlayback: SoundboardPlaybackPreferences;
@@ -42,6 +44,7 @@ interface Preferences {
 
 const defaultPreferences: Preferences = {
   displayTheme: 'system',
+  desktopUpdateChannel: 'stable',
   notificationSound: defaultSoundId,
   notificationSoundFilters: defaultNotificationSoundFilters,
   soundboardPlayback: defaultSoundboardPlayback
@@ -51,6 +54,10 @@ const slot = globalSlot('preferences', defaultPreferences, Codecs.json<Preferenc
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function normalizeDesktopUpdateChannel(value: unknown): DesktopUpdateChannel {
+  return value === 'nightly' ? 'nightly' : 'stable';
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -137,6 +144,7 @@ function loadPreferences(): Preferences {
     ...defaultPreferences,
     ...stored,
     displayTheme,
+    desktopUpdateChannel: normalizeDesktopUpdateChannel(stored.desktopUpdateChannel),
     notificationSound: isValidSound ? stored.notificationSound : defaultSoundId,
     notificationSoundFilters: normalizeNotificationSoundFilters(stored.notificationSoundFilters),
     soundboardPlayback: normalizeSoundboardPlayback(stored.soundboardPlayback)
@@ -159,6 +167,15 @@ export class UserPreferencesState {
 
   get effectiveDisplayTheme(): EffectiveTheme {
     return resolveDisplayTheme(this.#prefs.displayTheme);
+  }
+
+  get desktopUpdateChannel(): DesktopUpdateChannel {
+    return this.#prefs.desktopUpdateChannel;
+  }
+
+  set desktopUpdateChannel(value: DesktopUpdateChannel) {
+    this.#prefs.desktopUpdateChannel = normalizeDesktopUpdateChannel(value);
+    slot.set(this.#prefs);
   }
 
   get notificationSound(): NotificationSoundId {

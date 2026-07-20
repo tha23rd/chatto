@@ -8,6 +8,36 @@
     "realtime_paused": "リアルタイム更新が一時停止されました。再接続中...",
     "update_available": "新しいバージョンが利用可能です",
     "reload": "リロード",
+    "desktop_updates": {
+      "status": {
+        "idle": "最新です",
+        "checking": "アップデートを確認中…",
+        "downloading": "アップデートをダウンロード中…",
+        "downloading_progress": "アップデートをダウンロード中… {percent}%",
+        "downloading_progress_bytes": "アップデートをダウンロード中… {percent}%（{downloaded}/{total}）",
+        "ready": "インストールの準備完了",
+        "failed": "アップデートに失敗しました"
+      },
+      "ready_version": "バージョン {version} をインストールできます。",
+      "restart_now": "今すぐ再起動",
+      "later": "後で",
+      "prompt": {
+        "title": "アップデートの準備完了",
+        "body": "バージョン {version} をダウンロードしました。Chatto を再起動してインストールを完了してください。"
+      },
+      "error": {
+        "network": "アップデートサービスに接続できませんでした。接続を確認して、もう一度お試しください。",
+        "metadata": "アップデート情報が無効です。後でもう一度お試しください。",
+        "signature": "アップデートを検証できなかったため、インストールしませんでした。",
+        "download": "アップデートをダウンロードできませんでした。もう一度お試しください。",
+        "install": "アップデートをインストールできませんでした。Chatto を再起動して、もう一度お試しください。",
+        "unavailable": "デスクトップ版のアップデートは一時的に利用できません。"
+      },
+      "toast": {
+        "up_to_date": "最新の状態です。",
+        "check_failed": "アップデートを確認できませんでした。"
+      }
+    },
     "sign_out": "サインアウト",
     "close": "閉じる",
     "auth_status": {

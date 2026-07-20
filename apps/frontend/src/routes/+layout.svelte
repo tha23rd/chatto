@@ -11,6 +11,7 @@
   import IdleTracker from '$lib/components/IdleTracker.svelte';
   import MobileSidebarChrome from '$lib/components/MobileSidebarChrome.svelte';
   import UpdateNotifier from '$lib/components/UpdateNotifier.svelte';
+  import DesktopUpdateNotifier from '$lib/components/DesktopUpdateNotifier.svelte';
   import { usePageTitle, usePinchZoomPrevention, useVisualViewport } from '$lib/hooks';
   import { sidebarSwipe } from '$lib/hooks/useSidebarSwipe.svelte';
   import { chatRoomIdFromRoute } from '$lib/navigation/chatRoomRoute';
@@ -20,6 +21,8 @@
   import { useServerRegistry } from '$lib/state/server/useServerRegistry.svelte';
   import { ToastContainer } from '$lib/ui/toast';
   import { AppHeader, Frame } from '$lib/ui';
+  import { desktopUpdates } from '$lib/native/desktopUpdates.svelte';
+  import { onMount } from 'svelte';
   import '../app.css';
 
   let { data, children } = $props();
@@ -35,6 +38,13 @@
   useServerRegistry(() => data.user);
   useVisualViewport();
   usePinchZoomPrevention();
+
+  onMount(() => {
+    void desktopUpdates.initialize();
+    return () => {
+      void desktopUpdates.destroy();
+    };
+  });
 
   const activeServerId = $derived(getActiveServer());
   const activeRoomId = $derived(chatRoomIdFromRoute(page.route.id, page.params.roomId));
@@ -75,6 +85,7 @@
 <GlobalKeyboardShortcuts />
 <IdleTracker />
 <UpdateNotifier />
+<DesktopUpdateNotifier />
 
 <svelte:head>
   <title>{fullTitle}</title>

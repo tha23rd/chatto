@@ -13,6 +13,7 @@
   import { Button, Combobox, FormError, RangeField, Checkbox } from '$lib/ui/form';
   import { toast } from '$lib/ui/toast';
   import { formatMessageTime } from '$lib/utils/formatTime';
+  import DesktopUpdateSettings from '$lib/components/settings/DesktopUpdateSettings.svelte';
 
   const userSettings = getUserSettings();
   const currentUser = $derived(serverRegistry.getStore(getActiveServer()).currentUser);
@@ -191,6 +192,8 @@
       {/each}
     </div>
   </FormSection>
+
+  <DesktopUpdateSettings />
 
   <!-- Language -->
   <FormSection title={m['settings.preferences.language.title']()} maxWidth="max-w-md" bordered>

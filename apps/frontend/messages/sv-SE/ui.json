@@ -8,6 +8,36 @@
     "realtime_paused": "Realtidsuppdateringar pausade. Återansluter...",
     "update_available": "En ny version är tillgänglig",
     "reload": "Ladda om",
+    "desktop_updates": {
+      "status": {
+        "idle": "Uppdaterad",
+        "checking": "Söker efter uppdateringar…",
+        "downloading": "Hämtar uppdatering…",
+        "downloading_progress": "Hämtar uppdatering… {percent}%",
+        "downloading_progress_bytes": "Hämtar uppdatering… {percent}% ({downloaded} av {total})",
+        "ready": "Klar att installera",
+        "failed": "Uppdateringen misslyckades"
+      },
+      "ready_version": "Version {version} är klar att installera.",
+      "restart_now": "Starta om nu",
+      "later": "Senare",
+      "prompt": {
+        "title": "Uppdateringen är klar",
+        "body": "Version {version} har hämtats. Starta om Chatto för att slutföra installationen."
+      },
+      "error": {
+        "network": "Det gick inte att nå uppdateringstjänsten. Kontrollera anslutningen och försök igen.",
+        "metadata": "Uppdateringsinformationen är ogiltig. Försök igen senare.",
+        "signature": "Uppdateringen kunde inte verifieras och installerades inte.",
+        "download": "Uppdateringen kunde inte hämtas. Försök igen.",
+        "install": "Uppdateringen kunde inte installeras. Starta om Chatto och försök igen.",
+        "unavailable": "Skrivbordsuppdateringar är tillfälligt otillgängliga."
+      },
+      "toast": {
+        "up_to_date": "Allt är uppdaterat.",
+        "check_failed": "Det gick inte att söka efter uppdateringar."
+      }
+    },
     "sign_out": "Logga ut",
     "close": "Stäng",
     "auth_status": {

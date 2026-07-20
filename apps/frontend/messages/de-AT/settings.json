@@ -107,6 +107,41 @@
     "preferences": {
       "title": "Darstellung",
       "subtitle": "Lege fest, wie Chatto angezeigt wird",
+      "desktop_updates": {
+        "title": "Desktop-Updates",
+        "description": "Halte die Windows-App automatisch auf dem neuesten Stand.",
+        "current_version": "Aktuelle Version: {version}",
+        "channel": {
+          "label": "Update-Kanal",
+          "stable": {
+            "label": "Stabil",
+            "description": "Empfohlen. Erhalte getestete Releases für alle."
+          },
+          "nightly": {
+            "label": "Nightly",
+            "description": "Erhalte frühe Builds mit den neuesten Änderungen. Sie können weniger zuverlässig sein."
+          }
+        },
+        "nightly_confirmation": {
+          "title": "Zu Nightly wechseln?",
+          "body": "Nightly-Builds enthalten die neuesten Änderungen, können aber instabil sein. Du kannst jederzeit zu Stabil zurückkehren.",
+          "confirm": "Zu Nightly wechseln"
+        },
+        "status_label": "Status",
+        "last_checked": "Zuletzt geprüft: {time}",
+        "last_checked_unavailable": "Noch nicht geprüft",
+        "waiting_for_stable": {
+          "title": "Auf Stabil warten",
+          "body": "Diese Nightly-Version ist neuer als das neueste stabile Release. Chatto führt kein Downgrade durch. Du erhältst ein Update, sobald Stabil aufgeholt hat."
+        },
+        "check_now": "Jetzt prüfen",
+        "checking": "Wird geprüft…",
+        "active_call": {
+          "title": "Neu starten und Anruf verlassen?",
+          "body": "Wenn du jetzt neu startest, wird dein aktiver Anruf getrennt und jede Bildschirmfreigabe beendet.",
+          "confirm": "Neu starten und verlassen"
+        }
+      },
       "theme": {
         "title": "Design",
         "system": {

@@ -107,6 +107,41 @@
     "preferences": {
       "title": "Display",
       "subtitle": "Choose how Chatto appears",
+      "desktop_updates": {
+        "title": "Desktop updates",
+        "description": "Keep the Windows app up to date automatically.",
+        "current_version": "Current version: {version}",
+        "channel": {
+          "label": "Update channel",
+          "stable": {
+            "label": "Stable",
+            "description": "Recommended. Receive tested releases intended for everyone."
+          },
+          "nightly": {
+            "label": "Nightly",
+            "description": "Receive early builds with the newest changes. They may be less reliable."
+          }
+        },
+        "nightly_confirmation": {
+          "title": "Switch to Nightly?",
+          "body": "Nightly builds contain the newest changes, but may be unstable. You can return to Stable at any time.",
+          "confirm": "Switch to Nightly"
+        },
+        "status_label": "Status",
+        "last_checked": "Last checked {time}",
+        "last_checked_unavailable": "Not checked yet",
+        "waiting_for_stable": {
+          "title": "Waiting for Stable",
+          "body": "This Nightly version is newer than the latest Stable release. Chatto will not downgrade; you will receive an update when Stable catches up."
+        },
+        "check_now": "Check now",
+        "checking": "Checking…",
+        "active_call": {
+          "title": "Restart and leave the call?",
+          "body": "Restarting now will disconnect your active call and stop any screen sharing.",
+          "confirm": "Restart and leave"
+        }
+      },
       "theme": {
         "title": "Theme",
         "system": {

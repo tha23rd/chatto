@@ -107,6 +107,41 @@
     "preferences": {
       "title": "Affichage",
       "subtitle": "Choisissez comment Chatto apparaît",
+      "desktop_updates": {
+        "title": "Mises à jour de l’application",
+        "description": "Gardez automatiquement l’application Windows à jour.",
+        "current_version": "Version actuelle : {version}",
+        "channel": {
+          "label": "Canal de mise à jour",
+          "stable": {
+            "label": "Stable",
+            "description": "Recommandé. Recevez des versions testées destinées à tout le monde."
+          },
+          "nightly": {
+            "label": "Nocturne",
+            "description": "Recevez des versions préliminaires avec les changements les plus récents. Elles peuvent être moins fiables."
+          }
+        },
+        "nightly_confirmation": {
+          "title": "Passer au canal Nocturne?",
+          "body": "Les versions nocturnes contiennent les changements les plus récents, mais peuvent être instables. Vous pouvez revenir au canal Stable en tout temps.",
+          "confirm": "Passer à Nocturne"
+        },
+        "status_label": "État",
+        "last_checked": "Dernière vérification : {time}",
+        "last_checked_unavailable": "Aucune vérification pour le moment",
+        "waiting_for_stable": {
+          "title": "En attente du canal Stable",
+          "body": "Cette version nocturne est plus récente que la dernière version stable. Chatto ne reviendra pas à une version antérieure; vous recevrez une mise à jour lorsque le canal Stable aura rattrapé son retard."
+        },
+        "check_now": "Vérifier maintenant",
+        "checking": "Vérification…",
+        "active_call": {
+          "title": "Redémarrer et quitter l’appel?",
+          "body": "Redémarrer maintenant déconnectera votre appel actif et arrêtera tout partage d’écran.",
+          "confirm": "Redémarrer et quitter"
+        }
+      },
       "theme": {
         "title": "Thème",
         "system": {

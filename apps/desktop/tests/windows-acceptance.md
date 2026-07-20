@@ -29,7 +29,7 @@ private URLs, window titles, or message/media payloads.
 | Area                | Exact check                                                                                                                                           | Status | Evidence / non-sensitive notes |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------ |
 | Package             | Run `verify-package.ps1`; record size, hash, signature state, product name, and version.                                                              | UNRUN  |                                |
-| Install             | Install the unsigned POC in a disposable/trusted test environment without disabling Windows security controls.                                        | UNRUN  |                                |
+| Install             | Install the signed package without disabling Windows security controls.                                                                                | UNRUN  |                                |
 | Launch              | Launch from the Start menu with no development server; the packaged renderer appears and DevTools are unavailable.                                    | UNRUN  |                                |
 | Single instance     | Launch a second copy; no second window/process tree persists and the existing window is focused.                                                      | UNRUN  |                                |
 | First server        | Add an HTTPS self-hosted server from a fresh client profile and reach its login choice.                                                               | UNRUN  |                                |
@@ -58,6 +58,31 @@ private URLs, window titles, or message/media payloads.
 | Tray quit           | Choose Quit; host and descendant WebView2 processes terminate and the shortcut unregisters.                                                           | UNRUN  |                                |
 | Navigation          | Open an approved HTTPS link in the system browser; confirm remote top-level navigation, popups, `file:`, and script URLs are denied.                  | UNRUN  |                                |
 | Uninstall           | Uninstall from Windows settings; installed application files/shortcuts are removed without changing user server data outside documented scope.        | UNRUN  |                                |
+
+## Automatic update checks
+
+Use disposable test releases and manifests. Keep each case at `UNRUN` until it
+has been exercised with a packaged Windows client; unit or workflow tests are
+not substitutes.
+
+| Case | Exact check | Status | Evidence / non-sensitive notes |
+| ---- | ----------- | ------ | ------------------------------ |
+| Bridge install | Install the final pre-updater release, manually install the signed bridge from GitHub Releases, then confirm automatic update controls are available. | UNRUN | |
+| Stable upgrade | Install the preceding signed Stable version, publish a higher Stable test release, and confirm the client downloads, prompts, restarts, and reports the new version. | UNRUN | |
+| Nightly upgrade | Install the preceding signed Nightly version, publish the next monotonic Nightly test release, and confirm the client downloads, prompts, restarts, and reports the new version. | UNRUN | |
+| Authenticode | Confirm Windows reports the expected Chatto publisher before install and the installed executable retains a valid Authenticode signature. | UNRUN | |
+| Updater signature | Confirm the update succeeds with the expected Tauri updater signature and is rejected after changing the signature without changing the installer. | UNRUN | |
+| Offline check | Check while offline; confirm the current client remains usable, the failure is understandable, and a later online retry succeeds. | UNRUN | |
+| Missing manifest | Return HTTP 404 for the selected channel; confirm no installer runs, the failure is shown, and retry works after restoration. | UNRUN | |
+| Malformed manifest | Serve invalid channel JSON; confirm no installer runs and a later valid check succeeds. | UNRUN | |
+| Interrupted download | Interrupt connectivity during download; confirm no partial update is installed and a later check downloads and verifies it again. | UNRUN | |
+| Later | Choose **Later**, keep using and relaunching the client, and confirm no restart or installation is forced. | UNRUN | |
+| Active call | Finish a download during an active call; confirm the restart prompt stays hidden until the call ends and the call is not interrupted. | UNRUN | |
+| Active screen share | Finish a download while sharing a screen; confirm the restart prompt stays hidden until the call ends and sharing is not interrupted. | UNRUN | |
+| Nightly confirmation | Select Nightly in Preferences; confirm its reduced-testing warning appears and the channel changes only after explicit confirmation. | UNRUN | |
+| Settings state | Confirm Preferences reports the selected channel, current/checking/downloading/ready or failed state, candidate version, last check, and useful failure state without exposing a URL. | UNRUN | |
+| Return to Stable | Install a Nightly newer than Stable, switch to Stable, and confirm no downgrade occurs; publish a higher Stable and confirm that update is then offered. | UNRUN | |
+| Version and data | After Stable and Nightly upgrades, confirm the reported version is exact and saved servers, sessions, preferences, and user data remain intact. | UNRUN | |
 
 ## Resource measurements
 

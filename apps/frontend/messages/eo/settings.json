@@ -107,6 +107,41 @@
     "preferences": {
       "title": "Montru",
       "subtitle": "Elektu kiel Chatto aperas",
+      "desktop_updates": {
+        "title": "Labortablaj ĝisdatigoj",
+        "description": "Tenu la Vindozan aplikaĵon aŭtomate ĝisdatigita.",
+        "current_version": "Aktuala versio: {version}",
+        "channel": {
+          "label": "Ĝisdatiga kanalo",
+          "stable": {
+            "label": "Stabila",
+            "description": "Rekomendita. Ricevu provitajn eldonojn celitajn por ĉiuj."
+          },
+          "nightly": {
+            "label": "Nokta",
+            "description": "Ricevu fruajn konstruaĵojn kun la plej novaj ŝanĝoj. Ili povas esti malpli fidindaj."
+          }
+        },
+        "nightly_confirmation": {
+          "title": "Ĉu ŝanĝi al Nokta?",
+          "body": "Noktaj konstruaĵoj enhavas la plej novajn ŝanĝojn, sed povas esti malstabilaj. Vi povas iam ajn reveni al Stabila.",
+          "confirm": "Ŝanĝi al Nokta"
+        },
+        "status_label": "Stato",
+        "last_checked": "Laste kontrolita: {time}",
+        "last_checked_unavailable": "Ankoraŭ ne kontrolita",
+        "waiting_for_stable": {
+          "title": "Atendante la Stabilan kanalon",
+          "body": "Ĉi tiu nokta versio estas pli nova ol la plej nova stabila eldono. Chatto ne malplialtigos la version; vi ricevos ĝisdatigon kiam la Stabila kanalo atingos ĝin."
+        },
+        "check_now": "Kontroli nun",
+        "checking": "Kontrolante…",
+        "active_call": {
+          "title": "Ĉu restartigi kaj forlasi la vokon?",
+          "body": "Restartigo nun malkonektos vian aktivan vokon kaj ĉesigos ĉian ekrankundividon.",
+          "confirm": "Restartigi kaj forlasi"
+        }
+      },
       "theme": {
         "title": "Temo",
         "system": {

@@ -107,6 +107,41 @@
     "preferences": {
       "title": "ディスプレイ",
       "subtitle": "Chatto の表示方法を選択してください",
+      "desktop_updates": {
+        "title": "デスクトップ版のアップデート",
+        "description": "Windows 版アプリを自動的に最新の状態に保ちます。",
+        "current_version": "現在のバージョン：{version}",
+        "channel": {
+          "label": "アップデートチャンネル",
+          "stable": {
+            "label": "安定版",
+            "description": "推奨。すべてのユーザー向けにテストされたリリースを受け取ります。"
+          },
+          "nightly": {
+            "label": "ナイトリー",
+            "description": "最新の変更を含む早期ビルドを受け取ります。信頼性が低い場合があります。"
+          }
+        },
+        "nightly_confirmation": {
+          "title": "ナイトリーに切り替えますか？",
+          "body": "ナイトリービルドには最新の変更が含まれますが、不安定な場合があります。いつでも安定版に戻せます。",
+          "confirm": "ナイトリーに切り替える"
+        },
+        "status_label": "状態",
+        "last_checked": "前回の確認：{time}",
+        "last_checked_unavailable": "まだ確認されていません",
+        "waiting_for_stable": {
+          "title": "安定版を待機中",
+          "body": "このナイトリー版は最新の安定版より新しいバージョンです。Chatto はダウングレードしません。安定版が追いついた時点でアップデートを受け取ります。"
+        },
+        "check_now": "今すぐ確認",
+        "checking": "確認中…",
+        "active_call": {
+          "title": "再起動して通話から退出しますか？",
+          "body": "今すぐ再起動すると、進行中の通話が切断され、画面共有も停止します。",
+          "confirm": "再起動して退出"
+        }
+      },
       "theme": {
         "title": "テーマ",
         "system": {

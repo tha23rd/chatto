@@ -81,6 +81,29 @@ disables the PWA service worker and SvelteKit version polling because packaged
 application updates own the shell lifecycle. The normal web build retains both
 features.
 
+### Keep desktop releases independent and updates native-owned
+
+The Windows client has its own SemVer release line. Stable releases use exact
+`desktop-vX.Y.Z` tags, while every successful `main-native` build publishes a
+monotonic Nightly prerelease. A server release does not imply a desktop release.
+
+Rust owns update authority. It selects one of two hard-coded first-party
+manifests under `https://updates.chatto.run`, checks versions, downloads the
+candidate, verifies the Tauri updater signature, and installs only an already
+verified candidate. The renderer receives typed state and may choose Stable or
+Nightly, request a check, and ask to install; it cannot provide an endpoint,
+signature, installer path, or generic updater/process command. Switching from
+Nightly to Stable does not permit a downgrade.
+
+Release installers are immutable GitHub release assets. The channel manifests
+at `updates.chatto.run` are small mutable pointers to those assets and are
+advanced only after a draft release has been downloaded and reverified. Each
+installer has both an Authenticode publisher signature and a Tauri updater
+signature. Publishing runs only in the protected `desktop-release` environment
+with GitHub OIDC for Azure Artifact Signing, separately custodied updater keys,
+and scoped object-store credentials. Pull requests can exercise release tests
+but cannot publish a live release or channel.
+
 ### Keep renderer authority narrow
 
 The production desktop window loads only bundled assets, receives a strict
@@ -179,8 +202,8 @@ process-wide shortcut and tray actions; ownership returns to the previous call
 when the newer call ends.
 
 Notifications after explicit process exit, launch-on-startup, deep links,
-automatic updates, production signing, inline notification replies,
-picture-in-picture, and a custom title bar are follow-up work.
+inline notification replies, picture-in-picture, and a custom title bar are
+follow-up work.
 
 ## Consequences
 
@@ -203,6 +226,15 @@ complex than the web-only path, though their public server protocols remain
 unchanged. The native transports also cross the WebView/Tauri IPC boundary;
 their resource and throughput cost must be measured rather than assumed to
 outperform browser networking.
+
+Desktop releases now also require two signing systems, protected release
+configuration, immutable GitHub assets, and a separately operated manifest
+origin. If a release is unsafe, maintainers withdraw its canonical channel
+manifest and publish a fixed version; they never repoint a channel to an older
+version. Already downloaded or installed releases cannot be remotely recalled,
+so rollback is withdrawal plus fix-forward. Rotating the updater key requires a
+bridge release signed by the old key before publishing artifacts signed only by
+the new key.
 
 WebView2 updates with Windows rather than with Chatto. This reduces bundle size
 but means the exact embedded Chromium build is not pinned by an application

@@ -103,7 +103,7 @@ Windows Desktop Components:
 
 - Tauri core, JavaScript API, CLI, and build tooling
   (https://tauri.app/) - Apache License 2.0 OR MIT License
-- Tauri HTTP, global shortcut, opener, and single-instance plugins
+- Tauri HTTP, global shortcut, opener, single-instance, and updater plugins
   (https://github.com/tauri-apps/plugins-workspace) - Apache License 2.0 OR MIT License
 - Tokio-Tungstenite asynchronous WebSocket library
   (https://github.com/snapview/tokio-tungstenite) - MIT License

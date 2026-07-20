@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTauriNativeHost } from './tauriHost';
+import type { DesktopUpdateSnapshot } from './types';
+
+const idleUpdate: DesktopUpdateSnapshot = {
+  supported: true,
+  channel: 'stable',
+  phase: 'idle',
+  currentVersion: '0.1.0'
+};
 
 function bindings() {
   return {
@@ -10,7 +18,12 @@ function bindings() {
     registerPushToTalk: vi.fn(async () => () => {}),
     onTrayAction: vi.fn(async () => () => {}),
     setCallControls: vi.fn(async () => {}),
-    quit: vi.fn(async () => {})
+    quit: vi.fn(async () => {}),
+    getDesktopUpdateState: vi.fn(async () => idleUpdate),
+    setDesktopUpdateChannel: vi.fn(async () => idleUpdate),
+    checkForDesktopUpdate: vi.fn(async () => idleUpdate),
+    installDesktopUpdate: vi.fn(async () => {}),
+    onDesktopUpdateState: vi.fn(async () => () => {})
   };
 }
 
@@ -24,8 +37,27 @@ describe('Tauri NativeHost', () => {
       nativeHttp: true,
       nativeRealtime: true,
       globalPushToTalk: true,
-      tray: true
+      tray: true,
+      desktopUpdates: true
     });
+  });
+
+  it('routes desktop updates through typed native bindings', async () => {
+    const native = bindings();
+    const host = createTauriNativeHost(native);
+    const listener = vi.fn();
+
+    await expect(host.getDesktopUpdateState()).resolves.toBe(idleUpdate);
+    await expect(host.setDesktopUpdateChannel('nightly')).resolves.toBe(idleUpdate);
+    await expect(host.checkForDesktopUpdate()).resolves.toBe(idleUpdate);
+    await host.installDesktopUpdate();
+    await host.onDesktopUpdateState(listener);
+
+    expect(native.getDesktopUpdateState).toHaveBeenCalledOnce();
+    expect(native.setDesktopUpdateChannel).toHaveBeenCalledWith('nightly');
+    expect(native.checkForDesktopUpdate).toHaveBeenCalledOnce();
+    expect(native.installDesktopUpdate).toHaveBeenCalledOnce();
+    expect(native.onDesktopUpdateState).toHaveBeenCalledWith(listener);
   });
 
   it('routes global push-to-talk through the native shortcut binding', async () => {

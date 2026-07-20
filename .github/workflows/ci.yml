@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - main-native
-      - 'release-[0-9]*'
+      - "release-[0-9]*"
   pull_request:
     types:
       - opened
@@ -17,7 +17,7 @@ on:
     branches:
       - main
       - main-native
-      - 'release-[0-9]*'
+      - "release-[0-9]*"
 
 concurrency:
   # PRs share a group so superseded revisions are cancelled. Pushes use their
@@ -199,10 +199,6 @@ jobs:
   test-desktop-windows:
     runs-on: windows-latest
     timeout-minutes: 45
-    outputs:
-      version: ${{ steps.native_release.outputs.version }}
-      tag: ${{ steps.native_release.outputs.tag }}
-      installer_name: ${{ steps.native_release.outputs.installer_name }}
     env:
       CARGO_INCREMENTAL: "0"
     steps:
@@ -235,29 +231,7 @@ jobs:
         run: pnpm --dir apps/frontend run build:desktop
 
       - name: Build Windows desktop executable
-        if: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main-native' }}
         run: pnpm --dir apps/desktop tauri build --no-bundle
-
-      - name: Build, verify, and stage main-native Windows installer
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main-native' }}
-        id: native_release
-        shell: pwsh
-        run: |
-          & ./apps/desktop/scripts/build-prerelease.ps1 `
-              -CommitSha $env:GITHUB_SHA `
-              -OutputDirectory '.context\release\windows' `
-              -VerificationDirectory (Join-Path $env:RUNNER_TEMP 'chatto-package-verification') `
-              -GitHubOutputPath $env:GITHUB_OUTPUT
-
-      - name: Upload main-native Windows installer artifact
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main-native' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: windows-installer-${{ github.sha }}
-          path: .context/release/windows/*
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
 
   test-cli:
     # runs-on: ubicloud-standard-4
@@ -488,26 +462,125 @@ jobs:
       - test-cli
       - test-e2e
       - test-e2e-media
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: desktop-release
     permissions:
       contents: write
+      id-token: write
+    concurrency:
+      group: desktop-update-nightly
+      cancel-in-progress: false
+    env:
+      CARGO_INCREMENTAL: "0"
+      CHATTO_DESKTOP_UPDATER_PUBLIC_KEY: ${{ vars.CHATTO_DESKTOP_UPDATER_PUBLIC_KEY }}
+      AZURE_ARTIFACT_SIGNING_ENDPOINT: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+      AZURE_ARTIFACT_SIGNING_ACCOUNT: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
+      AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE: ${{ vars.AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE }}
+      CHATTO_WINDOWS_SIGNER_SUBJECT: ${{ vars.CHATTO_WINDOWS_SIGNER_SUBJECT }}
+      CHATTO_UPDATE_STORE_ENDPOINT: ${{ vars.CHATTO_UPDATE_STORE_ENDPOINT }}
+      CHATTO_UPDATE_STORE_BUCKET: ${{ vars.CHATTO_UPDATE_STORE_BUCKET }}
+      CHATTO_UPDATE_STORE_REGION: ${{ vars.CHATTO_UPDATE_STORE_REGION }}
+      CHATTO_UPDATE_STORE_PUBLIC_BASE_URL: https://updates.chatto.run
     steps:
-      - name: Checkout native release scripts
-        uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
 
-      - name: Download main-native Windows installer artifact
-        uses: actions/download-artifact@v8
+      - name: Setup mise
+        uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4
         with:
-          name: windows-installer-${{ github.sha }}
-          path: .context/release/windows
+          experimental: true
 
-      - name: Publish immutable main-native GitHub prerelease
+      - name: Install pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >>"$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: desktop-pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install frontend dependencies
+        shell: bash
+        run: mise setup-frontend
+
+      - name: Setup stable Rust
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable, pinned 2026-07-19
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Install pinned Azure Artifact Signing module
+        shell: pwsh
+        run: Install-Module -Name ArtifactSigning -RequiredVersion 0.1.8 -Scope CurrentUser -Force -Repository PSGallery
+
+      - name: Validate current main-native source and derive immutable Nightly timestamp
+        shell: pwsh
+        run: |
+          git fetch --no-tags origin main-native
+          if ($LASTEXITCODE -ne 0) { throw 'Could not fetch origin/main-native.' }
+          $branchSha = (git rev-parse origin/main-native).Trim()
+          if ($LASTEXITCODE -ne 0) { throw 'Could not resolve origin/main-native.' }
+          if ($branchSha -cne $env:GITHUB_SHA) {
+            throw "Refusing to publish stale source $env:GITHUB_SHA; origin/main-native is $branchSha."
+          }
+          $sourceTimestamp = (git show -s --format=%cI $env:GITHUB_SHA).Trim()
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the source commit timestamp.' }
+          $nightlyTimestamp = [DateTimeOffset]::Parse(
+            $sourceTimestamp,
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::AssumeUniversal
+          ).ToUniversalTime().ToString('o')
+          "NIGHTLY_TIMESTAMP=$nightlyTimestamp" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Login to Azure with GitHub OIDC
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build signed monotonic Nightly release
+        id: native_release
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          & ./apps/desktop/scripts/build-prerelease.ps1 `
+              -CommitSha $env:GITHUB_SHA `
+              -TimestampUtc $env:NIGHTLY_TIMESTAMP `
+              -RunNumber $env:GITHUB_RUN_NUMBER `
+              -OutputDirectory '.context\release\windows' `
+              -VerificationDirectory (Join-Path $env:RUNNER_TEMP 'chatto-package-verification') `
+              -GitHubOutputPath $env:GITHUB_OUTPUT
+
+      - name: Create, reverify, and publish immutable Nightly prerelease
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.test-desktop-windows.outputs.version }}
-          RELEASE_TAG: ${{ needs.test-desktop-windows.outputs.tag }}
-          INSTALLER_NAME: ${{ needs.test-desktop-windows.outputs.installer_name }}
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.native_release.outputs.version }}
+          RELEASE_TAG: ${{ steps.native_release.outputs.tag }}
+          INSTALLER_NAME: ${{ steps.native_release.outputs.installer_name }}
+          MANIFEST_NAME: ${{ steps.native_release.outputs.manifest_name }}
+          METADATA_NAME: ${{ steps.native_release.outputs.metadata_name }}
+          RELEASE_KIND: nightly
         run: bash apps/desktop/scripts/publish-prerelease.sh
+
+      - name: Advance the Nightly update channel
+        shell: bash
+        env:
+          MANIFEST_NAME: ${{ steps.native_release.outputs.manifest_name }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CHATTO_UPDATE_STORE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CHATTO_UPDATE_STORE_SECRET_ACCESS_KEY }}
+        run: node apps/desktop/scripts/publish-update-channel.mjs nightly ".context/release/windows/${MANIFEST_NAME}"

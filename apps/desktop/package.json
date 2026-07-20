@@ -9,7 +9,7 @@
     "dev": "tauri dev",
     "build": "tauri build",
     "check": "cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
-    "test": "node --test scripts/release-workflow.test.mjs && cargo test --manifest-path src-tauri/Cargo.toml"
+    "test": "node --test scripts/release-workflow.test.mjs scripts/update-manifest.test.mjs scripts/publish-update-channel.test.mjs && cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.4"

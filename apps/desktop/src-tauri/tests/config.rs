@@ -65,12 +65,18 @@ fn one_named_capability_excludes_powerful_plugins() {
     let capability = json("capabilities/default.json");
     assert_eq!(capability["identifier"], "default");
     assert_eq!(capability["windows"], serde_json::json!(["main"]));
-    let encoded = serde_json::to_string(&capability["permissions"]).unwrap();
-    for forbidden in ["shell:", "fs:", "process:", "updater:", "autostart:"] {
-        assert!(
-            !encoded.contains(forbidden),
-            "unexpected permission: {forbidden}"
-        );
+    let permissions = capability["permissions"].as_array().unwrap();
+    for permission in permissions {
+        let identifier = permission
+            .as_str()
+            .or_else(|| permission["identifier"].as_str())
+            .expect("capability permission identifier");
+        for forbidden in ["shell:", "fs:", "process:", "updater:", "autostart:"] {
+            assert!(
+                !identifier.starts_with(forbidden),
+                "unexpected permission: {identifier}"
+            );
+        }
     }
 }
 
@@ -132,4 +138,24 @@ fn http_capability_url_patterns_are_valid() {
     assert!(ipv6_loopback_pattern
         .test(urlpattern::UrlPatternMatchInput::Url(ipv6_endpoint))
         .unwrap());
+}
+
+#[test]
+fn desktop_logger_filters_updater_dependency_records() {
+    let source = fs::read_to_string(manifest_path("src/lib.rs")).unwrap();
+    assert!(source.contains(".filter(updates::allow_desktop_log_record)"));
+}
+
+#[test]
+fn updater_uses_separate_bounded_check_and_download_timeouts() {
+    let source = fs::read_to_string(manifest_path("src/updates.rs")).unwrap();
+    assert!(source.contains(".timeout(CHECK_TIMEOUT)"));
+    assert!(source.contains("update.timeout = Some(DOWNLOAD_TIMEOUT)"));
+}
+
+#[test]
+fn notice_lists_the_shipped_tauri_updater_plugin() {
+    let notice = fs::read_to_string(manifest_path("../../../NOTICE")).unwrap();
+    assert!(notice
+        .contains("Tauri HTTP, global shortcut, opener, single-instance, and updater plugins"));
 }

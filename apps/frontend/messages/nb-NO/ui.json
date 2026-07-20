@@ -8,6 +8,36 @@
     "realtime_paused": "Sanntidsoppdateringer satt på pause. Kobler på nytt ...",
     "update_available": "En ny versjon er tilgjengelig",
     "reload": "Last inn på nytt",
+    "desktop_updates": {
+      "status": {
+        "idle": "Oppdatert",
+        "checking": "Ser etter oppdateringer…",
+        "downloading": "Laster ned oppdatering…",
+        "downloading_progress": "Laster ned oppdatering… {percent}%",
+        "downloading_progress_bytes": "Laster ned oppdatering… {percent}% ({downloaded} av {total})",
+        "ready": "Klar til installasjon",
+        "failed": "Oppdateringen mislyktes"
+      },
+      "ready_version": "Versjon {version} er klar til installasjon.",
+      "restart_now": "Start på nytt nå",
+      "later": "Senere",
+      "prompt": {
+        "title": "Oppdateringen er klar",
+        "body": "Versjon {version} er lastet ned. Start Chatto på nytt for å fullføre installasjonen."
+      },
+      "error": {
+        "network": "Kunne ikke nå oppdateringstjenesten. Kontroller tilkoblingen og prøv på nytt.",
+        "metadata": "Oppdateringsinformasjonen er ugyldig. Prøv igjen senere.",
+        "signature": "Oppdateringen kunne ikke bekreftes og ble ikke installert.",
+        "download": "Oppdateringen kunne ikke lastes ned. Prøv på nytt.",
+        "install": "Oppdateringen kunne ikke installeres. Start Chatto på nytt og prøv igjen.",
+        "unavailable": "Skrivebordsoppdateringer er midlertidig utilgjengelige."
+      },
+      "toast": {
+        "up_to_date": "Alt er oppdatert.",
+        "check_failed": "Kunne ikke se etter oppdateringer."
+      }
+    },
     "sign_out": "Logg av",
     "close": "Lukk",
     "auth_status": {

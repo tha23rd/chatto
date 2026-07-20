@@ -1,0 +1,168 @@
+name: Windows desktop release
+
+on:
+  push:
+    tags:
+      - desktop-v*
+
+permissions:
+  contents: read
+
+jobs:
+  validate-desktop-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      source_sha: ${{ steps.release.outputs.source_sha }}
+      published_at: ${{ steps.release.outputs.published_at }}
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate stable tag, versions, and main-native reachability
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^desktop-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo '::error::Stable desktop tags must be desktop-vX.Y.Z.'
+            exit 1
+          fi
+          version="${BASH_REMATCH[1]}"
+          package_version="$(jq -r .version apps/desktop/package.json)"
+          cargo_version="$(awk -F ' *= *' '/^version = / { gsub(/"/, "", $2); print $2; exit }' apps/desktop/src-tauri/Cargo.toml)"
+          tauri_version="$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)"
+          if [[ "$version" != "$package_version" || "$version" != "$cargo_version" || "$version" != "$tauri_version" ]]; then
+            echo '::error::Desktop stable tag must match package.json, Cargo.toml, and tauri.conf.json.'
+            exit 1
+          fi
+          source_sha="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          git fetch --no-tags origin main-native
+          if ! git merge-base --is-ancestor "$source_sha" origin/main-native; then
+            echo '::error::Stable desktop tag is not reachable from origin/main-native.'
+            exit 1
+          fi
+          published_at="$(git show -s --format=%cI "$source_sha")"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+          echo "source_sha=$source_sha" >>"$GITHUB_OUTPUT"
+          echo "published_at=$published_at" >>"$GITHUB_OUTPUT"
+
+  publish-desktop-release:
+    needs: validate-desktop-release
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: desktop-release
+    permissions:
+      contents: write
+      id-token: write
+    concurrency:
+      group: desktop-update-stable
+      cancel-in-progress: false
+    env:
+      CARGO_INCREMENTAL: "0"
+      CHATTO_DESKTOP_UPDATER_PUBLIC_KEY: ${{ vars.CHATTO_DESKTOP_UPDATER_PUBLIC_KEY }}
+      AZURE_ARTIFACT_SIGNING_ENDPOINT: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+      AZURE_ARTIFACT_SIGNING_ACCOUNT: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
+      AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE: ${{ vars.AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE }}
+      CHATTO_WINDOWS_SIGNER_SUBJECT: ${{ vars.CHATTO_WINDOWS_SIGNER_SUBJECT }}
+      CHATTO_UPDATE_STORE_ENDPOINT: ${{ vars.CHATTO_UPDATE_STORE_ENDPOINT }}
+      CHATTO_UPDATE_STORE_BUCKET: ${{ vars.CHATTO_UPDATE_STORE_BUCKET }}
+      CHATTO_UPDATE_STORE_REGION: ${{ vars.CHATTO_UPDATE_STORE_REGION }}
+      CHATTO_UPDATE_STORE_PUBLIC_BASE_URL: https://updates.chatto.run
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup mise
+        uses: jdx/mise-action@dad1bfd3df957f44999b559dd69dc1671cb4e9ea # v4
+        with:
+          experimental: true
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >>"$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: desktop-pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install frontend dependencies
+        shell: bash
+        run: mise setup-frontend
+
+      - name: Setup stable Rust
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable, pinned 2026-07-19
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Run desktop release tests and checks
+        shell: pwsh
+        run: |
+          mise test-desktop
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop tests failed.' }
+          mise check-desktop
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop checks failed.' }
+
+      - name: Install pinned Azure Artifact Signing module
+        shell: pwsh
+        run: Install-Module -Name ArtifactSigning -RequiredVersion 0.1.8 -Scope CurrentUser -Force -Repository PSGallery
+
+      - name: Login to Azure with GitHub OIDC
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build signed Stable release
+        id: native_release
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          & ./apps/desktop/scripts/build-release.ps1 `
+              -Version '${{ needs.validate-desktop-release.outputs.version }}' `
+              -CommitSha '${{ needs.validate-desktop-release.outputs.source_sha }}' `
+              -Channel stable `
+              -PublishedAt '${{ needs.validate-desktop-release.outputs.published_at }}' `
+              -OutputDirectory '.context\release\windows' `
+              -VerificationDirectory (Join-Path $env:RUNNER_TEMP 'chatto-package-verification') `
+              -GitHubOutputPath $env:GITHUB_OUTPUT
+
+      - name: Create, reverify, and publish immutable Stable release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ needs.validate-desktop-release.outputs.source_sha }}
+          VERSION: ${{ steps.native_release.outputs.version }}
+          RELEASE_TAG: ${{ steps.native_release.outputs.tag }}
+          INSTALLER_NAME: ${{ steps.native_release.outputs.installer_name }}
+          MANIFEST_NAME: ${{ steps.native_release.outputs.manifest_name }}
+          METADATA_NAME: ${{ steps.native_release.outputs.metadata_name }}
+          RELEASE_KIND: stable
+        run: bash apps/desktop/scripts/publish-prerelease.sh
+
+      - name: Advance the Stable update channel
+        shell: bash
+        env:
+          MANIFEST_NAME: ${{ steps.native_release.outputs.manifest_name }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CHATTO_UPDATE_STORE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CHATTO_UPDATE_STORE_SECRET_ACCESS_KEY }}
+        run: node apps/desktop/scripts/publish-update-channel.mjs stable ".context/release/windows/${MANIFEST_NAME}"

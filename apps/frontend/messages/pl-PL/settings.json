@@ -107,6 +107,41 @@
     "preferences": {
       "title": "Wyświetlacz",
       "subtitle": "Wybierz sposób wyświetlania Chatto",
+      "desktop_updates": {
+        "title": "Aktualizacje aplikacji",
+        "description": "Automatycznie aktualizuj aplikację dla systemu Windows.",
+        "current_version": "Bieżąca wersja: {version}",
+        "channel": {
+          "label": "Kanał aktualizacji",
+          "stable": {
+            "label": "Stabilny",
+            "description": "Zalecany. Otrzymuj przetestowane wydania przeznaczone dla wszystkich."
+          },
+          "nightly": {
+            "label": "Nocny",
+            "description": "Otrzymuj wczesne kompilacje z najnowszymi zmianami. Mogą być mniej niezawodne."
+          }
+        },
+        "nightly_confirmation": {
+          "title": "Przejść na kanał Nocny?",
+          "body": "Nocne kompilacje zawierają najnowsze zmiany, ale mogą być niestabilne. W każdej chwili możesz wrócić na kanał Stabilny.",
+          "confirm": "Przejdź na kanał Nocny"
+        },
+        "status_label": "Stan",
+        "last_checked": "Ostatnio sprawdzono: {time}",
+        "last_checked_unavailable": "Jeszcze nie sprawdzano",
+        "waiting_for_stable": {
+          "title": "Oczekiwanie na kanał Stabilny",
+          "body": "Ta nocna wersja jest nowsza niż najnowsze stabilne wydanie. Chatto nie cofnie wersji; otrzymasz aktualizację, gdy kanał Stabilny nadrobi zaległości."
+        },
+        "check_now": "Sprawdź teraz",
+        "checking": "Sprawdzanie…",
+        "active_call": {
+          "title": "Uruchomić ponownie i opuścić połączenie?",
+          "body": "Ponowne uruchomienie teraz rozłączy aktywne połączenie i zatrzyma każde udostępnianie ekranu.",
+          "confirm": "Uruchom ponownie i opuść"
+        }
+      },
       "theme": {
         "title": "Temat",
         "system": {
