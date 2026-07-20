@@ -7,8 +7,6 @@ use tauri_plugin_updater::{Error as UpdaterError, Update, Updater, UpdaterExt};
 use tokio::sync::Mutex;
 use url::Url;
 
-use crate::shell::ShellState;
-
 const STABLE_ENDPOINT: &str = "https://updates.chatto.run/desktop/stable/windows-x86_64.json";
 const NIGHTLY_ENDPOINT: &str = "https://updates.chatto.run/desktop/nightly/windows-x86_64.json";
 const UPDATE_STATE_EVENT: &str = "native://desktop-update-state";
@@ -86,7 +84,6 @@ pub(crate) struct DesktopUpdateSnapshot {
     last_checked_at: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error_code: Option<ErrorCode>,
-    restart_suppressed: bool,
 }
 
 #[derive(Default)]
@@ -110,6 +107,12 @@ struct UpdateLifecycle {
     check_started_at: Option<u64>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CheckDisposition {
+    Started,
+    AlreadyReady,
+}
+
 impl UpdateLifecycle {
     fn new(current_version: String) -> Self {
         Self {
@@ -123,7 +126,6 @@ impl UpdateLifecycle {
                 total_bytes: None,
                 last_checked_at: None,
                 error_code: None,
-                restart_suppressed: false,
             },
             operation_active: false,
             check_started_at: None,
@@ -134,9 +136,14 @@ impl UpdateLifecycle {
         self.operation_active
     }
 
-    fn begin_check(&mut self, started_at: u64) -> Result<(), ErrorCode> {
+    fn begin_check(&mut self, started_at: u64) -> Result<CheckDisposition, ErrorCode> {
         if self.is_busy() {
             return Err(ErrorCode::Unavailable);
+        }
+        // A verified package remains the installation candidate until the user
+        // installs it or explicitly changes channels.
+        if self.snapshot.phase == UpdatePhase::Ready {
+            return Ok(CheckDisposition::AlreadyReady);
         }
         self.operation_active = true;
         self.check_started_at = Some(started_at);
@@ -145,7 +152,7 @@ impl UpdateLifecycle {
         self.snapshot.downloaded_bytes = None;
         self.snapshot.total_bytes = None;
         self.snapshot.error_code = None;
-        Ok(())
+        Ok(CheckDisposition::Started)
     }
 
     fn begin_download(&mut self, candidate_version: String) -> Result<(), ErrorCode> {
@@ -244,6 +251,17 @@ struct UpdateManagerState {
     downloaded_bytes: Option<Vec<u8>>,
 }
 
+impl UpdateManagerState {
+    fn begin_check(&mut self, started_at: u64) -> Result<CheckDisposition, ErrorCode> {
+        let disposition = self.lifecycle.begin_check(started_at)?;
+        if disposition == CheckDisposition::Started {
+            self.pending_update = None;
+            self.downloaded_bytes = None;
+        }
+        Ok(disposition)
+    }
+}
+
 /// Owns the one process-wide updater lifecycle.
 ///
 /// The mutex protects the visible snapshot together with the exact verified
@@ -327,6 +345,19 @@ pub(crate) fn updater_public_key() -> &'static str {
     }
 }
 
+fn allow_desktop_log_target(target: &str) -> bool {
+    // The upstream updater logs request and artifact URLs and raw manifests.
+    // Chatto emits its own normalized lifecycle records instead.
+    !matches!(
+        target.split("::").next(),
+        Some("tauri_plugin_updater" | "tauri-plugin-updater")
+    )
+}
+
+pub(crate) fn allow_desktop_log_record(metadata: &log::Metadata<'_>) -> bool {
+    allow_desktop_log_target(metadata.target())
+}
+
 fn now_millis() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -336,10 +367,8 @@ fn now_millis() -> u64 {
         .unwrap_or(u64::MAX)
 }
 
-fn public_snapshot(state: &UpdateManagerState, shell: &ShellState) -> DesktopUpdateSnapshot {
-    let mut snapshot = state.lifecycle.snapshot.clone();
-    snapshot.restart_suppressed = shell.has_active_call();
-    snapshot
+fn public_snapshot(state: &UpdateManagerState) -> DesktopUpdateSnapshot {
+    state.lifecycle.snapshot.clone()
 }
 
 fn emit_snapshot(app: &AppHandle, snapshot: &DesktopUpdateSnapshot) {
@@ -367,7 +396,6 @@ fn runtime_updater(app: &AppHandle, channel: UpdateChannel) -> Result<Updater, U
 async fn fail_operation(
     app: &AppHandle,
     manager: &DesktopUpdateManager,
-    shell: &ShellState,
     error: ErrorCode,
 ) -> ErrorCode {
     let snapshot = {
@@ -375,7 +403,7 @@ async fn fail_operation(
         state.pending_update = None;
         state.downloaded_bytes = None;
         state.lifecycle.finish_failure(error);
-        public_snapshot(&state, shell)
+        public_snapshot(&state)
     };
     log_snapshot(&snapshot);
     emit_snapshot(app, &snapshot);
@@ -385,7 +413,6 @@ async fn fail_operation(
 async fn restore_ready(
     app: &AppHandle,
     manager: &DesktopUpdateManager,
-    shell: &ShellState,
     update: Update,
     bytes: Vec<u8>,
     error: ErrorCode,
@@ -395,7 +422,7 @@ async fn restore_ready(
         state.pending_update = Some(update);
         state.downloaded_bytes = Some(bytes);
         state.lifecycle.restore_ready(error);
-        public_snapshot(&state, shell)
+        public_snapshot(&state)
     };
     log_snapshot(&snapshot);
     emit_snapshot(app, &snapshot);
@@ -405,17 +432,15 @@ async fn restore_ready(
 #[tauri::command]
 pub(crate) async fn get_desktop_update_state(
     manager: State<'_, DesktopUpdateManager>,
-    shell: State<'_, ShellState>,
 ) -> Result<DesktopUpdateSnapshot, ErrorCode> {
     let state = manager.inner.lock().await;
-    Ok(public_snapshot(&state, &shell))
+    Ok(public_snapshot(&state))
 }
 
 #[tauri::command]
 pub(crate) async fn set_desktop_update_channel(
     app: AppHandle,
     manager: State<'_, DesktopUpdateManager>,
-    shell: State<'_, ShellState>,
     channel: UpdateChannel,
 ) -> Result<DesktopUpdateSnapshot, ErrorCode> {
     let snapshot = {
@@ -426,7 +451,7 @@ pub(crate) async fn set_desktop_update_channel(
             state.pending_update = None;
             state.downloaded_bytes = None;
         }
-        public_snapshot(&state, &shell)
+        public_snapshot(&state)
     };
     log_snapshot(&snapshot);
     emit_snapshot(&app, &snapshot);
@@ -437,30 +462,30 @@ pub(crate) async fn set_desktop_update_channel(
 pub(crate) async fn check_for_desktop_update(
     app: AppHandle,
     manager: State<'_, DesktopUpdateManager>,
-    shell: State<'_, ShellState>,
 ) -> Result<DesktopUpdateSnapshot, ErrorCode> {
-    let (channel, checking_snapshot) = {
+    let (channel, disposition, checking_snapshot) = {
         let mut state = manager.inner.lock().await;
-        state.lifecycle.begin_check(now_millis())?;
-        state.pending_update = None;
-        state.downloaded_bytes = None;
-        (state.channel, public_snapshot(&state, &shell))
+        let disposition = state.begin_check(now_millis())?;
+        (state.channel, disposition, public_snapshot(&state))
     };
     log_snapshot(&checking_snapshot);
     emit_snapshot(&app, &checking_snapshot);
+    if disposition == CheckDisposition::AlreadyReady {
+        return Ok(checking_snapshot);
+    }
 
     let updater = match runtime_updater(&app, channel) {
         Ok(updater) => updater,
         Err(error) => {
             let code = classify_updater_error(FailureStage::Check, &error);
-            return Err(fail_operation(&app, &manager, &shell, code).await);
+            return Err(fail_operation(&app, &manager, code).await);
         }
     };
     let update = match updater.check().await {
         Ok(update) => update,
         Err(error) => {
             let code = classify_updater_error(FailureStage::Check, &error);
-            return Err(fail_operation(&app, &manager, &shell, code).await);
+            return Err(fail_operation(&app, &manager, code).await);
         }
     };
 
@@ -468,7 +493,7 @@ pub(crate) async fn check_for_desktop_update(
         let snapshot = {
             let mut state = manager.inner.lock().await;
             state.lifecycle.finish_idle();
-            public_snapshot(&state, &shell)
+            public_snapshot(&state)
         };
         log_snapshot(&snapshot);
         emit_snapshot(&app, &snapshot);
@@ -479,7 +504,7 @@ pub(crate) async fn check_for_desktop_update(
         let snapshot = {
             let mut state = manager.inner.lock().await;
             state.lifecycle.finish_idle();
-            public_snapshot(&state, &shell)
+            public_snapshot(&state)
         };
         log_snapshot(&snapshot);
         emit_snapshot(&app, &snapshot);
@@ -492,7 +517,7 @@ pub(crate) async fn check_for_desktop_update(
     let downloading_snapshot = {
         let mut state = manager.inner.lock().await;
         state.lifecycle.begin_download(candidate_version.clone())?;
-        public_snapshot(&state, &shell)
+        public_snapshot(&state)
     };
     log_snapshot(&downloading_snapshot);
     emit_snapshot(&app, &downloading_snapshot);
@@ -502,7 +527,7 @@ pub(crate) async fn check_for_desktop_update(
             |chunk_bytes, content_length| {
                 if let Ok(mut state) = manager.inner.try_lock() {
                     state.lifecycle.update_progress(chunk_bytes, content_length);
-                    let snapshot = public_snapshot(&state, &shell);
+                    let snapshot = public_snapshot(&state);
                     emit_snapshot(&app, &snapshot);
                 }
             },
@@ -513,7 +538,7 @@ pub(crate) async fn check_for_desktop_update(
         Ok(bytes) => bytes,
         Err(error) => {
             let code = classify_updater_error(FailureStage::Download, &error);
-            return Err(fail_operation(&app, &manager, &shell, code).await);
+            return Err(fail_operation(&app, &manager, code).await);
         }
     };
 
@@ -524,7 +549,7 @@ pub(crate) async fn check_for_desktop_update(
         state.lifecycle.finish_ready(downloaded_bytes, total_bytes);
         state.pending_update = Some(update);
         state.downloaded_bytes = Some(bytes);
-        public_snapshot(&state, &shell)
+        public_snapshot(&state)
     };
     log_snapshot(&snapshot);
     emit_snapshot(&app, &snapshot);
@@ -543,7 +568,6 @@ fn same_candidate(expected: &Update, offered: &Update) -> bool {
 pub(crate) async fn install_desktop_update(
     app: AppHandle,
     manager: State<'_, DesktopUpdateManager>,
-    shell: State<'_, ShellState>,
 ) -> Result<(), ErrorCode> {
     let (channel, update, bytes) = {
         let mut state = manager.inner.lock().await;
@@ -564,30 +588,30 @@ pub(crate) async fn install_desktop_update(
         Ok(updater) => updater,
         Err(error) => {
             let code = classify_updater_error(FailureStage::Check, &error);
-            return Err(restore_ready(&app, &manager, &shell, update, bytes, code).await);
+            return Err(restore_ready(&app, &manager, update, bytes, code).await);
         }
     };
     let offered = match updater.check().await {
         Ok(Some(offered)) if same_candidate(&update, &offered) => offered,
         Ok(_) => {
-            return Err(fail_operation(&app, &manager, &shell, ErrorCode::Unavailable).await);
+            return Err(fail_operation(&app, &manager, ErrorCode::Unavailable).await);
         }
         Err(error) => {
             let code = classify_updater_error(FailureStage::Check, &error);
-            return Err(restore_ready(&app, &manager, &shell, update, bytes, code).await);
+            return Err(restore_ready(&app, &manager, update, bytes, code).await);
         }
     };
     drop(offered);
 
     if let Err(error) = update.install(&bytes) {
         let code = classify_updater_error(FailureStage::Install, &error);
-        return Err(restore_ready(&app, &manager, &shell, update, bytes, code).await);
+        return Err(restore_ready(&app, &manager, update, bytes, code).await);
     }
 
     let snapshot = {
         let mut state = manager.inner.lock().await;
         state.lifecycle.finish_install();
-        public_snapshot(&state, &shell)
+        public_snapshot(&state)
     };
     log_snapshot(&snapshot);
     emit_snapshot(&app, &snapshot);
@@ -667,7 +691,10 @@ mod tests {
         let mut state = UpdateLifecycle::new("0.5.0".to_string());
 
         assert_eq!(state.snapshot.phase, UpdatePhase::Idle);
-        state.begin_check(1_721_376_000_000).unwrap();
+        assert_eq!(
+            state.begin_check(1_721_376_000_000),
+            Ok(CheckDisposition::Started)
+        );
         assert_eq!(state.snapshot.phase, UpdatePhase::Checking);
         assert_eq!(state.begin_download("0.5.1".to_string()), Ok(()));
         assert_eq!(
@@ -691,14 +718,67 @@ mod tests {
         assert!(!state.is_busy());
 
         let encoded = serde_json::to_value(&state.snapshot).unwrap();
-        assert_eq!(encoded["restartSuppressed"], false);
+        assert!(encoded.get("restartSuppressed").is_none());
         assert!(encoded["lastCheckedAt"].is_number());
 
-        state.begin_check(1_721_376_100_000).unwrap();
+        assert_eq!(
+            state.begin_check(1_721_376_100_000),
+            Ok(CheckDisposition::AlreadyReady)
+        );
+        assert_eq!(state.snapshot.phase, UpdatePhase::Ready);
+        assert_eq!(state.set_channel(UpdateChannel::Nightly), Ok(true));
+        assert_eq!(
+            state.begin_check(1_721_376_100_000),
+            Ok(CheckDisposition::Started)
+        );
         state.finish_failure(ErrorCode::Network);
         assert_eq!(state.snapshot.phase, UpdatePhase::Failed);
         assert_eq!(state.snapshot.error_code, Some(ErrorCode::Network));
         assert!(!state.is_busy());
+    }
+
+    #[test]
+    fn checking_while_ready_preserves_the_downloaded_candidate() {
+        let mut lifecycle = UpdateLifecycle::new("0.5.0".to_string());
+        lifecycle.begin_check(1_721_376_000_000).unwrap();
+        lifecycle.begin_download("0.5.1".to_string()).unwrap();
+        lifecycle.finish_ready(4, Some(4));
+        let mut state = UpdateManagerState {
+            channel: UpdateChannel::Stable,
+            lifecycle,
+            pending_update: None,
+            downloaded_bytes: Some(vec![1, 2, 3, 4]),
+        };
+
+        assert_eq!(
+            state.begin_check(1_721_376_100_000),
+            Ok(CheckDisposition::AlreadyReady)
+        );
+        assert_eq!(state.lifecycle.snapshot.phase, UpdatePhase::Ready);
+        assert_eq!(
+            state.lifecycle.snapshot.candidate_version.as_deref(),
+            Some("0.5.1")
+        );
+        assert_eq!(
+            state.downloaded_bytes.as_deref(),
+            Some([1, 2, 3, 4].as_slice())
+        );
+    }
+
+    #[test]
+    fn log_filter_blocks_the_updater_dependency_only() {
+        for level in [log::Level::Debug, log::Level::Info, log::Level::Error] {
+            let metadata = log::Metadata::builder()
+                .level(level)
+                .target("tauri_plugin_updater::updater")
+                .build();
+            assert!(!allow_desktop_log_record(&metadata));
+        }
+        assert!(!allow_desktop_log_target("tauri_plugin_updater"));
+        assert!(!allow_desktop_log_target("tauri_plugin_updater::updater"));
+        assert!(!allow_desktop_log_target("tauri-plugin-updater::updater"));
+        assert!(allow_desktop_log_target("chatto_desktop_lib::updates"));
+        assert!(allow_desktop_log_target("tauri_plugin_http"));
     }
 
     #[test]

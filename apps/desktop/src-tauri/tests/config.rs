@@ -118,3 +118,9 @@ fn http_capability_url_patterns_are_valid() {
         .test(urlpattern::UrlPatternMatchInput::Url(ipv6_endpoint))
         .unwrap());
 }
+
+#[test]
+fn desktop_logger_filters_updater_dependency_records() {
+    let source = fs::read_to_string(manifest_path("src/lib.rs")).unwrap();
+    assert!(source.contains(".filter(updates::allow_desktop_log_record)"));
+}

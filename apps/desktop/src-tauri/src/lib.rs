@@ -39,6 +39,7 @@ pub fn run() {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(log::LevelFilter::Info)
+                        .filter(updates::allow_desktop_log_record)
                         .build(),
                 )?;
             }

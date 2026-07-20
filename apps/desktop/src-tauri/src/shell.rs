@@ -20,30 +20,8 @@ const TRAY_ACTION_EVENT: &str = "native://tray-action";
 
 pub(crate) struct ShellState {
     quitting: AtomicBool,
-    call_activity: CallActivity,
     mute_item: MenuItem<Wry>,
     deafen_item: MenuItem<Wry>,
-}
-
-#[derive(Default)]
-struct CallActivity(AtomicBool);
-
-impl CallActivity {
-    fn set_active(&self, active: bool) {
-        self.0.store(active, Ordering::SeqCst);
-    }
-
-    fn is_active(&self) -> bool {
-        self.0.load(Ordering::SeqCst)
-    }
-}
-
-impl ShellState {
-    /// Returns the all-server call signal without granting updater code control
-    /// over media or tray state.
-    pub(crate) fn has_active_call(&self) -> bool {
-        self.call_activity.is_active()
-    }
 }
 
 #[derive(Deserialize)]
@@ -138,7 +116,6 @@ fn create_tray(app: &mut App) -> tauri::Result<()> {
 
     app.manage(ShellState {
         quitting: AtomicBool::new(false),
-        call_activity: CallActivity::default(),
         mute_item,
         deafen_item,
     });
@@ -200,7 +177,6 @@ pub fn set_call_controls(
     state: State<'_, ShellState>,
     controls: NativeCallControls,
 ) -> Result<(), String> {
-    state.call_activity.set_active(controls.connected);
     state
         .mute_item
         .set_enabled(controls.connected)
@@ -265,17 +241,5 @@ mod tests {
         }
         assert!(!devtools_enabled(false));
         assert!(devtools_enabled(true));
-    }
-
-    #[test]
-    fn active_call_state_has_a_read_only_shell_helper() {
-        let _read: fn(&ShellState) -> bool = ShellState::has_active_call;
-
-        let activity = CallActivity::default();
-        assert!(!activity.is_active());
-        activity.set_active(true);
-        assert!(activity.is_active());
-        activity.set_active(false);
-        assert!(!activity.is_active());
     }
 }
