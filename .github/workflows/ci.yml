@@ -500,6 +500,10 @@ jobs:
         shell: bash
         run: mise setup-frontend
 
+      - name: Build generated API types
+        shell: bash
+        run: mise build-api-types
+
       - name: Setup stable Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable, pinned 2026-07-19
 
