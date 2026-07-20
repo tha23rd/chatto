@@ -136,6 +136,25 @@ test("beta release builds fail closed around Tauri updater signatures", () => {
   assert.match(releaseBuilder, /update-manifest\.mjs build/);
 });
 
+test("desktop releases embed the exact native version in the frontend build", () => {
+  const save = releaseBuilder.indexOf(
+    "$previousBuildVersion = $env:CHATTO_BUILD_VERSION",
+  );
+  const assign = releaseBuilder.indexOf(
+    "$env:CHATTO_BUILD_VERSION = $Version",
+  );
+  const build = releaseBuilder.indexOf(
+    "& pnpm --dir apps/desktop tauri build",
+  );
+  const restore = releaseBuilder.indexOf(
+    "$env:CHATTO_BUILD_VERSION = $previousBuildVersion",
+  );
+
+  assert.ok(
+    save >= 0 && save < assign && assign < build && build < restore,
+  );
+});
+
 test("Nightly beta publication uses only GitHub contents and the updater key", () => {
   const release = job(ci, "publish-main-native-installer");
   assert.doesNotMatch(release, /environment: desktop-release/);
