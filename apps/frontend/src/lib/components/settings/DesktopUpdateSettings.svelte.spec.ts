@@ -66,9 +66,29 @@ describe('DesktopUpdateSettings', () => {
       downloadedBytes: 50,
       totalBytes: 100
     });
-    render(DesktopUpdateSettings);
+    const { container } = render(DesktopUpdateSettings);
 
     await expect.element(page.getByText(/Downloading update… 50%/)).toBeVisible();
+    const determinate = container.querySelector('progress');
+    await expect
+      .element(determinate as HTMLProgressElement)
+      .toHaveAccessibleName('Downloading update…');
+    await expect.element(determinate as HTMLProgressElement).toHaveAttribute('value', '50');
+    await expect.element(determinate as HTMLProgressElement).toHaveAttribute('max', '100');
+
+    const liveStatus = container.querySelector('[data-testid="desktop-update-live-status"]');
+    await expect.element(liveStatus as HTMLElement).toHaveTextContent('Downloading update…');
+    await expect.element(liveStatus as HTMLElement).not.toHaveTextContent('50%');
+
+    setSnapshot({
+      ...stableIdle,
+      phase: 'downloading',
+      candidateVersion: '0.3.0',
+      downloadedBytes: 75,
+      totalBytes: 100
+    });
+    await expect.element(liveStatus as HTMLElement).toHaveTextContent('Downloading update…');
+    await expect.element(liveStatus as HTMLElement).not.toHaveTextContent('75%');
 
     setSnapshot({
       ...stableIdle,
@@ -77,7 +97,13 @@ describe('DesktopUpdateSettings', () => {
       downloadedBytes: 50
     });
 
-    await expect.element(page.getByText('Downloading update…')).toBeVisible();
+    await expect.element(page.getByText(/^Status: Downloading update…$/)).toBeVisible();
+    const indeterminate = container.querySelector('progress');
+    await expect
+      .element(indeterminate as HTMLProgressElement)
+      .toHaveAccessibleName('Downloading update…');
+    await expect.element(indeterminate as HTMLProgressElement).not.toHaveAttribute('value');
+    await expect.element(indeterminate as HTMLProgressElement).not.toHaveAttribute('max');
   });
 
   it('shows a ready version and restarts directly outside a call', async () => {
@@ -104,6 +130,20 @@ describe('DesktopUpdateSettings', () => {
     expect(installNow).toHaveBeenCalledTimes(1);
     await expect.element(page.getByRole('button', { name: 'Restart now' })).toBeDisabled();
     resolveInstall();
+  });
+
+  it('shows exactly one install error toast when an explicit restart fails', async () => {
+    vi.spyOn(desktopUpdates, 'installNow').mockRejectedValue(new Error('native install failed'));
+    setSnapshot({ ...stableIdle, phase: 'ready', candidateVersion: '0.3.0' });
+    render(DesktopUpdateSettings);
+
+    await userEvent.click(page.getByRole('button', { name: 'Restart now' }));
+
+    await vi.waitFor(() =>
+      expect(getToasts().map((item) => item.message)).toEqual([
+        'The update could not be installed. Restart Chatto and try again.'
+      ])
+    );
   });
 
   it('saves Stable immediately', async () => {
@@ -181,10 +221,17 @@ describe('DesktopUpdateSettings', () => {
 
   it('keeps a background failure quiet while rendering its localized state', async () => {
     setSnapshot({ ...stableIdle, phase: 'failed', errorCode: 'network' });
-    render(DesktopUpdateSettings);
+    const { container } = render(DesktopUpdateSettings);
 
     await expect.element(page.getByText(/^Status: Update failed$/)).toBeVisible();
-    await expect.element(page.getByText(/Could not reach the update service/)).toBeVisible();
+    await expect
+      .element(container.querySelector('.text-danger') as HTMLElement)
+      .toHaveTextContent('Could not reach the update service');
+    const liveStatus = container.querySelector('[data-testid="desktop-update-live-status"]');
+    await expect.element(liveStatus as HTMLElement).toHaveTextContent('Update failed');
+    await expect
+      .element(liveStatus as HTMLElement)
+      .toHaveTextContent('Could not reach the update service');
     expect(getToasts()).toHaveLength(0);
   });
 

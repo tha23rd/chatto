@@ -69,6 +69,24 @@ current snapshot and explicit user actions.
     });
   }
 
+  function liveUpdateStatus(snapshot: DesktopUpdateSnapshot): string {
+    return snapshot.phase === 'downloading'
+      ? m['ui.desktop_updates.status.downloading']()
+      : updateStatus(snapshot);
+  }
+
+  function downloadProgress(
+    snapshot: DesktopUpdateSnapshot
+  ): { value: number; max: number } | null {
+    const total = snapshot.totalBytes;
+    if (snapshot.phase !== 'downloading' || total === undefined || total <= 0) return null;
+
+    return {
+      value: Math.min(total, Math.max(0, snapshot.downloadedBytes ?? 0)),
+      max: total
+    };
+  }
+
   function updateError(errorCode: DesktopUpdateSnapshot['errorCode']): string | null {
     if (!errorCode) return null;
     return {
@@ -135,7 +153,7 @@ current snapshot and explicit user actions.
     try {
       await desktopUpdates.installNow();
     } catch {
-      // The native snapshot carries the normalized failure shown in this section.
+      toast.error(m['ui.desktop_updates.error.install']());
     }
   }
 
@@ -200,13 +218,40 @@ current snapshot and explicit user actions.
         </Hint>
       {/if}
 
-      <div class="flex flex-col gap-2 surface-box" aria-live="polite">
-        <p>
+      <div
+        class="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="desktop-update-live-status"
+      >
+        <p>{liveUpdateStatus(desktopUpdates.snapshot)}</p>
+        {#if desktopUpdates.snapshot.phase === 'failed'}
+          {@const liveErrorMessage = updateError(desktopUpdates.snapshot.errorCode)}
+          {#if liveErrorMessage}<p>{liveErrorMessage}</p>{/if}
+        {/if}
+      </div>
+
+      <div class="flex flex-col gap-2 surface-box">
+        <p aria-hidden={desktopUpdates.snapshot.phase === 'downloading'}>
           <span class="font-medium"
             >{m['settings.preferences.desktop_updates.status_label']()}:</span
           >
           {updateStatus(desktopUpdates.snapshot)}
         </p>
+        {#if desktopUpdates.snapshot.phase === 'downloading'}
+          {@const progress = downloadProgress(desktopUpdates.snapshot)}
+          {#if progress}
+            <progress
+              class="w-full"
+              aria-label={m['ui.desktop_updates.status.downloading']()}
+              value={progress.value}
+              max={progress.max}
+            ></progress>
+          {:else}
+            <progress class="w-full" aria-label={m['ui.desktop_updates.status.downloading']()}
+            ></progress>
+          {/if}
+        {/if}
         <p class="text-sm text-muted">{lastChecked(desktopUpdates.snapshot)}</p>
         {#if desktopUpdates.snapshot.phase === 'failed'}
           {@const errorMessage = updateError(desktopUpdates.snapshot.errorCode)}

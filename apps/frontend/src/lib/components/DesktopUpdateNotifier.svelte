@@ -11,6 +11,7 @@ started by navigation, a timer, or a state transition.
   import { idleState } from '$lib/state/idle.svelte';
   import { Dialog } from '$lib/ui';
   import { Button } from '$lib/ui/form';
+  import { toast } from '$lib/ui/toast';
 
   let dismissedCandidate = $state<string | null>(null);
 
@@ -31,7 +32,7 @@ started by navigation, a timer, or a state transition.
     try {
       await desktopUpdates.installNow();
     } catch {
-      // The native snapshot carries the normalized failure shown in Settings.
+      toast.error(m['ui.desktop_updates.error.install']());
     }
   }
 </script>
