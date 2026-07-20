@@ -89,15 +89,22 @@ $overlay = [ordered]@{
 }
 $overlay | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $overlayPath -Encoding utf8
 
-Push-Location $repositoryRoot
+$previousBuildVersion = $env:CHATTO_BUILD_VERSION
+$env:CHATTO_BUILD_VERSION = $Version
 try {
-    & pnpm --dir apps/desktop tauri build --config $overlayPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "Tauri release build failed with exit code $LASTEXITCODE."
+    Push-Location $repositoryRoot
+    try {
+        & pnpm --dir apps/desktop tauri build --config $overlayPath
+        if ($LASTEXITCODE -ne 0) {
+            throw "Tauri release build failed with exit code $LASTEXITCODE."
+        }
+    }
+    finally {
+        Pop-Location
     }
 }
 finally {
-    Pop-Location
+    $env:CHATTO_BUILD_VERSION = $previousBuildVersion
 }
 
 if ([string]::IsNullOrWhiteSpace($env:CARGO_TARGET_DIR)) {
