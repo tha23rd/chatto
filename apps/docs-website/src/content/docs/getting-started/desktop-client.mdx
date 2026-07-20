@@ -13,14 +13,21 @@ controls.
 
 <Steps>
 
-1. Download the latest Windows installer from [GitHub Releases](https://github.com/chattocorp/chatto/releases).
-2. Run the installer and confirm that Windows shows the expected Chatto publisher.
+1. Download the latest Windows installer from [GitHub Releases](https://github.com/tha23rd/chatto/releases).
+2. Run the installer. During the beta, Windows may show **Unknown publisher** or a SmartScreen warning because the installer is not yet Authenticode-signed.
 3. Launch Chatto and add your server.
 
 </Steps>
 
 If you installed Chatto before automatic updates were introduced, this is the
 one manual bridge install you need. Future releases arrive automatically.
+
+<Aside type="caution" title="Windows beta warning">
+  Download the installer only from the linked Chatto GitHub Releases page. Do
+  not disable Windows security controls. Automatic update packages are signed
+  separately and Chatto rejects packages that do not match its embedded updater
+  key.
+</Aside>
 
 ## Choose Stable or Nightly
 
@@ -54,4 +61,4 @@ Preferences in the meantime.
 - If a download or verification fails, Chatto does not run the update. Retry the
   check after confirming your connection is stable.
 - If automatic updates are not shown in Preferences, install the latest bridge
-  release manually from [GitHub Releases](https://github.com/chattocorp/chatto/releases).
+  release manually from [GitHub Releases](https://github.com/tha23rd/chatto/releases).

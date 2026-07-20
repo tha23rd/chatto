@@ -1,7 +1,8 @@
 # Windows Desktop Auto-Update Design
 
 **Date:** 2026-07-19
-**Status:** Approved
+**Status:** Superseded for beta release infrastructure by
+`2026-07-20-windows-desktop-beta-release-design.md`
 
 ## Problem
 

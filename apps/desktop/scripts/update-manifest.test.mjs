@@ -26,7 +26,7 @@ test("builds the exact Tauri static Windows manifest", () => {
     pub_date: "2026-07-19T18:30:45.000Z",
     platforms: {
       "windows-x86_64": {
-        url: `https://github.com/chattocorp/chatto/releases/download/desktop-v${version}/${installerName}`,
+        url: `https://github.com/tha23rd/chatto/releases/download/desktop-v${version}/${installerName}`,
         signature,
       },
     },
@@ -34,10 +34,10 @@ test("builds the exact Tauri static Windows manifest", () => {
   assert.equal(validateUpdateManifest(manifest).version, version);
 });
 
-test("only permits immutable chattocorp/chatto desktop release assets", () => {
+test("only permits immutable tha23rd/chatto desktop release assets", () => {
   assert.equal(
     immutableAssetUrl(version, installerName),
-    `https://github.com/chattocorp/chatto/releases/download/desktop-v${version}/${installerName}`,
+    `https://github.com/tha23rd/chatto/releases/download/desktop-v${version}/${installerName}`,
   );
 
   const valid = buildUpdateManifest({

@@ -14,7 +14,7 @@ use `main-native` as their base.
 
 Every successful push to `main-native` publishes a signed, immutable Nightly
 prerelease on the repository's
-[GitHub Releases page](https://github.com/chattocorp/chatto/releases). Nightly
+[GitHub Releases page](https://github.com/tha23rd/chatto/releases). Nightly
 versions are monotonic and use a UTC timestamp plus the GitHub Actions run
 number:
 
@@ -30,11 +30,12 @@ from `main-native`. The tag, desktop package versions, installer version, and
 manifest version must all match. Stable is the default application channel;
 Nightly is opt-in.
 
-Both workflows build an Authenticode-signed installer and a Tauri updater
-signature. They upload exactly five assets to a draft GitHub release, download
-and reverify those stored bytes, publish the release, then atomically advance
-the matching manifest under `https://updates.chatto.run/desktop/`. A pull
-request never publishes a release or changes a live channel.
+Both workflows build an unsigned beta installer and a Tauri updater signature.
+They upload exactly five assets to a draft GitHub release, download and
+reverify those stored bytes, publish the immutable release, then replace the
+manifest on the rolling `desktop-stable` or `desktop-nightly` GitHub release. A
+pull request never receives the updater private key, publishes a release, or
+changes a live channel.
 
 An existing installation without updater support needs one final manual bridge
 install. After that, the native host downloads and verifies updates in the
@@ -42,27 +43,15 @@ background and the frontend offers a user-controlled restart.
 
 ### Maintainer release configuration
 
-Configure a protected GitHub environment named `desktop-release`. Require
-reviewers for production publishing and define these environment variables:
-
-- `CHATTO_DESKTOP_UPDATER_PUBLIC_KEY`
-- `AZURE_CLIENT_ID`
-- `AZURE_TENANT_ID`
-- `AZURE_SUBSCRIPTION_ID`
-- `AZURE_ARTIFACT_SIGNING_ENDPOINT`
-- `AZURE_ARTIFACT_SIGNING_ACCOUNT`
-- `AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE`
-- `CHATTO_WINDOWS_SIGNER_SUBJECT`
-- `CHATTO_UPDATE_STORE_ENDPOINT`
-- `CHATTO_UPDATE_STORE_BUCKET`
-- `CHATTO_UPDATE_STORE_REGION`
-
-Define these environment secrets:
+The beta release path needs one repository Actions secret:
 
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (optional for an unencrypted CI key)
-- `CHATTO_UPDATE_STORE_ACCESS_KEY_ID`
-- `CHATTO_UPDATE_STORE_SECRET_ACCESS_KEY`
+
+The matching public key is intentionally checked in at
+`apps/desktop/updater-public-key.txt`. GitHub's built-in workflow token creates
+the immutable and rolling releases; no Azure account, external object store, or
+protected GitHub environment is required for beta publishing.
 
 Keep the updater private key outside GitHub as an access-controlled, tested
 backup. Record its custodians and recovery procedure. A public-key rotation
@@ -73,13 +62,21 @@ Before creating a Stable tag, update every desktop version to the same `X.Y.Z`,
 merge the release commit to `main-native`, and create `desktop-vX.Y.Z` on that
 commit. Nightly publishing needs no tag: it follows each successful
 `main-native` build. Both routes intentionally publish draft-first and expose a
-channel only after the GitHub assets, Authenticode publisher, checksum, and
-updater signature pass read-back verification.
+channel only after the GitHub assets, checksum, and updater signature pass
+read-back verification.
 
-To withdraw a bad update, remove its canonical channel manifest from the object
-store, then publish a higher fixed version. Never repoint Stable or Nightly to a
-lower version. Immutable versioned manifests and GitHub assets remain as the
-audit record; an already installed release cannot be recalled.
+Beta installers are not Authenticode-signed. Windows can show **Unknown
+publisher** or a SmartScreen warning during the initial bridge installation and
+installer-driven updates. Do not tell testers to disable Windows security
+controls; document the warning and distribute installers only through the
+repository release page. Authenticode and a dedicated atomic manifest store are
+deferred until the desktop client moves beyond small beta testing.
+
+To withdraw a bad update, remove `windows-x86_64.json` from its rolling
+`desktop-stable` or `desktop-nightly` release, then publish a higher fixed
+version. Never repoint Stable or Nightly to a lower version. Immutable
+versioned manifests and GitHub assets remain as the audit record; an already
+installed release cannot be recalled.
 
 ## Development
 

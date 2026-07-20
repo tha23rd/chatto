@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -8,7 +8,10 @@ import { fileURLToPath } from "node:url";
 import { validateUpdateManifest } from "./update-manifest.mjs";
 
 const execFileAsync = promisify(execFile);
-const PUBLIC_BASE_URL = "https://updates.chatto.run";
+const CHANNEL_ASSET_NAME = "windows-x86_64.json";
+const REPOSITORY =
+  /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9_.-]{1,100}$/;
+const SOURCE_SHA = /^[0-9a-f]{40}$/;
 const STABLE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const NIGHTLY_VERSION =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-nightly\.(\d{14})\.(0|[1-9]\d*)$/;
@@ -35,82 +38,94 @@ export function compareChannelVersions(channel, left, right) {
   return 0;
 }
 
-export function channelObjectKeys(channel, version) {
-  if (typeof version !== "string") {
-    throw new Error("invalid desktop release version");
+export function channelRelease(channel, repository) {
+  if (channel !== "stable" && channel !== "nightly") {
+    throw new Error("channel must be stable or nightly");
   }
-  versionIdentifiers(channel, version);
+  if (!REPOSITORY.test(repository ?? "")) {
+    throw new Error("invalid GitHub repository");
+  }
+  const tag = `desktop-${channel}`;
   return {
-    immutable: `desktop/${channel}/versions/${version}/windows-x86_64.json`,
-    canonical: `desktop/${channel}/windows-x86_64.json`,
+    tag,
+    assetName: CHANNEL_ASSET_NAME,
+    publicUrl: `https://github.com/${repository}/releases/download/${tag}/${CHANNEL_ASSET_NAME}`,
   };
 }
 
 function validateOptions(options) {
-  if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(options.bucket ?? "")) {
-    throw new Error("invalid update bucket");
+  const release = channelRelease(options.channel, options.repository);
+  if (!SOURCE_SHA.test(options.sourceSha ?? "")) {
+    throw new Error("invalid source SHA");
   }
-  let endpoint;
-  try {
-    endpoint = new URL(options.endpoint);
-  } catch {
-    throw new Error("update store endpoint must be a valid HTTPS URL");
-  }
-  if (
-    endpoint.protocol !== "https:" ||
-    endpoint.username ||
-    endpoint.password
-  ) {
-    throw new Error(
-      "update store endpoint must be a credential-free HTTPS URL",
-    );
-  }
-  if (!/^[A-Za-z0-9-]{1,64}$/.test(options.region ?? "")) {
-    throw new Error("invalid update store region");
-  }
-  if (options.publicBaseUrl !== PUBLIC_BASE_URL) {
-    throw new Error(`public base must be ${PUBLIC_BASE_URL}`);
-  }
-}
-
-function awsArguments(options, operation, operationArguments) {
-  return [
-    "--endpoint-url",
-    options.endpoint,
-    "--region",
-    options.region,
-    "s3api",
-    operation,
-    "--bucket",
-    options.bucket,
-    ...operationArguments,
-  ];
+  return release;
 }
 
 async function defaultRunner(command, args) {
-  await execFileAsync(command, args, { maxBuffer: 1024 * 1024 });
+  return execFileAsync(command, args, { maxBuffer: 1024 * 1024 });
+}
+
+function missingRelease(error) {
+  return /release not found/i.test(
+    `${error?.stderr ?? ""}\n${error?.message ?? ""}`,
+  );
 }
 
 function equalBytes(left, right, description) {
-  if (!left.equals(right))
+  if (!left.equals(right)) {
     throw new Error(`${description} did not match local manifest`);
+  }
 }
 
 async function responseBytes(response) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+async function ensureRollingRelease(options, release, runner) {
+  try {
+    await runner("gh", [
+      "release",
+      "view",
+      release.tag,
+      "--repo",
+      options.repository,
+      "--json",
+      "tagName",
+    ]);
+    return;
+  } catch (error) {
+    if (!missingRelease(error)) throw error;
+  }
+
+  const displayChannel =
+    options.channel === "stable" ? "Stable" : "Nightly";
+  await runner("gh", [
+    "release",
+    "create",
+    release.tag,
+    "--repo",
+    options.repository,
+    "--target",
+    options.sourceSha,
+    "--title",
+    `Chatto Windows ${displayChannel} channel`,
+    "--notes",
+    `Rolling manifest for the Chatto Windows ${displayChannel} beta channel.`,
+    "--prerelease",
+  ]);
+}
+
 export async function publishUpdateChannel(
   options,
   { runner = defaultRunner, fetchImpl = fetch } = {},
 ) {
-  validateOptions(options);
+  const release = validateOptions(options);
   const localBytes = await readFile(options.manifestPath);
   const manifest = validateUpdateManifest(
     JSON.parse(localBytes.toString("utf8")),
   );
-  const keys = channelObjectKeys(options.channel, manifest.version);
-  const canonicalUrl = `${PUBLIC_BASE_URL}/${keys.canonical}`;
+  versionIdentifiers(options.channel, manifest.version);
+
   const assetUrl = manifest.platforms["windows-x86_64"].url;
   const assetResponse = await fetchImpl(assetUrl, {
     method: "HEAD",
@@ -122,11 +137,11 @@ export async function publishUpdateChannel(
     );
   }
 
-  // Read the client-visible channel before creating or copying any object. The
-  // workflows serialize each channel, and this guard makes stale or replayed
-  // publishers fail closed instead of moving a channel backwards.
-  const existingCanonicalResponse = await fetchImpl(canonicalUrl, {
+  // Check the client-visible channel before mutating GitHub. This makes stale
+  // and replayed publishers fail closed instead of moving a channel backwards.
+  const existingCanonicalResponse = await fetchImpl(release.publicUrl, {
     cache: "no-store",
+    redirect: "follow",
   });
   if (existingCanonicalResponse.ok) {
     const existingBytes = await responseBytes(existingCanonicalResponse);
@@ -167,79 +182,24 @@ export async function publishUpdateChannel(
   const workingDirectory =
     options.temporaryDirectory ??
     (await mkdtemp(join(tmpdir(), "chatto-update-channel-")));
-  const immutableReadback = join(workingDirectory, "immutable-readback.json");
-  const canonicalReadback = join(workingDirectory, "canonical-readback.json");
+  const canonicalManifestPath = join(workingDirectory, release.assetName);
+  await copyFile(options.manifestPath, canonicalManifestPath);
 
-  try {
-    await runner(
-      "aws",
-      awsArguments(options, "put-object", [
-        "--key",
-        keys.immutable,
-        "--body",
-        options.manifestPath,
-        "--content-type",
-        "application/json",
-        "--cache-control",
-        "public, max-age=31536000, immutable",
-        "--if-none-match",
-        "*",
-      ]),
-    );
-  } catch (error) {
-    // A rerun may encounter the same immutable object. It is safe only when
-    // its stored bytes are exactly the release manifest we intended to publish.
-    await runner(
-      "aws",
-      awsArguments(options, "get-object", [
-        "--key",
-        keys.immutable,
-        immutableReadback,
-      ]),
-    );
-    equalBytes(
-      localBytes,
-      await readFile(immutableReadback),
-      "existing immutable object",
-    );
-  }
+  await ensureRollingRelease(options, release, runner);
+  await runner("gh", [
+    "release",
+    "upload",
+    release.tag,
+    canonicalManifestPath,
+    "--repo",
+    options.repository,
+    "--clobber",
+  ]);
 
-  await runner(
-    "aws",
-    awsArguments(options, "get-object", [
-      "--key",
-      keys.immutable,
-      immutableReadback,
-    ]),
-  );
-  equalBytes(localBytes, await readFile(immutableReadback), "immutable object");
-
-  await runner(
-    "aws",
-    awsArguments(options, "copy-object", [
-      "--key",
-      keys.canonical,
-      "--copy-source",
-      encodeURIComponent(`${options.bucket}/${keys.immutable}`),
-      "--metadata-directive",
-      "REPLACE",
-      "--content-type",
-      "application/json",
-      "--cache-control",
-      "no-cache",
-    ]),
-  );
-  await runner(
-    "aws",
-    awsArguments(options, "get-object", [
-      "--key",
-      keys.canonical,
-      canonicalReadback,
-    ]),
-  );
-  equalBytes(localBytes, await readFile(canonicalReadback), "canonical object");
-
-  const publicResponse = await fetchImpl(canonicalUrl, { cache: "no-store" });
+  const publicResponse = await fetchImpl(release.publicUrl, {
+    cache: "no-store",
+    redirect: "follow",
+  });
   if (!publicResponse.ok) {
     throw new Error(
       `public update channel is unavailable (${publicResponse.status})`,
@@ -259,23 +219,14 @@ async function main() {
       "usage: publish-update-channel.mjs <stable|nightly> <manifest>",
     );
   }
-  for (const name of [
-    "CHATTO_UPDATE_STORE_BUCKET",
-    "CHATTO_UPDATE_STORE_ENDPOINT",
-    "CHATTO_UPDATE_STORE_REGION",
-    "CHATTO_UPDATE_STORE_PUBLIC_BASE_URL",
-    "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
-  ]) {
+  for (const name of ["GH_TOKEN", "GITHUB_REPOSITORY", "GITHUB_SHA"]) {
     if (!process.env[name]) throw new Error(`${name} is required`);
   }
   await publishUpdateChannel({
     channel,
     manifestPath,
-    bucket: process.env.CHATTO_UPDATE_STORE_BUCKET,
-    endpoint: process.env.CHATTO_UPDATE_STORE_ENDPOINT,
-    region: process.env.CHATTO_UPDATE_STORE_REGION,
-    publicBaseUrl: process.env.CHATTO_UPDATE_STORE_PUBLIC_BASE_URL,
+    repository: process.env.GITHUB_REPOSITORY,
+    sourceSha: process.env.GITHUB_SHA,
   });
 }
 

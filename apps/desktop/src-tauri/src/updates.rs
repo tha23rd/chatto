@@ -7,15 +7,17 @@ use tauri_plugin_updater::{Error as UpdaterError, Update, Updater, UpdaterExt};
 use tokio::sync::Mutex;
 use url::Url;
 
-const STABLE_ENDPOINT: &str = "https://updates.chatto.run/desktop/stable/windows-x86_64.json";
-const NIGHTLY_ENDPOINT: &str = "https://updates.chatto.run/desktop/nightly/windows-x86_64.json";
+const STABLE_ENDPOINT: &str =
+    "https://github.com/tha23rd/chatto/releases/download/desktop-stable/windows-x86_64.json";
+const NIGHTLY_ENDPOINT: &str =
+    "https://github.com/tha23rd/chatto/releases/download/desktop-nightly/windows-x86_64.json";
 const UPDATE_STATE_EVENT: &str = "native://desktop-update-state";
 const CHECK_TIMEOUT: Duration = Duration::from_secs(30);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
-// Generated only for local builds. Production release workflows replace this
-// public key at compile time and never possess the matching development key.
-const INERT_DEVELOPMENT_PUBLIC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQyMzAzOUMwMEZBM0I5QjIKUldTeXVhTVB3RGt3MHE0TDl3KzlmNC9nRlV5ZlhEejErVjRMdnhzUjJ5UTdQUFRiVEV3UVVWQTMK";
+// The updater public key is intentionally checked in. Only the matching
+// private key is secret, and release jobs scope it to the packaging step.
+const UPDATER_PUBLIC_KEY: &str = include_str!("../../updater-public-key.txt");
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -339,15 +341,8 @@ fn is_strictly_newer(current: &str, candidate: &str) -> bool {
     }
 }
 
-fn select_updater_public_key(configured: Option<&str>) -> &str {
-    configured
-        .map(str::trim)
-        .filter(|key| !key.is_empty())
-        .unwrap_or(INERT_DEVELOPMENT_PUBLIC_KEY)
-}
-
 pub(crate) fn updater_public_key() -> &'static str {
-    select_updater_public_key(option_env!("CHATTO_DESKTOP_UPDATER_PUBLIC_KEY"))
+    UPDATER_PUBLIC_KEY.trim()
 }
 
 fn allow_desktop_log_target(target: &str) -> bool {
@@ -632,11 +627,11 @@ mod tests {
     fn channels_use_fixed_first_party_https_endpoints() {
         assert_eq!(
             endpoint(UpdateChannel::Stable).as_str(),
-            "https://updates.chatto.run/desktop/stable/windows-x86_64.json"
+            "https://github.com/tha23rd/chatto/releases/download/desktop-stable/windows-x86_64.json"
         );
         assert_eq!(
             endpoint(UpdateChannel::Nightly).as_str(),
-            "https://updates.chatto.run/desktop/nightly/windows-x86_64.json"
+            "https://github.com/tha23rd/chatto/releases/download/desktop-nightly/windows-x86_64.json"
         );
         assert_eq!(UPDATE_STATE_EVENT, "native://desktop-update-state");
     }
@@ -663,11 +658,13 @@ mod tests {
     }
 
     #[test]
-    fn inert_development_key_is_valid_tauri_minisign_public_text() {
+    fn checked_in_beta_key_is_valid_tauri_minisign_public_text() {
+        assert_eq!(updater_public_key(), UPDATER_PUBLIC_KEY.trim());
+        assert!(!updater_public_key().is_empty());
         let decoded = STANDARD
-            .decode(INERT_DEVELOPMENT_PUBLIC_KEY)
-            .expect("development updater public key base64");
-        let decoded = String::from_utf8(decoded).expect("development updater public key UTF-8");
+            .decode(updater_public_key())
+            .expect("checked-in updater public key base64");
+        let decoded = String::from_utf8(decoded).expect("checked-in updater public key UTF-8");
         let mut lines = decoded.lines();
         assert!(lines
             .next()
@@ -685,22 +682,6 @@ mod tests {
         assert_eq!(CHECK_TIMEOUT, Duration::from_secs(30));
         assert_eq!(DOWNLOAD_TIMEOUT, Duration::from_secs(30 * 60));
         assert!(DOWNLOAD_TIMEOUT > CHECK_TIMEOUT);
-    }
-
-    #[test]
-    fn configured_public_keys_are_trimmed_and_empty_values_fall_back() {
-        assert_eq!(
-            select_updater_public_key(Some("production-public-key\r\n")),
-            "production-public-key"
-        );
-        assert_eq!(
-            select_updater_public_key(Some(" \t\r\n")),
-            INERT_DEVELOPMENT_PUBLIC_KEY
-        );
-        assert_eq!(
-            select_updater_public_key(None),
-            INERT_DEVELOPMENT_PUBLIC_KEY
-        );
     }
 
     #[test]

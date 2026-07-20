@@ -45,14 +45,7 @@ $publicationTime = [DateTimeOffset]::Parse(
     [Globalization.DateTimeStyles]::AssumeUniversal
 ).ToUniversalTime().ToString('o')
 
-foreach ($name in @(
-        'CHATTO_DESKTOP_UPDATER_PUBLIC_KEY',
-        'TAURI_SIGNING_PRIVATE_KEY',
-        'AZURE_ARTIFACT_SIGNING_ENDPOINT',
-        'AZURE_ARTIFACT_SIGNING_ACCOUNT',
-        'AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE',
-        'CHATTO_WINDOWS_SIGNER_SUBJECT'
-    )) {
+foreach ($name in @('TAURI_SIGNING_PRIVATE_KEY')) {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
         throw "$name is required for a desktop release build."
     }
@@ -74,7 +67,11 @@ if (@(Get-ChildItem -LiteralPath $resolvedOutputDirectory -Force).Count -ne 0) {
     throw 'Desktop release output directory must be empty before staging assets.'
 }
 
-$signerPath = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'sign-artifact.ps1'))
+$updaterPublicKeyPath = Join-Path $desktopRoot 'updater-public-key.txt'
+$updaterPublicKey = (Get-Content -LiteralPath $updaterPublicKeyPath -Raw).Trim()
+if ([string]::IsNullOrWhiteSpace($updaterPublicKey)) {
+    throw 'The checked-in updater public key is empty.'
+}
 $overlayPath = Join-Path $resolvedVerificationDirectory 'tauri.release.conf.json'
 $overlay = [ordered]@{
     version = $Version
@@ -82,15 +79,11 @@ $overlay = [ordered]@{
         createUpdaterArtifacts = $true
         windows = [ordered]@{
             allowDowngrades = $false
-            signCommand = [ordered]@{
-                cmd = 'pwsh'
-                args = @('-NoProfile', '-NonInteractive', '-File', $signerPath, '-FilePath', '%1')
-            }
         }
     }
     plugins = [ordered]@{
         updater = [ordered]@{
-            pubkey = $env:CHATTO_DESKTOP_UPDATER_PUBLIC_KEY
+            pubkey = $updaterPublicKey
         }
     }
 }
@@ -125,9 +118,9 @@ foreach ($path in @($installer, $signature)) {
 & (Join-Path $PSScriptRoot 'verify-package.ps1') `
     -PackagePath $installer `
     -OutputDirectory $resolvedVerificationDirectory `
-    -ExpectedSignerSubject $env:CHATTO_WINDOWS_SIGNER_SUBJECT `
+    -SkipAuthenticode `
     -UpdaterSignaturePath $signature `
-    -UpdaterPublicKey $env:CHATTO_DESKTOP_UPDATER_PUBLIC_KEY
+    -UpdaterPublicKey $updaterPublicKey
 
 $stagedInstaller = Join-Path $resolvedOutputDirectory $installerName
 $stagedSignature = "$stagedInstaller.sig"
@@ -168,7 +161,8 @@ $metadataPath = Join-Path $resolvedOutputDirectory $metadataName
     channel = $Channel
     tag = "desktop-v$Version"
     sourceSha = $CommitSha.ToLowerInvariant()
-    publisher = $env:CHATTO_WINDOWS_SIGNER_SUBJECT
+    authenticode = $false
+    publisher = $null
     publishedAt = $publicationTime
     installer = $installerName
     sha256 = $checksum
