@@ -702,7 +702,7 @@ export class Message extends Message$1<Message> {
   deletedAt?: Timestamp;
 
   /**
-   * Per-message webhook identity override (FDR-035). Present only when this
+   * Per-message webhook identity override (FDR-902). Present only when this
    * message was posted through a channel webhook whose caller supplied a
    * per-message username and/or avatar. When present, clients render this
    * name/avatar instead of the author's profile.
@@ -757,7 +757,7 @@ export class Message extends Message$1<Message> {
 
 /**
  * MessageWebhookOverride is the per-message display identity a channel webhook
- * set on an individual post (FDR-035).
+ * set on an individual post (FDR-902).
  *
  * @generated from message chatto.api.v1.MessageWebhookOverride
  */

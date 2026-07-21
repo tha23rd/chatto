@@ -120,5 +120,5 @@ Tauri/WebView2 can advance only when authentication, native transports, E2EE
 voice, global PTT, tray lifecycle, and install/uninstall pass, and when resource
 measurements are recorded honestly. A WebView2 media failure—especially required
 entire-screen system audio or unacceptable encoder/resource behavior—must be
-recorded with reproducible evidence before considering the ADR-052 Electron
+recorded with reproducible evidence before considering the ADR-900 Electron
 fallback. An unrun check is not a pass.

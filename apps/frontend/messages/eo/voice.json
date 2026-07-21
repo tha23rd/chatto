@@ -76,6 +76,24 @@
     "participant_volume": "Volume",
     "participant_volume_value": "{percent}% volume",
     "participant_volume_muted_hint": "Muted locally — unmute to hear this participant.",
-    "media_device_failed": "Ne eblis aliri amaskomunikilaron."
+    "media_device_failed": "Ne eblis aliri amaskomunikilaron.",
+    "tuning": {
+      "strength_label": "Forto de bruosubpremo",
+      "strength_hint": "Pli alta valoro forigas pli da fona bruo, sed povas misformi vian voĉon.",
+      "input_gain_label": "Eniga gajno",
+      "input_gain_hint": "Plifortigas aŭ malplifortigas la mikrofonan nivelon antaŭ la subpremo.",
+      "sensitivity_label": "Eniga sentiveco",
+      "sensitivity_hint": "Silentigas la mikrofonon sub ĉi tiu nivelo por forigi fonan bruon inter vortoj. 0 malŝaltas la pordon.",
+      "sensitivity_off": "Malŝaltita"
+    },
+    "mic_test": {
+      "title": "Testu vian mikrofonon",
+      "start": "Testu mian mikrofonon",
+      "stop": "Haltigu la teston",
+      "loading": "Komencante…",
+      "error": "Ne eblis komenci la mikrofonteston. Kontrolu la mikrofonpermesojn.",
+      "headphones_hint": "Uzu kapaŭskultilojn por eviti eĥon.",
+      "level": "Enira nivelo"
+    }
   }
 }

@@ -245,7 +245,12 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
   <!-- Reaction pills -->
   {#each reactions as reaction (reaction.emoji)}
     {@const customEmoji = getCustomEmoji(serverSegment, reaction.emoji)}
+    <!-- inline-flex so this wrapper sizes to the button. As a plain inline span
+         it would establish a text line box, and the inline-flex button's
+         baseline differs between text (unicode) and image (custom) content,
+         which left image pills floating ~1px above unicode pills. -->
     <span
+      class="inline-flex"
       role="group"
       onmouseenter={(e) => showReactionTooltip(e, reaction)}
       onmouseleave={hideReactionTooltip}

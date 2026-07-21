@@ -24,7 +24,7 @@ const (
 )
 
 // A channel webhook: a token-authorized endpoint that posts messages into a
-// specific room under a synthetic, non-human webhook identity (FDR-035). The
+// specific room under a synthetic, non-human webhook identity (FDR-902). The
 // secret token is embedded in the post URL and is only ever returned once, at
 // creation and regeneration time.
 type Webhook struct {

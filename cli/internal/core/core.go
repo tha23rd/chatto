@@ -903,12 +903,12 @@ func (c *ChattoCore) ResolvePublicServerAsset(ctx context.Context, key string) (
 	}
 	// Custom emoji images uploaded before the explicit public/ namespace exist
 	// under a flat key with no visibility marker; the catalog is their durable
-	// public declaration. See FDR-033.
+	// public declaration. See FDR-900.
 	if c.CustomEmojis != nil && c.CustomEmojis.IsPublicEmojiAsset(assetID) {
 		legacyDeclaredPublic = true
 	}
 	// Soundboard sound clips are intentionally public server assets; the
-	// catalog is their durable public declaration. See FDR-036.
+	// catalog is their durable public declaration. See FDR-903.
 	if c.Soundboard != nil && c.Soundboard.IsPublicSoundAsset(assetID) {
 		legacyDeclaredPublic = true
 	}

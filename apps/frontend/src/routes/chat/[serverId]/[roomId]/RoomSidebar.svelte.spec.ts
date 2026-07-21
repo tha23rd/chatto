@@ -146,7 +146,8 @@ vi.mock('$lib/state/server/connection.svelte', () => ({
   })
 }));
 
-vi.mock('$lib/api-client/attachments', () => ({
+vi.mock('$lib/api-client/attachments', async (importActual) => ({
+  ...(await importActual<typeof import('$lib/api-client/attachments')>()),
   createAttachmentAPI: vi.fn(() => ({
     listRoomAttachments: attachmentMocks.listRoomAttachments,
     refreshAssetUrls: attachmentMocks.refreshAssetUrls
@@ -392,6 +393,18 @@ describe('RoomSidebar', () => {
     callStore.activeCallRooms.getParticipantCallPresenceInAnyRoom.mockClear();
     callStore.activeCallRooms.getParticipantCallPresenceInAnyRoom.mockReturnValue(null);
     callStore.handleVoiceCallJoinFailed.mockClear();
+  });
+
+  it('does not load room files for the Members panel', async () => {
+    render(RoomSidebarTestHarness, {
+      props: {
+        activePanel: 'members',
+        roomData: roomData([member(1)], 1, false)
+      }
+    });
+
+    await tick();
+    expect(attachmentMocks.listRoomAttachments).not.toHaveBeenCalled();
   });
 
   it('shows the exact total count and eagerly loads all member pages', async () => {

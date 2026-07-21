@@ -1,0 +1,224 @@
+# FDR-901: Microphone Noise Suppression
+
+**Status:** Experimental
+**Last reviewed:** 2026-07-21
+
+## Overview
+
+A per-client microphone noise-suppression preference for voice calls, layered
+on top of the browser's baseline WebRTC processing. A member in (or about to
+join) a call picks one of three modes from the in-call audio device menu; the
+choice is remembered on that device and applied to their own outbound audio. It
+is a fork feature that trades some CPU and image size for cleaner sent audio,
+and it is off by default so nobody's capture changes unless they opt in.
+
+## Behavior
+
+- The audio device menu (microphone/speaker/camera selector) always shows a
+  "Noise suppression" section with three options: Standard (browser), Voice
+  isolation (experimental), and Enhanced (DeepFilterNet3).
+- The setting is per client and persists in `localStorage` across calls and
+  reloads. It is not tied to the account and does not sync across devices.
+- The default is Standard: the browser's own AGC, echo cancellation, and noise
+  suppression, with no extra sender-side processing.
+- Voice isolation requests a stronger, browser-implemented suppression tier. It
+  is honoured only by browsers that implement the constraint (effectively
+  Safari today) and is silently ignored elsewhere.
+- Enhanced runs DeepFilterNet3, a model-based suppressor, on the outbound
+  microphone track. The first time it is selected in a session the model and
+  its runtime are loaded on demand, so there is a brief loading state before it
+  becomes active.
+- The client preferences page carries a "Noise suppression" section with the
+  same mode selector plus these controls:
+  - A **suppression strength** slider (0–100, default 80) mapping to
+    DeepFilterNet3's attenuation limit. Higher removes more background noise but
+    can distort the voice. Enhanced-mode only (disabled otherwise). The value
+    persists per client in `localStorage` and, when a call is in progress,
+    retunes the live processor immediately (no rebuild). Untouched users keep the
+    previous fixed strength of 80.
+  - An **input gain** slider (0–200%, default 100% = unity) that boosts or lowers
+    the microphone level before suppression.
+  - An **input sensitivity** slider (0–100, default 0 = off): a noise gate that
+    mutes the microphone below the chosen level to cut background noise between
+    speech. The mic-test meter shows a marker at the threshold. 0 disables it.
+  - Input gain and the gate are **independent of the suppression mode**: they
+    apply in Standard and Enhanced. Because the composite processor cannot
+    coexist with the experimental voice-isolation constraint (which restarts the
+    raw capture track), they do not apply while Voice isolation is selected.
+    A non-default gain or gate in Standard mode still attaches the processor with
+    its DeepFilterNet3 stage disabled, so a noise gate works without ML
+    suppression; the gate/gain do not make Standard mode read as "active".
+  - A **microphone test**: a local loopback that runs the same composite
+    processor on the member's own microphone and plays it back so they can hear
+    the combined effect of mode, strength, gain, and gate. The preview follows
+    the selected mode (the DeepFilterNet3 stage runs only in Enhanced), so
+    switching modes is the A/B comparison rather than a separate toggle. The
+    live input-level meter is drawn on the sensitivity slider, with the gate
+    threshold marked, so the gate can be set just below where the voice peaks.
+    Dragging any of the sliders — or switching mode — retunes the loopback live.
+    It runs independently of any call, recommends headphones to avoid echo,
+    shows a loading state while the model warms up, and releases the microphone
+    when stopped or when the member leaves the page.
+- The section reflects real state for the selected mode: a loading line while
+  the enhanced model is being fetched/started, and an "Unavailable in this
+  browser" line when the chosen mode cannot be applied (for example, enhanced
+  on an unsupported browser). Selecting a mode keeps the menu open so this
+  feedback is visible.
+- On any failure to apply a mode, capture falls back to the browser's baseline
+  processing rather than dropping the microphone; the menu reports the mode as
+  unavailable instead of showing a healthy state over degraded or dead audio.
+- Switching the input microphone device preserves the selected mode.
+- The setting only affects the local member's sent audio. It is not visible to
+  other participants and creates no durable call facts.
+
+## Design Decisions
+
+### 1. Off by default; the mode is the single source of truth for voice isolation
+
+**Decision:** The preference defaults to Standard (off), and the selected mode
+alone decides the `voiceIsolation` capture constraint — the default explicitly
+requests it disabled.
+
+**Why:** Sender-side suppression varies in quality and cost across
+browsers/devices and should be an opt-in, not a silent default change. Making
+the mode authoritative keeps behaviour predictable: what the user picked is what
+capture does.
+
+**Tradeoff:** livekit-client's own audio defaults request `voiceIsolation:
+true`, which every shipped build previously inherited. Because the default mode
+now sends `voiceIsolation: false` explicitly, a Safari user who never opens the
+menu loses the voice isolation they used to get and must select Voice isolation
+to restore it. Browsers that ignore the constraint (Chrome/Firefox) are
+unaffected.
+
+### 2. The setting is exposed in all builds, not behind a build flag
+
+**Decision:** The feature is compiled into and enabled in every frontend build.
+There is no build-time flag gating whether the menu section appears or the
+controller acts.
+
+**Why:** The feature originally shipped dark, behind a `VITE_ENABLE_NOISE_SUPPRESSION`
+build flag that no released image set. In every normal build the menu was hidden
+and the controller inert, so real users never got the setting and it could not
+be exercised on live calls. Exposing it unconditionally lets people actually use
+and evaluate it, while off-by-default keeps the change conservative.
+
+**Tradeoff:** The DeepFilterNet3 model and WASM runtime (~24 MB on disk, ~12 MB
+compressed) now ship in every built frontend rather than only flag-on builds.
+They are still lazy-loaded at runtime only when Enhanced is selected, so the
+default experience pays no download cost; the cost is image size and static
+hosting. Checksum-validated files already present are skipped on rebuild.
+
+### 3. Enhanced assets are served same-origin from a fixed, checksum-pinned path
+
+**Decision:** The DeepFilterNet3 assets are fetched at build time with pinned
+SHA-256 checksums into a single fixed same-origin path (`/models/deepfilternet3`).
+The path is a constant, not configuration, and a checksum mismatch fails the
+build. The package's vendor CDN fallback is never used.
+
+**Why:** A configurable asset URL invited protocol-relative, backslash, and
+query/fragment values that resolve cross-origin or to a different fetch target
+than the browser requests; a fixed constant removes all URL-parsing risk by
+construction. Same-origin serving keeps users' browsers off third-party hosts
+(the vendor CDN also does not send CORS headers to third-party origins), and
+pinned checksums stop a changed upstream artifact from silently entering an
+image.
+
+**Tradeoff:** Updating the model means updating the pinned checksums in the
+fetch script. The assets are deliberately not committed to git.
+
+### 4. Applies are serialized with best-effort baseline fallback
+
+**Decision:** The controller owns the preference, an `off`/`loading`/`active`/
+`unavailable` status, and a serialized apply chain, so overlapping mode/device
+changes converge instead of interleaving. Detaching a processor stops the
+processed track before awaits that can reject and, on failure, restarts raw
+capture and only reports success if that recovers.
+
+**Why:** LiveKit takes its track mutex separately per processor
+attach/detach, so concurrent applies could interleave and leave capture in an
+inconsistent state. Users care most that their microphone keeps working; the UI
+must never claim a clean baseline over degraded or dead audio.
+
+**Tradeoff:** Extra controller complexity (a queue, health checks, and explicit
+`unavailable` reporting) relative to a naive "just call setProcessor" approach.
+
+### 5. A fork-owned composite processor carries strength, gain, gate, and the mic test
+
+**Decision:** Strength is DeepFilterNet3's attenuation limit (`atten_lim`, 0–100),
+exposed as a raw slider — the one DSP knob the vendored package reaches; post-filter
+beta and a minimum threshold are not exposed and are deliberately out of scope.
+Input gain and the noise gate are **not** DeepFilterNet3 parameters; they are added
+around it by a fork-owned composite `MicProcessor` (a single LiveKit
+`TrackProcessor`) that chains `input gain → noise gate → optional DeepFilterNet3`,
+reusing the package's LiveKit-independent `DeepFilterNet3Core` for the DFN3 stage so
+the proven worklet is unchanged. LiveKit allows only one processor per track, so a
+composite is the only way to add gain/gate to the outbound path. The DeepFilterNet3
+WASM/model is lazy-loaded only when suppression is first enabled, so gate-only users
+never download it. The mic test runs the **same** `MicProcessor` on a local
+`getUserMedia` stream in a `monitor` mode that plays the processed output straight
+from the processor's own `AudioContext.destination`, so the loopback is faithful to
+the call path. It deliberately does **not** route the processed track back out
+through an `<audio>` element: feeding a `MediaStreamAudioDestinationNode` stream into
+a media element adds resampling and WebRTC-playout buffering that crackles. All
+controls live on the client preferences page, not the in-call menu, to keep the
+upstream-shared in-call menu untouched.
+
+**Why:** A bare "80 dB" number is meaningless without hearing it, so the strength
+control and the mic test are designed as a pair. Reusing the same blob-URL worklet
+and same-origin asset path (rather than a custom loader or URL) means the feature
+works under the native desktop client's enforced Content-Security-Policy with no
+native-side change: the Tauri/WebView2 CSP already permits `script-src`/`worker-src`
+`blob:` (added when Enhanced mode was first made to work natively) and
+`wasm-unsafe-eval`. Monitoring straight from the AudioContext means the mic test adds
+no `media-src` surface of its own. All changes are frontend-only.
+
+**Tradeoff:** The mic test opens a second `AudioContext` and worklet instance while
+active. Its actual denoise quality and loopback audio are only verifiable by a manual
+in-browser pass, not automated tests; the automated coverage exercises preference
+persistence, live retune, graph lifecycle/teardown (including mic release on an
+in-flight cancel), and the UI wiring.
+
+### 6. The Windows client permits the package's blob-backed AudioWorklet
+
+**Decision:** The packaged Tauri renderer allows `blob:` in `script-src` so
+`deepfilternet3-noise-filter` can register its generated AudioWorklet module.
+The exception is native-only; the normal web CSP remains unchanged.
+
+**Why:** WebView2 supports the model, WebAssembly, and AudioWorklet APIs, but
+applies the worklet module load to `script-src`. The dependency exposes only a
+blob-backed module loader, so the prior native policy rejected initialization.
+
+**Tradeoff:** Trusted bundled renderer code may load blob-backed scripts. Remote
+scripts, inline scripts, frames, navigation, shell, and filesystem access remain
+blocked. Revisit a same-origin worklet asset if the dependency exposes one
+before the feature leaves experimental status.
+
+## Permissions
+
+Not permission-gated. It is a per-client capture preference, available to any
+member who can join a call (voice calling itself is gated by room membership —
+see FDR-016).
+
+## Related
+
+- **FDRs:** FDR-016 (Voice Calls)
+- **ADRs:** ADR-900 (Windows Desktop Client Reuses the Web Frontend); media
+  routing/authorization context is in ADR-009 (Durable LiveKit Call State).
+
+## Open Questions
+
+- The DeepFilterNet3 worklet loads from blob URLs, which violates the intended
+  `worker-src 'self'` CSP served by the Go frontend host. That CSP is
+  report-only today, so it blocks nothing; it should be reconciled with the
+  blob-worklet requirement before the feature is promoted from experimental. The
+  native desktop client already enforces a CSP that permits the worklet, so this
+  is a web-host CSP question, not a native one — the mic test monitors straight
+  from the AudioContext and adds no CSP surface beyond what Enhanced mode already
+  needs.
+- Real in-call verification is still outstanding: two participants with E2EE, a
+  browser matrix (voice isolation is effectively Safari-only), a listening pass,
+  and a low-power/mobile CPU run for the enhanced mode.
+- Whether to change the default now that the setting is exposed — for example,
+  defaulting Safari back to voice isolation — is deliberately left open pending
+  the in-call evaluation above.

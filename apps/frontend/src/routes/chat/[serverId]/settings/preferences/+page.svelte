@@ -14,8 +14,14 @@
   import { toast } from '$lib/ui/toast';
   import { formatMessageTime } from '$lib/utils/formatTime';
   import DesktopUpdateSettings from '$lib/components/settings/DesktopUpdateSettings.svelte';
+  import NoiseSuppressionSettings from '$lib/components/voice/NoiseSuppressionSettings.svelte';
+  import { NoiseSuppressionController } from '$lib/voice/noiseSuppression.svelte';
 
   const userSettings = getUserSettings();
+  // Standalone controller for this settings view: no call to attach to, but
+  // the mode/strength preference it reads and writes is client-wide, so it
+  // stays in sync with (and applies to) any in-progress call on any server.
+  const noiseSuppressionController = new NoiseSuppressionController(() => {});
   const currentUser = $derived(serverRegistry.getStore(getActiveServer()).currentUser);
   const connection = useConnection();
   const activeLocale = $derived(getLocale());
@@ -291,6 +297,11 @@
           (userPreferences.soundboardMuted = (e.currentTarget as HTMLInputElement).checked)}
       />
     </div>
+  </FormSection>
+
+  <!-- Noise suppression -->
+  <FormSection title={m['voice.noise_suppression']()} maxWidth="max-w-md" bordered>
+    <NoiseSuppressionSettings controller={noiseSuppressionController} />
   </FormSection>
 
   <!-- Save -->

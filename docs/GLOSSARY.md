@@ -60,9 +60,9 @@ User-facing concepts. If a user might say the word, it goes here.
 
 **Reaction** — Emoji attached to a message by a user; the emoji can be a built-in gemoji or a server *Custom Emoji*. See [FDR-005](fdr/FDR-005-reactions.md).
 
-**Custom Emoji** — Admin-uploaded, named image shortcode (for example `:partyparrot:`) in a server-wide catalog that any member can use. Names match `^[a-z0-9_]{1,64}$` and must not collide with built-in gemoji shortcodes. In its first version custom emoji are usable as message *Reactions* (rendered as images); inline `:name:` substitution in message bodies is out of scope. Managed with `server.manage`. See [FDR-033](fdr/FDR-033-custom-emoji.md).
+**Custom Emoji** — Admin-uploaded, named image shortcode (for example `:partyparrot:`) in a server-wide catalog that any member can use. Names match `^[a-z0-9_]{1,64}$` and must not collide with built-in gemoji shortcodes. In its first version custom emoji are usable as message *Reactions* (rendered as images); inline `:name:` substitution in message bodies is out of scope. Managed with `server.manage`. See [FDR-900](fdr/FDR-900-custom-emoji.md).
 
-**Channel Webhook** — Per-room, token-authorized HTTP endpoint that lets an external service post messages without a user account or session, mirroring Discord's incoming webhooks. Created and managed with `server.manage`; the secret post URL is shown once at creation/regeneration and never again. Posts may override the display name/avatar per message. See [FDR-035](fdr/FDR-035-channel-webhooks.md).
+**Channel Webhook** — Per-room, token-authorized HTTP endpoint that lets an external service post messages without a user account or session, mirroring Discord's incoming webhooks. Created and managed with `server.manage`; the secret post URL is shown once at creation/regeneration and never again. Posts may override the display name/avatar per message. See [FDR-902](fdr/FDR-902-channel-webhooks.md).
 
 **Mention** — `@handle` syntax in a message that notifies referenced users, pingable roles, or virtual room groups such as `@all` and `@here`. See [FDR-006](fdr/FDR-006-mentions.md).
 
@@ -84,15 +84,15 @@ User-facing concepts. If a user might say the word, it goes here.
 
 Chatto's RBAC model. Read top-to-bottom — terms build on each other.
 
-**RBAC (Role-Based Access Control)** — The model: roles bundle permissions, users hold roles, and direct user overrides can grant or deny exceptions. See [ADR-040](adr/ADR-040-permission-only-rbac-with-owner-override.md).
+**RBAC (Role-Based Access Control)** — The model: roles bundle permissions, users hold roles, and direct user decisions can grant or deny exceptions. See [ADR-040](adr/ADR-040-permission-only-rbac-with-owner-override.md) and [ADR-052](adr/ADR-052-subject-specific-rbac-with-everyone-baseline.md).
 
 **Role** — Named bundle of permissions, assignable to users. System roles are seeded; custom roles can be created. Role names share the message-mention namespace with user logins, and each role can be marked pingable to allow `@role` pings.
 
-**Permission** — Named capability gate, e.g. `message.post`, `role.assign`. Strings use hyphens, never underscores. The full list lives in `cli/internal/core/permissions.go`.
+**Permission** — Named capability gate, e.g. `message.post`, `role.assign`. Strings use hyphens, never underscores. The full list lives in `cli/internal/core/permission.go`.
 
 **Position** — Numeric display/order value for a role. `everyone` = 0, `moderator` = 100, `admin` = 900, `owner` = 1000. Custom roles slot in the gaps. Position is not an authorization rank.
 
-**Effective owner** — A user who either has the durable `owner` role or has a verified email listed in `owners.emails`. Effective owners receive every known RBAC permission except where the DM privacy boundary applies.
+**Effective owner** — A user who either has the durable `owner` role or has a verified email listed in `owners.emails`. Effective owners receive every known RBAC permission virtually. DM contents remain protected by participation checks at the API boundary.
 
 **Owner** — Top system role (position 1000). Conferred through role assignment or through verified `owners.emails` configuration.
 
@@ -100,13 +100,13 @@ Chatto's RBAC model. Read top-to-bottom — terms build on each other.
 
 **Moderator** — System role (position 100). Moderation permissions, no administrative reach.
 
-**Everyone** — Implicit virtual role (position 0) held by every authenticated user. Default-permission grants attach here.
+**Everyone** — Implicit virtual role (position 0) held by every authenticated user. Its nearest decision is the scoped permission baseline. A direct-user or named-role allow overrides an `everyone` deny only at the same or a nearer scope; a named/direct deny always wins.
 
-**Scope** — Tier at which a permission is configured: `server`, `group`, or `room`. For non-owners, all applicable user and role decisions across valid scopes contribute; any deny wins, otherwise any allow grants, otherwise the API treats the result as denied. See [`cli/AGENTS.md`](../cli/AGENTS.md).
+**Scope** — Tier at which a permission is configured: `server`, `group`, or `room`. Each direct user or named role contributes only its nearest explicit decision (room, then group, then server). Denies win across those subject decisions; an allow must be at least as specific as an `everyone` deny to override the baseline. See [`cli/AGENTS.md`](../cli/AGENTS.md).
 
-**User-level override** — Permission grant or deny attached directly to a user, not via a role. Outranks every role grant. Used for suspensions and ad-hoc grants.
+**User-level decision** — Permission grant or deny attached directly to a user, not via a role. It participates alongside named-role decisions, so a user deny blocks named-role grants while a named-role deny blocks a user grant. Used for suspensions and ad-hoc grants.
 
-**DM Privacy Boundary** — Static set of permissions (`message.manage`, `message.echo`, `room.manage`, …) unconditionally denied inside DM rooms regardless of role grants. Owners can't moderate DM contents; DM read access comes from room membership, not a separate read permission. See [ADR-037](adr/ADR-037-dm-access-via-membership.md).
+**DM Privacy Boundary** — Static set of channel-style permissions (`message.manage`, `message.echo`, `room.manage`, …) denied to non-owners inside DM rooms regardless of role grants. DM read access comes from room membership, not a separate read permission, so ownership does not grant access to other people's DM contents. See [ADR-037](adr/ADR-037-dm-access-via-membership.md).
 
 ## Backend
 
@@ -116,7 +116,7 @@ Infrastructure jargon. If only contributors say the word, it goes here.
 
 **System actor** — Synthetic actor ID used when Chatto itself, bootstrap code, or trusted operator automation performs a domain write. It is not a login-capable user account.
 
-**Webhook user** — Synthetic, non-human user of kind `USER_KIND_WEBHOOK` that backs a *Channel Webhook* and authors its messages. Passwordless and excluded from the member directory, login resolution, and mention autocomplete. See [FDR-035](fdr/FDR-035-channel-webhooks.md).
+**Webhook user** — Synthetic, non-human user of kind `USER_KIND_WEBHOOK` that backs a *Channel Webhook* and authors its messages. Passwordless and excluded from the member directory, login resolution, and mention autocomplete. See [FDR-902](fdr/FDR-902-channel-webhooks.md).
 
 **Admin API** — Public ConnectRPC administrative surface in `chatto.admin.v1`. On the public web listener it uses normal user authentication and RBAC. It is separate from the local Operator API. See [FDR-028](fdr/FDR-028-operator-api-and-cli.md).
 

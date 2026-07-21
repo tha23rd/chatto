@@ -370,7 +370,7 @@ type UserAccountCreatedEvent struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	UserId string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// Account kind. Empty/unspecified is treated as USER_KIND_HUMAN so accounts
-	// created before this field existed backfill correctly (FDR-035).
+	// created before this field existed backfill correctly (FDR-902).
 	Kind                 UserKind             `protobuf:"varint,2,opt,name=kind,proto3,enum=chatto.core.v1.UserKind" json:"kind,omitempty"`
 	EncryptedLogin       *EncryptedUserString `protobuf:"bytes,10,opt,name=encrypted_login,json=encryptedLogin,proto3" json:"encrypted_login,omitempty"`
 	EncryptedDisplayName *EncryptedUserString `protobuf:"bytes,11,opt,name=encrypted_display_name,json=encryptedDisplayName,proto3" json:"encrypted_display_name,omitempty"`

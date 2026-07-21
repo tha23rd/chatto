@@ -71,5 +71,5 @@ Reconnect catch-up is owned by the foreground web app, not the service worker. W
 
 ## Related
 
-- **ADRs:** ADR-043 (client-shell internationalization), ADR-047 (direct ticketed asset URLs), ADR-052 (Windows desktop client)
+- **ADRs:** ADR-043 (client-shell internationalization), ADR-047 (direct ticketed asset URLs), ADR-900 (Windows desktop client)
 - **FDRs:** FDR-008 (File Attachments & Video Processing), FDR-012 (Notifications), FDR-013 (Web Push Notifications)
