@@ -421,7 +421,12 @@
 }
 
 @utility checkbox-option {
-  @apply flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface px-3 py-3;
+  /* `relative` gives the visually-hidden `sr-only` checkbox input a local
+     containing block. Without it the absolutely-positioned input resolves
+     against a distant ancestor, and clicking the row focuses it — making the
+     browser scroll that ancestor to "reveal" the phantom position, which yanks
+     tall scroll containers (e.g. the preferences page) and blanks the view. */
+  @apply relative flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface px-3 py-3;
   @apply transition-[background-color,border-color,box-shadow] duration-100;
   @apply hover:border-input-border hover:bg-surface-emphasized;
 }
