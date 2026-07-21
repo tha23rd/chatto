@@ -290,7 +290,7 @@ func (s *MessageModel) AuthorizePost(ctx context.Context, input MessagePostAutho
 }
 
 // UpdateMessage edits an existing message. Authorization: actor must be a room
-// member. Authors may edit their own messages subject to the core edit window.
+// member. Authors may edit their own messages at any time, with no time limit.
 // Non-authors need message.manage. Changing a thread reply's channel echo state
 // is author-only and, when enabling the echo, additionally requires message.echo
 // and message.post.

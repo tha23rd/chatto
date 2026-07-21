@@ -1102,9 +1102,9 @@ Result of creating a message.
 
 ### UpdateMessage
 
-Edits a message body. Authors can edit their own messages within the edit
-window. Non-authors need message.manage and cannot change channel echo
-state.
+Edits a message body. Authors can edit their own messages at any time, with
+no time limit. Non-authors need message.manage and cannot change channel
+echo state.
 
 ```http
 POST /api/connect/chatto.api.v1.MessageService/UpdateMessage
@@ -4424,7 +4424,7 @@ Authenticated server runtime settings used by clients.
 | `video_processing_enabled` | `bool` | Whether video processing is enabled. |
 | `max_upload_size` | `int64` | Maximum general upload size in bytes. |
 | `max_video_upload_size` | `int64` | Maximum video upload size in bytes. |
-| `message_edit_window_seconds` | `int32` | Message edit window in seconds. |
+| `message_edit_window_seconds` | `int32` | Message edit window in seconds, counted from the time a message was posted. 0 means there is no time limit: authors can edit their own messages indefinitely. Chatto has reported 0 since 0.5.0; clients should treat any value <= 0 as "no limit" rather than "already expired". |
 | `screen_share` | [`ScreenShareConfig`](#chatto-api-v1-ScreenShareConfig) | Screen-share capture/encoding ceiling applied by clients when publishing a screen share. Server-configured so operators can tune quality without a client redeploy. |
 
 

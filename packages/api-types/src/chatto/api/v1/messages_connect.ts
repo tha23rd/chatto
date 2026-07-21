@@ -44,9 +44,9 @@ export const MessageService = {
       kind: MethodKind.Unary,
     },
     /**
-     * Edits a message body. Authors can edit their own messages within the edit
-     * window. Non-authors need message.manage and cannot change channel echo
-     * state.
+     * Edits a message body. Authors can edit their own messages at any time, with
+     * no time limit. Non-authors need message.manage and cannot change channel
+     * echo state.
      *
      * @generated from rpc chatto.api.v1.MessageService.UpdateMessage
      */

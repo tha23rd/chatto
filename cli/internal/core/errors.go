@@ -90,10 +90,6 @@ var (
 	// the requested link preview.
 	ErrMessageLinkPreviewNotFound = errors.New("message link preview not found")
 
-	// ErrEditWindowExpired is returned when attempting to edit a message
-	// after the edit window has closed.
-	ErrEditWindowExpired = errors.New("edit window has expired")
-
 	// ErrMessageTooLong is returned when a message body exceeds the maximum length.
 	ErrMessageTooLong = errors.New("message body exceeds maximum length")
 
@@ -201,10 +197,6 @@ func invalidArgument(message string) error {
 // This is intentional for consistent storage cost control - a 10KB message costs the same
 // regardless of whether it contains ASCII or multi-byte UTF-8 characters.
 const (
-	// MessageEditWindow is the duration after posting during which a user can edit
-	// their own message. Moderators with message.manage can edit at any time.
-	MessageEditWindow = 3 * time.Hour
-
 	// MaxMessageBodyLength is the maximum length of a message body in bytes.
 	MaxMessageBodyLength = 10000
 
