@@ -1,7 +1,7 @@
 # FDR-003: Thread Reply Echo
 
 **Status:** Active
-**Last reviewed:** 2026-07-03
+**Last reviewed:** 2026-07-21
 
 ## Overview
 
@@ -20,7 +20,7 @@ When posting a reply inside a thread, the user can optionally "also send to chan
 - The thread's reply count is not incremented by the echo; the echo represents the same reply, not an additional one.
 - Mention notifications fire once for the reply, not twice (the echo doesn't re-notify).
 - The main-room composer never shows the echo checkbox — the action only makes sense from inside a thread.
-- During the normal edit window, editing a thread reply shows the same "Also send to channel" checkbox. Saving with it checked creates or keeps the channel echo; saving with it unchecked hides the existing echo from the room timeline while keeping the thread reply readable.
+- Editing a thread reply shows the same "Also send to channel" checkbox. Saving with it checked creates or keeps the channel echo; saving with it unchecked hides the existing echo from the room timeline while keeping the thread reply readable.
 
 ## Design Decisions
 
@@ -59,9 +59,9 @@ When posting a reply inside a thread, the user can optionally "also send to chan
 **Decision:** `alsoSendToChannel` is only valid when posting inside a thread. Sending a plain room message with the flag is rejected.
 **Why:** The feature exists to bridge thread visibility back to the room. The reverse (a room message that also shows in some thread) doesn't have a well-defined target.
 
-### 7. Echo state is editable during the edit window
+### 7. Echo state is editable by the author
 
-**Decision:** The ConnectRPC `MessageService.UpdateMessage` API can optionally reconcile a thread reply's channel echo state during the author's normal edit window through the shared core message model. Omitting the field preserves current echo state for clients that do not intend to change it and for moderation edits.
+**Decision:** The ConnectRPC `MessageService.UpdateMessage` API can optionally reconcile a thread reply's channel echo state through the shared core message model. Reconciliation is author-only and, like body edits, has no time limit (see FDR-004). Omitting the field preserves current echo state for clients that do not intend to change it and for moderation edits.
 **Why:** Users often realize shortly after posting in a thread that the reply should have been visible in the room. Treating the checkbox as edit-time message state keeps the interaction aligned with the composer.
 **Tradeoff:** Echo reconciliation is not a new persisted event type; adding an echo appends the existing echo-shaped `MessagePostedEvent`, and removing one appends a normal `MessageRetractedEvent` for the echo artifact.
 

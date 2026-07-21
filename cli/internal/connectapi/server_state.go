@@ -3,7 +3,6 @@ package connectapi
 import (
 	"bytes"
 	"context"
-	"time"
 
 	"connectrpc.com/connect"
 	"hmans.de/chatto/internal/core"
@@ -52,7 +51,9 @@ func (s *serverService) serverRuntimeConfig() *apiv1.ServerRuntimeConfig {
 		VideoProcessingEnabled:   s.api.config.Video.Enabled,
 		MaxUploadSize:            maxUploadSize,
 		MaxVideoUploadSize:       maxVideoUploadSize,
-		MessageEditWindowSeconds: int32(core.MessageEditWindow / time.Second),
+		// Chatto no longer time-limits author edits. 0 means "no limit"; the
+		// field is kept for clients that still read it.
+		MessageEditWindowSeconds: 0,
 	}
 	if s.api.config.Push.IsConfigured() {
 		runtime.VapidPublicKey = stringPtr(s.api.config.Push.VAPIDPublicKey)

@@ -1,7 +1,7 @@
 # FDR-903: Soundboard
 
 **Status:** Active
-**Last reviewed:** 2026-07-19
+**Last reviewed:** 2026-07-21
 
 ## Overview
 
@@ -22,8 +22,10 @@ path for playback, so it adds no new media infrastructure.
 - Administrators upload sounds from a dedicated admin page (alongside custom
   emoji). Each sound has a name, an optional emoji icon, and a default volume.
 - Uploaded audio is validated against file-size and format limits. A server
-  accepts MP3, Ogg, WAV, and WebM clips up to 512 KB; the final clip must be at
-  most 5 seconds. Size/format are enforced by the server; the 5-second limit is
+  accepts MP3, Ogg, WAV, and WebM clips up to 20 MB; the final clip must be at
+  most 5 seconds. The byte cap is deliberately much larger than a 5-second clip
+  needs so an admin can drop in a full-quality source file and trim the seconds
+  they want in the browser. Size/format are enforced by the server; the 5-second limit is
   applied to the region the admin keeps, client-side, before upload. Clips within
   the limit are stored as-is and decoded by clients for playback.
 - Before uploading, an admin can trim the clip on a waveform editor: two
@@ -145,7 +147,8 @@ are.
 ### 5. Store clips as-is; validate rather than transcode
 
 **Decision:** The server validates content type (MP3/Ogg/WAV/WebM) and size
-(≤512 KB) and stores the uploaded bytes unchanged. Clip duration (≤5 s) is
+(≤20 MB, and never above the assets max upload size that bounds the Connect
+request carrying the audio) and stores the uploaded bytes unchanged. Clip duration (≤5 s) is
 measured client-side by decoding the file before upload. Playback relies on the
 browser's Web Audio decoder, so no server-side transcoding is performed.
 
@@ -229,8 +232,8 @@ clip usable and removing leading/trailing silence is the most common edit a
 5-second cap demands; the clip is already decoded client-side, so the samples
 needed to trim are in hand. Re-encoding only when the selection differs from a
 short clip's full length avoids inflating an untouched small MP3 into a larger
-WAV. Mono keeps a maximum-length trimmed clip comfortably under the 512 KB size
-limit and matches how a soundboard clip is heard in a call.
+WAV. Mono keeps a maximum-length trimmed clip small — far under the size limit —
+and matches how a soundboard clip is heard in a call.
 
 **Tradeoff:** A trimmed clip is stored as uncompressed PCM WAV, larger per second
 than the source codec (bounded by the length and size caps), and downmixed to

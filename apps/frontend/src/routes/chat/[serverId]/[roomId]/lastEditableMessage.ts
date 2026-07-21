@@ -6,6 +6,10 @@ type FindLastEditableMessageOptions = {
   events: RoomEventView[];
   currentUserId: string | null | undefined;
   roomPermissions: RoomPermissions;
+  /**
+   * Server-advertised edit window. 0 or negative means there is no time limit,
+   * which is what current Chatto servers report.
+   */
   messageEditWindowSeconds: number;
   nowMs: number;
 };
@@ -19,7 +23,7 @@ export function findLastEditableMessage({
 }: FindLastEditableMessageOptions): EditableMessage | null {
   if (!currentUserId) return null;
 
-  const editWindowMs = messageEditWindowSeconds * 1000;
+  const editWindowMs = messageEditWindowSeconds > 0 ? messageEditWindowSeconds * 1000 : null;
 
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i];
@@ -27,7 +31,8 @@ export function findLastEditableMessage({
     if (event.actorId !== currentUserId) continue;
     if (!isMessagePostedEvent(message)) continue;
     if (message.body == null) continue;
-    if (nowMs - new Date(event.createdAt).getTime() >= editWindowMs) continue;
+    if (editWindowMs !== null && nowMs - new Date(event.createdAt).getTime() >= editWindowMs)
+      continue;
 
     const isEcho = !!message.echoOfEventId;
     const eventId = isEcho ? message.echoOfEventId! : event.id;

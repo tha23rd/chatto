@@ -57,12 +57,12 @@ function makeMessageEvent(
   } as unknown as RoomEventView;
 }
 
-function find(events: RoomEventView[]) {
+function find(events: RoomEventView[], messageEditWindowSeconds = editWindowSeconds) {
   return findLastEditableMessage({
     events,
     currentUserId: 'user_self',
     roomPermissions: canEchoRoomPermissions,
-    messageEditWindowSeconds: editWindowSeconds,
+    messageEditWindowSeconds,
     nowMs
   });
 }
@@ -93,6 +93,21 @@ describe('findLastEditableMessage', () => {
     ]);
 
     expect(result).toBeNull();
+  });
+
+  it('ignores age entirely when the server reports no edit window', () => {
+    const result = find(
+      [
+        makeMessageEvent({
+          id: 'evt_ancient',
+          body: 'still editable',
+          createdAt: '2020-01-01T00:00:00Z'
+        })
+      ],
+      0
+    );
+
+    expect(result?.eventId).toBe('evt_ancient');
   });
 
   it('skips other users messages', () => {

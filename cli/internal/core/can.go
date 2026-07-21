@@ -285,7 +285,7 @@ func (c *ChattoCore) CanEchoMessage(ctx context.Context, userID string, kind Roo
 // CanManageOthersMessage checks if a user can edit/delete other users'
 // messages in a specific room. Authors editing/deleting their own messages
 // don't need this permission — that's always allowed and gated only by
-// authorship + the edit window in core.
+// authorship in core.
 func (c *ChattoCore) CanManageOthersMessage(ctx context.Context, userID string, kind RoomKind, roomID string) (bool, error) {
 	return c.hasRoomPermission(ctx, kind, roomID, userID, PermMessageManage)
 }

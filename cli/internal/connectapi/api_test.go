@@ -2683,8 +2683,9 @@ func TestServerServiceGetMotdAndRuntimeConfig(t *testing.T) {
 	if runtime.GetMaxUploadSize() <= 0 || runtime.GetMaxVideoUploadSize() <= 0 {
 		t.Fatalf("upload sizes = %d/%d, want positive values", runtime.GetMaxUploadSize(), runtime.GetMaxVideoUploadSize())
 	}
-	if runtime.GetMessageEditWindowSeconds() != int32(core.MessageEditWindow/time.Second) {
-		t.Fatalf("MessageEditWindowSeconds = %d, want %d", runtime.GetMessageEditWindowSeconds(), int32(core.MessageEditWindow/time.Second))
+	// 0 advertises "no edit time limit".
+	if runtime.GetMessageEditWindowSeconds() != 0 {
+		t.Fatalf("MessageEditWindowSeconds = %d, want 0", runtime.GetMessageEditWindowSeconds())
 	}
 }
 
@@ -7865,7 +7866,6 @@ func TestConnectErrorMapping(t *testing.T) {
 		{"limit exceeded", core.ErrLimitExceeded, connect.CodeResourceExhausted},
 		{"string length", &core.StringLengthError{Field: "field", Max: 10}, connect.CodeInvalidArgument},
 		{"room archived", core.ErrRoomArchived, connect.CodeFailedPrecondition},
-		{"edit window expired", core.ErrEditWindowExpired, connect.CodeFailedPrecondition},
 		{"unknown", errors.New("boom"), connect.CodeInternal},
 	}
 

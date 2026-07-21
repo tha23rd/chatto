@@ -925,8 +925,9 @@ func (c *ChattoCore) DeleteMessage(ctx context.Context, actorID string, kind Roo
 // Publishes a MessageEditedEvent to notify connected clients in real-time.
 // The messageBodyKey parameter is the full compound key ({userId}.{bodyId}) stored in the event.
 //
-// Business rule: Authors can only edit their own messages within MessageEditWindow (3 hours).
-// Non-authors (moderators with message.manage) can edit at any time.
+// Business rule: there is no time limit on edits. Authors can edit their own
+// messages indefinitely, and non-authors (moderators with message.manage) can
+// edit at any time.
 //
 // Authorization: Caller must verify the actor is the author OR
 // CanManageOthersMessage before calling.
@@ -958,15 +959,6 @@ func (c *ChattoCore) EditMessage(ctx context.Context, actorID string, kind RoomK
 		return ErrMessageNotFound
 	}
 
-	// Author / edit-window check. Edit window only applies to the
-	// original author; moderators bypass it (their authorization is
-	// gated upstream at the resolver).
-	authorID := originalEntry.Event.GetActorId()
-	if authorID == actorID {
-		if time.Since(originalEntry.Event.GetCreatedAt().AsTime()) > MessageEditWindow {
-			return ErrEditWindowExpired
-		}
-	}
 	if options.channelEcho != nil {
 		echoTargetEvent := originalEntry.Event
 		echoTargetPost := origPost
@@ -986,9 +978,6 @@ func (c *ChattoCore) EditMessage(ctx context.Context, actorID string, kind RoomK
 		}
 		if echoTargetEvent.GetActorId() != actorID {
 			return ErrNotMessageAuthor
-		}
-		if time.Since(echoTargetEvent.GetCreatedAt().AsTime()) > MessageEditWindow {
-			return ErrEditWindowExpired
 		}
 	}
 
@@ -1076,9 +1065,6 @@ func (c *ChattoCore) reconcileEditedMessageChannelEcho(ctx context.Context, acto
 	}
 	if originalEvent.GetActorId() != actorID {
 		return ErrNotMessageAuthor
-	}
-	if time.Since(originalEvent.GetCreatedAt().AsTime()) > MessageEditWindow {
-		return ErrEditWindowExpired
 	}
 	current, retracted, _ := c.RoomTimeline.LatestBody(originalID)
 	if retracted || current == nil {
