@@ -7,6 +7,9 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
 
 **Props:**
 - `serverId` - The active server. Used to scope the per-server "Recently Used" list.
+- `includeCustom` - Offer the server's custom emojis. Set `false` on surfaces
+  that can only render a unicode glyph, since a custom emoji is emitted as a
+  bare shortcode name rather than something displayable on its own.
 - `onSelect` - Callback when an emoji is selected
 - `onClose` - Callback to dismiss the picker (Escape key)
 -->
@@ -20,10 +23,12 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
 
   let {
     serverId,
+    includeCustom = true,
     onSelect,
     onClose
   }: {
     serverId: string;
+    includeCustom?: boolean;
     onSelect: (emoji: string) => void;
     onClose: () => void;
   } = $props();
@@ -48,6 +53,7 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
 
   // Load the server's custom emojis when the picker opens (mounts).
   $effect(() => {
+    if (!includeCustom) return;
     const conn = connection?.();
     if (!conn) return;
     customStore.ensureLoaded({
@@ -60,11 +66,13 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
   // Synthetic "Custom" category, prepended to the standard categories. Each
   // entry carries a `url`, which switches rendering from glyph to <img>.
   const customEntries = $derived(
-    customStore.emojis.map((emoji) => ({
-      name: emoji.name,
-      emoji: emoji.name,
-      url: emoji.url
-    }))
+    includeCustom
+      ? customStore.emojis.map((emoji) => ({
+          name: emoji.name,
+          emoji: emoji.name,
+          url: emoji.url
+        }))
+      : []
   );
   const categories = $derived(
     customEntries.length > 0
@@ -77,7 +85,7 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
 
   const customSearchResults: EmojiResult[] = $derived.by(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return [];
+    if (!includeCustom || !q) return [];
     return customStore.emojis
       .filter((emoji) => emoji.name.toLowerCase().includes(q))
       .map((emoji) => ({ name: emoji.name, emoji: emoji.name, tags: [], url: emoji.url }));
