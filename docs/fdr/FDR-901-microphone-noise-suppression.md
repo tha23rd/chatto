@@ -1,7 +1,7 @@
 # FDR-901: Microphone Noise Suppression
 
 **Status:** Experimental
-**Last reviewed:** 2026-07-14
+**Last reviewed:** 2026-07-20
 
 ## Overview
 
@@ -28,6 +28,37 @@ and it is off by default so nobody's capture changes unless they opt in.
   microphone track. The first time it is selected in a session the model and
   its runtime are loaded on demand, so there is a brief loading state before it
   becomes active.
+- The client preferences page carries a "Noise suppression" section with the
+  same mode selector plus these controls:
+  - A **suppression strength** slider (0–100, default 80) mapping to
+    DeepFilterNet3's attenuation limit. Higher removes more background noise but
+    can distort the voice. Enhanced-mode only (disabled otherwise). The value
+    persists per client in `localStorage` and, when a call is in progress,
+    retunes the live processor immediately (no rebuild). Untouched users keep the
+    previous fixed strength of 80.
+  - An **input gain** slider (0–200%, default 100% = unity) that boosts or lowers
+    the microphone level before suppression.
+  - An **input sensitivity** slider (0–100, default 0 = off): a noise gate that
+    mutes the microphone below the chosen level to cut background noise between
+    speech. The mic-test meter shows a marker at the threshold. 0 disables it.
+  - Input gain and the gate are **independent of the suppression mode**: they
+    apply in Standard and Enhanced. Because the composite processor cannot
+    coexist with the experimental voice-isolation constraint (which restarts the
+    raw capture track), they do not apply while Voice isolation is selected.
+    A non-default gain or gate in Standard mode still attaches the processor with
+    its DeepFilterNet3 stage disabled, so a noise gate works without ML
+    suppression; the gate/gain do not make Standard mode read as "active".
+  - A **microphone test**: a local loopback that runs the same composite
+    processor on the member's own microphone and plays it back so they can hear
+    the combined effect of mode, strength, gain, and gate. The preview follows
+    the selected mode (the DeepFilterNet3 stage runs only in Enhanced), so
+    switching modes is the A/B comparison rather than a separate toggle. The
+    live input-level meter is drawn on the sensitivity slider, with the gate
+    threshold marked, so the gate can be set just below where the voice peaks.
+    Dragging any of the sliders — or switching mode — retunes the loopback live.
+    It runs independently of any call, recommends headphones to avoid echo,
+    shows a loading state while the model warms up, and releases the microphone
+    when stopped or when the member leaves the page.
 - The section reflects real state for the selected mode: a loading line while
   the enhanced model is being fetched/started, and an "Unavailable in this
   browser" line when the chosen mode cannot be applied (for example, enhanced
@@ -112,6 +143,42 @@ must never claim a clean baseline over degraded or dead audio.
 **Tradeoff:** Extra controller complexity (a queue, health checks, and explicit
 `unavailable` reporting) relative to a naive "just call setProcessor" approach.
 
+### 5. A fork-owned composite processor carries strength, gain, gate, and the mic test
+
+**Decision:** Strength is DeepFilterNet3's attenuation limit (`atten_lim`, 0–100),
+exposed as a raw slider — the one DSP knob the vendored package reaches; post-filter
+beta and a minimum threshold are not exposed and are deliberately out of scope.
+Input gain and the noise gate are **not** DeepFilterNet3 parameters; they are added
+around it by a fork-owned composite `MicProcessor` (a single LiveKit
+`TrackProcessor`) that chains `input gain → noise gate → optional DeepFilterNet3`,
+reusing the package's LiveKit-independent `DeepFilterNet3Core` for the DFN3 stage so
+the proven worklet is unchanged. LiveKit allows only one processor per track, so a
+composite is the only way to add gain/gate to the outbound path. The DeepFilterNet3
+WASM/model is lazy-loaded only when suppression is first enabled, so gate-only users
+never download it. The mic test runs the **same** `MicProcessor` on a local
+`getUserMedia` stream in a `monitor` mode that plays the processed output straight
+from the processor's own `AudioContext.destination`, so the loopback is faithful to
+the call path. It deliberately does **not** route the processed track back out
+through an `<audio>` element: feeding a `MediaStreamAudioDestinationNode` stream into
+a media element adds resampling and WebRTC-playout buffering that crackles. All
+controls live on the client preferences page, not the in-call menu, to keep the
+upstream-shared in-call menu untouched.
+
+**Why:** A bare "80 dB" number is meaningless without hearing it, so the strength
+control and the mic test are designed as a pair. Reusing the same blob-URL worklet
+and same-origin asset path (rather than a custom loader or URL) means the feature
+works under the native desktop client's enforced Content-Security-Policy with no
+native-side change: the Tauri/WebView2 CSP already permits `script-src`/`worker-src`
+`blob:` (added when Enhanced mode was first made to work natively) and
+`wasm-unsafe-eval`. Monitoring straight from the AudioContext means the mic test adds
+no `media-src` surface of its own. All changes are frontend-only.
+
+**Tradeoff:** The mic test opens a second `AudioContext` and worklet instance while
+active. Its actual denoise quality and loopback audio are only verifiable by a manual
+in-browser pass, not automated tests; the automated coverage exercises preference
+persistence, live retune, graph lifecycle/teardown (including mic release on an
+in-flight cancel), and the UI wiring.
+
 ## Permissions
 
 Not permission-gated. It is a per-client capture preference, available to any
@@ -127,8 +194,13 @@ see FDR-016).
 ## Open Questions
 
 - The DeepFilterNet3 worklet loads from blob URLs, which violates the intended
-  `worker-src 'self'` CSP (report-only today). This should be resolved before
-  the feature is considered stable / promoted from experimental.
+  `worker-src 'self'` CSP served by the Go frontend host. That CSP is
+  report-only today, so it blocks nothing; it should be reconciled with the
+  blob-worklet requirement before the feature is promoted from experimental. The
+  native desktop client already enforces a CSP that permits the worklet, so this
+  is a web-host CSP question, not a native one — the mic test monitors straight
+  from the AudioContext and adds no CSP surface beyond what Enhanced mode already
+  needs.
 - Real in-call verification is still outstanding: two participants with E2EE, a
   browser matrix (voice isolation is effectively Safari-only), a listening pass,
   and a low-power/mobile CPU run for the enhanced mode.
