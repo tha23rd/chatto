@@ -76,6 +76,24 @@
     "participant_volume": "Volume",
     "participant_volume_value": "{percent}% volume",
     "participant_volume_muted_hint": "Muted locally — unmute to hear this participant.",
-    "media_device_failed": "Could not access a media device."
+    "media_device_failed": "Could not access a media device.",
+    "tuning": {
+      "strength_label": "Suppression strength",
+      "strength_hint": "Higher removes more background noise but can distort your voice.",
+      "input_gain_label": "Input gain",
+      "input_gain_hint": "Boosts or lowers your microphone level before suppression.",
+      "sensitivity_label": "Input sensitivity",
+      "sensitivity_hint": "Silences the microphone below this level to cut background noise between words. 0 turns the gate off.",
+      "sensitivity_off": "Off"
+    },
+    "mic_test": {
+      "title": "Test your microphone",
+      "start": "Test my mic",
+      "stop": "Stop test",
+      "loading": "Starting…",
+      "error": "Could not start the mic test. Check microphone permissions.",
+      "headphones_hint": "Use headphones to avoid an echo.",
+      "level": "Input level"
+    }
   }
 }
