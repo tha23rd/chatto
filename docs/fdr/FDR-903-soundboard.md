@@ -21,21 +21,27 @@ path for playback, so it adds no new media infrastructure.
   per-user or per-room sound sets.
 - Administrators upload sounds from a dedicated admin page (alongside custom
   emoji). Each sound has a name, an optional emoji icon, and a default volume.
+  The icon is chosen from the shared emoji picker rather than typed, and the
+  picker is restricted to unicode glyphs because a sound's icon is rendered as
+  text everywhere it appears.
 - Uploaded audio is validated against file-size and format limits. A server
   accepts MP3, Ogg, WAV, and WebM clips up to 20 MB; the final clip must be at
-  most 5 seconds. The byte cap is deliberately much larger than a 5-second clip
+  most 10 seconds. The byte cap is deliberately much larger than a 10-second clip
   needs so an admin can drop in a full-quality source file and trim the seconds
-  they want in the browser. Size/format are enforced by the server; the 5-second limit is
+  they want in the browser. Size/format are enforced by the server; the 10-second limit is
   applied to the region the admin keeps, client-side, before upload. Clips within
   the limit are stored as-is and decoded by clients for playback.
 - Before uploading, an admin can trim the clip on a waveform editor: two
-  draggable handles set the kept start and end, and a preview button plays only
-  the selected region. Trimming is optional for clips already within the limit —
-  an untouched short clip uploads unchanged.
-- A clip longer than 5 seconds is not rejected: it opens in the editor with a
-  5-second window that the admin slides and adjusts to pick the part to keep, so
+  draggable handles set the kept start and end, the band between them is
+  draggable so an established window slides over the clip as a unit, and a
+  preview button plays only the selected region at the pending default volume so
+  the level can be judged before saving. Trimming is optional for clips already
+  within the limit — an untouched short clip uploads unchanged.
+- A clip longer than 10 seconds is not rejected: it opens in the editor with a
+  10-second window that the admin slides and adjusts to pick the part to keep, so
   a longer recording can be cut down to a usable sound rather than being turned
-  away.
+  away. Sliding the window past either end of the clip parks it flush against
+  that edge rather than shrinking it.
 - A server has a fixed maximum of 48 custom sounds. There are no paid "boost"
   tiers; Chatto is self-hosted, so the cap is a plain ceiling.
 - The soundboard surface only appears when LiveKit is configured and the viewer
@@ -215,11 +221,12 @@ acceptable because sounds cannot be auditioned without a call anyway.
 ### 9. Trimming happens client-side; only a trimmed clip is re-encoded
 
 **Decision:** The upload form decodes the selected clip with the Web Audio API,
-renders its waveform, and lets the admin drag start/end handles to keep a
-sub-region. A clip within the 5-second limit opens with the whole clip selected;
-a longer clip opens with a 5-second window (the handles are constrained so the
-kept region can never exceed the limit, letting the admin slide that window over
-the recording). If the admin leaves a short clip's selection at the full clip,
+renders its waveform, and lets the admin drag start/end handles — or the whole
+selection band — to keep a sub-region. A clip within the 10-second limit opens
+with the whole clip selected; a longer clip opens with a 10-second window (the
+handles are constrained so the kept region can never exceed the limit, and
+dragging the band slides that window over the recording without resizing it). If
+the admin leaves a short clip's selection at the full clip,
 the original bytes are uploaded untouched (decision 5). Otherwise the browser
 slices the decoded samples to the selection, mixes them to mono, and re-encodes a
 16-bit PCM WAV — one of the already-accepted formats — which is uploaded in place
@@ -229,7 +236,7 @@ of the original. No server-side audio editing or transcoding is added.
 file, so rejecting a long recording outright would be user-hostile when the tool
 to fix it is right there. Trimming to a fixed-length window makes an over-length
 clip usable and removing leading/trailing silence is the most common edit a
-5-second cap demands; the clip is already decoded client-side, so the samples
+10-second cap demands; the clip is already decoded client-side, so the samples
 needed to trim are in hand. Re-encoding only when the selection differs from a
 short clip's full length avoids inflating an untouched small MP3 into a larger
 WAV. Mono keeps a maximum-length trimmed clip small — far under the size limit —
