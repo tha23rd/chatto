@@ -76,6 +76,24 @@
     "participant_volume": "Volum",
     "participant_volume_value": "{percent} % volum",
     "participant_volume_muted_hint": "Dempet lokalt – slå på lyden for å høre denne deltakeren.",
-    "media_device_failed": "Kunne ikke få tilgang til en medieenhet."
+    "media_device_failed": "Kunne ikke få tilgang til en medieenhet.",
+    "tuning": {
+      "strength_label": "Styrke på støyreduksjon",
+      "strength_hint": "Høyere verdi fjerner mer bakgrunnsstøy, men kan forvrenge stemmen din.",
+      "input_gain_label": "Inngangsforsterkning",
+      "input_gain_hint": "Øker eller senker mikrofonnivået før støyreduksjonen.",
+      "sensitivity_label": "Inngangsfølsomhet",
+      "sensitivity_hint": "Demper mikrofonen under dette nivået for å fjerne bakgrunnsstøy mellom ordene. 0 slår av porten.",
+      "sensitivity_off": "Av"
+    },
+    "mic_test": {
+      "title": "Test mikrofonen din",
+      "start": "Test mikrofonen min",
+      "stop": "Stopp testen",
+      "loading": "Starter…",
+      "error": "Kunne ikke starte mikrofontesten. Sjekk mikrofontillatelsene.",
+      "headphones_hint": "Bruk hodetelefoner for å unngå ekko.",
+      "level": "Inngangsnivå"
+    }
   }
 }

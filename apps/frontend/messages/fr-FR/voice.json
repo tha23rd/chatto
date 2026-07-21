@@ -76,6 +76,24 @@
     "participant_volume": "Volume",
     "participant_volume_value": "{percent} % de volume",
     "participant_volume_muted_hint": "Coupé localement – rétablissez le son pour entendre cette personne.",
-    "media_device_failed": "Impossible d'accéder à un périphérique multimédia."
+    "media_device_failed": "Impossible d'accéder à un périphérique multimédia.",
+    "tuning": {
+      "strength_label": "Intensité de la suppression",
+      "strength_hint": "Une intensité plus élevée supprime davantage de bruit de fond, mais peut déformer votre voix.",
+      "input_gain_label": "Gain d'entrée",
+      "input_gain_hint": "Augmente ou réduit le niveau du micro avant la suppression.",
+      "sensitivity_label": "Sensibilité d'entrée",
+      "sensitivity_hint": "Coupe le micro en dessous de ce niveau pour supprimer le bruit de fond entre les mots. 0 désactive la porte de bruit.",
+      "sensitivity_off": "Désactivé"
+    },
+    "mic_test": {
+      "title": "Testez votre micro",
+      "start": "Tester mon micro",
+      "stop": "Arrêter le test",
+      "loading": "Démarrage…",
+      "error": "Impossible de démarrer le test du micro. Vérifiez les autorisations du microphone.",
+      "headphones_hint": "Utilisez un casque pour éviter l'écho.",
+      "level": "Niveau d'entrée"
+    }
   }
 }

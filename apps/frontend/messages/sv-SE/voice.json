@@ -76,6 +76,24 @@
     "participant_volume": "Volym",
     "participant_volume_value": "{percent} % volym",
     "participant_volume_muted_hint": "Ljudlös lokalt – slå på ljudet för att höra den här deltagaren.",
-    "media_device_failed": "Kunde inte komma åt en mediaenhet."
+    "media_device_failed": "Kunde inte komma åt en mediaenhet.",
+    "tuning": {
+      "strength_label": "Styrka på brusreducering",
+      "strength_hint": "Ett högre värde tar bort mer bakgrundsljud men kan förvränga din röst.",
+      "input_gain_label": "Ingångsförstärkning",
+      "input_gain_hint": "Höjer eller sänker mikrofonnivån före brusreduceringen.",
+      "sensitivity_label": "Ingångskänslighet",
+      "sensitivity_hint": "Tystar mikrofonen under den här nivån för att ta bort bakgrundsljud mellan orden. 0 stänger av gaten.",
+      "sensitivity_off": "Av"
+    },
+    "mic_test": {
+      "title": "Testa din mikrofon",
+      "start": "Testa min mikrofon",
+      "stop": "Stoppa test",
+      "loading": "Startar…",
+      "error": "Det gick inte att starta mikrofontestet. Kontrollera mikrofonbehörigheterna.",
+      "headphones_hint": "Använd hörlurar för att undvika eko.",
+      "level": "Ingångsnivå"
+    }
   }
 }

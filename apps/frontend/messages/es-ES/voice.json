@@ -76,6 +76,24 @@
     "participant_volume": "Volumen",
     "participant_volume_value": "{percent}% de volumen",
     "participant_volume_muted_hint": "Silenciado localmente: reactiva el sonido para oír a esta persona.",
-    "media_device_failed": "No se pudo acceder a un dispositivo multimedia."
+    "media_device_failed": "No se pudo acceder a un dispositivo multimedia.",
+    "tuning": {
+      "strength_label": "Intensidad de supresión",
+      "strength_hint": "Un valor más alto elimina más ruido de fondo, pero puede distorsionar tu voz.",
+      "input_gain_label": "Ganancia de entrada",
+      "input_gain_hint": "Aumenta o reduce el nivel del micrófono antes de la supresión.",
+      "sensitivity_label": "Sensibilidad de entrada",
+      "sensitivity_hint": "Silencia el micrófono por debajo de este nivel para eliminar el ruido de fondo entre palabras. 0 desactiva la puerta de ruido.",
+      "sensitivity_off": "Desactivado"
+    },
+    "mic_test": {
+      "title": "Prueba tu micrófono",
+      "start": "Probar mi micrófono",
+      "stop": "Detener prueba",
+      "loading": "Iniciando…",
+      "error": "No se pudo iniciar la prueba del micrófono. Comprueba los permisos del micrófono.",
+      "headphones_hint": "Usa auriculares para evitar el eco.",
+      "level": "Nivel de entrada"
+    }
   }
 }

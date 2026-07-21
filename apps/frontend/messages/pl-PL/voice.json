@@ -76,6 +76,24 @@
     "participant_volume": "Głośność",
     "participant_volume_value": "{percent}% głośności",
     "participant_volume_muted_hint": "Wyciszony lokalnie — włącz dźwięk, aby usłyszeć tę osobę.",
-    "media_device_failed": "Nie można uzyskać dostępu do urządzenia multimedialnego."
+    "media_device_failed": "Nie można uzyskać dostępu do urządzenia multimedialnego.",
+    "tuning": {
+      "strength_label": "Siła redukcji szumów",
+      "strength_hint": "Wyższa wartość usuwa więcej szumu w tle, ale może zniekształcić Twój głos.",
+      "input_gain_label": "Wzmocnienie wejścia",
+      "input_gain_hint": "Zwiększa lub zmniejsza poziom mikrofonu przed redukcją szumów.",
+      "sensitivity_label": "Czułość wejścia",
+      "sensitivity_hint": "Wycisza mikrofon poniżej tego poziomu, aby usunąć szum w tle między słowami. 0 wyłącza bramkę.",
+      "sensitivity_off": "Wył."
+    },
+    "mic_test": {
+      "title": "Przetestuj mikrofon",
+      "start": "Przetestuj mój mikrofon",
+      "stop": "Zatrzymaj test",
+      "loading": "Uruchamianie…",
+      "error": "Nie można było uruchomić testu mikrofonu. Sprawdź uprawnienia mikrofonu.",
+      "headphones_hint": "Użyj słuchawek, aby uniknąć echa.",
+      "level": "Poziom wejściowy"
+    }
   }
 }

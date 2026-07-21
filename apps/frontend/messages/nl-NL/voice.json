@@ -76,6 +76,24 @@
     "participant_volume": "Volume",
     "participant_volume_value": "{percent}% volume",
     "participant_volume_muted_hint": "Lokaal gedempt — zet het geluid aan om deze deelnemer te horen.",
-    "media_device_failed": "Kan geen toegang krijgen tot een media-apparaat."
+    "media_device_failed": "Kan geen toegang krijgen tot een media-apparaat.",
+    "tuning": {
+      "strength_label": "Sterkte van ruisonderdrukking",
+      "strength_hint": "Een hogere waarde verwijdert meer achtergrondgeluid, maar kan je stem vervormen.",
+      "input_gain_label": "Ingangsversterking",
+      "input_gain_hint": "Versterkt of verlaagt het microfoonniveau vóór de ruisonderdrukking.",
+      "sensitivity_label": "Ingangsgevoeligheid",
+      "sensitivity_hint": "Dempt de microfoon onder dit niveau om achtergrondgeluid tussen woorden weg te filteren. 0 schakelt de gate uit.",
+      "sensitivity_off": "Uit"
+    },
+    "mic_test": {
+      "title": "Test je microfoon",
+      "start": "Test mijn microfoon",
+      "stop": "Test stoppen",
+      "loading": "Bezig met starten…",
+      "error": "Kan de microfoontest niet starten. Controleer je microfoonrechten.",
+      "headphones_hint": "Gebruik een koptelefoon om een echo te voorkomen.",
+      "level": "Invoerniveau"
+    }
   }
 }

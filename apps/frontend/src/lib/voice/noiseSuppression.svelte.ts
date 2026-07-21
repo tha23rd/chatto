@@ -5,15 +5,24 @@
  * cancellation, noise suppression), requested in `VoiceCallState`'s
  * `audioCaptureDefaults`. Note that livekit-client's own audio defaults also
  * request `voiceIsolation: true`; the controller overrides that explicitly
- * per mode. This module adds two optional, experimental modes on top of that
+ * per mode. This module adds optional, experimental processing on top of that
  * baseline:
  *
  * - `voice-isolation`: requests the experimental `voiceIsolation` media
  *   constraint (a stronger, browser-implemented suppression tier; ignored by
  *   browsers that do not support it).
- * - `enhanced`: attaches the DeepFilterNet3 LiveKit `TrackProcessor`
- *   (`deepfilternet3-noise-filter`) to the outbound microphone track. Model
- *   and WASM assets are lazy-loaded only when this mode is enabled.
+ * - `enhanced`: attaches the fork's composite `MicProcessor` with its
+ *   DeepFilterNet3 stage active on the outbound microphone track. Model and
+ *   WASM assets are lazy-loaded only when suppression is first enabled.
+ *
+ * Independent of the mode, two capture knobs are applied through the same
+ * composite processor whenever they are non-default: an **input gain** and a
+ * **noise gate** ("input sensitivity"). Because the processor cannot coexist
+ * with `voice-isolation` (which restarts the raw capture track), gain and gate
+ * apply in `off` and `enhanced` modes only; `voice-isolation` is constraint
+ * only. `off` with a non-default gain/gate still attaches the processor (with
+ * its DeepFilterNet3 stage disabled), so a noise gate works without ML
+ * suppression.
  *
  * Design constraints (see .context/voice-noise-suppression-review.md):
  * - The preference is per client (localStorage), not per server account.
@@ -39,6 +48,7 @@ import { SvelteSet } from 'svelte/reactivity';
 import { globalSlot, type Codec } from '$lib/storage/slot';
 import { toast } from '$lib/ui/toast';
 import * as m from '$lib/i18n/messages';
+import { MicProcessor, type MicProcessorOptions } from './micProcessor';
 
 export type NoiseSuppressionMode = 'off' | 'voice-isolation' | 'enhanced';
 
@@ -66,12 +76,107 @@ export const modeCodec: Codec<NoiseSuppressionMode> = {
 const modeSlot = globalSlot<NoiseSuppressionMode>('voiceNoiseSuppressionMode', 'off', modeCodec);
 
 /**
+ * DeepFilterNet3 suppression strength, shared with the benchmark harness
+ * (`.context/noise-suppression-bench/bench.js` hardcodes the same value —
+ * keep them in sync). 80 is the package's own processor default; the core
+ * class defaults to 50, so always pass this explicitly.
+ */
+export const NOISE_REDUCTION_LEVEL = 80;
+
+export const MIN_STRENGTH = 0;
+export const MAX_STRENGTH = 100;
+
+const clampStrength = (n: number): number =>
+  Math.round(
+    Math.min(MAX_STRENGTH, Math.max(MIN_STRENGTH, Number.isFinite(n) ? n : NOISE_REDUCTION_LEVEL))
+  );
+
+/** localStorage codec for the 0..100 integer strength (atten_lim, dB). */
+export const strengthCodec: Codec<number> = {
+  serialize: (v) => String(v),
+  parse: (raw) => {
+    const n = Number(raw);
+    return Number.isFinite(n) ? clampStrength(n) : undefined;
+  }
+};
+
+const strengthSlot = globalSlot<number>(
+  'voiceNoiseSuppressionStrength',
+  NOISE_REDUCTION_LEVEL,
+  strengthCodec
+);
+
+/**
+ * Input gain applied before suppression, as a percentage where 100 is unity
+ * (0 dB). Independent of the suppression mode.
+ */
+export const DEFAULT_INPUT_GAIN = 100;
+export const MIN_INPUT_GAIN = 0;
+export const MAX_INPUT_GAIN = 200;
+
+const clampInputGain = (n: number): number =>
+  Math.round(
+    Math.min(MAX_INPUT_GAIN, Math.max(MIN_INPUT_GAIN, Number.isFinite(n) ? n : DEFAULT_INPUT_GAIN))
+  );
+
+export const inputGainCodec: Codec<number> = {
+  serialize: (v) => String(v),
+  parse: (raw) => {
+    const n = Number(raw);
+    return Number.isFinite(n) ? clampInputGain(n) : undefined;
+  }
+};
+
+const inputGainSlot = globalSlot<number>('voiceInputGain', DEFAULT_INPUT_GAIN, inputGainCodec);
+
+/**
+ * Noise-gate "input sensitivity": the peak level (0..100, same scale as the
+ * mic-test meter) below which the microphone is gated shut. 0 disables the
+ * gate. Independent of the suppression mode.
+ */
+export const DEFAULT_SENSITIVITY = 0;
+export const MIN_SENSITIVITY = 0;
+export const MAX_SENSITIVITY = 100;
+
+const clampSensitivity = (n: number): number =>
+  Math.round(
+    Math.min(
+      MAX_SENSITIVITY,
+      Math.max(MIN_SENSITIVITY, Number.isFinite(n) ? n : DEFAULT_SENSITIVITY)
+    )
+  );
+
+export const sensitivityCodec: Codec<number> = {
+  serialize: (v) => String(v),
+  parse: (raw) => {
+    const n = Number(raw);
+    return Number.isFinite(n) ? clampSensitivity(n) : undefined;
+  }
+};
+
+const sensitivitySlot = globalSlot<number>(
+  'voiceGateSensitivity',
+  DEFAULT_SENSITIVITY,
+  sensitivityCodec
+);
+
+/**
  * The client-wide preference, shared by every controller instance. Server
  * stores are created eagerly (one `VoiceCallState` per registered server),
  * so a per-instance snapshot would go stale on other servers whenever the
  * mode changes on one of them.
  */
-const preference = $state<{ mode: NoiseSuppressionMode }>({ mode: modeSlot.get() });
+const preference = $state<{
+  mode: NoiseSuppressionMode;
+  strength: number;
+  inputGain: number;
+  sensitivity: number;
+}>({
+  mode: modeSlot.get(),
+  strength: strengthSlot.get(),
+  inputGain: inputGainSlot.get(),
+  sensitivity: sensitivitySlot.get()
+});
 
 /**
  * Controllers currently attached to an active call (registered in
@@ -82,24 +187,21 @@ const preference = $state<{ mode: NoiseSuppressionMode }>({ mode: modeSlot.get()
 const activeControllers = new SvelteSet<NoiseSuppressionController>();
 
 /**
- * DeepFilterNet3 suppression strength, shared with the benchmark harness
- * (`.context/noise-suppression-bench/bench.js` hardcodes the same value —
- * keep them in sync). 80 is the package's own processor default; the core
- * class defaults to 50, so always pass this explicitly.
+ * Composite mic processor plus the lifecycle bits this controller relies on.
+ * The real implementation is `MicProcessor`; tests inject a fake.
  */
-export const NOISE_REDUCTION_LEVEL = 80;
-
-/** Audio track processor plus the lifecycle bits this controller relies on. */
-type AudioTrackProcessor = TrackProcessor<Track.Kind.Audio>;
+type AudioTrackProcessor = TrackProcessor<Track.Kind.Audio> & {
+  setSuppressionLevel?(level: number): void;
+  setInputGain?(gain: number): void;
+  setGateThreshold?(threshold: number): void;
+  setNoiseSuppressionEnabled?(enabled: boolean): void | Promise<void>;
+};
 
 /**
- * Loads the enhanced processor implementation. Injectable so tests can avoid
- * pulling in the real WASM/model pipeline.
+ * Creates the composite mic processor. Injectable so tests can avoid pulling
+ * in the real WASM/model pipeline.
  */
-export type EnhancedProcessorFactory = () => Promise<{
-  isSupported(): boolean;
-  create(): AudioTrackProcessor;
-}>;
+export type MicProcessorFactory = (options: MicProcessorOptions) => AudioTrackProcessor;
 
 /**
  * The one same-origin path for the DeepFilterNet3 WASM/model assets. Fixed
@@ -115,22 +217,23 @@ export type EnhancedProcessorFactory = () => Promise<{
  */
 export const NOISE_SUPPRESSION_ASSETS_PATH = '/models/deepfilternet3';
 
-const defaultEnhancedProcessorFactory: EnhancedProcessorFactory = async () => {
-  const { DeepFilterNoiseFilterProcessor } = await import('deepfilternet3-noise-filter');
-  return {
-    isSupported: () => DeepFilterNoiseFilterProcessor.isSupported(),
-    create: () =>
-      new DeepFilterNoiseFilterProcessor({
-        noiseReductionLevel: NOISE_REDUCTION_LEVEL,
-        assetConfig: { cdnUrl: NOISE_SUPPRESSION_ASSETS_PATH }
-      }) as unknown as AudioTrackProcessor
-  };
-};
+const defaultMicProcessorFactory: MicProcessorFactory = (options) => new MicProcessor(options);
 
 function supportsVoiceIsolationConstraint(): boolean {
   if (typeof navigator === 'undefined' || !navigator.mediaDevices) return false;
   const supported = navigator.mediaDevices.getSupportedConstraints() as Record<string, boolean>;
   return supported.voiceIsolation === true;
+}
+
+/**
+ * Whether this browser implements the experimental `voiceIsolation` capture
+ * constraint (effectively Safari today). Exposed so the preferences UI can
+ * flag the voice-isolation mode as unavailable up front, before any call
+ * exists to apply it — the standalone settings controller has no room, so it
+ * never reaches the in-call unavailability path.
+ */
+export function isVoiceIsolationSupported(): boolean {
+  return supportsVoiceIsolationConstraint();
 }
 
 function getLocalMicrophoneTrack(room: Room): LocalAudioTrack | null {
@@ -141,12 +244,13 @@ function getLocalMicrophoneTrack(room: Room): LocalAudioTrack | null {
 }
 
 /**
- * Owns the enhanced-noise-suppression preference and applies it to the
- * active call's microphone track. One instance per `VoiceCallState`.
+ * Owns the noise-suppression preference (mode, strength, input gain, gate
+ * sensitivity) and applies it to the active call's microphone track. One
+ * instance per `VoiceCallState`.
  *
  * LiveKit already restarts an attached processor on microphone device
  * switches and destroys it when the local track stops, so this controller
- * only handles explicit mode changes and call join/leave.
+ * only handles explicit preference changes and call join/leave.
  */
 export class NoiseSuppressionController {
   /**
@@ -157,12 +261,28 @@ export class NoiseSuppressionController {
     return preference.mode;
   }
 
+  /** DeepFilterNet3 attenuation limit (dB, 0..100), shared client-wide. */
+  get strength(): number {
+    return preference.strength;
+  }
+
+  /** Input gain percentage (100 = unity), shared client-wide. */
+  get inputGain(): number {
+    return preference.inputGain;
+  }
+
+  /** Noise-gate sensitivity threshold (0..100; 0 = off), shared client-wide. */
+  get sensitivity(): number {
+    return preference.sensitivity;
+  }
+
   /** Lifecycle of the selected mode within the current call. */
   status = $state<NoiseSuppressionStatus>('off');
 
   /** Notifies the owner that the effective outbound track changed. */
   private readonly onProcessedTrackChanged: () => void;
-  private readonly loadEnhancedProcessor: EnhancedProcessorFactory;
+  private readonly createProcessor: MicProcessorFactory;
+  private readonly isSupported: () => boolean;
 
   private room: Room | null = null;
   private processor: AudioTrackProcessor | null = null;
@@ -177,10 +297,12 @@ export class NoiseSuppressionController {
 
   constructor(
     onProcessedTrackChanged: () => void,
-    loadEnhancedProcessor: EnhancedProcessorFactory = defaultEnhancedProcessorFactory
+    createProcessor: MicProcessorFactory = defaultMicProcessorFactory,
+    isSupported: () => boolean = () => MicProcessor.isSupported()
   ) {
     this.onProcessedTrackChanged = onProcessedTrackChanged;
-    this.loadEnhancedProcessor = loadEnhancedProcessor;
+    this.createProcessor = createProcessor;
+    this.isSupported = isSupported;
   }
 
   /**
@@ -221,15 +343,83 @@ export class NoiseSuppressionController {
   async setMode(mode: NoiseSuppressionMode): Promise<void> {
     preference.mode = mode;
     modeSlot.set(mode);
-    const targets = activeControllers.has(this)
-      ? [...activeControllers]
-      : [this, ...activeControllers];
+    const targets = this.fanoutTargets();
     await Promise.all(targets.map((c) => c.apply()));
     // User-initiated change that ended in a fallback deserves feedback; the
     // silent path is reserved for automatic apply on join/unmute.
     if (this.status === 'unavailable' && this.mode === mode) {
       toast.error(m['voice.noise_suppression_unavailable']());
     }
+  }
+
+  /**
+   * Persist a new strength and apply it live to every controller with an
+   * attached processor (no rebuild — the worklet retunes in place).
+   */
+  async setStrength(value: number): Promise<void> {
+    const next = clampStrength(value);
+    preference.strength = next;
+    strengthSlot.set(next);
+    for (const c of this.fanoutTargets()) c.processor?.setSuppressionLevel?.(next);
+  }
+
+  /**
+   * Persist a new input gain and apply it. Live-updates an attached processor
+   * without a rebuild; attaches or detaches the processor if the change flips
+   * whether any processing is needed (e.g. gain leaving/returning to unity in
+   * `off` mode).
+   */
+  async setInputGain(value: number): Promise<void> {
+    preference.inputGain = clampInputGain(value);
+    inputGainSlot.set(preference.inputGain);
+    await this.reconcileCaptureKnobs((p) => p.setInputGain?.(preference.inputGain / 100));
+  }
+
+  /**
+   * Persist a new gate sensitivity and apply it, with the same attach/detach
+   * reconciliation as `setInputGain`.
+   */
+  async setSensitivity(value: number): Promise<void> {
+    preference.sensitivity = clampSensitivity(value);
+    sensitivitySlot.set(preference.sensitivity);
+    await this.reconcileCaptureKnobs((p) => p.setGateThreshold?.(preference.sensitivity / 100));
+  }
+
+  /**
+   * Whether the composite processor must be attached: `enhanced` always needs
+   * it; `off` needs it only when a capture knob is non-default;
+   * `voice-isolation` never uses it (it restarts the raw capture track).
+   */
+  private needsProcessor(): boolean {
+    if (this.mode === 'voice-isolation') return false;
+    return (
+      this.mode === 'enhanced' ||
+      this.inputGain !== DEFAULT_INPUT_GAIN ||
+      this.sensitivity > DEFAULT_SENSITIVITY
+    );
+  }
+
+  private fanoutTargets(): NoiseSuppressionController[] {
+    // Dedup `this` when it is already an active controller (the common case);
+    // otherwise include it so a standalone settings controller still persists
+    // and reconciles even before joining a call.
+    return activeControllers.has(this) ? [...activeControllers] : [this, ...activeControllers];
+  }
+
+  /** Live-update an attached processor, and attach/detach on a needs flip. */
+  private async reconcileCaptureKnobs(update: (p: AudioTrackProcessor) => void): Promise<void> {
+    const reconciles: Promise<void>[] = [];
+    for (const c of this.fanoutTargets()) {
+      if (c.processor) {
+        update(c.processor);
+        // A knob returning to default in `off` mode means the processor is no
+        // longer needed; re-apply to detach it.
+        if (!c.needsProcessor()) reconciles.push(c.apply());
+      } else if (c.needsProcessor()) {
+        reconciles.push(c.apply());
+      }
+    }
+    await Promise.all(reconciles);
   }
 
   /**
@@ -253,42 +443,46 @@ export class NoiseSuppressionController {
       return;
     }
 
-    switch (this.mode) {
-      case 'off': {
-        const detached = await this.detachProcessor(room);
-        const disabled = await this.setVoiceIsolation(room, false);
+    // Voice isolation is capture-level and cannot coexist with the composite
+    // processor (it restarts the raw track), so it is handled standalone.
+    if (this.mode === 'voice-isolation') {
+      const detached = await this.detachProcessor(room);
+      if (!supportsVoiceIsolationConstraint()) {
         if (generation !== this.generation) return;
-        // If the browser ignored the disable, isolation is still active
-        // underneath the reported "off", or the enhanced processor could not
-        // be removed. Report unavailable rather than a false clean baseline.
-        this.status = detached && disabled ? 'off' : 'unavailable';
-        break;
+        this.status = 'unavailable';
+        return;
       }
-      case 'voice-isolation': {
-        const detached = await this.detachProcessor(room);
-        if (!supportsVoiceIsolationConstraint()) {
-          if (generation !== this.generation) return;
-          this.status = 'unavailable';
-          return;
-        }
-        const applied = await this.setVoiceIsolation(room, true);
-        if (generation !== this.generation) return;
-        this.status = detached && applied ? 'active' : 'unavailable';
-        break;
-      }
-      case 'enhanced': {
-        // Enhanced must not stack on top of browser voice isolation. If the
-        // disable is not verified, do not claim active.
-        const disabled = await this.setVoiceIsolation(room, false);
-        if (!disabled) {
-          if (generation !== this.generation) return;
-          this.status = 'unavailable';
-          return;
-        }
-        await this.attachProcessor(room, generation);
-        break;
-      }
+      const applied = await this.setVoiceIsolation(room, true);
+      if (generation !== this.generation) return;
+      this.status = detached && applied ? 'active' : 'unavailable';
+      return;
     }
+
+    // off / enhanced: never browser-isolated; may run the composite processor.
+    const disabled = await this.setVoiceIsolation(room, false);
+    if (generation !== this.generation) return;
+
+    const wantDfn = this.mode === 'enhanced';
+    if (!this.needsProcessor()) {
+      const detached = await this.detachProcessor(room);
+      if (generation !== this.generation) return;
+      this.status = detached && disabled ? 'off' : 'unavailable';
+      return;
+    }
+
+    // Enhanced must not stack on browser voice isolation; a processor in `off`
+    // mode likewise wants a verified clean baseline. If the disable is not
+    // confirmed, do not claim active.
+    if (!disabled) {
+      this.status = 'unavailable';
+      return;
+    }
+
+    const ok = await this.syncProcessor(room, generation, wantDfn);
+    if (generation !== this.generation) return;
+    // Status reflects the selected suppression mode; the gate/gain are
+    // orthogonal capture knobs and do not make `off` read as active.
+    this.status = ok ? (wantDfn ? 'active' : 'off') : 'unavailable';
   }
 
   /**
@@ -337,29 +531,47 @@ export class NoiseSuppressionController {
     return (applied.voiceIsolation === true) === enabled;
   }
 
-  private async attachProcessor(room: Room, generation: number): Promise<void> {
+  /**
+   * Ensure the composite processor is attached and configured for the current
+   * preference, reconfiguring in place if already attached. Returns whether
+   * the outbound track is known healthy afterward.
+   */
+  private async syncProcessor(room: Room, generation: number, wantDfn: boolean): Promise<boolean> {
     if (this.processor) {
-      this.status = 'active';
-      return;
-    }
-
-    this.status = 'loading';
-    try {
-      const impl = await this.loadEnhancedProcessor();
-      if (!impl.isSupported()) {
-        if (generation !== this.generation) return;
-        this.status = 'unavailable';
-        return;
+      this.processor.setInputGain?.(this.inputGain / 100);
+      this.processor.setGateThreshold?.(this.sensitivity / 100);
+      this.processor.setSuppressionLevel?.(this.strength);
+      try {
+        await this.processor.setNoiseSuppressionEnabled?.(wantDfn);
+      } catch {
+        return false;
       }
+      return true;
+    }
+    return this.attachProcessor(room, generation, wantDfn);
+  }
+
+  private async attachProcessor(
+    room: Room,
+    generation: number,
+    wantDfn: boolean
+  ): Promise<boolean> {
+    // Loading is only user-visible (and only slow) for the DeepFilterNet3
+    // stage; a gate/gain-only attach is instant.
+    if (wantDfn) this.status = 'loading';
+    try {
+      if (!this.isSupported()) return false;
 
       const track = getLocalMicrophoneTrack(room);
-      if (!track) {
-        if (generation !== this.generation) return;
-        this.status = 'unavailable';
-        return;
-      }
+      if (!track) return false;
 
-      const processor = impl.create();
+      const processor = this.createProcessor({
+        inputGain: this.inputGain / 100,
+        gateThreshold: this.sensitivity / 100,
+        noiseSuppressionEnabled: wantDfn,
+        suppressionLevel: this.strength,
+        assetPath: NOISE_SUPPRESSION_ASSETS_PATH
+      });
       try {
         await track.setProcessor(processor);
       } catch (err) {
@@ -382,20 +594,20 @@ export class NoiseSuppressionController {
         if (track.getProcessor() === processor) {
           await track.stopProcessor().catch(() => {});
         }
-        return;
+        return false;
       }
       this.processor = processor;
-      this.status = 'active';
       this.onProcessedTrackChanged();
+      return true;
     } catch {
-      if (generation !== this.generation) return;
+      if (generation !== this.generation) return false;
       this.processor = null;
-      this.status = 'unavailable';
+      return false;
     }
   }
 
   /**
-   * Stops the enhanced processor. Returns whether the outbound track is known
+   * Stops the composite processor. Returns whether the outbound track is known
    * to be healthy afterward.
    *
    * `stopProcessor` stops the processed track before awaiting operations that

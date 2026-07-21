@@ -76,6 +76,24 @@
     "participant_volume": "Lautstärke",
     "participant_volume_value": "{percent} % Lautstärke",
     "participant_volume_muted_hint": "Lokal stummgeschaltet – Stummschaltung aufheben, um diese Person zu hören.",
-    "media_device_failed": "Auf ein Mediengerät konnte nicht zugegriffen werden."
+    "media_device_failed": "Auf ein Mediengerät konnte nicht zugegriffen werden.",
+    "tuning": {
+      "strength_label": "Stärke der Rauschunterdrückung",
+      "strength_hint": "Höhere Werte entfernen mehr Hintergrundgeräusche, können deine Stimme aber verzerren.",
+      "input_gain_label": "Eingangsverstärkung",
+      "input_gain_hint": "Hebt den Mikrofonpegel vor der Rauschunterdrückung an oder senkt ihn.",
+      "sensitivity_label": "Eingangsempfindlichkeit",
+      "sensitivity_hint": "Schaltet das Mikrofon unterhalb dieses Pegels stumm, um Hintergrundgeräusche zwischen den Wörtern zu entfernen. 0 deaktiviert das Gate.",
+      "sensitivity_off": "Aus"
+    },
+    "mic_test": {
+      "title": "Teste dein Mikrofon",
+      "start": "Mein Mikrofon testen",
+      "stop": "Test beenden",
+      "loading": "Wird gestartet…",
+      "error": "Der Mikrofontest konnte nicht gestartet werden. Prüfe die Mikrofonberechtigungen.",
+      "headphones_hint": "Verwende Kopfhörer, um ein Echo zu vermeiden.",
+      "level": "Eingangspegel"
+    }
   }
 }

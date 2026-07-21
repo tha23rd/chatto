@@ -76,6 +76,24 @@
     "participant_volume": "音量",
     "participant_volume_value": "音量 {percent}%",
     "participant_volume_muted_hint": "ローカルでミュート中 — この参加者の音声を聞くにはミュートを解除してください。",
-    "media_device_failed": "メディアデバイスにアクセスできませんでした。"
+    "media_device_failed": "メディアデバイスにアクセスできませんでした。",
+    "tuning": {
+      "strength_label": "抑制の強さ",
+      "strength_hint": "値を上げるほど背景音を多く除去しますが、声が歪むことがあります。",
+      "input_gain_label": "入力ゲイン",
+      "input_gain_hint": "抑制の前にマイクの音量を上げ下げします。",
+      "sensitivity_label": "入力感度",
+      "sensitivity_hint": "このレベルを下回るとマイクをミュートし、発話の合間の背景音を抑えます。0 でゲートを無効にします。",
+      "sensitivity_off": "オフ"
+    },
+    "mic_test": {
+      "title": "マイクをテストする",
+      "start": "マイクをテスト",
+      "stop": "テストを停止",
+      "loading": "開始しています…",
+      "error": "マイクテストを開始できませんでした。マイクの権限を確認してください。",
+      "headphones_hint": "エコーを防ぐにはヘッドホンを使用してください。",
+      "level": "入力レベル"
+    }
   }
 }

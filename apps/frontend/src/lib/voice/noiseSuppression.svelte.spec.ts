@@ -3,12 +3,27 @@ import { Track, type Room, type TrackProcessor } from 'livekit-client';
 import {
   NoiseSuppressionController,
   modeCodec,
-  type EnhancedProcessorFactory
+  MIN_STRENGTH,
+  MAX_STRENGTH,
+  DEFAULT_INPUT_GAIN,
+  DEFAULT_SENSITIVITY,
+  MIN_INPUT_GAIN,
+  MAX_INPUT_GAIN,
+  type MicProcessorFactory
 } from './noiseSuppression.svelte';
 
 const MODE_STORAGE_KEY = 'chatto:voiceNoiseSuppressionMode';
+const STRENGTH_STORAGE_KEY = 'chatto:voiceNoiseSuppressionStrength';
+const INPUT_GAIN_STORAGE_KEY = 'chatto:voiceInputGain';
+const SENSITIVITY_STORAGE_KEY = 'chatto:voiceGateSensitivity';
 
-type FakeProcessor = TrackProcessor<Track.Kind.Audio> & { destroy: ReturnType<typeof vi.fn> };
+type FakeProcessor = TrackProcessor<Track.Kind.Audio> & {
+  destroy: ReturnType<typeof vi.fn>;
+  setSuppressionLevel: ReturnType<typeof vi.fn>;
+  setInputGain: ReturnType<typeof vi.fn>;
+  setGateThreshold: ReturnType<typeof vi.fn>;
+  setNoiseSuppressionEnabled: ReturnType<typeof vi.fn>;
+};
 
 type FakeMicTrack = {
   kind: Track.Kind;
@@ -57,26 +72,33 @@ function makeFakeRoom(track: FakeMicTrack | null): Room {
   } as unknown as Room;
 }
 
+/**
+ * Builds a fake composite-processor factory. `create` records the options each
+ * attach was constructed with; `processor` is the single fake instance
+ * returned. Errors are simulated by throwing from `create`.
+ */
 function makeProcessorFactory(
   overrides: {
     supported?: boolean;
-    loadError?: Error;
-    gate?: Promise<void>;
+    createError?: Error;
   } = {}
 ) {
   const processor = {
     name: 'fake-processor',
-    destroy: vi.fn(async () => {})
+    destroy: vi.fn(async () => {}),
+    setSuppressionLevel: vi.fn(),
+    setInputGain: vi.fn(),
+    setGateThreshold: vi.fn(),
+    setNoiseSuppressionEnabled: vi.fn(async () => {})
   } as unknown as FakeProcessor;
-  const factory: EnhancedProcessorFactory = async () => {
-    if (overrides.gate) await overrides.gate;
-    if (overrides.loadError) throw overrides.loadError;
-    return {
-      isSupported: () => overrides.supported ?? true,
-      create: () => processor
-    };
-  };
-  return { factory, processor };
+  const create = vi.fn((_options: unknown) => {
+    if (overrides.createError) throw overrides.createError;
+    return processor;
+  });
+  const factory: MicProcessorFactory = (options) =>
+    create(options) as unknown as ReturnType<MicProcessorFactory>;
+  const isSupported = () => overrides.supported ?? true;
+  return { factory, processor, create, isSupported };
 }
 
 function stubVoiceIsolationSupport(supported: boolean) {
@@ -91,20 +113,27 @@ describe('NoiseSuppressionController', () => {
   const made: NoiseSuppressionController[] = [];
   function makeController(
     onChanged: () => void = () => {},
-    factory?: EnhancedProcessorFactory
+    bundle?: { factory: MicProcessorFactory; isSupported: () => boolean }
   ): NoiseSuppressionController {
-    const controller = factory
-      ? new NoiseSuppressionController(onChanged, factory)
+    const controller = bundle
+      ? new NoiseSuppressionController(onChanged, bundle.factory, bundle.isSupported)
       : new NoiseSuppressionController(onChanged);
     made.push(controller);
     return controller;
   }
 
+  async function resetPreference() {
+    const reset = new NoiseSuppressionController(() => {});
+    await reset.setMode('off');
+    await reset.setStrength(80);
+    await reset.setInputGain(DEFAULT_INPUT_GAIN);
+    await reset.setSensitivity(DEFAULT_SENSITIVITY);
+  }
+
   beforeEach(async () => {
-    // Shared module-level preference; reset via the public API between tests.
-    await new NoiseSuppressionController(() => {}).setMode('off');
-    localStorage.removeItem(MODE_STORAGE_KEY);
+    localStorage.clear();
     stubVoiceIsolationSupport(true);
+    await resetPreference();
   });
 
   afterEach(() => {
@@ -142,8 +171,8 @@ describe('NoiseSuppressionController', () => {
   it('reconciles other controllers with active calls on mode change', async () => {
     const factoryA = makeProcessorFactory();
     const factoryB = makeProcessorFactory();
-    const a = makeController(() => {}, factoryA.factory);
-    const b = makeController(() => {}, factoryB.factory);
+    const a = makeController(() => {}, factoryA);
+    const b = makeController(() => {}, factoryB);
     const trackA = makeFakeMicTrack();
     const trackB = makeFakeMicTrack();
     await a.applyToCall(makeFakeRoom(trackA));
@@ -171,22 +200,25 @@ describe('NoiseSuppressionController', () => {
     expect(controller.captureConstraints()).toEqual({ voiceIsolation: false });
   });
 
-  it('attaches the enhanced processor and reports active', async () => {
+  it('attaches the composite processor with DFN3 on and reports active', async () => {
     const onChanged = vi.fn();
-    const { factory, processor } = makeProcessorFactory();
-    const controller = makeController(onChanged, factory);
+    const bundle = makeProcessorFactory();
+    const controller = makeController(onChanged, bundle);
     const track = makeFakeMicTrack();
     await controller.applyToCall(makeFakeRoom(track));
 
     await controller.setMode('enhanced');
-    expect(track.setProcessor).toHaveBeenCalledWith(processor);
+    expect(track.setProcessor).toHaveBeenCalledWith(bundle.processor);
+    expect(bundle.create).toHaveBeenCalledWith(
+      expect.objectContaining({ noiseSuppressionEnabled: true })
+    );
     expect(controller.status).toBe('active');
     expect(onChanged).toHaveBeenCalled();
   });
 
-  it('reports unavailable and keeps the call usable when the processor fails to load', async () => {
-    const { factory } = makeProcessorFactory({ loadError: new Error('network down') });
-    const controller = makeController(() => {}, factory);
+  it('reports unavailable and keeps the call usable when the processor fails to create', async () => {
+    const bundle = makeProcessorFactory({ createError: new Error('network down') });
+    const controller = makeController(() => {}, bundle);
     const track = makeFakeMicTrack();
     await controller.applyToCall(makeFakeRoom(track));
 
@@ -196,8 +228,8 @@ describe('NoiseSuppressionController', () => {
   });
 
   it('reports unavailable when the processor is unsupported', async () => {
-    const { factory } = makeProcessorFactory({ supported: false });
-    const controller = makeController(() => {}, factory);
+    const bundle = makeProcessorFactory({ supported: false });
+    const controller = makeController(() => {}, bundle);
     const track = makeFakeMicTrack();
     await controller.applyToCall(makeFakeRoom(track));
 
@@ -207,22 +239,22 @@ describe('NoiseSuppressionController', () => {
   });
 
   it('destroys an unadopted processor when attachment fails', async () => {
-    const { factory, processor } = makeProcessorFactory();
-    const controller = makeController(() => {}, factory);
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
     const track = makeFakeMicTrack();
     // Rejection without adoption: getProcessor never returns ours.
     track.setProcessor.mockRejectedValue(new Error('worklet failed'));
     await controller.applyToCall(makeFakeRoom(track));
 
     await controller.setMode('enhanced');
-    expect(processor.destroy).toHaveBeenCalled();
+    expect(bundle.processor.destroy).toHaveBeenCalled();
     expect(track.stopProcessor).not.toHaveBeenCalled();
     expect(controller.status).toBe('unavailable');
   });
 
   it('unwinds through stopProcessor when a failed attach was already adopted', async () => {
-    const { factory, processor } = makeProcessorFactory();
-    const controller = makeController(() => {}, factory);
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
     const track = makeFakeMicTrack();
     // LiveKit assigns its processor reference before awaiting sender track
     // replacement, so a rejected setProcessor can still have been adopted.
@@ -234,13 +266,13 @@ describe('NoiseSuppressionController', () => {
 
     await controller.setMode('enhanced');
     expect(track.stopProcessor).toHaveBeenCalled();
-    expect(processor.destroy).not.toHaveBeenCalled();
+    expect(bundle.processor.destroy).not.toHaveBeenCalled();
     expect(controller.status).toBe('unavailable');
   });
 
   it('stops the processor when switching back to off', async () => {
-    const { factory } = makeProcessorFactory();
-    const controller = makeController(() => {}, factory);
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
     const track = makeFakeMicTrack();
     await controller.applyToCall(makeFakeRoom(track));
 
@@ -251,8 +283,8 @@ describe('NoiseSuppressionController', () => {
   });
 
   it('reports unavailable on off when detach recovery also fails', async () => {
-    const { factory } = makeProcessorFactory();
-    const controller = makeController(() => {}, factory);
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
     const track = makeFakeMicTrack();
     await controller.applyToCall(makeFakeRoom(track));
     await controller.setMode('enhanced');
@@ -266,8 +298,8 @@ describe('NoiseSuppressionController', () => {
   });
 
   it('recovers to off when detach fails but the raw track restarts', async () => {
-    const { factory } = makeProcessorFactory();
-    const controller = makeController(() => {}, factory);
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
     const track = makeFakeMicTrack();
     await controller.applyToCall(makeFakeRoom(track));
     await controller.setMode('enhanced');
@@ -280,24 +312,18 @@ describe('NoiseSuppressionController', () => {
   });
 
   it('converges on the final mode across rapid enhanced→off→enhanced toggling', async () => {
-    let releaseLoad: () => void = () => {};
-    const gate = new Promise<void>((resolve) => {
-      releaseLoad = resolve;
-    });
-    const { factory, processor } = makeProcessorFactory({ gate });
-    const controller = makeController(() => {}, factory);
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
     const track = makeFakeMicTrack();
     await controller.applyToCall(makeFakeRoom(track));
 
     const first = controller.setMode('enhanced');
     const second = controller.setMode('off');
     const third = controller.setMode('enhanced');
-    releaseLoad();
     await Promise.all([first, second, third]);
 
     expect(controller.status).toBe('active');
-    expect(track.currentProcessor).toBe(processor);
-    expect(track.stopProcessor).not.toHaveBeenCalled();
+    expect(track.currentProcessor).toBe(bundle.processor);
   });
 
   it('activates voice isolation via restartTrack with full baseline constraints', async () => {
@@ -355,8 +381,8 @@ describe('NoiseSuppressionController', () => {
   });
 
   it('does not attach the enhanced processor if voiceIsolation cannot be disabled', async () => {
-    const { factory } = makeProcessorFactory();
-    const controller = makeController(() => {}, factory);
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
     const track = makeFakeMicTrack();
     await controller.applyToCall(makeFakeRoom(track));
     await controller.setMode('voice-isolation');
@@ -389,8 +415,8 @@ describe('NoiseSuppressionController', () => {
   });
 
   it('resets status but keeps the preference when the call ends', async () => {
-    const { factory } = makeProcessorFactory();
-    const controller = makeController(() => {}, factory);
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
     const track = makeFakeMicTrack();
     await controller.applyToCall(makeFakeRoom(track));
 
@@ -402,15 +428,177 @@ describe('NoiseSuppressionController', () => {
   });
 
   it('stays off with no active call and applies once a call starts', async () => {
-    const { factory, processor } = makeProcessorFactory();
-    const controller = makeController(() => {}, factory);
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
 
     await controller.setMode('enhanced');
     expect(controller.status).toBe('off');
 
     const track = makeFakeMicTrack();
     await controller.applyToCall(makeFakeRoom(track));
-    expect(track.setProcessor).toHaveBeenCalledWith(processor);
+    expect(track.setProcessor).toHaveBeenCalledWith(bundle.processor);
     expect(controller.status).toBe('active');
+  });
+});
+
+describe('noise suppression strength', () => {
+  const made: NoiseSuppressionController[] = [];
+
+  beforeEach(async () => {
+    localStorage.clear();
+    stubVoiceIsolationSupport(true);
+    const reset = new NoiseSuppressionController(() => {});
+    await reset.setMode('off');
+    await reset.setStrength(80);
+    await reset.setInputGain(DEFAULT_INPUT_GAIN);
+    await reset.setSensitivity(DEFAULT_SENSITIVITY);
+  });
+
+  afterEach(() => {
+    for (const controller of made) controller.handleCallEnded();
+    made.length = 0;
+    vi.unstubAllGlobals();
+  });
+
+  it('defaults strength to 80', () => {
+    const c = new NoiseSuppressionController(() => {});
+    made.push(c);
+    expect(c.strength).toBe(80);
+  });
+
+  it('persists and clamps strength to 0..100', async () => {
+    const c = new NoiseSuppressionController(() => {});
+    made.push(c);
+    await c.setStrength(130);
+    expect(c.strength).toBe(MAX_STRENGTH);
+    expect(localStorage.getItem(STRENGTH_STORAGE_KEY)).toBe(String(MAX_STRENGTH));
+    await c.setStrength(-5);
+    expect(c.strength).toBe(MIN_STRENGTH);
+  });
+
+  it('passes the current strength to the processor factory on enhanced attach', async () => {
+    const bundle = makeProcessorFactory({ supported: true });
+    const c = new NoiseSuppressionController(() => {}, bundle.factory, bundle.isSupported);
+    made.push(c);
+    await c.setStrength(42);
+    stubVoiceIsolationSupport(false);
+    const track = makeFakeMicTrack();
+    await c.applyToCall(makeFakeRoom(track));
+    await c.setMode('enhanced');
+    expect(bundle.create).toHaveBeenCalledWith(expect.objectContaining({ suppressionLevel: 42 }));
+  });
+
+  it('retunes an attached processor live via setSuppressionLevel', async () => {
+    const bundle = makeProcessorFactory({ supported: true });
+    const c = new NoiseSuppressionController(() => {}, bundle.factory, bundle.isSupported);
+    made.push(c);
+    stubVoiceIsolationSupport(false);
+    await c.applyToCall(makeFakeRoom(makeFakeMicTrack()));
+    await c.setMode('enhanced');
+    await c.setStrength(25);
+    expect(bundle.processor.setSuppressionLevel).toHaveBeenCalledWith(25);
+  });
+});
+
+describe('input gain and noise gate', () => {
+  const made: NoiseSuppressionController[] = [];
+
+  beforeEach(async () => {
+    localStorage.clear();
+    stubVoiceIsolationSupport(true);
+    const reset = new NoiseSuppressionController(() => {});
+    await reset.setMode('off');
+    await reset.setStrength(80);
+    await reset.setInputGain(DEFAULT_INPUT_GAIN);
+    await reset.setSensitivity(DEFAULT_SENSITIVITY);
+  });
+
+  afterEach(() => {
+    for (const controller of made) controller.handleCallEnded();
+    made.length = 0;
+    vi.unstubAllGlobals();
+  });
+
+  it('persists and clamps input gain', async () => {
+    const c = new NoiseSuppressionController(() => {});
+    made.push(c);
+    await c.setInputGain(250);
+    expect(c.inputGain).toBe(MAX_INPUT_GAIN);
+    expect(localStorage.getItem(INPUT_GAIN_STORAGE_KEY)).toBe(String(MAX_INPUT_GAIN));
+    await c.setInputGain(-10);
+    expect(c.inputGain).toBe(MIN_INPUT_GAIN);
+  });
+
+  it('persists and clamps sensitivity', async () => {
+    const c = new NoiseSuppressionController(() => {});
+    made.push(c);
+    await c.setSensitivity(140);
+    expect(c.sensitivity).toBe(100);
+    expect(localStorage.getItem(SENSITIVITY_STORAGE_KEY)).toBe('100');
+  });
+
+  it('attaches the processor in off mode when input gain leaves unity', async () => {
+    const bundle = makeProcessorFactory();
+    const c = new NoiseSuppressionController(() => {}, bundle.factory, bundle.isSupported);
+    made.push(c);
+    stubVoiceIsolationSupport(false);
+    const track = makeFakeMicTrack();
+    await c.applyToCall(makeFakeRoom(track));
+    // off + unity gain + no gate: no processor attached.
+    expect(track.setProcessor).not.toHaveBeenCalled();
+
+    await c.setInputGain(150);
+    expect(track.setProcessor).toHaveBeenCalledWith(bundle.processor);
+    // DFN3 stays off in `off` mode; status stays off (gate/gain are orthogonal).
+    expect(bundle.create).toHaveBeenCalledWith(
+      expect.objectContaining({ noiseSuppressionEnabled: false, inputGain: 1.5 })
+    );
+    expect(c.status).toBe('off');
+  });
+
+  it('attaches the processor in off mode when the gate is enabled', async () => {
+    const bundle = makeProcessorFactory();
+    const c = new NoiseSuppressionController(() => {}, bundle.factory, bundle.isSupported);
+    made.push(c);
+    stubVoiceIsolationSupport(false);
+    const track = makeFakeMicTrack();
+    await c.applyToCall(makeFakeRoom(track));
+
+    await c.setSensitivity(30);
+    expect(track.setProcessor).toHaveBeenCalledWith(bundle.processor);
+    expect(bundle.create).toHaveBeenCalledWith(expect.objectContaining({ gateThreshold: 0.3 }));
+  });
+
+  it('detaches the processor when gain and gate return to default in off mode', async () => {
+    const bundle = makeProcessorFactory();
+    const c = new NoiseSuppressionController(() => {}, bundle.factory, bundle.isSupported);
+    made.push(c);
+    stubVoiceIsolationSupport(false);
+    const track = makeFakeMicTrack();
+    await c.applyToCall(makeFakeRoom(track));
+
+    await c.setInputGain(150);
+    expect(track.setProcessor).toHaveBeenCalledTimes(1);
+    await c.setInputGain(DEFAULT_INPUT_GAIN);
+    expect(track.stopProcessor).toHaveBeenCalled();
+    expect(c.status).toBe('off');
+  });
+
+  it('live-updates an attached processor without reattaching', async () => {
+    const bundle = makeProcessorFactory();
+    const c = new NoiseSuppressionController(() => {}, bundle.factory, bundle.isSupported);
+    made.push(c);
+    stubVoiceIsolationSupport(false);
+    const track = makeFakeMicTrack();
+    await c.applyToCall(makeFakeRoom(track));
+    await c.setMode('enhanced');
+    expect(track.setProcessor).toHaveBeenCalledTimes(1);
+
+    await c.setInputGain(120);
+    await c.setSensitivity(40);
+    expect(bundle.processor.setInputGain).toHaveBeenCalledWith(1.2);
+    expect(bundle.processor.setGateThreshold).toHaveBeenCalledWith(0.4);
+    // No reattach: the processor is reconfigured in place.
+    expect(track.setProcessor).toHaveBeenCalledTimes(1);
   });
 });
