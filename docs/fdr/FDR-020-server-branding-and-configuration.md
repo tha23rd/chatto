@@ -1,7 +1,7 @@
 # FDR-020: Server Branding & Configuration
 
 **Status:** Active
-**Last reviewed:** 2026-07-14
+**Last reviewed:** 2026-07-21
 
 ## Overview
 
@@ -62,11 +62,11 @@ Operators can customize how their Chatto server presents itself. The server's na
 **Why:** These values are public presentation/configuration text, not bulk content. Fixed limits keep event payloads and admin forms bounded while preserving enough room for normal operator usage.
 **Tradeoff:** Operators who want unusually large welcome copy or blocklists have to shorten the content instead of raising a config value.
 
-### 8. Edit window is an API constant, not a config field
+### 8. Edit window is not a config field
 
-**Decision:** `messageEditWindowSeconds` is queryable but read-only. The value comes from a Go constant (`core.MessageEditWindow = 3 * time.Hour`); server-config update APIs do not accept it.
-**Why:** The frontend needs to know the window to render countdown timers and disable the edit affordance at the right moment, so exposing it through the public API is necessary. But making it operator-tunable opens space for inconsistent UX across servers without clear benefit — and the value isn't sensitive enough to need server-by-server control.
-**Tradeoff:** Operators who want a different window have to recompile. If demand emerges this can be promoted to a config field cheaply.
+**Decision:** `messageEditWindowSeconds` is queryable but read-only, and now always reports `0`, meaning author edits have no time limit. Server-config update APIs do not accept it.
+**Why:** Chatto no longer time-limits author edits (see FDR-004), so there is no window for operators to tune. The field stays in the public API so existing clients keep parsing the response, with `0` as the explicit "no limit" signal.
+**Tradeoff:** Operators who want a window back cannot configure one; enforcement would have to be reintroduced in the server first.
 
 ## Permissions
 

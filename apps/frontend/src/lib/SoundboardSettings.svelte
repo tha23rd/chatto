@@ -7,8 +7,10 @@ new one by providing a name, an audio file, an optional emoji icon, and a
 default playback volume.
 
 Sounds are admin-curated and immutable once uploaded (create + delete only).
-Uploads are validated client-side: audio type, ≤512 KB, and ≤5 seconds decoded
+Uploads are validated client-side: audio type, ≤20 MB, and ≤5 seconds decoded
 duration, so obviously-invalid files are rejected before hitting the network.
+The generous byte cap lets an admin drop in a full-quality source file and trim
+it down to the few seconds they want before uploading.
 -->
 <script lang="ts">
   import { useConnection } from '$lib/state/server/connection.svelte';
@@ -26,7 +28,8 @@ duration, so obviously-invalid files are rejected before hitting the network.
   import SoundboardTrimmer from '$lib/components/soundboard/SoundboardTrimmer.svelte';
   import { decodedClipFromAudioBuffer, trimClipToWav } from '$lib/audio/trimAudio';
 
-  const MAX_AUDIO_BYTES = 512 * 1024;
+  // Mirrors core.MaxSoundClipBytes on the server.
+  const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
   const MAX_DURATION_SECONDS = 5;
   const ACCEPTED_AUDIO_TYPES = ['audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm'];
   const ACCEPT_ATTR = ACCEPTED_AUDIO_TYPES.join(',');

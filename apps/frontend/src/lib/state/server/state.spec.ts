@@ -59,7 +59,8 @@ describe('ServerInfoState.init()', () => {
     expect(state.description).toBe('a server for acme');
     expect(state.directRegistrationEnabled).toBe(false);
     expect(state.videoProcessingEnabled).toBe(false);
-    expect(state.messageEditWindowSeconds).toBe(3 * 60 * 60);
+    // Public discovery carries no runtime config; 0 means "no edit time limit".
+    expect(state.messageEditWindowSeconds).toBe(0);
     expect(consoleError).not.toHaveBeenCalled();
   });
 

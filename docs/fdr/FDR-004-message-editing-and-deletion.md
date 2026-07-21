@@ -1,7 +1,7 @@
 # FDR-004: Message Editing & Deletion
 
 **Status:** Active
-**Last reviewed:** 2026-07-10
+**Last reviewed:** 2026-07-21
 
 ## Overview
 
@@ -9,7 +9,7 @@ Authors can edit and delete their own messages; users with `message.manage` can 
 
 ## Behavior
 
-- Authors can edit their own messages within a 3-hour window from posting time. After the window closes, only moderators can edit. The window value is queryable via `Server.messageEditWindowSeconds` so the frontend can show countdown timers and disable the edit affordance at exactly the right moment.
+- Authors can edit their own messages at any time; there is no time limit. `Server.messageEditWindowSeconds` reports `0`, which means "no limit", and clients must treat any value `<= 0` that way rather than as "already expired".
 - Only the message body text can be edited. Attachments aren't editable as text but can be removed individually.
 - Edited message bodies are capped at the same 10,000-byte limit as newly posted message bodies.
 - Deletions remove the message body and all attachments and initially replace the rendered message with a "[Message deleted]" placeholder.
@@ -24,11 +24,11 @@ Authors can edit and delete their own messages; users with `message.manage` can 
 
 ## Design Decisions
 
-### 1. 3-hour edit window for authors
+### 1. No time limit on author edits
 
-**Decision:** Authors can edit their own messages only within 3 hours of posting. Moderators have no time limit. The 3-hour value is a Go constant (`core.MessageEditWindow`) exposed read-only through the public server-state API.
-**Why:** Edits long after the fact (days or weeks later) damage the integrity of the conversation log — readers who already responded would be reacting to text that no longer exists. A short window covers genuine typo-fix cases; the moderation perm covers everything else. Exposing the constant through the API (rather than hardcoding it in the frontend) lets the UI align countdown timers and disable-edit thresholds with the server's actual enforcement.
-**Tradeoff:** Authors who notice a mistake a day later can't fix it themselves. They have to ask a moderator, or live with it. Operators who want a different window currently have to recompile — promoting it to a tunable server config is cheap if demand emerges.
+**Decision:** Authors can edit their own messages indefinitely. There is no server-enforced edit window, and no `core.MessageEditWindow` constant. `Server.messageEditWindowSeconds` is retained in the public API and reports `0` to advertise "no limit"; a positive value from an older server still means a real window, so clients gate on `> 0`.
+**Why:** Chatto originally copied a short window (3 hours) to protect the integrity of the conversation log, but in practice the window mostly punished authors who spotted a mistake late: a typo in a pinned instruction or a wrong link stayed wrong unless a moderator stepped in. Edits are already visible as edits, so readers can see that a message changed. Removing the timer also removes the countdown-timer UI and the "why can't I edit this?" support question.
+**Tradeoff:** An old message can be rewritten long after people responded to it. The edit marker and the durable event log are the mitigation: prior bodies remain distinct facts in `EVT`, and moderators keep `message.manage`. Operators who want a window back would need a config field and enforcement re-added.
 
 ### 2. Edit/delete changes are durable facts
 
@@ -69,7 +69,7 @@ Authors can edit and delete their own messages; users with `message.manage` can 
 ## Permissions
 
 - `message.manage` — edit and delete *other* users' messages.
-- (No separate permission for editing/deleting one's own messages — that's gated by authorship and the edit window only.)
+- (No separate permission for editing/deleting one's own messages — that's gated by authorship only.)
 - Attachment and link-preview removal is author-only; `message.manage` does not grant cross-user removal for those partial message edits.
 
 ## Related

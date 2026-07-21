@@ -119,7 +119,10 @@ type ServerRuntimeConfig struct {
 	MaxUploadSize int64 `protobuf:"varint,6,opt,name=max_upload_size,json=maxUploadSize,proto3" json:"max_upload_size,omitempty"`
 	// Maximum video upload size in bytes.
 	MaxVideoUploadSize int64 `protobuf:"varint,7,opt,name=max_video_upload_size,json=maxVideoUploadSize,proto3" json:"max_video_upload_size,omitempty"`
-	// Message edit window in seconds.
+	// Message edit window in seconds, counted from the time a message was
+	// posted. 0 means there is no time limit: authors can edit their own
+	// messages indefinitely. Chatto has reported 0 since 0.5.0; clients should
+	// treat any value <= 0 as "no limit" rather than "already expired".
 	MessageEditWindowSeconds int32 `protobuf:"varint,8,opt,name=message_edit_window_seconds,json=messageEditWindowSeconds,proto3" json:"message_edit_window_seconds,omitempty"`
 	// Screen-share capture/encoding ceiling applied by clients when publishing a
 	// screen share. Server-configured so operators can tune quality without a

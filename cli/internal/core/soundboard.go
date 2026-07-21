@@ -19,10 +19,13 @@ const (
 	// generous ceiling that bounds storage and picker size.
 	MaxSoundboardSounds = 48
 
-	// MaxSoundClipBytes bounds the stored size of a single sound clip. Short
-	// clips keep playback cheap to fetch and publish and cap the abuse blast
-	// radius. Mirrors Discord's 512 KB envelope.
-	MaxSoundClipBytes = 512 * 1024
+	// MaxSoundClipBytes bounds the stored size of a single sound clip. The
+	// envelope is generous so admins can drop in a full-quality source file and
+	// trim it down in the UI; the effective playback cost stays low because the
+	// clip itself is still limited to a few seconds. Must stay at or below the
+	// assets max upload size, which bounds the Connect request that carries the
+	// audio (25 MB by default).
+	MaxSoundClipBytes = 20 * 1024 * 1024
 
 	// defaultSoundVolume is used when a create request omits a volume.
 	defaultSoundVolume = 1.0
@@ -97,7 +100,7 @@ func (c *ChattoCore) CreateSound(ctx context.Context, actorID, name, emoji strin
 		return nil, invalidArgument("sound clip is empty")
 	}
 	if len(audioData) > MaxSoundClipBytes {
-		return nil, invalidArgument(fmt.Sprintf("sound clip exceeds %d KB limit", MaxSoundClipBytes/1024))
+		return nil, invalidArgument(fmt.Sprintf("sound clip exceeds %d MB limit", MaxSoundClipBytes/(1024*1024)))
 	}
 	canonicalType, ext, err := resolveSoundContentType(contentType)
 	if err != nil {

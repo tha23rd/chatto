@@ -76,9 +76,9 @@ type MessageServiceClient interface {
 	// thread replies. Echoing a thread reply also requires message.echo and
 	// message.post.
 	CreateMessage(context.Context, *connect.Request[v1.CreateMessageRequest]) (*connect.Response[v1.CreateMessageResponse], error)
-	// Edits a message body. Authors can edit their own messages within the edit
-	// window. Non-authors need message.manage and cannot change channel echo
-	// state.
+	// Edits a message body. Authors can edit their own messages at any time, with
+	// no time limit. Non-authors need message.manage and cannot change channel
+	// echo state.
 	UpdateMessage(context.Context, *connect.Request[v1.UpdateMessageRequest]) (*connect.Response[v1.UpdateMessageResponse], error)
 	// Retracts a message. Authors can delete their own messages. Non-authors need
 	// message.manage.
@@ -254,9 +254,9 @@ type MessageServiceHandler interface {
 	// thread replies. Echoing a thread reply also requires message.echo and
 	// message.post.
 	CreateMessage(context.Context, *connect.Request[v1.CreateMessageRequest]) (*connect.Response[v1.CreateMessageResponse], error)
-	// Edits a message body. Authors can edit their own messages within the edit
-	// window. Non-authors need message.manage and cannot change channel echo
-	// state.
+	// Edits a message body. Authors can edit their own messages at any time, with
+	// no time limit. Non-authors need message.manage and cannot change channel
+	// echo state.
 	UpdateMessage(context.Context, *connect.Request[v1.UpdateMessageRequest]) (*connect.Response[v1.UpdateMessageResponse], error)
 	// Retracts a message. Authors can delete their own messages. Non-authors need
 	// message.manage.

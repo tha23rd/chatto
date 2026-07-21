@@ -125,15 +125,18 @@
     !deletedActor && actor ? activeCallRooms.getParticipantCallPresence(roomId, actor.id) : null
   );
 
-  // Permission checks for message actions. Authors can always edit (within
-  // the edit window) and delete their own messages; managing other users'
-  // messages requires message.manage.
+  // Permission checks for message actions. Authors can always edit and delete
+  // their own messages; managing other users' messages requires
+  // message.manage. A positive messageEditWindowSeconds means the server still
+  // time-limits author edits; current servers report 0 for "no limit".
   const isAuthor = $derived(currentUser.user?.id === event?.actorId);
+  const editWindowMs = $derived(
+    serverInfo.messageEditWindowSeconds > 0 ? serverInfo.messageEditWindowSeconds * 1000 : null
+  );
   const canEdit = $derived(
     (isAuthor &&
-      event &&
-      Date.now() - new Date(event.createdAt).getTime() <
-        serverInfo.messageEditWindowSeconds * 1000) ||
+      !!event &&
+      (editWindowMs === null || Date.now() - new Date(event.createdAt).getTime() < editWindowMs)) ||
       roomPermissions.canManageOthersMessage
   );
   const canDelete = $derived(isAuthor || roomPermissions.canManageOthersMessage);
