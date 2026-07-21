@@ -92,8 +92,9 @@ const SOUNDBOARD_TRACK_NAME = 'soundboard';
 // that lights up the player's tile on every client (see FDR-903).
 const SOUNDBOARD_DATA_TOPIC = 'soundboard';
 // Safety timeout to clear a remote "playing" highlight if the matching stop
-// signal is lost. Comfortably longer than the maximum clip length.
-const SOUNDBOARD_ACTIVE_MAX_MS = 7_000;
+// signal is lost. Comfortably longer than the maximum clip length (10s), so a
+// full-length clip never loses its highlight while it is still playing.
+const SOUNDBOARD_ACTIVE_MAX_MS = 12_000;
 
 /** Outcome of attempting to play a soundboard clip into the call. */
 export type SoundboardPlayResult = 'played' | 'throttled' | 'failed' | 'not-in-call';

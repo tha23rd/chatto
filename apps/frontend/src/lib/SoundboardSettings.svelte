@@ -7,7 +7,7 @@ new one by providing a name, an audio file, an optional emoji icon, and a
 default playback volume.
 
 Sounds are admin-curated and immutable once uploaded (create + delete only).
-Uploads are validated client-side: audio type, ≤20 MB, and ≤5 seconds decoded
+Uploads are validated client-side: audio type, ≤20 MB, and ≤10 seconds decoded
 duration, so obviously-invalid files are rejected before hitting the network.
 The generous byte cap lets an admin drop in a full-quality source file and trim
 it down to the few seconds they want before uploading.
@@ -21,7 +21,9 @@ it down to the few seconds they want before uploading.
   import * as m from '$lib/i18n/messages';
 
   import { Panel, DataTable } from '$lib/components/admin';
-  import { TextInput, Button, RangeField } from '$lib/ui/form';
+  import { TextInput, Button, RangeField, FormField } from '$lib/ui/form';
+  import ContextMenu from '$lib/ui/ContextMenu.svelte';
+  import EmojiPicker from '$lib/components/EmojiPicker.svelte';
   import { toast } from '$lib/ui/toast';
   import { dropZone } from '$lib/attachments/dropZone.svelte';
   import DropZoneOverlay from '$lib/attachments/DropZoneOverlay.svelte';
@@ -30,7 +32,9 @@ it down to the few seconds they want before uploading.
 
   // Mirrors core.MaxSoundClipBytes on the server.
   const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
-  const MAX_DURATION_SECONDS = 5;
+  // Longest clip that may be uploaded. Enforced client-side against the region
+  // the admin keeps; the server bounds bytes, not duration.
+  const MAX_DURATION_SECONDS = 10;
   const ACCEPTED_AUDIO_TYPES = ['audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm'];
   const ACCEPT_ATTR = ACCEPTED_AUDIO_TYPES.join(',');
 
@@ -62,6 +66,17 @@ it down to the few seconds they want before uploading.
   let uploading = $state(false);
   let fileInput = $state<HTMLInputElement>();
   let isDragging = $state(false);
+  let emojiPickerAnchor = $state<{ top: number; bottom: number; left: number } | null>(null);
+
+  function openEmojiPicker(event: MouseEvent) {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    emojiPickerAnchor = { top: rect.top, bottom: rect.bottom, left: rect.left };
+  }
+
+  function handleEmojiSelect(chosen: string) {
+    emoji = chosen;
+    emojiPickerAnchor = null;
+  }
 
   // Decoded clip + trim selection (seconds). The trimmer edits trimStart/trimEnd
   // in place; on upload we only re-encode when the selection actually differs
@@ -254,14 +269,32 @@ it down to the few seconds they want before uploading.
         description={m['soundboard.name_help']()}
       />
 
-      <TextInput
-        id="soundboard-emoji"
-        label={m['soundboard.emoji_label']()}
-        bind:value={emoji}
-        disabled={uploading}
-        maxlength={16}
-        placeholder={m['soundboard.emoji_placeholder']()}
-      />
+      <FormField label={m['soundboard.emoji_label']()}>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-md border border-border bg-background text-lg transition-[background-color,scale] hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-60"
+            title={m['soundboard.emoji_choose']()}
+            aria-label={m['soundboard.emoji_choose']()}
+            disabled={uploading}
+            onclick={openEmojiPicker}
+            data-testid="soundboard-emoji-picker"
+          >
+            {#if emoji}
+              <span aria-hidden="true">{emoji}</span>
+            {:else}
+              <span class="iconify text-muted uil--smile" aria-hidden="true"></span>
+            {/if}
+          </button>
+          {#if emoji}
+            <Button variant="ghost" onclick={() => (emoji = '')} disabled={uploading}>
+              {m['soundboard.emoji_clear']()}
+            </Button>
+          {:else}
+            <span class="text-sm text-muted">{m['soundboard.emoji_none']()}</span>
+          {/if}
+        </div>
+      </FormField>
 
       <RangeField
         id="soundboard-volume"
@@ -316,6 +349,7 @@ it down to the few seconds they want before uploading.
           bind:start={trimStart}
           bind:end={trimEnd}
           maxSelectionSeconds={MAX_DURATION_SECONDS}
+          volume={volumePercent / 100}
           disabled={uploading}
         />
       {/if}
@@ -384,3 +418,14 @@ it down to the few seconds they want before uploading.
     {/if}
   </Panel>
 </div>
+
+{#if emojiPickerAnchor}
+  <ContextMenu anchor={emojiPickerAnchor} onclose={() => (emojiPickerAnchor = null)}>
+    <EmojiPicker
+      serverId={getActiveServer()}
+      includeCustom={false}
+      onSelect={handleEmojiSelect}
+      onClose={() => (emojiPickerAnchor = null)}
+    />
+  </ContextMenu>
+{/if}

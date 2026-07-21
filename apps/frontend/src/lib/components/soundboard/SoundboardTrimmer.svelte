@@ -3,12 +3,15 @@
 
 Waveform trim editor for a decoded soundboard clip. Renders the clip's waveform
 and two draggable handles so an admin can cut silence (or anything else) from
-the start and end before uploading. A preview button plays only the selected
-region with a moving playhead.
+the start and end before uploading. The selection band between the handles is
+draggable too, so an established window can be slid over the clip as a unit
+instead of re-dragging each edge. A preview button plays only the selected
+region with a moving playhead, at the clip's pending default volume.
 
 `start`/`end` are bound in seconds; the parent slices and re-encodes the
-selected region on upload (see `trimAudio.ts`). The handles are exposed as ARIA
-sliders so they work with the keyboard as well as the pointer.
+selected region on upload (see `trimAudio.ts`). The handles and the selection
+band are exposed as ARIA sliders so they work with the keyboard as well as the
+pointer.
 -->
 <script lang="ts">
   import * as m from '$lib/i18n/messages';
@@ -28,6 +31,12 @@ sliders so they work with the keyboard as well as the pointer.
      * Defaults to unlimited.
      */
     maxSelectionSeconds?: number;
+    /**
+     * Playback gain for the preview, 0–1. Tracks the pending default volume so
+     * an admin can hear the level they are about to save. Changes apply to an
+     * in-flight preview.
+     */
+    volume?: number;
     disabled?: boolean;
   }
 
@@ -36,6 +45,7 @@ sliders so they work with the keyboard as well as the pointer.
     start = $bindable(),
     end = $bindable(),
     maxSelectionSeconds = Infinity,
+    volume = 1,
     disabled = false
   }: Props = $props();
 
@@ -51,12 +61,16 @@ sliders so they work with the keyboard as well as the pointer.
   let canvasEl = $state<HTMLCanvasElement>();
   let resizeTick = $state(0);
 
-  let dragging = $state<'start' | 'end' | null>(null);
+  let dragging = $state<'start' | 'end' | 'range' | null>(null);
+  // Distance in seconds between the pointer and the selection start when a
+  // whole-selection drag begins, so the window follows the grab point.
+  let rangeGrabSeconds = 0;
 
   // Preview playback state. The AudioContext is created lazily on first play
   // and closed on unmount.
   let audioCtx: AudioContext | null = null;
   let source: AudioBufferSourceNode | null = null;
+  let gain: GainNode | null = null;
   let playing = $state(false);
   let playheadSeconds = $state(0);
   let rafId = 0;
@@ -78,6 +92,18 @@ sliders so they work with the keyboard as well as the pointer.
     } else {
       end = clamp(seconds, start + MIN_GAP_SECONDS, Math.min(duration, start + maxSelectionSeconds));
     }
+  }
+
+  /**
+   * Slide the selection so it starts at `nextStart`, preserving its span. The
+   * window is clamped to the clip, so pushing past either edge parks it flush
+   * against that edge rather than shrinking it.
+   */
+  function moveSelection(nextStart: number): void {
+    const span = Math.max(MIN_GAP_SECONDS, end - start);
+    const clamped = clamp(nextStart, 0, Math.max(0, duration - span));
+    start = clamped;
+    end = clamped + span;
   }
 
   function secondsFromClientX(clientX: number): number {
@@ -104,6 +130,36 @@ sliders so they work with the keyboard as well as the pointer.
     if (!dragging) return;
     (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
     dragging = null;
+  }
+
+  function onRangePointerDown(event: PointerEvent): void {
+    if (disabled) return;
+    event.preventDefault();
+    stopPreview();
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    rangeGrabSeconds = secondsFromClientX(event.clientX) - start;
+    dragging = 'range';
+  }
+
+  function onRangePointerMove(event: PointerEvent): void {
+    if (dragging !== 'range') return;
+    moveSelection(secondsFromClientX(event.clientX) - rangeGrabSeconds);
+  }
+
+  function onRangeKeyDown(event: KeyboardEvent): void {
+    if (disabled) return;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+      moveSelection(start - KEY_STEP_SECONDS);
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+      moveSelection(start + KEY_STEP_SECONDS);
+    } else if (event.key === 'Home') {
+      moveSelection(0);
+    } else if (event.key === 'End') {
+      moveSelection(duration);
+    } else {
+      return;
+    }
+    event.preventDefault();
   }
 
   function onHandleKeyDown(which: 'start' | 'end', event: KeyboardEvent): void {
@@ -160,7 +216,13 @@ sliders so they work with the keyboard as well as the pointer.
 
     const node = ctx.createBufferSource();
     node.buffer = buffer;
-    node.connect(ctx.destination);
+    // Route through a gain node so the preview is audible at the pending
+    // default volume, and so slider moves can be applied mid-playback.
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = clamp(volume, 0, 1);
+    node.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    gain = gainNode;
     const offset = start;
     const span = Math.max(0, end - start);
     const startedAt = ctx.currentTime;
@@ -194,6 +256,10 @@ sliders so they work with the keyboard as well as the pointer.
         // Already stopped.
       }
       source = null;
+    }
+    if (gain) {
+      gain.disconnect();
+      gain = null;
     }
   }
 
@@ -240,6 +306,13 @@ sliders so they work with the keyboard as well as the pointer.
     drawWaveform();
   });
 
+  // Follow the volume prop into the live Web Audio graph so an in-flight
+  // preview reflects slider moves immediately.
+  $effect(() => {
+    const level = clamp(volume, 0, 1);
+    if (gain) gain.gain.value = level;
+  });
+
   // Observe size changes so the waveform stays crisp across layout/DPR shifts.
   $effect(() => {
     if (!canvasEl || typeof ResizeObserver === 'undefined') return;
@@ -281,11 +354,25 @@ sliders so they work with the keyboard as well as the pointer.
       style:width={asPercent(duration - end)}
     ></div>
 
-    <!-- Selection band. -->
+    <!-- Selection band. Draggable so the window can be moved as a unit. -->
     <div
-      class="pointer-events-none absolute inset-y-0 border-x-2 border-action/80 bg-action/10"
+      class={[
+        'absolute inset-y-0 border-x-2 border-action/80 bg-action/10',
+        disabled ? 'cursor-not-allowed' : dragging === 'range' ? 'cursor-grabbing' : 'cursor-grab'
+      ]}
       style:left={asPercent(start)}
       style:right={asPercent(duration - end)}
+      role="slider"
+      tabindex={disabled ? -1 : 0}
+      aria-label={m['soundboard.trim_range_handle']()}
+      aria-valuemin={0}
+      aria-valuemax={Math.max(0, duration - selectedSeconds)}
+      aria-valuenow={start}
+      aria-valuetext={`${formatSeconds(start)} – ${formatSeconds(end)}`}
+      onpointerdown={onRangePointerDown}
+      onpointermove={onRangePointerMove}
+      onpointerup={onHandlePointerUp}
+      onkeydown={onRangeKeyDown}
     ></div>
 
     <!-- Playhead. -->
