@@ -1,7 +1,7 @@
 # FDR-016: Voice Calls
 
 **Status:** Active
-**Last reviewed:** 2026-07-19
+**Last reviewed:** 2026-07-22
 
 ## Overview
 
@@ -24,6 +24,7 @@ Rooms support real-time voice conversations with optional camera video and scree
 - Losing room membership also removes the user from the room's active call. This includes voluntarily leaving the room, being removed by a moderator, being banned, and account-deletion cleanup. The affected client immediately hides that room's call roster and disconnects its local media when the membership change arrives. Chatto records the call leave from the membership transition and best-effort asks LiveKit to disconnect the participant; if that LiveKit removal fails, the room membership change still succeeds and reconciliation can catch up later.
 - Joined call participants hear fixed synthesized cues from durable participant join/leave events, including their own join/leave events and other participants in the same active call. These call cues are separate from configurable notification sounds and do not use notification sound filters; `CallEndedEvent` does not play a separate cue.
 - The first join starts a call session, creates fresh per-call E2EE key material, and records durable call lifecycle facts. The final leave ends the call, records the end fact, and shreds the call key.
+- When the first member explicitly starts a call, every other current room member whose effective notification level is not MUTED receives one persistent call-start notification. Later joins and LiveKit reconciliation do not create duplicates. DND recipients retain the notification without sound or Web Push.
 - Hanging up disconnects from LiveKit and clears the participant from everyone else's view.
 - New clients always enable LiveKit E2EE before connecting. Chatto distributes a KMS-backed per-call shared key with the LiveKit join token; the raw key is never written to EVT and is shredded when the call ends.
 - Screen sharing can request capture audio when the user enables **Share audio**. In supported browsers such as Chrome, presenters can select a browser tab and enable **Share tab audio** in the browser picker. Browser and operating-system support varies; the Windows desktop POC also validates entire-screen system audio and does not promise arbitrary per-application audio.
@@ -105,6 +106,12 @@ Rooms support real-time voice conversations with optional camera video and scree
 **Why:** Requested resolution, frame rate, bitrate, codec, and degradation behavior are advisory in WebRTC. Streaming decisions need the negotiated outcome from the actual WebView/browser and network without turning operational evidence into a user-data export.
 **Tradeoff:** The available fields differ by browser and WebView2 version, and a local sample cannot explain every remote quality problem. The bounded history is diagnostic evidence, not telemetry, and is collected only while a local screen share is published.
 
+### 13. The successful first join owns call-start notification fanout
+
+**Decision:** Only a `USER`-sourced participant transition that successfully appends the new `CallStartedEvent` fans out call-start notifications. The newly assigned call ID identifies that single transition; webhook and reconciliation sources never notify. Persisted notifications carry call-start details next to an existing room-message payload so older replicas can process the row safely during rollout, while upgraded API assemblers expose the additive `voice_call_started` public variant.
+**Why:** The durable call start and the invitation should share one session boundary. This prevents retries, media-server confirmations, and later participants from producing duplicate alerts while preserving the existing best-effort notification delivery model.
+**Tradeoff:** Notification records are derived immediately after the durable call transition rather than replayed from EVT, so a crash between those steps can lose the call-start notification even though the call remains active.
+
 ## Permissions
 
 - `voiceCallToken` query — requires room membership.
@@ -117,7 +124,7 @@ Voice calling doesn't have a dedicated permission today; room membership is the 
 ## Related
 
 - **ADRs:** ADR-009 (webhook-driven voice call state), ADR-012 (two-tier real-time events), ADR-020 (build-tag gated test endpoints), ADR-051 (server-scoped resumable client projection), ADR-900 (Windows desktop client)
-- **FDRs:** FDR-001 (Roles & Permissions), FDR-019 (Room Lifecycle)
+- **FDRs:** FDR-001 (Roles & Permissions), FDR-012 (Notifications), FDR-013 (Web Push Notifications), FDR-019 (Room Lifecycle)
 
 ## Open Questions
 

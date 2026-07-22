@@ -119,7 +119,10 @@ describe('NotificationStore', () => {
   });
 
   it('clears room notification payloads at an authorization boundary', () => {
-    const other = { ...mention('n2'), mentionRoom: { id: 'r2', name: 'other' } } as NotificationItem;
+    const other = {
+      ...mention('n2'),
+      mentionRoom: { id: 'r2', name: 'other' }
+    } as NotificationItem;
     const store = new NotificationStore(makeAPI());
     store.replaceProjection(page([mention('n1'), other], 2));
 
@@ -328,6 +331,47 @@ describe('NotificationStore', () => {
       threadRootId: 'thread-root'
     });
     expect(store.hasThreadNotification('thread-root')).toBe(true);
+    expect(store.hasDMRoomNotification('dm-room')).toBe(true);
+  });
+
+  it('routes voice call notifications to channel and DM rooms', () => {
+    const channelCall = {
+      kind: NotificationItemKind.VoiceCallStarted,
+      id: 'channel-call',
+      createdAt: new Date().toISOString(),
+      actor: null,
+      summary: 'Deleted user started a voice call',
+      callRoom: { id: 'room-call', name: 'calls', isDM: false },
+      callId: 'call-1'
+    } as unknown as NotificationItem;
+    const dmCall = {
+      kind: NotificationItemKind.VoiceCallStarted,
+      id: 'dm-call',
+      createdAt: new Date().toISOString(),
+      actor: null,
+      summary: 'Deleted user started a voice call',
+      callRoom: { id: 'dm-room', name: '', isDM: true },
+      callId: 'call-2'
+    } as unknown as NotificationItem;
+    const store = new NotificationStore(makeAPI());
+    store.notifications = [channelCall, dmCall];
+
+    expect(notificationTarget(channelCall)).toMatchObject({
+      isDM: false,
+      roomId: 'room-call',
+      eventId: null,
+      threadRootId: null
+    });
+    expect(store.getNavigationPath('origin', channelCall)).toBe('/chat/-/room-call');
+    expect(store.hasRoomNotification('room-call')).toBe(true);
+
+    expect(notificationTarget(dmCall)).toMatchObject({
+      isDM: true,
+      roomId: 'dm-room',
+      eventId: null,
+      threadRootId: null
+    });
+    expect(store.getNavigationPath('origin', dmCall)).toBe('/chat/-/dm-room');
     expect(store.hasDMRoomNotification('dm-room')).toBe(true);
   });
 

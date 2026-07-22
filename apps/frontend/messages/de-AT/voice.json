@@ -8,6 +8,7 @@
     "join": "Sprachanruf beitreten",
     "join_call": "Anruf beitreten",
     "start_call": "Anruf starten",
+    "notification_started_by": "{name} hat einen Sprachanruf gestartet",
     "leave": "Anruf verlassen",
     "share_screen": "Bildschirm teilen",
     "stop_share_screen": "Bildschirmfreigabe beenden",

@@ -8,6 +8,7 @@
     "join": "Join voice call",
     "join_call": "Join call",
     "start_call": "Start call",
+    "notification_started_by": "{name} started a voice call",
     "leave": "Leave call",
     "share_screen": "Share screen",
     "stop_share_screen": "Stop sharing screen",

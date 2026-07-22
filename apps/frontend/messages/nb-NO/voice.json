@@ -8,6 +8,7 @@
     "join": "Bli med i taleanrop",
     "join_call": "Bli med i samtalen",
     "start_call": "Start samtalen",
+    "notification_started_by": "{name} startet et taleanrop",
     "leave": "Forlat samtalen",
     "share_screen": "Del skjermen",
     "stop_share_screen": "Slutt å dele skjermen",

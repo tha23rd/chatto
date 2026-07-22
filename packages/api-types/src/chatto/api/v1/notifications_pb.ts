@@ -230,6 +230,55 @@ export class RoomMessageNotification extends Message<RoomMessageNotification> {
 }
 
 /**
+ * Notification that a new voice call started in a room.
+ *
+ * @generated from message chatto.api.v1.VoiceCallStartedNotification
+ */
+export class VoiceCallStartedNotification extends Message<VoiceCallStartedNotification> {
+  /**
+   * Room where the call started.
+   *
+   * @generated from field: chatto.api.v1.RoomSummary room = 1;
+   */
+  room?: RoomSummary;
+
+  /**
+   * Voice call session ID.
+   *
+   * @generated from field: string call_id = 2;
+   */
+  callId = "";
+
+  constructor(data?: PartialMessage<VoiceCallStartedNotification>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "chatto.api.v1.VoiceCallStartedNotification";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "room", kind: "message", T: RoomSummary },
+    { no: 2, name: "call_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): VoiceCallStartedNotification {
+    return new VoiceCallStartedNotification().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): VoiceCallStartedNotification {
+    return new VoiceCallStartedNotification().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): VoiceCallStartedNotification {
+    return new VoiceCallStartedNotification().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: VoiceCallStartedNotification | PlainMessage<VoiceCallStartedNotification> | undefined, b: VoiceCallStartedNotification | PlainMessage<VoiceCallStartedNotification> | undefined): boolean {
+    return proto3.util.equals(VoiceCallStartedNotification, a, b);
+  }
+}
+
+/**
  * One pending notification for the authenticated viewer.
  *
  * @generated from message chatto.api.v1.NotificationItem
@@ -291,6 +340,14 @@ export class NotificationItem extends Message<NotificationItem> {
      */
     value: RoomMessageNotification;
     case: "roomMessage";
+  } | {
+    /**
+     * New voice call notification.
+     *
+     * @generated from field: chatto.api.v1.VoiceCallStartedNotification voice_call_started = 14;
+     */
+    value: VoiceCallStartedNotification;
+    case: "voiceCallStarted";
   } | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<NotificationItem>) {
@@ -308,6 +365,7 @@ export class NotificationItem extends Message<NotificationItem> {
     { no: 11, name: "mention", kind: "message", T: MentionNotification, oneof: "kind" },
     { no: 12, name: "reply", kind: "message", T: ReplyNotification, oneof: "kind" },
     { no: 13, name: "room_message", kind: "message", T: RoomMessageNotification, oneof: "kind" },
+    { no: 14, name: "voice_call_started", kind: "message", T: VoiceCallStartedNotification, oneof: "kind" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): NotificationItem {

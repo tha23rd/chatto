@@ -352,6 +352,9 @@ func (c *ChattoCore) DismissRoomReadNotifications(ctx context.Context, kind Room
 		return 0
 	}
 	count, err := c.dismissMatchingNotifications(ctx, userID, func(notification *corev1.Notification) bool {
+		if notification.GetVoiceCallStartedDetails() != nil {
+			return false
+		}
 		switch payload := notification.GetNotification().(type) {
 		case *corev1.Notification_DmMessage:
 			return payload.DmMessage.GetRoomId() == roomID &&
@@ -477,19 +480,23 @@ func (c *ChattoCore) notificationEventAtOrBefore(ctx context.Context, kind RoomK
 func (c *ChattoCore) publishNotificationCreatedEvent(ctx context.Context, notif *corev1.Notification, silent bool) {
 	// Extract navigation context from the notification payload
 	var roomID, eventID, inReplyToID string
-	switch n := notif.Notification.(type) {
-	case *corev1.Notification_DmMessage:
-		roomID = n.DmMessage.RoomId
-	case *corev1.Notification_Mention:
-		roomID = n.Mention.RoomId
-		eventID = n.Mention.EventId
-	case *corev1.Notification_Reply:
-		roomID = n.Reply.RoomId
-		eventID = n.Reply.EventId
-		inReplyToID = n.Reply.InReplyToId
-	case *corev1.Notification_RoomMessage:
-		roomID = n.RoomMessage.RoomId
-		eventID = n.RoomMessage.EventId
+	if call := notif.GetVoiceCallStartedDetails(); call != nil {
+		roomID = call.GetRoomId()
+	} else {
+		switch n := notif.Notification.(type) {
+		case *corev1.Notification_DmMessage:
+			roomID = n.DmMessage.RoomId
+		case *corev1.Notification_Mention:
+			roomID = n.Mention.RoomId
+			eventID = n.Mention.EventId
+		case *corev1.Notification_Reply:
+			roomID = n.Reply.RoomId
+			eventID = n.Reply.EventId
+			inReplyToID = n.Reply.InReplyToId
+		case *corev1.Notification_RoomMessage:
+			roomID = n.RoomMessage.RoomId
+			eventID = n.RoomMessage.EventId
+		}
 	}
 
 	event := newLiveEvent(notif.ActorId, &corev1.LiveEvent{
@@ -537,6 +544,9 @@ func (c *ChattoCore) publishNotificationDismissedEvent(ctx context.Context, user
 
 // notificationTypeName returns a string name for the notification type.
 func notificationTypeName(notif *corev1.Notification) string {
+	if notif.GetVoiceCallStartedDetails() != nil {
+		return "voice_call_started"
+	}
 	switch notif.Notification.(type) {
 	case *corev1.Notification_DmMessage:
 		return "dm_message"
@@ -554,6 +564,9 @@ func notificationTypeName(notif *corev1.Notification) string {
 func notificationTargetRoomID(notification *corev1.Notification) string {
 	if notification == nil {
 		return ""
+	}
+	if call := notification.GetVoiceCallStartedDetails(); call != nil {
+		return call.GetRoomId()
 	}
 	switch payload := notification.GetNotification().(type) {
 	case *corev1.Notification_DmMessage:

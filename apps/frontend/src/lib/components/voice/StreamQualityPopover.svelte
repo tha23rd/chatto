@@ -4,12 +4,13 @@
 Anchored popover for choosing screen-share quality: Resolution, Frame Rate, and whether to
 share the window's audio. Modelled on Discord's Stream Quality menu.
 
-Serves both entry points in the share flow:
+This is the single home for stream controls; the Share Screen button opens it in both
+states, so there is no separate stream-settings gear competing with the call's device gear:
 
-- **Pre-flight** (`mode="preflight"`): opened by the Share Screen button *before* capture
-  starts. Shows a Go Live action; confirming it triggers `getDisplayMedia()`.
-- **Live** (`mode="live"`): opened from the gear on the local screen-share tile. Changes
-  retune the running share in place, so there is no confirm action.
+- **Pre-flight** (`mode="preflight"`): opened *before* capture starts. The primary action is
+  Go Live; confirming it triggers `getDisplayMedia()`.
+- **Live** (`mode="live"`): opened while sharing. Quality changes retune the running share in
+  place, and the primary action becomes Stop sharing, replacing Go Live.
 
 Unlike Discord, the bitrate each choice needs is shown rather than hidden. Discord's picker
 lets you select 1080p60 on a tier whose bitrate cannot carry it, which is the single most
@@ -19,12 +20,13 @@ common cause of "why is my stream blocky" — showing the number makes the trade
 - `anchor` - Position rect for the FloatingPopover
 - `quality` - Current preference (resolution / framerate / shareAudio)
 - `ceiling` - Server's advisory quality ceiling; tiers above it are not offered
-- `mode` - `'preflight'` (with Go Live) or `'live'` (applies immediately)
+- `mode` - `'preflight'` (Go Live action) or `'live'` (applies immediately, Stop action)
 - `retuneFailed` - Show the "applies to your next share" notice
 - `diagnosticsAvailable` - Whether a bounded stats sample is ready to copy
 - `onchange` - Called with the new preference whenever a control changes
 - `oncopydiagnostics` - Copies privacy-safe local WebRTC stats (`live` mode only)
 - `ongolive` - Called when Go Live is pressed (`preflight` only)
+- `onstop` - Called when Stop sharing is pressed (`live` only)
 - `onclose` - Called when the popover should dismiss
 -->
 <script lang="ts">
@@ -50,6 +52,7 @@ common cause of "why is my stream blocky" — showing the number makes the trade
     onchange,
     ongolive,
     oncopydiagnostics,
+    onstop,
     onclose
   }: {
     anchor: { top: number; bottom: number; left: number };
@@ -61,6 +64,7 @@ common cause of "why is my stream blocky" — showing the number makes the trade
     onchange: (prefs: ScreenShareQualityPrefs) => void;
     ongolive?: () => void;
     oncopydiagnostics?: () => void;
+    onstop?: () => void;
     onclose: () => void;
   } = $props();
 
@@ -171,14 +175,26 @@ common cause of "why is my stream blocky" — showing the number makes the trade
       </button>
     {/if}
 
+    <!-- One primary action, flipped by state: start the share, or stop the running one.
+         Stopping lives here (rather than on the toolbar button) so the toolbar keeps a
+         single stream control instead of a button plus a competing settings gear. -->
     {#if mode === 'preflight'}
       <button
         type="button"
-        class="btn btn-primary w-full cursor-pointer"
+        class="btn-action w-full cursor-pointer"
         data-testid="stream-quality-go-live"
         onclick={() => ongolive?.()}
       >
         {m['voice.stream_go_live']()}
+      </button>
+    {:else}
+      <button
+        type="button"
+        class="btn-danger w-full cursor-pointer"
+        data-testid="stream-quality-stop"
+        onclick={() => onstop?.()}
+      >
+        {m['voice.stop_share_screen']()}
       </button>
     {/if}
   </div>
