@@ -1,8 +1,9 @@
 /**
- * App Badge API helper for PWA dock badges.
+ * App badge helper for installed-client attention indicators.
  *
- * Shows notification attention on the app icon when installed as PWA.
- * Safari requires notification permission; Chrome/Edge work without it.
+ * Publishes one authoritative intent to optional native handlers and the web
+ * Badging API. Safari requires notification permission; Chrome/Edge work
+ * without it.
  *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Badging_API
  */
@@ -11,6 +12,11 @@ export type AppBadgeIntent =
   | { kind: 'clear' }
   | { kind: 'flag' }
   | { kind: 'count'; count: number };
+
+export type AppBadgeHandler = (intent: AppBadgeIntent) => void | Promise<void>;
+
+const appBadgeHandlers = new Set<AppBadgeHandler>();
+let latestAppBadgeIntent: AppBadgeIntent | null = null;
 
 /**
  * Check if the Badging API is supported in this browser context.
@@ -46,6 +52,40 @@ export function normalizeBadgeIntent(intent: AppBadgeIntent): AppBadgeIntent {
   if (intent.kind !== 'count') return intent;
   const count = normalizeBadgeCount(intent.count);
   return count > 0 ? { kind: 'count', count } : { kind: 'clear' };
+}
+
+async function deliverBadgeIntent(handler: AppBadgeHandler, intent: AppBadgeIntent): Promise<void> {
+  try {
+    await handler(intent);
+  } catch {
+    // Native and third-party badge surfaces are optional and best-effort.
+  }
+}
+
+function publishBadgeIntent(intent: AppBadgeIntent): AppBadgeIntent {
+  const normalized = normalizeBadgeIntent(intent);
+  latestAppBadgeIntent = normalized;
+  for (const handler of appBadgeHandlers) {
+    void deliverBadgeIntent(handler, normalized);
+  }
+  return normalized;
+}
+
+/**
+ * Register an optional installed-client badge surface.
+ *
+ * The latest authoritative intent is replayed so a host initialized after
+ * notification hydration cannot leave a stale badge behind.
+ */
+export function registerAppBadgeHandler(handler: AppBadgeHandler): () => void {
+  appBadgeHandlers.add(handler);
+  if (latestAppBadgeIntent) {
+    void deliverBadgeIntent(handler, latestAppBadgeIntent);
+  }
+
+  return () => {
+    appBadgeHandlers.delete(handler);
+  };
 }
 
 function legacyNotificationCount(intent: AppBadgeIntent): number {
@@ -121,16 +161,15 @@ export function syncServiceWorkerNotificationBadgeState(intent: AppBadgeIntent):
  * Sets a numeric badge for DMs, a flag/dot for channel notifications, and
  * clears it when notifications are handled.
  *
- * Silently fails if:
- * - Badging API not supported
- * - App not installed as PWA
- * - Safari without notification permission
+ * The browser surface silently fails if the Badging API is unsupported, the
+ * app is not installed as a PWA, or Safari lacks notification permission.
+ * Registered installed-client handlers remain independent and best-effort.
  */
 export async function updateBadge(intent: AppBadgeIntent): Promise<void> {
+  const normalized = publishBadgeIntent(intent);
   if (!isSupported()) return;
 
   try {
-    const normalized = normalizeBadgeIntent(intent);
     switch (normalized.kind) {
       case 'count':
         await navigator.setAppBadge(normalized.count);
@@ -153,6 +192,7 @@ export async function updateBadge(intent: AppBadgeIntent): Promise<void> {
  * Clear the app badge.
  */
 export async function clearBadge(): Promise<void> {
+  publishBadgeIntent({ kind: 'clear' });
   if (!isSupported()) return;
 
   try {
