@@ -1,4 +1,6 @@
-export const NATIVE_HOST_API_VERSION = 2 as const;
+import type { AppBadgeIntent } from '$lib/notifications/appBadge';
+
+export const NATIVE_HOST_API_VERSION = 3 as const;
 
 export type Unsubscribe = () => void | Promise<void>;
 
@@ -8,6 +10,7 @@ export interface NativeCapabilities {
   readonly nativeRealtime: boolean;
   readonly globalPushToTalk: boolean;
   readonly tray: boolean;
+  readonly appBadge: boolean;
   readonly desktopUpdates: boolean;
 }
 
@@ -97,6 +100,8 @@ export interface NativeHost {
   ): Promise<Unsubscribe>;
   onTrayAction(listener: (action: NativeTrayAction) => void): Promise<Unsubscribe>;
   setCallControls(controls: NativeCallControls): Promise<void>;
+  /** Show or clear the host's installed-app attention indicator. */
+  setAppBadge(intent: AppBadgeIntent): Promise<void>;
   getDesktopUpdateState(): Promise<DesktopUpdateSnapshot>;
   setDesktopUpdateChannel(channel: DesktopUpdateChannel): Promise<DesktopUpdateSnapshot>;
   checkForDesktopUpdate(): Promise<DesktopUpdateSnapshot>;

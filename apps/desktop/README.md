@@ -179,6 +179,11 @@ Closing the window hides it to the notification area. The tray menu can show
 Chatto, mute/unmute, deafen/undeafen, or quit. Only **Quit** terminates the
 desktop process.
 
+While Chatto is running, a red dot overlays its Windows taskbar icon whenever
+the shared client has at least one pending notification. The dot clears after
+all pending notifications are handled. Ordinary unread rooms do not set it
+unless their notification level creates a notification.
+
 ## Windows verification
 
 Build the package before running the read-only verifier:

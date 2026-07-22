@@ -17,6 +17,43 @@ const MUTE_MENU_ID: &str = "toggle-mute";
 const DEAFEN_MENU_ID: &str = "toggle-deafen";
 const QUIT_MENU_ID: &str = "quit";
 const TRAY_ACTION_EVENT: &str = "native://tray-action";
+const TASKBAR_ATTENTION_ICON_SIZE: u32 = 32;
+const TASKBAR_ATTENTION_COLOR: [u8; 4] = [237, 66, 69, 255];
+const TASKBAR_ATTENTION_BORDER: [u8; 4] = [255, 255, 255, 255];
+
+fn taskbar_attention_rgba() -> Vec<u8> {
+    let mut rgba =
+        vec![0; (TASKBAR_ATTENTION_ICON_SIZE * TASKBAR_ATTENTION_ICON_SIZE * 4) as usize];
+    let size = TASKBAR_ATTENTION_ICON_SIZE as i32;
+
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x * 2 + 1 - size;
+            let dy = y * 2 + 1 - size;
+            let distance_squared = dx * dx + dy * dy;
+            let color = if distance_squared <= 22 * 22 {
+                TASKBAR_ATTENTION_COLOR
+            } else if distance_squared <= 28 * 28 {
+                TASKBAR_ATTENTION_BORDER
+            } else {
+                continue;
+            };
+            let offset = ((y * size + x) * 4) as usize;
+            rgba[offset..offset + 4].copy_from_slice(&color);
+        }
+    }
+
+    rgba
+}
+
+#[cfg(target_os = "windows")]
+fn taskbar_attention_icon() -> tauri::image::Image<'static> {
+    tauri::image::Image::new_owned(
+        taskbar_attention_rgba(),
+        TASKBAR_ATTENTION_ICON_SIZE,
+        TASKBAR_ATTENTION_ICON_SIZE,
+    )
+}
 
 pub(crate) struct ShellState {
     quitting: AtomicBool,
@@ -197,6 +234,22 @@ pub fn set_call_controls(
 }
 
 #[tauri::command]
+pub fn set_taskbar_attention(window: tauri::WebviewWindow, active: bool) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        window
+            .set_overlay_icon(active.then(taskbar_attention_icon))
+            .map_err(|_| "Could not update taskbar attention indicator.".to_string())
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (window, active);
+        Ok(())
+    }
+}
+
+#[tauri::command]
 pub fn quit_desktop(app: AppHandle, state: State<'_, ShellState>) {
     state.quitting.store(true, Ordering::SeqCst);
     app.exit(0);
@@ -241,5 +294,24 @@ mod tests {
         }
         assert!(!devtools_enabled(false));
         assert!(devtools_enabled(true));
+    }
+
+    #[test]
+    fn taskbar_attention_icon_is_a_bordered_red_dot() {
+        let rgba = taskbar_attention_rgba();
+
+        assert_eq!(
+            rgba.len(),
+            (TASKBAR_ATTENTION_ICON_SIZE * TASKBAR_ATTENTION_ICON_SIZE * 4) as usize
+        );
+        assert_eq!(&rgba[0..4], &[0, 0, 0, 0]);
+
+        let center = ((TASKBAR_ATTENTION_ICON_SIZE / 2 * TASKBAR_ATTENTION_ICON_SIZE
+            + TASKBAR_ATTENTION_ICON_SIZE / 2)
+            * 4) as usize;
+        assert_eq!(&rgba[center..center + 4], &TASKBAR_ATTENTION_COLOR);
+        assert!(rgba
+            .chunks_exact(4)
+            .any(|pixel| pixel == TASKBAR_ATTENTION_BORDER));
     }
 }
