@@ -353,6 +353,16 @@ func BuildPayloadFromNotification(notif *corev1.Notification, actorDisplayName, 
 		preview = truncatePreview(payloadCtx.MessagePreview)
 		roomName = payloadCtx.RoomName
 	}
+	if call := notif.GetVoiceCallStartedDetails(); call != nil {
+		if roomName != "" {
+			payload.Title = fmt.Sprintf("@%s started a voice call in #%s", actorDisplayName, roomName)
+		} else {
+			payload.Title = fmt.Sprintf("@%s started a voice call", actorDisplayName)
+		}
+		payload.Tag = "voice-call-started-" + call.GetCallId()
+		payload.URL = buildNotificationURL(baseURL, call.GetRoomId(), "", "")
+		return payload
+	}
 
 	switch n := notif.Notification.(type) {
 	case *corev1.Notification_DmMessage:
@@ -403,6 +413,9 @@ func BuildPayloadFromNotification(notif *corev1.Notification, actorDisplayName, 
 // Used for dismissing notifications on other devices.
 // Tags use event IDs to uniquely identify each notification.
 func NotificationTag(notif *corev1.Notification) string {
+	if call := notif.GetVoiceCallStartedDetails(); call != nil {
+		return "voice-call-started-" + call.GetCallId()
+	}
 	switch n := notif.Notification.(type) {
 	case *corev1.Notification_DmMessage:
 		return "dm-" + n.DmMessage.EventId

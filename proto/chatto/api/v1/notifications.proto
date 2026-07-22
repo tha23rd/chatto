@@ -50,6 +50,14 @@ message RoomMessageNotification {
   string event_id = 2;
 }
 
+// Notification that a new voice call started in a room.
+message VoiceCallStartedNotification {
+  // Room where the call started.
+  RoomSummary room = 1;
+  // Voice call session ID.
+  string call_id = 2;
+}
+
 // One pending notification for the authenticated viewer.
 message NotificationItem {
   reserved 4;
@@ -71,6 +79,8 @@ message NotificationItem {
     ReplyNotification reply = 12;
     // All-messages room notification.
     RoomMessageNotification room_message = 13;
+    // New voice call notification.
+    VoiceCallStartedNotification voice_call_started = 14;
   }
 }
 

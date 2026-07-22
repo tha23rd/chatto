@@ -331,49 +331,64 @@ func (s *CallModel) cleanupEndedCallKey(ctx context.Context, event *corev1.Event
 }
 
 func (s *CallModel) AppendJoined(ctx context.Context, roomID, userID string, source corev1.CallParticipantEventSource) error {
-	return s.appendParticipantTransition(ctx, roomID, userID, true, "", source)
+	_, err := s.appendParticipantTransition(ctx, roomID, userID, true, "", source)
+	return err
 }
 
 func (s *CallModel) AppendLeft(ctx context.Context, roomID, userID string, source corev1.CallParticipantEventSource) error {
-	return s.appendParticipantTransition(ctx, roomID, userID, false, "", source)
+	_, err := s.appendParticipantTransition(ctx, roomID, userID, false, "", source)
+	return err
 }
 
 func (s *CallModel) AppendJoinedForCall(ctx context.Context, roomID, userID, expectedCallID string, source corev1.CallParticipantEventSource) error {
-	return s.appendParticipantTransition(ctx, roomID, userID, true, expectedCallID, source)
+	_, err := s.appendParticipantTransition(ctx, roomID, userID, true, expectedCallID, source)
+	return err
 }
 
 func (s *CallModel) AppendLeftForCall(ctx context.Context, roomID, userID, expectedCallID string, source corev1.CallParticipantEventSource) error {
-	return s.appendParticipantTransition(ctx, roomID, userID, false, expectedCallID, source)
+	_, err := s.appendParticipantTransition(ctx, roomID, userID, false, expectedCallID, source)
+	return err
 }
 
-func (s *CallModel) appendParticipantTransition(ctx context.Context, roomID, userID string, joined bool, expectedCallID string, source corev1.CallParticipantEventSource) error {
+type callParticipantTransitionResult struct {
+	startedCallID string
+}
+
+func (s *CallModel) appendParticipantTransition(ctx context.Context, roomID, userID string, joined bool, expectedCallID string, source corev1.CallParticipantEventSource) (callParticipantTransitionResult, error) {
 	aggregate := events.RoomAggregate(roomID)
 	filter := aggregate.AllEventsFilter()
 	for attempt := 0; attempt < callReconcileMaxRetries; attempt++ {
 		snapshot := s.projection.RoomSnapshot(roomID)
 		if expectedCallID != "" && snapshot.Call.CallID != expectedCallID {
-			return nil
+			return callParticipantTransitionResult{}, nil
 		}
 		if callParticipantTransitionAlreadyApplied(snapshot.Participants, userID, joined) {
-			return nil
+			return callParticipantTransitionResult{}, nil
 		}
 
 		entries, endedKeyRef, cleanupKeyRef, err := s.callTransitionBatch(ctx, aggregate, snapshot, roomID, userID, joined, source)
 		if err != nil {
-			return err
+			return callParticipantTransitionResult{}, err
 		}
 		seqs, err := s.publisher.AppendBatch(ctx, entries)
 		if err == nil {
+			result := callParticipantTransitionResult{}
+			if len(entries) > 0 {
+				started := entries[0].Event.GetVoiceCallStarted()
+				if started != nil {
+					result.startedCallID = started.GetCallId()
+				}
+			}
 			seq := seqs[len(seqs)-1]
 			if endedKeyRef != "" {
 				if err := s.cleanupQueuedCallKey(ctx, endedKeyRef); err != nil {
-					return fmt.Errorf("shred ended call key: %w", err)
+					return callParticipantTransitionResult{}, fmt.Errorf("shred ended call key: %w", err)
 				}
 			}
 			if err := s.projector.WaitFor(ctx, events.SubjectPosition(filter, seq)); err != nil {
-				return err
+				return callParticipantTransitionResult{}, err
 			}
-			return nil
+			return result, nil
 		}
 		if cleanupKeyRef != "" {
 			if cleanupErr := s.callKeys.ShredCallKey(context.WithoutCancel(ctx), cleanupKeyRef); cleanupErr != nil {
@@ -381,19 +396,19 @@ func (s *CallModel) appendParticipantTransition(ctx context.Context, roomID, use
 			}
 		}
 		if !errors.Is(err, events.ErrConflict) {
-			return err
+			return callParticipantTransitionResult{}, err
 		}
 		if err := s.waitForLatestRoomTransition(ctx, filter); err != nil {
-			return err
+			return callParticipantTransitionResult{}, err
 		}
 
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return callParticipantTransitionResult{}, ctx.Err()
 		case <-time.After(time.Duration(1<<attempt) * time.Millisecond):
 		}
 	}
-	return fmt.Errorf("append call participant transition after %d attempts: %w", callReconcileMaxRetries, events.ErrConflict)
+	return callParticipantTransitionResult{}, fmt.Errorf("append call participant transition after %d attempts: %w", callReconcileMaxRetries, events.ErrConflict)
 }
 
 func (s *CallModel) callTransitionBatch(ctx context.Context, aggregate events.Aggregate, snapshot CallRoomSnapshot, roomID, userID string, joined bool, source corev1.CallParticipantEventSource) ([]events.BatchEntry, string, string, error) {
@@ -528,7 +543,8 @@ func (s *CallModel) reconciliationConflictResolved(roomID, userID string, joined
 }
 
 func (s *CallModel) appendReconciliationEvent(ctx context.Context, roomID, userID string, joined bool) error {
-	return s.appendParticipantTransition(ctx, roomID, userID, joined, "", corev1.CallParticipantEventSource_CALL_PARTICIPANT_EVENT_SOURCE_RECONCILIATION)
+	_, err := s.appendParticipantTransition(ctx, roomID, userID, joined, "", corev1.CallParticipantEventSource_CALL_PARTICIPANT_EVENT_SOURCE_RECONCILIATION)
+	return err
 }
 
 func newCallStartedEvent(roomID, userID, callID, keyRef string, source corev1.CallParticipantEventSource) *corev1.Event {

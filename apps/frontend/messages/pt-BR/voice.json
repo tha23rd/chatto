@@ -8,6 +8,7 @@
     "join": "Participar da chamada de voz",
     "join_call": "Participar da chamada",
     "start_call": "Iniciar chamada",
+    "notification_started_by": "{name} iniciou uma chamada de voz",
     "leave": "Sair da ligação",
     "share_screen": "Compartilhar tela",
     "stop_share_screen": "Parar de compartilhar tela",

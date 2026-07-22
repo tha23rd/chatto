@@ -3,12 +3,14 @@ import { resolve } from '$app/paths';
 import { serverIdToSegment } from '$lib/navigation';
 import {
   NotificationItemKind,
+  notificationSummary,
   type DirectMessageNotificationItem,
   type MentionNotificationItem,
   type NotificationAPI,
   type NotificationItem,
   type ReplyNotificationItem,
-  type RoomMessageNotificationItem
+  type RoomMessageNotificationItem,
+  type VoiceCallStartedNotificationItem
 } from '$lib/api-client/notifications';
 
 // Union type for all notification types
@@ -62,6 +64,12 @@ function isRoomMessageNotification(
   return notification.kind === NotificationItemKind.RoomMessage;
 }
 
+function isVoiceCallStartedNotification(
+  notification: NotificationItem
+): notification is VoiceCallStartedNotificationItem {
+  return notification.kind === NotificationItemKind.VoiceCallStarted;
+}
+
 /**
  * Extract the target a notification points to. Adding a new notification type
  * means updating this single function instead of every read site.
@@ -104,6 +112,16 @@ export function notificationTarget(n: NotificationItem): NotificationTarget {
       roomId: n.roomMsgRoom?.id ?? null,
       roomName: n.roomMsgRoom?.name ?? null,
       eventId: n.roomMsgEventId ?? null,
+      threadRootId: null
+    };
+  }
+  if (isVoiceCallStartedNotification(n)) {
+    return {
+      isDM: n.callRoom?.isDM ?? false,
+      spaceName: null,
+      roomId: n.callRoom?.id ?? null,
+      roomName: n.callRoom?.name ?? null,
+      eventId: null,
       threadRootId: null
     };
   }
@@ -269,7 +287,7 @@ export class NotificationStore {
    * Check if there are any pending DM notifications.
    */
   hasDMNotifications(): boolean {
-    return this.notifications.some((n) => isDMNotification(n));
+    return this.notifications.some((n) => notificationTarget(n).isDM);
   }
 
   /**
@@ -277,7 +295,7 @@ export class NotificationStore {
    * Returns undefined if no DM notifications exist.
    */
   getDMNotification(): NotificationItem | undefined {
-    return this.notifications.find((n) => isDMNotification(n));
+    return this.notifications.find((n) => notificationTarget(n).isDM);
   }
 
   /**
@@ -285,14 +303,20 @@ export class NotificationStore {
    * Counterpart to {@link hasRoomNotification}, which excludes DMs.
    */
   hasDMRoomNotification(roomId: string): boolean {
-    return this.notifications.some((n) => isDMNotification(n) && n.room.id === roomId);
+    return this.notifications.some((n) => {
+      const target = notificationTarget(n);
+      return target.isDM && target.roomId === roomId;
+    });
   }
 
   /**
    * Get the most recent notification for a DM conversation.
    */
   getDMRoomNotification(roomId: string): NotificationItem | undefined {
-    return this.notifications.find((n) => isDMNotification(n) && n.room.id === roomId);
+    return this.notifications.find((n) => {
+      const target = notificationTarget(n);
+      return target.isDM && target.roomId === roomId;
+    });
   }
 
   getCachedRoomNotification(
@@ -598,5 +622,7 @@ function redactedNotificationSummary(kind: NotificationItemKind): string {
       return 'New reply to your message';
     case NotificationItemKind.RoomMessage:
       return 'New message';
+    case NotificationItemKind.VoiceCallStarted:
+      return notificationSummary(null, kind);
   }
 }

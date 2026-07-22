@@ -321,11 +321,12 @@ Room sidebar panel for voice/video calls.
     voiceCallState.setParticipantVolume(participant.key, value);
   }
 
-  // Stream-quality popover. Two entry points share one component:
-  //  - 'preflight' from the Share Screen button, shown *before* getDisplayMedia() so the user
-  //    picks quality then confirms, mirroring Discord's Go Live dialog. A browser cannot put
-  //    these controls inside Chrome's own window picker, so they sit immediately before it.
-  //  - 'live' from the gear on the local screen-share tile, which retunes the running share.
+  // Stream-quality popover. The Share Screen button is the only entry point, in both states,
+  // so a live share does not add a second gear beside the call's device gear:
+  //  - 'preflight' before capture, shown *before* getDisplayMedia() so the user picks quality
+  //    then confirms, mirroring Discord's Go Live dialog. A browser cannot put these controls
+  //    inside Chrome's own window picker, so they sit immediately before it.
+  //  - 'live' while sharing, which retunes the running share and offers Stop sharing.
   let streamQualityAnchor = $state<{ top: number; bottom: number; left: number } | null>(null);
   let streamQualityMode = $state<'preflight' | 'live'>('preflight');
 
@@ -341,12 +342,11 @@ Room sidebar panel for voice/video calls.
   }
 
   function onScreenShareClick(event: MouseEvent) {
-    // Already sharing: the button stops the share. Not sharing: choose quality, then go live.
-    if (voiceCallState.isScreenShareEnabled) {
-      voiceCallState.toggleScreenShare();
-      return;
-    }
-    openStreamQuality(event, 'preflight');
+    // One control for the whole stream, in both states: the menu carries the quality
+    // settings plus the primary action (Go Live, or Stop while sharing). Keeping stop
+    // inside the menu is what lets the separate stream-settings gear go away, so the
+    // toolbar is not showing two gears during a share.
+    openStreamQuality(event, voiceCallState.isScreenShareEnabled ? 'live' : 'preflight');
   }
 
   function onStreamQualityGoLive() {
@@ -364,6 +364,11 @@ Room sidebar panel for voice/video calls.
     } catch {
       toast.error(m['common.error.generic']());
     }
+  }
+
+  function onStreamQualityStop() {
+    closeStreamQuality();
+    voiceCallState.toggleScreenShare();
   }
 
   // Soundboard. Only meaningful once joined to the call and only when LiveKit
@@ -832,11 +837,13 @@ Room sidebar panel for voice/video calls.
             ? activeControlButtonClass
             : controlButtonClass}
           title={voiceCallState.isScreenShareEnabled
-            ? m['voice.stop_share_screen']()
+            ? m['voice.stream_quality_settings']()
             : m['voice.share_screen']()}
           aria-label={voiceCallState.isScreenShareEnabled
-            ? m['voice.stop_share_screen']()
+            ? m['voice.stream_quality_settings']()
             : m['voice.share_screen']()}
+          aria-haspopup="dialog"
+          aria-expanded={!!streamQualityAnchor}
           data-testid="call-screen-share-toggle"
           onclick={onScreenShareClick}
           disabled={voiceCallState.isScreenSharePending}
@@ -848,22 +855,6 @@ Room sidebar panel for voice/video calls.
             <span class="iconify text-lg uil--desktop" aria-hidden="true"></span>
           {/if}
         </button>
-
-        {#if voiceCallState.isScreenShareEnabled}
-          <!-- Retune the running share. Discord hangs this off the stream tile itself; the
-               control bar keeps it next to the share button it belongs to, and it only exists
-               while a share is live. -->
-          <button
-            type="button"
-            class={controlButtonClass}
-            title={m['voice.stream_quality_settings']()}
-            aria-label={m['voice.stream_quality_settings']()}
-            data-testid="call-stream-quality-button"
-            onclick={(event) => openStreamQuality(event, 'live')}
-          >
-            <span class="iconify text-lg uil--setting" aria-hidden="true"></span>
-          </button>
-        {/if}
 
         {#if showSoundboardButton}
           <button
@@ -1025,6 +1016,7 @@ Room sidebar panel for voice/video calls.
     onchange={(prefs) => voiceCallState.setScreenShareQuality(prefs)}
     ongolive={onStreamQualityGoLive}
     oncopydiagnostics={() => void copyScreenShareDiagnostics()}
+    onstop={onStreamQualityStop}
     onclose={closeStreamQuality}
   />
 {/if}

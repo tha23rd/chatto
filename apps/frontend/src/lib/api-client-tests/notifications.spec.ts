@@ -1,6 +1,7 @@
 import { Timestamp } from '@bufbuild/protobuf';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PresenceStatus as APIPresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
+import { RoomKind as APIRoomKind } from '@chatto/api-types/api/v1/rooms_pb';
 import { PresenceStatus } from '$lib/api-client/renderTypes';
 import { createNotificationAPI, NotificationItemKind } from '$lib/api-client/notifications';
 
@@ -160,4 +161,45 @@ describe('createNotificationAPI', () => {
     );
   });
 
+  it('maps voice call notifications with their room destination', async () => {
+    mocks.listNotifications.mockResolvedValue({
+      page: { totalCount: 1n, hasMore: false },
+      notifications: [
+        {
+          id: 'voice-call-notification',
+          createdAt: Timestamp.fromDate(new Date('2026-07-22T12:00:00Z')),
+          actor: {
+            id: 'starter',
+            login: 'alice',
+            displayName: 'Alice',
+            deleted: false,
+            presenceStatus: APIPresenceStatus.ONLINE
+          },
+          kind: {
+            case: 'voiceCallStarted',
+            value: {
+              room: { id: 'room-1', name: 'general', kind: APIRoomKind.CHANNEL },
+              callId: 'call-1'
+            }
+          }
+        }
+      ]
+    });
+
+    const api = createNotificationAPI({ baseUrl: '/api/connect', bearerToken: null });
+
+    await expect(api.listNotifications()).resolves.toEqual({
+      totalCount: 1,
+      hasMore: false,
+      items: [
+        expect.objectContaining({
+          kind: NotificationItemKind.VoiceCallStarted,
+          id: 'voice-call-notification',
+          summary: 'Alice started a voice call',
+          callRoom: { id: 'room-1', name: 'general', isDM: false },
+          callId: 'call-1'
+        })
+      ]
+    });
+  });
 });

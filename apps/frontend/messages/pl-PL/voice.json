@@ -8,6 +8,7 @@
     "join": "Dołącz do połączenia głosowego",
     "join_call": "Dołącz do rozmowy",
     "start_call": "Rozpocznij połączenie",
+    "notification_started_by": "Rozpoczęto połączenie głosowe — {name}",
     "leave": "Opuść połączenie",
     "share_screen": "Udostępnij ekran",
     "stop_share_screen": "Zatrzymaj udostępnianie ekranu",

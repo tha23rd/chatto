@@ -8,6 +8,7 @@
     "join": "Rejoindre un appel vocal",
     "join_call": "Rejoindre l'appel",
     "start_call": "Démarrer l'appel",
+    "notification_started_by": "{name} a lancé un appel vocal",
     "leave": "Quitter l'appel",
     "share_screen": "Partager l'écran",
     "stop_share_screen": "Arrêter le partage d'écran",

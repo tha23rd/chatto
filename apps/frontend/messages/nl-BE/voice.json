@@ -8,6 +8,7 @@
     "join": "Neem deel aan een spraakoproep",
     "join_call": "Neem deel aan het gesprek",
     "start_call": "Start gesprek",
+    "notification_started_by": "{name} is een spraakgesprek begonnen",
     "leave": "Gesprek verlaten",
     "share_screen": "Deel scherm",
     "stop_share_screen": "Scherm delen stoppen",
