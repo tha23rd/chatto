@@ -25,7 +25,12 @@
       "description": "Description",
       "description_placeholder": "Optional description for this role",
       "pingable": "Allow people to ping this role",
-      "pingable_description": "Pingable roles appear in @ autocomplete and notify assigned room members."
+      "pingable_description": "Pingable roles appear in @ autocomplete and notify assigned room members.",
+      "colour": "Role colour",
+      "colour_description": "The highest assigned role with a colour sets a member's name colour.",
+      "default_colour": "Default",
+      "colour_updated": "Role colour updated",
+      "colour_update_failed": "Could not update role colour"
     },
     "permissions": {
       "loading": "Loading permissions...",

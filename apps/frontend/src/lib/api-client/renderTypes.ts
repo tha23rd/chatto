@@ -113,6 +113,8 @@ export type UserAvatarUserView = {
   avatarUrl?: string | null;
   presenceStatus: PresenceStatus;
   customStatus?: CustomUserStatusView | null;
+  /** Effective 24-bit RGB colour from the user's highest coloured role. */
+  roleColor?: number | null;
   /**
    * True when this identity is a synthetic channel-webhook author (FDR-902)
    * rather than a human account. Drives the "automated" badge on messages.

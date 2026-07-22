@@ -317,7 +317,10 @@ type CreateRoleRequest struct {
 	// Optional role description.
 	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	// Whether messages may notify users assigned to this role.
-	Pingable      bool `protobuf:"varint,4,opt,name=pingable,proto3" json:"pingable,omitempty"`
+	Pingable bool `protobuf:"varint,4,opt,name=pingable,proto3" json:"pingable,omitempty"`
+	// Optional 24-bit RGB colour used for member names. Zero uses the client
+	// theme's default colour.
+	Color         uint32 `protobuf:"varint,5,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -380,6 +383,13 @@ func (x *CreateRoleRequest) GetPingable() bool {
 	return false
 }
 
+func (x *CreateRoleRequest) GetColor() uint32 {
+	if x != nil {
+		return x.Color
+	}
+	return 0
+}
+
 // Result of creating a role.
 type CreateRoleResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -436,7 +446,10 @@ type UpdateRoleRequest struct {
 	// Role description, when changing it. Empty clears the description.
 	Description *string `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	// Whether messages may notify users assigned to this role, when changing it.
-	Pingable      *bool `protobuf:"varint,4,opt,name=pingable,proto3,oneof" json:"pingable,omitempty"`
+	Pingable *bool `protobuf:"varint,4,opt,name=pingable,proto3,oneof" json:"pingable,omitempty"`
+	// 24-bit RGB colour, when changing it. Zero restores the client theme's
+	// default colour.
+	Color         *uint32 `protobuf:"varint,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -497,6 +510,13 @@ func (x *UpdateRoleRequest) GetPingable() bool {
 		return *x.Pingable
 	}
 	return false
+}
+
+func (x *UpdateRoleRequest) GetColor() uint32 {
+	if x != nil && x.Color != nil {
+		return *x.Color
+	}
+	return 0
 }
 
 // Result of updating a role.
@@ -750,22 +770,27 @@ const file_chatto_admin_v1_roles_proto_rawDesc = "" +
 	"\x04role\x18\x01 \x01(\v2\x1a.chatto.admin.v1.AdminRoleR\x04role\x12)\n" +
 	"\x05users\x18\x02 \x03(\v2\x13.chatto.api.v1.UserR\x05users\x125\n" +
 	"\x17viewer_can_manage_roles\x18\x03 \x01(\bR\x14viewerCanManageRoles\x125\n" +
-	"\x17viewer_can_assign_roles\x18\x04 \x01(\bR\x14viewerCanAssignRoles\"\xa4\x01\n" +
+	"\x17viewer_can_assign_roles\x18\x04 \x01(\bR\x14viewerCanAssignRoles\"\xc6\x01\n" +
 	"\x11CreateRoleRequest\x12\x1b\n" +
 	"\x04name\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04name\x12*\n" +
 	"\fdisplay_name\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x18PR\vdisplayName\x12*\n" +
 	"\vdescription\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\vdescription\x12\x1a\n" +
-	"\bpingable\x18\x04 \x01(\bR\bpingable\"D\n" +
+	"\bpingable\x18\x04 \x01(\bR\bpingable\x12 \n" +
+	"\x05color\x18\x05 \x01(\rB\n" +
+	"\xbaH\a*\x05\x18\xff\xff\xff\aR\x05color\"D\n" +
 	"\x12CreateRoleResponse\x12.\n" +
-	"\x04role\x18\x01 \x01(\v2\x1a.chatto.admin.v1.AdminRoleR\x04role\"\xe1\x01\n" +
+	"\x04role\x18\x01 \x01(\v2\x1a.chatto.admin.v1.AdminRoleR\x04role\"\x92\x02\n" +
 	"\x11UpdateRoleRequest\x12\x1b\n" +
 	"\x04name\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04name\x12/\n" +
 	"\fdisplay_name\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x18PH\x00R\vdisplayName\x88\x01\x01\x12/\n" +
 	"\vdescription\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03H\x01R\vdescription\x88\x01\x01\x12\x1f\n" +
-	"\bpingable\x18\x04 \x01(\bH\x02R\bpingable\x88\x01\x01B\x0f\n" +
+	"\bpingable\x18\x04 \x01(\bH\x02R\bpingable\x88\x01\x01\x12%\n" +
+	"\x05color\x18\x05 \x01(\rB\n" +
+	"\xbaH\a*\x05\x18\xff\xff\xff\aH\x03R\x05color\x88\x01\x01B\x0f\n" +
 	"\r_display_nameB\x0e\n" +
 	"\f_descriptionB\v\n" +
-	"\t_pingable\"D\n" +
+	"\t_pingableB\b\n" +
+	"\x06_color\"D\n" +
 	"\x12UpdateRoleResponse\x12.\n" +
 	"\x04role\x18\x01 \x01(\v2\x1a.chatto.admin.v1.AdminRoleR\x04role\"0\n" +
 	"\x11DeleteRoleRequest\x12\x1b\n" +

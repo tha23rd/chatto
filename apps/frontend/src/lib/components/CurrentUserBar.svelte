@@ -31,6 +31,7 @@ to the user settings page for the active server.
   import UserAvatar from './UserAvatar.svelte';
   import UserCustomStatusBadge from './UserCustomStatusBadge.svelte';
   import UserCustomStatusEditor from './UserCustomStatusEditor.svelte';
+  import { roleColorToCSS } from '$lib/roleColors';
 
   const connection = useConnection();
   const presenceCache = getPresenceCache();
@@ -311,7 +312,9 @@ to the user settings page for the active server.
         data-testid="current-user-identity-text"
       >
         <span class="flex min-w-0 items-center gap-1.5 overflow-hidden text-sm font-semibold">
-          <span class="min-w-0 truncate">{displayName}</span>
+          <span class="min-w-0 truncate" style:color={roleColorToCSS(activeServerUser.roleColor)}
+            >{displayName}</span
+          >
           <UserCustomStatusBadge status={activeServerUser.customStatus} class="text-xs" />
         </span>
         <span class="truncate text-xs text-muted">@{login}</span>

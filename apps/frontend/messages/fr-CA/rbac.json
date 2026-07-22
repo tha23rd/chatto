@@ -25,7 +25,12 @@
       "description": "Description",
       "description_placeholder": "Description facultative pour ce rôle",
       "pingable": "Permettre aux utilisateurs d'envoyer une requête ping à ce rôle",
-      "pingable_description": "Les rôles pingables apparaissent dans @ autocomplete et informent les membres assignés à la salle."
+      "pingable_description": "Les rôles pingables apparaissent dans @ autocomplete et informent les membres assignés à la salle.",
+      "colour": "Couleur du rôle",
+      "colour_description": "Le rôle assigné le plus élevé doté d'une couleur détermine la couleur du nom du membre.",
+      "default_colour": "Par défaut",
+      "colour_updated": "Couleur du rôle mise à jour",
+      "colour_update_failed": "Impossible de mettre à jour la couleur du rôle"
     },
     "permissions": {
       "loading": "Chargement des autorisations...",

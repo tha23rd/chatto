@@ -47,7 +47,7 @@ has not declared a lower bound for the bundled Chatto web client.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `protocol_capabilities` | `repeated string` | Stable protocol capability keys supported by this server. Current keys: `chatto.discovery.v1`, `chatto.auth.v1`, `chatto.api.v1`, `chatto.admin.v1`, `chatto.realtime.v1`, and `chatto.realtime.projection.v1`. |
+| `protocol_capabilities` | `repeated string` | Stable protocol capability keys supported by this server. Current keys: `chatto.discovery.v1`, `chatto.auth.v1`, `chatto.api.v1`, `chatto.admin.v1`, `chatto.realtime.v1`, `chatto.realtime.projection.v1`, and `chatto.role-colors.v1`. |
 | `minimum_web_client_version` | `optional string` | Oldest bundled Chatto web-client version this server supports, when a lower bound is required. Third-party clients should use capabilities. |
 
 <a id="chatto-api-v1-AudioUpload"></a>
@@ -155,6 +155,7 @@ Public user fields.
 | `presence_status` | [`PresenceStatus`](#chatto-api-v1-PresenceStatus) | Current live presence status. |
 | `custom_status` | [`CustomUserStatus`](#chatto-api-v1-CustomUserStatus) | Custom profile status, when set. |
 | `kind` | [`UserKind`](#chatto-api-v1-UserKind) | Account kind. When automated (e.g. a channel webhook identity), clients may render an "automated" marker. Empty/unspecified means a human account. |
+| `role_color` | `optional uint32` | Effective 24-bit RGB colour from the highest positioned assigned role that has a colour. Absent when the client should use its theme default. |
 
 <a id="chatto-api-v1-NotificationPreference"></a>
 
@@ -835,6 +836,7 @@ Public role metadata used for rendering role mentions, labels, and catalogs.
 | `is_system` | `bool` | Whether this is a built-in role. |
 | `position` | `int32` | Display/order position. |
 | `pingable` | `bool` | Whether messages may notify users assigned to this role. |
+| `color` | `uint32` | Optional 24-bit RGB colour used for member names. Zero uses the client theme's default colour. |
 
 <a id="chatto-api-v1-RoomGroup"></a>
 

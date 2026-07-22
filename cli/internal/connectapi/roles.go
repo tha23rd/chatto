@@ -118,6 +118,7 @@ func (s *roleService) CreateRole(ctx context.Context, req *connect.Request[admin
 		DisplayName: req.Msg.GetDisplayName(),
 		Description: req.Msg.GetDescription(),
 		Pingable:    &pingable,
+		Color:       req.Msg.GetColor(),
 	})
 	if err != nil {
 		return nil, connectError(err)
@@ -135,6 +136,7 @@ func (s *roleService) UpdateRole(ctx context.Context, req *connect.Request[admin
 		DisplayName: req.Msg.DisplayName,
 		Description: req.Msg.Description,
 		Pingable:    req.Msg.Pingable,
+		Color:       req.Msg.Color,
 	})
 	if err != nil {
 		return nil, connectError(err)
@@ -184,6 +186,7 @@ func publicAPIRole(role *core.RoleWithPermissions) *apiv1.Role {
 		IsSystem:    role.IsSystem,
 		Position:    role.Position,
 		Pingable:    role.Pingable,
+		Color:       role.Color,
 	}
 }
 
@@ -220,6 +223,7 @@ func (s *roleService) apiRoleUsers(ctx context.Context, users []core.RoleUserSum
 			Deleted:        user.Deleted,
 			PresenceStatus: corePresenceStatusToAPI(presence),
 			CustomStatus:   coreCustomStatusToAPI(user.CustomStatus),
+			RoleColor:      publicUserRoleColor(s.api.core, user.ID),
 		})
 	}
 	return out

@@ -60,6 +60,7 @@
   import { createRoomCommandAPI } from '$lib/api-client/rooms';
   import { isMessagePostedEvent } from '$lib/render/eventKinds';
   import * as m from '$lib/i18n/messages';
+  import { roleColorToCSS } from '$lib/roleColors';
 
   // Long-press thresholds in milliseconds
   const HIGHLIGHT_DELAY_MS = 150; // Delay before showing visual feedback (avoids flicker on scroll)
@@ -120,6 +121,7 @@
         ? getLiveDisplayName(actor.id, actor.displayName || actor.login)
         : m['common.deleted_user']())
   );
+  const displayNameColor = $derived(webhookOverride ? undefined : roleColorToCSS(actor?.roleColor));
 
   const actorCallPresence = $derived(
     !deletedActor && actor ? activeCallRooms.getParticipantCallPresence(roomId, actor.id) : null
@@ -539,6 +541,7 @@
         login: actor.login,
         displayName: actor.displayName,
         avatarUrl: actor.avatarUrl,
+        roleColor: actor.roleColor,
         presenceStatus: actor.presenceStatus
       };
     }
@@ -568,6 +571,7 @@
         login: replyActor.login,
         displayName: replyActor.displayName,
         avatarUrl: replyActor.avatarUrl,
+        roleColor: replyActor.roleColor,
         presenceStatus: replyActor.presenceStatus
       };
     }
@@ -802,7 +806,11 @@
                 }}
               >
                 <UserAvatar user={replyPreview.actor} size="xs" />
-                <strong class="truncate font-medium">{replyPreview.name}</strong>
+                <strong
+                  class="truncate font-medium"
+                  style:color={roleColorToCSS(replyPreview.actor.roleColor)}
+                  >{replyPreview.name}</strong
+                >
                 {@render callPresenceIcon(replyCallPresence)}
               </button>
             {:else if replyPreview.deleted}
@@ -835,7 +843,7 @@
                   showPopoverForActor(e);
                 }}
               >
-                <span>{displayName}</span>
+                <span style:color={displayNameColor}>{displayName}</span>
                 {@render callPresenceIcon(actorCallPresence)}
               </button>
               {#if isWebhookMessage}

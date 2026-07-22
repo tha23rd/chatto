@@ -25,7 +25,12 @@
       "description": "Beschrijving",
       "description_placeholder": "Optionele beschrijving voor deze rol",
       "pingable": "Sta toe dat mensen deze rol pingen",
-      "pingable_description": "Pingbare rollen verschijnen in @ autocomplete en stellen toegewezen kamerleden op de hoogte."
+      "pingable_description": "Pingbare rollen verschijnen in @ autocomplete en stellen toegewezen kamerleden op de hoogte.",
+      "colour": "Rolkleur",
+      "colour_description": "De hoogst toegewezen rol met een kleur bepaalt de kleur van de ledennaam.",
+      "default_colour": "Standaard",
+      "colour_updated": "Rolkleur bijgewerkt",
+      "colour_update_failed": "Rolkleur kon niet worden bijgewerkt"
     },
     "permissions": {
       "loading": "Rechten laden...",

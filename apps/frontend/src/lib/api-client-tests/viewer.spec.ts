@@ -41,6 +41,7 @@ describe('getCurrentUserViaConnect', () => {
           login: 'alice',
           displayName: 'Alice',
           avatarUrl: 'https://cdn/avatar.webp',
+          roleColor: 0x336699,
           customStatus: {
             emoji: ':wave:',
             text: 'here',
@@ -78,6 +79,7 @@ describe('getCurrentUserViaConnect', () => {
       login: 'alice',
       displayName: 'Alice',
       avatarUrl: 'https://cdn/avatar.webp',
+      roleColor: 0x336699,
       customStatus: {
         emoji: ':wave:',
         text: 'here',

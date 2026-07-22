@@ -3,6 +3,7 @@ package connectapi
 import (
 	"context"
 
+	"hmans.de/chatto/internal/core"
 	apiv1 "hmans.de/chatto/internal/pb/chatto/api/v1"
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
 )
@@ -28,6 +29,7 @@ func (s *userService) userSummaryWithPresence(ctx context.Context, user *corev1.
 		PresenceStatus: corePresenceStatusToAPI(presence),
 		CustomStatus:   coreCustomStatusToAPI(user.GetCustomStatus()),
 		Kind:           coreUserKindToAPI(user.GetKind()),
+		RoleColor:      publicUserRoleColor(s.api.core, user.GetId()),
 	}
 	avatarURL, err := s.userAvatarURL(ctx, user.GetId(), avatar)
 	if err != nil {
@@ -37,6 +39,14 @@ func (s *userService) userSummaryWithPresence(ctx context.Context, user *corev1.
 		summary.AvatarUrl = stringPtr(s.api.absolutizeAssetURL(ctx, avatarURL))
 	}
 	return summary, nil
+}
+
+func publicUserRoleColor(c *core.ChattoCore, userID string) *uint32 {
+	color := c.UserRoleColor(userID)
+	if color == 0 {
+		return nil
+	}
+	return &color
 }
 
 // coreUserKindToAPI maps the durable user kind to its public API enum.

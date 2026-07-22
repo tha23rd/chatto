@@ -285,6 +285,7 @@ func (s *adminUserManagementService) adminMemberUser(ctx context.Context, member
 		Deleted:        member.Deleted,
 		PresenceStatus: corePresenceStatusToAPI(presence),
 		CustomStatus:   coreCustomStatusToAPI(member.CustomStatus),
+		RoleColor:      publicUserRoleColor(s.api.core, member.ID),
 	}
 }
 

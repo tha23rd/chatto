@@ -9,7 +9,7 @@ import (
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
 )
 
-const rbacSnapshotContractID = "v1"
+const rbacSnapshotContractID = "v2"
 
 func (*RBACProjection) SnapshotContractID() string { return rbacSnapshotContractID }
 

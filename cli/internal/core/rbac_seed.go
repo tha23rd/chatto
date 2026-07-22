@@ -121,6 +121,7 @@ func rbacSeedEntries(roles map[string]*corev1.Role, assignments []rbacSeedAssign
 				Description: role.GetDescription(),
 				Rank:        role.GetPosition(),
 				Pingable:    role.GetPingable(),
+				Color:       role.GetColor(),
 			},
 		}})
 		entries = append(entries, events.BatchEntry{Subject: rbacSubjectForEvent(event), Event: event})

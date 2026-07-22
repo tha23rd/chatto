@@ -15,6 +15,7 @@ export type UserSummary = {
   displayName: string;
   deleted: boolean;
   avatarUrl: string | null;
+  roleColor?: number | null;
 };
 
 export function createUserAPI(config: UserAPIConfig) {
@@ -50,5 +51,6 @@ export function mapUserSummary(user: APIUser): UserSummary {
     displayName: user.displayName,
     deleted: user.deleted,
     avatarUrl: user.avatarUrl || null,
+    roleColor: user.roleColor ?? null,
   };
 }

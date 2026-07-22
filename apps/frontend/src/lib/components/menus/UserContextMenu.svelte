@@ -27,6 +27,7 @@ ContextMenu, which handles both modes automatically.
     type CustomUserStatus
   } from '$lib/state/userProfiles.svelte';
   import * as m from '$lib/i18n/messages';
+  import { roleColorToCSS } from '$lib/roleColors';
 
   let {
     user,
@@ -42,6 +43,7 @@ ContextMenu, which handles both modes automatically.
       id: string;
       login: string;
       displayName: string;
+      roleColor?: number | null;
       avatarUrl?: string | null;
       presenceStatus: PresenceStatus;
       customStatus?: CustomUserStatus | null;
@@ -79,7 +81,9 @@ ContextMenu, which handles both modes automatically.
     <div class="flex items-center gap-3 p-3">
       <UserAvatar {user} size="md" />
       <div class="min-w-0 flex-1">
-        <div class="truncate font-semibold">{displayName}</div>
+        <div class="truncate font-semibold" style:color={roleColorToCSS(user.roleColor)}>
+          {displayName}
+        </div>
         <div class="truncate text-xs text-muted">@{getLiveLogin(user.id, user.login)}</div>
         <UserCustomStatusBadge status={customStatus} showText class="mt-1 max-w-full" />
       </div>
