@@ -195,7 +195,14 @@ func (c *ChattoCore) RecordCallParticipantJoined(ctx context.Context, kind RoomK
 	if c.callModel == nil {
 		return fmt.Errorf("call model is not initialized")
 	}
-	return c.callModel.AppendJoined(ctx, roomID, userID, source)
+	result, err := c.callModel.appendParticipantTransition(ctx, roomID, userID, true, "", source)
+	if err != nil {
+		return err
+	}
+	if result.startedCallID != "" && source == corev1.CallParticipantEventSource_CALL_PARTICIPANT_EVENT_SOURCE_USER {
+		c.notifyVoiceCallStarted(ctx, kind, roomID, userID, result.startedCallID)
+	}
+	return nil
 }
 
 func (c *ChattoCore) RecordCallParticipantLeft(ctx context.Context, kind RoomKind, roomID, userID string, source corev1.CallParticipantEventSource) error {

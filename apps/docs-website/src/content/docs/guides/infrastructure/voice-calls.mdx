@@ -14,9 +14,9 @@ LiveKit runs as a **separate service** alongside Chatto. Chatto handles authenti
 1. A user joins the call from the room header.
 2. Chatto verifies the user's room membership and generates a short-lived LiveKit JWT token.
 3. The user's browser connects directly to the LiveKit server using the token and a per-call E2EE key from Chatto.
-4. Other room members see active call indicators update in real time.
+4. Other non-muted room members receive a call-start notification and see active call indicators update in real time.
 
-The first person to select **Start call** and join creates the call and a fresh E2EE key. When the last person leaves, the call ends and Chatto shreds that key.
+The first person to select **Start call** and join creates the call and a fresh E2EE key. Chatto sends one notification to every other current room member unless they have muted the room; later joins do not send more call-start notifications. Do Not Disturb keeps the notification in the notification centre but suppresses its sound and Web Push. When the last person leaves, the call ends and Chatto shreds that key.
 
 Screen sharing can include audio from a browser tab when the browser supports it. In Chrome, select a browser tab and enable **Share tab audio** in the browser picker. Chatto does not request whole-system audio because that could capture remote call playback and feed it back into the room.
 
@@ -200,6 +200,7 @@ Use a dedicated TURN server such as [coturn](https://github.com/coturn/coturn) w
 - **Camera toggle** — Turn your camera on and off during a call
 - **Video device selection** — Switch between cameras without leaving the call
 - **Active call indicators** — Rooms with active calls show a call indicator in the room list
+- **Call-start notifications** — Other non-muted room members receive one notification when a new call session starts
 - **Audio level visualization** — Participant avatars pulse with accent-colored rings based on speaking volume
 
 ## Disabling Voice & Video Calls

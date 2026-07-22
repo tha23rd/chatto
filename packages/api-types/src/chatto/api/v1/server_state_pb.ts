@@ -132,7 +132,7 @@ export class ServerRuntimeConfig extends Message<ServerRuntimeConfig> {
    * Message edit window in seconds, counted from the time a message was
    * posted. 0 means there is no time limit: authors can edit their own
    * messages indefinitely. Chatto has reported 0 since 0.5.0; clients should
-   * treat any value <= 0 as "no limit" rather than "already expired".
+   * treat any non-positive value as "no limit" rather than "already expired".
    *
    * @generated from field: int32 message_edit_window_seconds = 8;
    */

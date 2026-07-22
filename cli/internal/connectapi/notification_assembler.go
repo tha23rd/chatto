@@ -76,6 +76,19 @@ func (a *notificationAssembler) itemWithPresence(ctx context.Context, notificati
 		CreatedAt: notification.GetCreatedAt(),
 		Actor:     actor,
 	}
+	if call := notification.GetVoiceCallStartedDetails(); call != nil {
+		room, err := a.room(ctx, call.GetRoomId())
+		if err != nil {
+			return nil, err
+		}
+		item.Kind = &apiv1.NotificationItem_VoiceCallStarted{
+			VoiceCallStarted: &apiv1.VoiceCallStartedNotification{
+				Room:   room,
+				CallId: call.GetCallId(),
+			},
+		}
+		return item, nil
+	}
 
 	switch payload := notification.GetNotification().(type) {
 	case *corev1.Notification_DmMessage:

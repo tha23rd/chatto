@@ -7,7 +7,9 @@ import type {
 } from '@chatto/api-types/api/v1/notifications_pb';
 import type { User as APIUser } from '@chatto/api-types/api/v1/users_pb';
 import { PresenceStatus as APIPresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
+import { RoomKind as APIRoomKind } from '@chatto/api-types/api/v1/rooms_pb';
 import { PresenceStatus } from './renderTypes.js';
+import * as m from '$lib/i18n/messages';
 
 export type NotificationAPIConfig = {
   baseUrl: string;
@@ -33,7 +35,8 @@ export const NotificationItemKind = {
   DirectMessage: 'directMessage',
   Mention: 'mention',
   Reply: 'reply',
-  RoomMessage: 'roomMessage'
+  RoomMessage: 'roomMessage',
+  VoiceCallStarted: 'voiceCallStarted'
 } as const;
 
 export type NotificationItemKind = (typeof NotificationItemKind)[keyof typeof NotificationItemKind];
@@ -80,11 +83,22 @@ export type RoomMessageNotificationItem = {
   roomMsgEventId: string;
 };
 
+export type VoiceCallStartedNotificationItem = {
+  kind: typeof NotificationItemKind.VoiceCallStarted;
+  id: string;
+  createdAt: string;
+  actor?: NotificationActor | null;
+  summary: string;
+  callRoom: { id: string; name: string; isDM: boolean } | null;
+  callId: string;
+};
+
 export type NotificationItem =
   | DirectMessageNotificationItem
   | MentionNotificationItem
   | ReplyNotificationItem
-  | RoomMessageNotificationItem;
+  | RoomMessageNotificationItem
+  | VoiceCallStartedNotificationItem;
 
 export type NotificationPage = {
   items: NotificationItem[];
@@ -205,12 +219,29 @@ function notificationItem(item: APINotificationItem): NotificationItem | null {
           : null,
         roomMsgEventId: item.kind.value.eventId
       };
+    case 'voiceCallStarted':
+      return {
+        kind: NotificationItemKind.VoiceCallStarted,
+        ...base,
+        summary: notificationSummary(actor, NotificationItemKind.VoiceCallStarted),
+        callRoom: item.kind.value.room
+          ? {
+              id: item.kind.value.room.id,
+              name: item.kind.value.room.name,
+              isDM: item.kind.value.room.kind === APIRoomKind.DM
+            }
+          : null,
+        callId: item.kind.value.callId
+      };
     default:
       return null;
   }
 }
 
-function notificationSummary(actor: NotificationActor | null, kind: NotificationItemKind): string {
+export function notificationSummary(
+  actor: NotificationActor | null,
+  kind: NotificationItemKind
+): string {
   const actorName = actor?.displayName || null;
   switch (kind) {
     case NotificationItemKind.DirectMessage:
@@ -221,6 +252,8 @@ function notificationSummary(actor: NotificationActor | null, kind: Notification
       return actorName ? `${actorName} replied to your message` : 'New reply to your message';
     case NotificationItemKind.RoomMessage:
       return actorName ? `${actorName} posted a message` : 'New message';
+    case NotificationItemKind.VoiceCallStarted:
+      return m['voice.notification_started_by']({ name: actorName ?? m['common.deleted_user']() });
   }
 }
 

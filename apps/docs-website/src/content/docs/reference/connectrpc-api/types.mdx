@@ -773,6 +773,7 @@ One pending notification for the authenticated viewer.
 | `kind.mention` | [`MentionNotification`](#chatto-api-v1-MentionNotification) | Mention notification. |
 | `kind.reply` | [`ReplyNotification`](#chatto-api-v1-ReplyNotification) | Reply notification. |
 | `kind.room_message` | [`RoomMessageNotification`](#chatto-api-v1-RoomMessageNotification) | All-messages room notification. |
+| `kind.voice_call_started` | [`VoiceCallStartedNotification`](#chatto-api-v1-VoiceCallStartedNotification) | New voice call notification. |
 
 <a id="chatto-api-v1-ReplyNotification"></a>
 
@@ -808,6 +809,17 @@ Pending notification count for one room.
 | --- | --- | --- |
 | `room_id` | `string` | Room ID. |
 | `total_count` | `int32` | Pending notification count for the authenticated viewer in this room. |
+
+<a id="chatto-api-v1-VoiceCallStartedNotification"></a>
+
+### VoiceCallStartedNotification
+
+Notification that a new voice call started in a room.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `room` | [`RoomSummary`](#chatto-api-v1-RoomSummary) | Room where the call started. |
+| `call_id` | `string` | Voice call session ID. |
 
 <a id="chatto-api-v1-Role"></a>
 
@@ -950,7 +962,7 @@ Authenticated server runtime settings used by clients.
 | `video_processing_enabled` | `bool` | Whether video processing is enabled. |
 | `max_upload_size` | `int64` | Maximum general upload size in bytes. |
 | `max_video_upload_size` | `int64` | Maximum video upload size in bytes. |
-| `message_edit_window_seconds` | `int32` | Message edit window in seconds, counted from the time a message was posted. 0 means there is no time limit: authors can edit their own messages indefinitely. Chatto has reported 0 since 0.5.0; clients should treat any value <= 0 as "no limit" rather than "already expired". |
+| `message_edit_window_seconds` | `int32` | Message edit window in seconds, counted from the time a message was posted. 0 means there is no time limit: authors can edit their own messages indefinitely. Chatto has reported 0 since 0.5.0; clients should treat any non-positive value as "no limit" rather than "already expired". |
 | `screen_share` | [`ScreenShareConfig`](#chatto-api-v1-ScreenShareConfig) | Screen-share capture/encoding ceiling applied by clients when publishing a screen share. Server-configured so operators can tune quality without a client redeploy. |
 
 <a id="chatto-api-v1-Sound"></a>

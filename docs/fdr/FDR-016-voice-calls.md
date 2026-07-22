@@ -1,7 +1,7 @@
 # FDR-016: Voice Calls
 
 **Status:** Active
-**Last reviewed:** 2026-07-19
+**Last reviewed:** 2026-07-22
 
 ## Overview
 
@@ -24,6 +24,7 @@ Rooms support real-time voice conversations with optional camera video and scree
 - Losing room membership also removes the user from the room's active call. This includes voluntarily leaving the room, being removed by a moderator, being banned, and account-deletion cleanup. The affected client immediately hides that room's call roster and disconnects its local media when the membership change arrives. Chatto records the call leave from the membership transition and best-effort asks LiveKit to disconnect the participant; if that LiveKit removal fails, the room membership change still succeeds and reconciliation can catch up later.
 - Joined call participants hear fixed synthesized cues from durable participant join/leave events, including their own join/leave events and other participants in the same active call. These call cues are separate from configurable notification sounds and do not use notification sound filters; `CallEndedEvent` does not play a separate cue.
 - The first join starts a call session, creates fresh per-call E2EE key material, and records durable call lifecycle facts. The final leave ends the call, records the end fact, and shreds the call key.
+- When the first member explicitly starts a call, every other current room member whose effective notification level is not MUTED receives one persistent call-start notification. Later joins and LiveKit reconciliation do not create duplicates. DND recipients retain the notification without sound or Web Push.
 - Hanging up disconnects from LiveKit and clears the participant from everyone else's view.
 - New clients always enable LiveKit E2EE before connecting. Chatto distributes a KMS-backed per-call shared key with the LiveKit join token; the raw key is never written to EVT and is shredded when the call ends.
 - Screen sharing requests browser-tab audio when the browser supports it. In Chrome, the presenter must select a browser tab and enable **Share tab audio** in the browser picker. Chatto excludes whole-system audio so remote call playback is not captured and fed back into the room.
@@ -98,6 +99,12 @@ Rooms support real-time voice conversations with optional camera video and scree
 **Why:** The audience for a deafen indicator is exactly the peers in the LiveKit room, and the state is ephemeral with no durability or audit value. Attributes deliver only to those peers, sync automatically to late joiners, and keep deafen consistent with mute instead of routing transient UI presence through EVT projections and realtime fan-out. See ADR-009.
 **Tradeoff:** One additive grant flag (`canUpdateOwnMetadata`). Older servers that do not issue it reject the attribute write; deafen still works locally for the viewer, but remote tiles won't show the indicator until the server is upgraded. Non-participants who see the call roster but have not joined see neither mute nor deafen state, consistent with other LiveKit-only media state.
 
+### 12. The successful first join owns call-start notification fanout
+
+**Decision:** Only a `USER`-sourced participant transition that successfully appends the new `CallStartedEvent` fans out call-start notifications. The newly assigned call ID identifies that single transition; webhook and reconciliation sources never notify. Persisted notifications carry call-start details next to an existing room-message payload so older replicas can process the row safely during rollout, while upgraded API assemblers expose the additive `voice_call_started` public variant.
+**Why:** The durable call start and the invitation should share one session boundary. This prevents retries, media-server confirmations, and later participants from producing duplicate alerts while preserving the existing best-effort notification delivery model.
+**Tradeoff:** Notification records are derived immediately after the durable call transition rather than replayed from EVT, so a crash between those steps can lose the call-start notification even though the call remains active.
+
 ## Permissions
 
 - `voiceCallToken` query — requires room membership.
@@ -110,7 +117,7 @@ Voice calling doesn't have a dedicated permission today; room membership is the 
 ## Related
 
 - **ADRs:** ADR-009 (webhook-driven voice call state), ADR-012 (two-tier real-time events), ADR-020 (build-tag gated test endpoints), ADR-051 (server-scoped resumable client projection)
-- **FDRs:** FDR-001 (Roles & Permissions), FDR-019 (Room Lifecycle)
+- **FDRs:** FDR-001 (Roles & Permissions), FDR-012 (Notifications), FDR-013 (Web Push Notifications), FDR-019 (Room Lifecycle)
 
 ## Open Questions
 

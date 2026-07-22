@@ -8,6 +8,7 @@
     "join": "音声通話に参加する",
     "join_call": "通話に参加",
     "start_call": "通話を開始します",
+    "notification_started_by": "{name}さんが音声通話を開始しました",
     "leave": "通話を終了します",
     "share_screen": "画面共有",
     "stop_share_screen": "画面共有を停止します",

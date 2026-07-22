@@ -550,6 +550,38 @@ func TestBuildPayloadFromNotification(t *testing.T) {
 		}
 	})
 
+	t.Run("builds voice call started payload", func(t *testing.T) {
+		notif := &corev1.Notification{
+			Id: "notif-voice-call",
+			Notification: &corev1.Notification_RoomMessage{
+				RoomMessage: &corev1.RoomMessageNotification{RoomId: "room-calls"},
+			},
+			VoiceCallStartedDetails: &corev1.VoiceCallStartedNotification{
+				RoomId: "room-calls",
+				CallId: "call-123",
+			},
+		}
+		ctx := &PayloadContext{RoomName: "calls"}
+
+		payload := BuildPayloadFromNotification(notif, "Alice", baseURL, ctx)
+
+		if payload.Title != "@Alice started a voice call in #calls" {
+			t.Errorf("unexpected title %q", payload.Title)
+		}
+		if payload.Body != "" {
+			t.Errorf("expected empty body, got %q", payload.Body)
+		}
+		if payload.Tag != "voice-call-started-call-123" {
+			t.Errorf("unexpected tag %q", payload.Tag)
+		}
+		if payload.URL != "https://chatto.example.com/chat/-/room-calls" {
+			t.Errorf("unexpected URL %q", payload.URL)
+		}
+		if got := NotificationTag(notif); got != payload.Tag {
+			t.Errorf("NotificationTag() = %q, want %q", got, payload.Tag)
+		}
+	})
+
 	t.Run("escapes notification URL path segments and highlight query", func(t *testing.T) {
 		notif := &corev1.Notification{
 			Id: "notif-escaped",

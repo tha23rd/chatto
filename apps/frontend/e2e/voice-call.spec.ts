@@ -152,6 +152,29 @@ test.describe('Voice calls', () => {
     expect(token.token!.split('.')).toHaveLength(3);
   });
 
+  test('starting a call notifies other room members', async ({
+    page,
+    chatPage,
+    browser,
+    serverURL
+  }) => {
+    await createAndLoginTestUser(page);
+    await chatPage.goto();
+    await chatPage.enterRoom('general');
+    const roomId = await getRoomIdByNameViaConnect(page, 'general');
+
+    await withServerUser(browser!, serverURL, async ({ page: page2, user: starter }) => {
+      await joinRoomViaConnect(page2, roomId);
+      await expect(joinCallViaConnect(page2, roomId)).resolves.toBe(true);
+
+      await page.goto('/chat/notifications');
+      await expect(page.getByTestId('notification-item')).toContainText(
+        `${starter.displayName} started a voice call`,
+        { timeout: TIMEOUTS.REALTIME_EVENT }
+      );
+    });
+  });
+
   test('call token RPC requires room membership', async ({
     page,
     chatPage,

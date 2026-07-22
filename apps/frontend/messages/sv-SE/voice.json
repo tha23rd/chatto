@@ -8,6 +8,7 @@
     "join": "Gå med i röstsamtal",
     "join_call": "Gå med i samtalet",
     "start_call": "Starta samtalet",
+    "notification_started_by": "{name} startade ett röstsamtal",
     "leave": "Lämna samtalet",
     "share_screen": "Dela skärm",
     "stop_share_screen": "Sluta dela skärmen",

@@ -549,26 +549,26 @@ func fetchPayloadContext(ctx context.Context, chattoCore *core.ChattoCore, notif
 	var roomID, eventID string
 	var kind core.RoomKind
 
-	switch n := notification.Notification.(type) {
-	case *corev1.Notification_DmMessage:
-		kind = core.KindDM
-		roomID = n.DmMessage.RoomId
-		eventID = n.DmMessage.EventId
-	case *corev1.Notification_Mention:
-		roomID = n.Mention.RoomId
-		eventID = n.Mention.EventId
-	case *corev1.Notification_Reply:
-		roomID = n.Reply.RoomId
-		eventID = n.Reply.EventId
-	case *corev1.Notification_RoomMessage:
-		roomID = n.RoomMessage.RoomId
-		eventID = n.RoomMessage.EventId
-	default:
-		return nil
-	}
-
-	if eventID == "" {
-		return nil
+	if call := notification.GetVoiceCallStartedDetails(); call != nil {
+		roomID = call.GetRoomId()
+	} else {
+		switch n := notification.Notification.(type) {
+		case *corev1.Notification_DmMessage:
+			kind = core.KindDM
+			roomID = n.DmMessage.RoomId
+			eventID = n.DmMessage.EventId
+		case *corev1.Notification_Mention:
+			roomID = n.Mention.RoomId
+			eventID = n.Mention.EventId
+		case *corev1.Notification_Reply:
+			roomID = n.Reply.RoomId
+			eventID = n.Reply.EventId
+		case *corev1.Notification_RoomMessage:
+			roomID = n.RoomMessage.RoomId
+			eventID = n.RoomMessage.EventId
+		default:
+			return nil
+		}
 	}
 
 	payloadCtx := &push.PayloadContext{}
@@ -585,27 +585,29 @@ func fetchPayloadContext(ctx context.Context, chattoCore *core.ChattoCore, notif
 		}
 	}
 
-	// Fetch the message to get its body
-	event, err := chattoCore.GetRoomEventByEventID(ctx, kind, roomID, eventID)
-	if err != nil {
-		logger.Debug("Failed to fetch event for push notification preview",
-			"event_id", eventID,
-			"error", err)
-		return nil
-	}
-	if event == nil {
-		return nil
-	}
-
-	// Extract message body from the event
-	if _, ok := event.Event.(*corev1.Event_MessagePosted); ok {
-		body, err := chattoCore.GetMessageBody(ctx, kind, event.Id)
+	if eventID != "" {
+		// Fetch the message to get its body.
+		event, err := chattoCore.GetRoomEventByEventID(ctx, kind, roomID, eventID)
 		if err != nil {
-			logger.Debug("Failed to fetch message body for push notification preview",
-				"event_id", event.Id,
+			logger.Debug("Failed to fetch event for push notification preview",
+				"event_id", eventID,
 				"error", err)
-		} else {
-			payloadCtx.MessagePreview = body
+			return nil
+		}
+		if event == nil {
+			return nil
+		}
+
+		// Extract message body from the event.
+		if _, ok := event.Event.(*corev1.Event_MessagePosted); ok {
+			body, err := chattoCore.GetMessageBody(ctx, kind, event.Id)
+			if err != nil {
+				logger.Debug("Failed to fetch message body for push notification preview",
+					"event_id", event.Id,
+					"error", err)
+			} else {
+				payloadCtx.MessagePreview = body
+			}
 		}
 	}
 
@@ -617,7 +619,7 @@ func fetchPayloadContext(ctx context.Context, chattoCore *core.ChattoCore, notif
 			logger.Debug("Failed to fetch room for push notification",
 				"room_id", roomID,
 				"error", err)
-		} else if room != nil {
+		} else if room != nil && kind != core.KindDM {
 			payloadCtx.RoomName = room.Name
 		}
 	}

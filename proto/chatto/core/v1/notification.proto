@@ -35,6 +35,11 @@ message Notification {
     ReplyNotification reply = 102;
     RoomMessageNotification room_message = 103;
   }
+
+  // Call-start details stored alongside a legacy-compatible room_message
+  // payload. Older server replicas ignore this field but can still list,
+  // count, navigate to, and dismiss the notification during rolling upgrades.
+  VoiceCallStartedNotification voice_call_started_details = 5;
 }
 
 // ============================================================================
@@ -100,4 +105,14 @@ message RoomMessageNotification {
 
   // Event ID of the message
   string event_id = 3;
+}
+
+// VoiceCallStartedNotification is created when the first participant starts a
+// new voice call session. Every other non-muted room member is a recipient.
+message VoiceCallStartedNotification {
+  // Room where the call started.
+  string room_id = 1;
+
+  // Active call session ID.
+  string call_id = 2;
 }

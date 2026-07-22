@@ -1060,6 +1060,9 @@ const msg_voice_already_in_another_call = (): LocalizedString => messages().voic
 const msg_voice_join = (): LocalizedString => messages().voice_join(empty());
 const msg_voice_join_call = (): LocalizedString => messages().voice_join_call(empty());
 const msg_voice_start_call = (): LocalizedString => messages().voice_start_call(empty());
+const msg_voice_notification_started_by = (
+  inputs: Parameters<LocaleMessages['voice_notification_started_by']>[0]
+): LocalizedString => messages().voice_notification_started_by(inputs);
 const msg_voice_leave = (): LocalizedString => messages().voice_leave(empty());
 const msg_voice_share_screen = (): LocalizedString => messages().voice_share_screen(empty());
 const msg_voice_stop_share_screen = (): LocalizedString => messages().voice_stop_share_screen(empty());
@@ -2637,6 +2640,7 @@ export { msg_voice_already_in_another_call as 'voice.already_in_another_call' };
 export { msg_voice_join as 'voice.join' };
 export { msg_voice_join_call as 'voice.join_call' };
 export { msg_voice_start_call as 'voice.start_call' };
+export { msg_voice_notification_started_by as 'voice.notification_started_by' };
 export { msg_voice_leave as 'voice.leave' };
 export { msg_voice_share_screen as 'voice.share_screen' };
 export { msg_voice_stop_share_screen as 'voice.stop_share_screen' };
