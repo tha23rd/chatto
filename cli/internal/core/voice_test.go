@@ -739,6 +739,140 @@ func TestCallState_UserAndLiveKitReportsDoNotDuplicateTransitions(t *testing.T) 
 	}
 }
 
+func TestCallState_StartNotifiesOtherNonMutedRoomMembersOncePerCall(t *testing.T) {
+	core, _ := setupTestCore(t)
+	ctx := testContext(t)
+
+	actor, err := core.CreateUser(ctx, SystemActorID, "call-notification-actor", "Call Starter", "password")
+	if err != nil {
+		t.Fatalf("CreateUser(actor): %v", err)
+	}
+	normal, err := core.CreateUser(ctx, SystemActorID, "call-notification-normal", "Normal Recipient", "password")
+	if err != nil {
+		t.Fatalf("CreateUser(normal): %v", err)
+	}
+	muted, err := core.CreateUser(ctx, SystemActorID, "call-notification-muted", "Muted Recipient", "password")
+	if err != nil {
+		t.Fatalf("CreateUser(muted): %v", err)
+	}
+	dnd, err := core.CreateUser(ctx, SystemActorID, "call-notification-dnd", "DND Recipient", "password")
+	if err != nil {
+		t.Fatalf("CreateUser(dnd): %v", err)
+	}
+	room, err := core.CreateRoom(ctx, actor.Id, KindChannel, "", "call-notification-room", "")
+	if err != nil {
+		t.Fatalf("CreateRoom: %v", err)
+	}
+	for _, user := range []*corev1.User{actor, normal, muted, dnd} {
+		if _, err := core.JoinRoom(ctx, user.Id, KindChannel, user.Id, room.Id); err != nil {
+			t.Fatalf("JoinRoom(%s): %v", user.Id, err)
+		}
+	}
+	if err := core.SetRoomNotificationLevel(ctx, muted.Id, room.Id, corev1.NotificationLevel_NOTIFICATION_LEVEL_MUTED); err != nil {
+		t.Fatalf("SetRoomNotificationLevel(muted): %v", err)
+	}
+	if err := core.SetPresence(ctx, dnd.Id, PresenceStatusDoNotDisturb); err != nil {
+		t.Fatalf("SetPresence(dnd): %v", err)
+	}
+
+	pushRecipients := make(chan string, 4)
+	core.OnNotificationCreated = func(_ context.Context, notification *corev1.Notification) {
+		pushRecipients <- notification.GetRecipientId()
+	}
+	t.Cleanup(func() { core.OnNotificationCreated = nil })
+
+	start := func(userID string) {
+		t.Helper()
+		if err := core.RecordCallParticipantJoined(ctx, KindChannel, room.Id, userID, corev1.CallParticipantEventSource_CALL_PARTICIPANT_EVENT_SOURCE_USER); err != nil {
+			t.Fatalf("RecordCallParticipantJoined(%s): %v", userID, err)
+		}
+	}
+	leave := func(userID string) {
+		t.Helper()
+		if err := core.RecordCallParticipantLeft(ctx, KindChannel, room.Id, userID, corev1.CallParticipantEventSource_CALL_PARTICIPANT_EVENT_SOURCE_USER); err != nil {
+			t.Fatalf("RecordCallParticipantLeft(%s): %v", userID, err)
+		}
+	}
+	notificationsFor := func(userID string) []*corev1.Notification {
+		t.Helper()
+		notifications, err := core.GetNotifications(ctx, userID)
+		if err != nil {
+			t.Fatalf("GetNotifications(%s): %v", userID, err)
+		}
+		return notifications
+	}
+
+	start(actor.Id)
+	firstCallID := activeCallIDForTest(t, core, room.Id)
+	for _, userID := range []string{normal.Id, dnd.Id} {
+		notifications := notificationsFor(userID)
+		if len(notifications) != 1 {
+			t.Fatalf("notifications for %s = %d, want 1", userID, len(notifications))
+		}
+		started := notifications[0].GetVoiceCallStartedDetails()
+		if started.GetRoomId() != room.Id || started.GetCallId() != firstCallID || notifications[0].GetActorId() != actor.Id {
+			t.Fatalf("call-start notification for %s = %+v, want room %s call %s actor %s", userID, notifications[0], room.Id, firstCallID, actor.Id)
+		}
+		legacy := notifications[0].GetRoomMessage()
+		if legacy.GetRoomId() != room.Id || legacy.GetEventId() != "" {
+			t.Fatalf("legacy call-start carrier for %s = %+v, want room %s without message event", userID, legacy, room.Id)
+		}
+	}
+	if got := len(notificationsFor(actor.Id)); got != 0 {
+		t.Fatalf("starter notifications = %d, want 0", got)
+	}
+	if got := len(notificationsFor(muted.Id)); got != 0 {
+		t.Fatalf("muted notifications = %d, want 0", got)
+	}
+	if got := core.DismissRoomReadNotifications(ctx, KindChannel, normal.Id, room.Id, time.Now().Add(time.Hour)); got != 0 {
+		t.Fatalf("room read dismissed %d call-start notifications, want 0", got)
+	}
+
+	// Repeated intent and later participant joins do not start another call.
+	start(actor.Id)
+	start(normal.Id)
+	if got := len(notificationsFor(normal.Id)); got != 1 {
+		t.Fatalf("normal notifications after duplicate/later joins = %d, want 1", got)
+	}
+	if got := len(notificationsFor(dnd.Id)); got != 1 {
+		t.Fatalf("DND notifications after duplicate/later joins = %d, want 1", got)
+	}
+
+	// Ending and restarting creates a new notification with the new call ID.
+	leave(normal.Id)
+	leave(actor.Id)
+	start(actor.Id)
+	secondCallID := activeCallIDForTest(t, core, room.Id)
+	if secondCallID == firstCallID {
+		t.Fatalf("second call ID = first call ID %q", firstCallID)
+	}
+	for _, userID := range []string{normal.Id, dnd.Id} {
+		notifications := notificationsFor(userID)
+		if len(notifications) != 2 {
+			t.Fatalf("notifications for %s after second call = %d, want 2", userID, len(notifications))
+		}
+		if notifications[0].GetVoiceCallStartedDetails().GetCallId() != secondCallID {
+			t.Fatalf("newest call ID for %s = %q, want %q", userID, notifications[0].GetVoiceCallStartedDetails().GetCallId(), secondCallID)
+		}
+	}
+
+	for i := 0; i < 2; i++ {
+		select {
+		case recipientID := <-pushRecipients:
+			if recipientID != normal.Id {
+				t.Fatalf("push recipient = %q, want only normal recipient %q", recipientID, normal.Id)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for call-start push callback")
+		}
+	}
+	select {
+	case recipientID := <-pushRecipients:
+		t.Fatalf("unexpected extra push callback for %q", recipientID)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
 func TestCallState_RejoinAfterLeaveRecordsNewTransitions(t *testing.T) {
 	core, _ := setupTestCore(t)
 	ctx := testContext(t)

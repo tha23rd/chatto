@@ -194,6 +194,9 @@ func notificationTargetRoomID(notification *corev1.Notification) string {
 	if notification == nil {
 		return ""
 	}
+	if call := notification.GetVoiceCallStartedDetails(); call != nil {
+		return call.GetRoomId()
+	}
 	switch payload := notification.GetNotification().(type) {
 	case *corev1.Notification_DmMessage:
 		return payload.DmMessage.GetRoomId()

@@ -162,8 +162,10 @@ vi.mock('$lib/api-client/notifications', () => ({
     DirectMessage: 'directMessage',
     Mention: 'mention',
     Reply: 'reply',
-    RoomMessage: 'roomMessage'
+    RoomMessage: 'roomMessage',
+    VoiceCallStarted: 'voiceCallStarted'
   },
+  notificationSummary: vi.fn(() => 'New voice call'),
   mapNotificationPage: vi.fn((response) => ({
     items: [],
     totalCount: Number(response.page?.totalCount ?? 0),

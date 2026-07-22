@@ -5,12 +5,13 @@
 
 ## Overview
 
-Chatto has a persistent notification system surfaced through a bell icon and notification center. Notifications represent things the user should pay attention to: DMs, @mentions of users/roles/virtual groups, replies to their own messages, new posts in threads they follow, and (optionally) all messages in rooms they've subscribed to. Notification levels are configurable per space and per room.
+Chatto has a persistent notification system surfaced through a bell icon and notification center. Notifications represent things the user should pay attention to: DMs, @mentions of users/roles/virtual groups, replies to their own messages, new posts in threads they follow, voice calls started by another room member, and (optionally) all messages in rooms they've subscribed to. Notification levels are configurable per space and per room.
 
 ## Behavior
 
 - A bell icon shows an unread count and opens the notification center listing recent notifications.
-- A notification appears for: a DM message, a mention that resolves to the user, a reply to one of the user's messages, a new reply in a thread the user follows, or any root message in a room set to ALL_MESSAGES.
+- A notification appears for: a DM message, a mention that resolves to the user, a reply to one of the user's messages, a new reply in a thread the user follows, a voice call started by another member, or any root message in a room set to ALL_MESSAGES.
+- The first member to join a new call session notifies every other current room member whose effective notification level is not MUTED. Later participants joining the same call do not create another call-start notification, and the starter is not notified about their own action.
 - Mention notifications may come from direct `@username`, role `@role`, `@all`, or `@here` mentions. The bundled composer asks for confirmation before sending role, `@all`, or `@here` mentions, while API callers can post authorized messages directly.
 - Notifications auto-expire after 90 days.
 - Dismissing a notification removes it everywhere — across all the user's open tabs and devices.
@@ -26,7 +27,7 @@ Per space and per room, the user picks one of four levels:
 
 - **DEFAULT** — inherit from the parent (room → space → system default of NORMAL).
 - **MUTED** — suppress everything for this scope, including @mentions. The room doesn't even show as unread in the sidebar.
-- **NORMAL** — notifications for mentions, DMs, and thread replies. Default behavior.
+- **NORMAL** — notifications for mentions, DMs, thread replies, and voice calls started in the room. Default behavior.
 - **ALL_MESSAGES** — like NORMAL plus every root message in the room.
 
 ## Thread Follow
@@ -108,6 +109,12 @@ from API callers.
 **Why:** Reusing the notification model keeps the app icon, native taskbar, notification center, and sidebar from inventing separate attention state or clearing on different schedules.
 **Tradeoff:** Some operating systems expose only a generic dot or overlay rather than an exact count. The notification center remains the exhaustive source for what needs attention.
 
+### 12. Call-start notifications are scoped to the call session
+
+**Decision:** The explicit user join that creates a new call session also creates one persistent notification for every other current non-muted room member. Later joins, LiveKit webhook confirmations, and reconciliation do not fan out another notification. DND recipients keep the pending notification but receive neither sound nor Web Push. The persisted row stores call details alongside a legacy-compatible room-message payload, so an older server replica can still list, count, navigate to, and dismiss it during a rolling upgrade.
+**Why:** A call starting is a room-wide invitation worth surfacing at the normal notification level, while every participant join would create noisy duplicates. Tying fanout to the same successful transition that records `CallStartedEvent` makes the call session the idempotency boundary.
+**Tradeoff:** Every non-muted room member is notified even if they rarely participate in calls. Members who do not want call-start attention from a room must mute that room, which also suppresses its other notifications. An older server/client pair degrades the new row to generic room activity until upgraded, while upgraded clients receive the precise call-start presentation.
+
 ## Permissions
 
 Notification preferences are user-scoped and don't require special permissions to manage. There's no permission gating the ability to mute or change levels.
@@ -115,4 +122,4 @@ Notification preferences are user-scoped and don't require special permissions t
 ## Related
 
 - **ADRs:** ADR-012 (two-tier real-time events), ADR-028 (event-ID-keyed read state), ADR-036 (runtime state in `RUNTIME_STATE`), ADR-038 (room-owned thread state)
-- **FDRs:** FDR-006 (@Mentions), FDR-007 (Direct Messages), FDR-013 (Web Push Notifications)
+- **FDRs:** FDR-006 (@Mentions), FDR-007 (Direct Messages), FDR-013 (Web Push Notifications), FDR-016 (Voice Calls)

@@ -1040,6 +1040,14 @@ func TestNotificationTypeName(t *testing.T) {
 			expected: "room_message",
 		},
 		{
+			name: "voice_call_started",
+			notif: &corev1.Notification{
+				Notification:            &corev1.Notification_RoomMessage{RoomMessage: &corev1.RoomMessageNotification{}},
+				VoiceCallStartedDetails: &corev1.VoiceCallStartedNotification{},
+			},
+			expected: "voice_call_started",
+		},
+		{
 			name:     "unknown",
 			notif:    &corev1.Notification{},
 			expected: "unknown",

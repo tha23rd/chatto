@@ -1,11 +1,11 @@
 # FDR-013: Web Push Notifications
 
 **Status:** Active
-**Last reviewed:** 2026-07-10
+**Last reviewed:** 2026-07-22
 
 ## Overview
 
-Users can opt in to receive notifications through the browser's W3C Web Push system, so they get pinged for DMs, mentions, and replies even when the Chatto tab isn't open. Push is opt-in per device, requires operator configuration (VAPID keys), and piggybacks on the persistent notification system (see FDR-012).
+Users can opt in to receive notifications through the browser's W3C Web Push system, so they get pinged for DMs, mentions, replies, and newly started room calls even when the Chatto tab isn't open. Push is opt-in per device, requires operator configuration (VAPID keys), and piggybacks on the persistent notification system (see FDR-012).
 
 ## Behavior
 
@@ -18,7 +18,7 @@ Users can opt in to receive notifications through the browser's W3C Web Push sys
 - On iOS/iPadOS, Web Push is available only for Home Screen web apps on supported versions. Chatto treats Web Push as a notification trigger rather than authoritative app state and reconciles pending-notification count, native notifications, and dock badge state when the app is open.
 - Stored subscription fields are bounded: endpoint 4,096 bytes, public key 256 bytes, auth secret 128 bytes, and user agent 512 bytes.
 - A user can have multiple devices subscribed simultaneously — every device receives every push.
-- Push payloads include a mutable declarative-compatible notification envelope with a title, a truncated message preview (max 100 chars, broken at word boundaries), a navigation URL, and the pending app badge count when available. The legacy root fields remain present so older Chatto service workers can display the same notification during upgrades.
+- Push payloads include a mutable declarative-compatible notification envelope with a title, a navigation URL, and the pending app badge count when available. Message notifications can also include a truncated message preview (max 100 chars, broken at word boundaries); call-start notifications do not include message content. The legacy root fields remain present so older Chatto service workers can display the same notification during upgrades.
 - Clicking a push notification navigates to the relevant room, thread, or DM.
 - Dismissing a notification in one place sends a "dismiss" action push to other devices, closing the system notification there too.
 - Immediately before a regular push is sent, Chatto confirms that the notification is still pending and the exact prepared subscription is still active. This prevents slower asynchronous creation delivery from overtaking a dismissal or subscription rotation.
