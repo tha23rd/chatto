@@ -23,6 +23,7 @@ export interface TauriHostBindings {
   readonly registerPushToTalk: NativeHost['registerPushToTalk'];
   readonly onTrayAction: NativeHost['onTrayAction'];
   readonly setCallControls: NativeHost['setCallControls'];
+  readonly setTaskbarAttention: (active: boolean) => Promise<void>;
   readonly getDesktopUpdateState: NativeHost['getDesktopUpdateState'];
   readonly setDesktopUpdateChannel: NativeHost['setDesktopUpdateChannel'];
   readonly checkForDesktopUpdate: NativeHost['checkForDesktopUpdate'];
@@ -62,6 +63,7 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       nativeRealtime: true,
       globalPushToTalk: true,
       tray: true,
+      appBadge: true,
       desktopUpdates: true
     },
 
@@ -124,6 +126,10 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       return bindings.setCallControls(controls);
     },
 
+    setAppBadge(intent) {
+      return bindings.setTaskbarAttention(intent.kind !== 'clear');
+    },
+
     getDesktopUpdateState() {
       return bindings.getDesktopUpdateState();
     },
@@ -182,6 +188,7 @@ export const tauriNativeHost = createTauriNativeHost({
       }
     }),
   setCallControls: (controls) => invoke('set_call_controls', { controls }),
+  setTaskbarAttention: (active) => invoke('set_taskbar_attention', { active }),
   getDesktopUpdateState: () => invoke<DesktopUpdateSnapshot>('get_desktop_update_state'),
   setDesktopUpdateChannel: (channel) =>
     invoke<DesktopUpdateSnapshot>('set_desktop_update_channel', { channel }),

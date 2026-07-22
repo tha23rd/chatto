@@ -73,8 +73,9 @@ while the Tauri implementation supplies the approved operations.
 
 Callers select behavior from capabilities rather than platform names or host
 versions. The POC boundary covers native OAuth, HTTP fetch, realtime sockets,
-global push-to-talk, tray call controls, external URL opening, and lifecycle
-events. Inputs and events are validated at the narrowest owning layer.
+global push-to-talk, tray call controls, taskbar notification attention,
+external URL opening, and lifecycle events. Inputs and events are validated at
+the narrowest owning layer.
 
 Shared source does not require byte-identical builds. The desktop target
 disables the PWA service worker and SvelteKit version polling because packaged
@@ -202,6 +203,11 @@ documented rather than exposed as a new settings surface. If calls remain
 connected to multiple servers, the most recently started call owns the one
 process-wide shortcut and tray actions; ownership returns to the previous call
 when the newer call ends.
+
+The shared frontend remains authoritative for installed-app badge intent. The
+Windows host adapts any positive pending-notification intent to a red taskbar
+overlay dot and removes it on the shared clear intent. It does not create a
+second native unread count or derive attention from broker/storage details.
 
 Notifications after explicit process exit, launch-on-startup, deep links,
 inline notification replies, picture-in-picture, and a custom title bar are

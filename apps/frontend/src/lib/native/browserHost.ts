@@ -13,6 +13,7 @@ export const browserNativeHost: NativeHost = {
     nativeRealtime: false,
     globalPushToTalk: false,
     tray: false,
+    appBadge: false,
     desktopUpdates: false
   },
 
@@ -46,6 +47,8 @@ export const browserNativeHost: NativeHost = {
   },
 
   async setCallControls() {},
+
+  async setAppBadge() {},
 
   async getDesktopUpdateState() {
     return {

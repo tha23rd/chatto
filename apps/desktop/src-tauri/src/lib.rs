@@ -28,6 +28,7 @@ pub fn run() {
             realtime::realtime_send,
             realtime::realtime_disconnect,
             shell::set_call_controls,
+            shell::set_taskbar_attention,
             updates::get_desktop_update_state,
             updates::set_desktop_update_channel,
             updates::check_for_desktop_update,

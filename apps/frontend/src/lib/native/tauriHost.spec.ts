@@ -18,6 +18,7 @@ function bindings() {
     registerPushToTalk: vi.fn(async () => () => {}),
     onTrayAction: vi.fn(async () => () => {}),
     setCallControls: vi.fn(async () => {}),
+    setTaskbarAttention: vi.fn(async () => {}),
     quit: vi.fn(async () => {}),
     getDesktopUpdateState: vi.fn(async () => idleUpdate),
     setDesktopUpdateChannel: vi.fn(async () => idleUpdate),
@@ -38,8 +39,20 @@ describe('Tauri NativeHost', () => {
       nativeRealtime: true,
       globalPushToTalk: true,
       tray: true,
+      appBadge: true,
       desktopUpdates: true
     });
+  });
+
+  it('maps badge counts and flags to a Windows taskbar attention indicator', async () => {
+    const native = bindings();
+    const host = createTauriNativeHost(native);
+
+    await host.setAppBadge({ kind: 'count', count: 3 });
+    await host.setAppBadge({ kind: 'flag' });
+    await host.setAppBadge({ kind: 'clear' });
+
+    expect(native.setTaskbarAttention.mock.calls).toEqual([[true], [true], [false]]);
   });
 
   it('routes desktop updates through typed native bindings', async () => {

@@ -1,7 +1,7 @@
 # FDR-012: Notifications
 
 **Status:** Active
-**Last reviewed:** 2026-07-04
+**Last reviewed:** 2026-07-22
 
 ## Overview
 
@@ -14,8 +14,8 @@ Chatto has a persistent notification system surfaced through a bell icon and not
 - Mention notifications may come from direct `@username`, role `@role`, `@all`, or `@here` mentions. The bundled composer asks for confirmation before sending role, `@all`, or `@here` mentions, while API callers can post authorized messages directly.
 - Notifications auto-expire after 90 days.
 - Dismissing a notification removes it everywhere — across all the user's open tabs and devices.
-- A notification sound plays and the in-app and installed PWA notification badges update in real time as new notifications arrive.
-- The installed PWA dock badge reflects pending notifications only; ordinary unread rooms stay in the in-app sidebar unless the user has configured them to create notifications.
+- A notification sound plays and the in-app and installed-client notification badges update in real time as new notifications arrive.
+- Installed PWA dock badges and supported native-client taskbar indicators reflect pending notifications only; ordinary unread rooms stay in the in-app sidebar unless the user has configured them to create notifications.
 - Users can choose and locally shape the notification sound on each browser with volume, tone, and effect controls.
 - Sidebar orange dots for mentions, replies, DMs, and all-message subscriptions derive from pending notification records.
 - A recipient's Do Not Disturb presence still stores new notifications and updates counts, but those creation events are silent: no notification sound and no web push while DND is active.
@@ -101,6 +101,12 @@ from API callers.
 **Decision:** Do Not Disturb is checked at notification creation time. While the recipient has live DND presence, Chatto still creates the persistent notification and publishes a silent live sync event, but it suppresses legacy attention live events, notification sounds, and web push delivery.
 **Why:** DND means "do not interrupt me now", not "discard things I should review later". Storing the notification preserves missed activity in the notification center and sidebar counts, while the silent marker lets clients update state without making noise.
 **Tradeoff:** A user may see badge/sidebar changes while actively viewing Chatto in DND. That is less disruptive than sound or push, and it avoids losing important mentions or DMs.
+
+### 11. Installed-client badges share one pending-notification intent
+
+**Decision:** The foreground client derives one installed-app badge intent from its authoritative pending-notification state and publishes it to every supported installed-client surface. A PWA can show a direct-message count or a generic flag; a native shell can adapt the same intent to the attention indicator its operating system supports.
+**Why:** Reusing the notification model keeps the app icon, native taskbar, notification center, and sidebar from inventing separate attention state or clearing on different schedules.
+**Tradeoff:** Some operating systems expose only a generic dot or overlay rather than an exact count. The notification center remains the exhaustive source for what needs attention.
 
 ## Permissions
 

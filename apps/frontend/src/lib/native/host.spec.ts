@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import type { AppBadgeIntent } from '$lib/notifications/appBadge';
 import { browserNativeHost } from './browserHost';
 import {
   getNativeHost,
@@ -14,6 +15,21 @@ import type {
   NativeHost
 } from './types';
 
+const { badgeHandlers, registerAppBadgeHandler, unregisterAppBadgeHandler } = vi.hoisted(() => {
+  const badgeHandlers: Array<(intent: AppBadgeIntent) => Promise<void>> = [];
+  const unregisterAppBadgeHandler = vi.fn();
+  return {
+    badgeHandlers,
+    unregisterAppBadgeHandler,
+    registerAppBadgeHandler: vi.fn((handler: (intent: AppBadgeIntent) => Promise<void>) => {
+      badgeHandlers.push(handler);
+      return unregisterAppBadgeHandler;
+    })
+  };
+});
+
+vi.mock('$lib/notifications/appBadge', () => ({ registerAppBadgeHandler }));
+
 function desktopHost(): NativeHost {
   return {
     ...browserNativeHost,
@@ -24,6 +40,7 @@ function desktopHost(): NativeHost {
       nativeRealtime: true,
       globalPushToTalk: true,
       tray: true,
+      appBadge: true,
       desktopUpdates: true
     }
   };
@@ -31,13 +48,15 @@ function desktopHost(): NativeHost {
 
 afterEach(() => {
   resetNativeHostForTests();
+  badgeHandlers.length = 0;
+  vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
 
 describe('NativeHost selection', () => {
   it('uses the capability-free browser host by default', () => {
     expect(getNativeHost()).toBe(browserNativeHost);
-    expect(browserNativeHost.apiVersion).toBe(2);
+    expect(browserNativeHost.apiVersion).toBe(3);
     expect(browserNativeHost.kind).toBe('browser');
     expect(Object.values(browserNativeHost.capabilities)).toEqual([
       false,
@@ -45,8 +64,14 @@ describe('NativeHost selection', () => {
       false,
       false,
       false,
+      false,
       false
     ]);
+  });
+
+  it('keeps app badging unavailable and inert in the browser host', async () => {
+    expect(browserNativeHost.capabilities.appBadge).toBe(false);
+    await expect(browserNativeHost.setAppBadge({ kind: 'flag' })).resolves.toBeUndefined();
   });
 
   it('exposes the exact desktop update channel and phase contract', () => {
@@ -154,6 +179,21 @@ describe('NativeHost selection', () => {
     await expect(initializeNativeHost(true, loadDesktopHost)).resolves.toBe(tauri);
     expect(loadDesktopHost).toHaveBeenCalledOnce();
     expect(getNativeHost()).toBe(tauri);
+  });
+
+  it('connects the shared badge intent only while an app-badge host is active', async () => {
+    const tauri = desktopHost();
+    const setAppBadge = vi.spyOn(tauri, 'setAppBadge');
+
+    await initializeNativeHost(true, async () => tauri);
+
+    expect(registerAppBadgeHandler).toHaveBeenCalledOnce();
+    await badgeHandlers[0]({ kind: 'flag' });
+    expect(setAppBadge).toHaveBeenCalledWith({ kind: 'flag' });
+
+    resetNativeHostForTests();
+    expect(unregisterAppBadgeHandler).toHaveBeenCalledOnce();
+    expect(browserNativeHost.capabilities.appBadge).toBe(false);
   });
 
   it('does not load native bindings for an ordinary web build', async () => {
