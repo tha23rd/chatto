@@ -182,6 +182,7 @@ message Role {
   string description = 3;
   int32 position = 4; // Display/order position; not an authorization rank.
   bool pingable = 5; // Whether messages can ping users assigned to this role.
+  uint32 color = 6; // Optional 24-bit RGB member-name colour; zero means unset.
 }
 
 // UserPresenceStatus indicates a user's online presence status.

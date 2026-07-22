@@ -25,7 +25,12 @@
       "description": "Beskrivelse",
       "description_placeholder": "Valgfri beskrivelse for denne rollen",
       "pingable": "Tillat folk å pinge denne rollen",
-      "pingable_description": "Pingbare roller vises i @ autofullføring og varsler tildelte rommedlemmer."
+      "pingable_description": "Pingbare roller vises i @ autofullføring og varsler tildelte rommedlemmer.",
+      "colour": "Rollefarge",
+      "colour_description": "Den høyeste tildelte rollen med en farge bestemmer fargen på medlemmets navn.",
+      "default_colour": "Standard",
+      "colour_updated": "Rollefargen er oppdatert",
+      "colour_update_failed": "Kunne ikke oppdatere rollefargen"
     },
     "permissions": {
       "loading": "Laster inn tillatelser...",

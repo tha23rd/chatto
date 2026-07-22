@@ -33,6 +33,7 @@ type AdminRoleInput struct {
 	DisplayName string
 	Description string
 	Pingable    *bool
+	Color       uint32
 }
 
 type AdminRoleUpdateInput struct {
@@ -40,6 +41,7 @@ type AdminRoleUpdateInput struct {
 	DisplayName *string
 	Description *string
 	Pingable    *bool
+	Color       *uint32
 }
 
 func (c *ChattoCore) ListServerRolesForUser(ctx context.Context, actorID string) (*RoleCatalog, error) {
@@ -107,15 +109,20 @@ func (c *ChattoCore) AdminCreateServerRole(ctx context.Context, actorID string, 
 	if input.Pingable != nil {
 		pingable = *input.Pingable
 	}
-	return c.CreateServerRole(ctx, actorID, input.Name, input.DisplayName, input.Description, pingable)
+	return c.CreateServerRoleWithColor(ctx, actorID, input.Name, input.DisplayName, input.Description, pingable, input.Color)
 }
 
 func (c *ChattoCore) AdminUpdateServerRole(ctx context.Context, actorID string, input AdminRoleUpdateInput) (*RoleWithPermissions, error) {
 	if err := c.requireCanManageAdminRoles(ctx, actorID); err != nil {
 		return nil, err
 	}
-	if input.DisplayName == nil && input.Description == nil && input.Pingable == nil {
+	if input.DisplayName == nil && input.Description == nil && input.Pingable == nil && input.Color == nil {
 		return nil, fmt.Errorf("%w: provide at least one role field to update", ErrInvalidArgument)
+	}
+	if input.Color != nil {
+		if err := validateRoleColorAssignment(input.Name, *input.Color); err != nil {
+			return nil, err
+		}
 	}
 	role, err := c.GetServerRole(ctx, input.Name)
 	if err != nil {
@@ -129,10 +136,20 @@ func (c *ChattoCore) AdminUpdateServerRole(ctx context.Context, actorID string, 
 	if input.Description != nil {
 		description = *input.Description
 	}
-	if input.Pingable != nil {
-		return c.UpdateServerRole(ctx, actorID, input.Name, displayName, description, *input.Pingable)
+	if input.DisplayName != nil || input.Description != nil || input.Pingable != nil {
+		if input.Pingable != nil {
+			role, err = c.UpdateServerRole(ctx, actorID, input.Name, displayName, description, *input.Pingable)
+		} else {
+			role, err = c.UpdateServerRole(ctx, actorID, input.Name, displayName, description)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
-	return c.UpdateServerRole(ctx, actorID, input.Name, displayName, description)
+	if input.Color != nil {
+		return c.UpdateServerRoleColor(ctx, actorID, input.Name, *input.Color)
+	}
+	return role, nil
 }
 
 func (c *ChattoCore) AdminDeleteServerRole(ctx context.Context, actorID, roleName string) error {

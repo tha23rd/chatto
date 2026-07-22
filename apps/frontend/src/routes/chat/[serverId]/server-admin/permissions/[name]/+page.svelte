@@ -13,6 +13,9 @@
   import PageTitle from '$lib/ui/PageTitle.svelte';
   import { Button, Checkbox, TextInput, TextArea, FormError } from '$lib/ui/form';
   import { DeleteRoleModal, RolePermissionsMatrix, type Role } from '$lib/components/rbac';
+  import { RoleColorPicker } from '$lib/components/rbac';
+  import { ROLE_COLORS_CAPABILITY } from '$lib/roleColors';
+  import { serverRegistry } from '$lib/state/server/registry.svelte';
   import * as m from '$lib/i18n/messages';
 
   type User = RoleUser;
@@ -28,6 +31,7 @@
   let loading = $state(true);
   let saving = $state(false);
   let savingPingable = $state(false);
+  let savingColor = $state(false);
   let deleting = $state(false);
   let showDeleteConfirm = $state(false);
   let error = $state<string | null>(null);
@@ -36,6 +40,13 @@
   let editDisplayName = $state('');
   let editDescription = $state('');
   let editPingable = $state(false);
+  let editColor = $state(0);
+
+  const supportsRoleColors = $derived(
+    serverRegistry
+      .tryGetStore(getActiveServer())
+      ?.serverInfo.supportsProtocolCapability(ROLE_COLORS_CAPABILITY) === true
+  );
 
   async function loadData() {
     loading = true;
@@ -59,6 +70,7 @@
       editDisplayName = role.displayName;
       editDescription = role.description;
       editPingable = role.pingable;
+      editColor = role.color ?? 0;
     }
 
     loading = false;
@@ -71,7 +83,7 @@
   });
 
   async function saveMetadata() {
-    if (!role || savingPingable) return;
+    if (!role || savingPingable || savingColor) return;
 
     saving = true;
     error = null;
@@ -92,7 +104,7 @@
   }
 
   async function savePingable(event: Event) {
-    if (!role || !canEditPingable || saving) return;
+    if (!role || !canEditPingable || saving || savingColor) return;
 
     const target = event.currentTarget as HTMLInputElement;
     const nextPingable = target.checked;
@@ -106,8 +118,6 @@
     try {
       const updated = await roleAPI().updateRole({
         name: role.name,
-        displayName: role.displayName,
-        description: role.description,
         pingable: nextPingable
       });
       role = {
@@ -122,6 +132,28 @@
     }
 
     savingPingable = false;
+  }
+
+  async function saveColor(nextColor: number) {
+    if (!role || !canEditColor || saving || savingPingable) return;
+
+    const previousColor = role.color ?? 0;
+    if (nextColor === previousColor) return;
+
+    savingColor = true;
+    error = null;
+
+    try {
+      const updated = await roleAPI().updateRole({ name: role.name, color: nextColor });
+      role = { ...role, color: updated.color ?? 0 };
+      editColor = updated.color ?? 0;
+      toast.success(m['rbac.role_form.colour_updated']());
+    } catch (err) {
+      editColor = previousColor;
+      error = err instanceof Error ? err.message : m['rbac.role_form.colour_update_failed']();
+    }
+
+    savingColor = false;
   }
 
   async function deleteRole() {
@@ -159,6 +191,7 @@
     role && (editDisplayName !== role.displayName || editDescription !== role.description)
   );
   const canEditPingable = $derived(role?.name !== 'everyone');
+  const canEditColor = $derived(supportsRoleColors && role?.name !== 'everyone');
 </script>
 
 <PageTitle
@@ -199,6 +232,14 @@
             <p class="mt-1 text-xs text-muted">{m['rbac.role_form.name_locked']()}</p>
           </div>
 
+          {#if supportsRoleColors && canEditColor}
+            <RoleColorPicker
+              bind:color={editColor}
+              onchange={saveColor}
+              disabled={saving || savingPingable || savingColor}
+            />
+          {/if}
+
           {#if role.isSystem}
             <div>
               <div class="mb-1 text-sm font-medium">{m['rbac.role_form.display_name']()}</div>
@@ -214,7 +255,7 @@
               bind:checked={editPingable}
               label={m['rbac.role_form.pingable']()}
               onchange={savePingable}
-              disabled={saving || savingPingable || !canEditPingable}
+              disabled={saving || savingPingable || savingColor || !canEditPingable}
               description={canEditPingable
                 ? m['rbac.role_form.pingable_description']()
                 : m['admin.permissions.everyone_pingable_description']()}
@@ -237,7 +278,7 @@
               bind:checked={editPingable}
               label={m['rbac.role_form.pingable']()}
               onchange={savePingable}
-              disabled={saving || savingPingable || !canEditPingable}
+              disabled={saving || savingPingable || savingColor || !canEditPingable}
               description={canEditPingable
                 ? m['rbac.role_form.pingable_description']()
                 : m['admin.permissions.everyone_pingable_description']()}
@@ -245,7 +286,7 @@
             <div class="flex gap-2">
               <Button
                 variant="neutral"
-                disabled={!metadataChanged || saving || savingPingable}
+                disabled={!metadataChanged || saving || savingPingable || savingColor}
                 onclick={saveMetadata}
               >
                 {saving ? m['rbac.role_form.saving']() : m['admin.permissions.save_changes']()}

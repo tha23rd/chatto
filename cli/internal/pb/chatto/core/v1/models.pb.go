@@ -1169,6 +1169,7 @@ type Role struct {
 	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	Position      int32                  `protobuf:"varint,4,opt,name=position,proto3" json:"position,omitempty"` // Display/order position; not an authorization rank.
 	Pingable      bool                   `protobuf:"varint,5,opt,name=pingable,proto3" json:"pingable,omitempty"` // Whether messages can ping users assigned to this role.
+	Color         uint32                 `protobuf:"varint,6,opt,name=color,proto3" json:"color,omitempty"`       // Optional 24-bit RGB member-name colour; zero means unset.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1236,6 +1237,13 @@ func (x *Role) GetPingable() bool {
 		return x.Pingable
 	}
 	return false
+}
+
+func (x *Role) GetColor() uint32 {
+	if x != nil {
+		return x.Color
+	}
+	return 0
 }
 
 // UserPresence represents a user's current live presence status.
@@ -2868,13 +2876,14 @@ const file_chatto_core_v1_models_proto_rawDesc = "" +
 	"\astorage\"H\n" +
 	"\x0eRoomMembership\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x17\n" +
-	"\aroom_id\x18\x03 \x01(\tR\x06roomIdJ\x04\b\x02\x10\x03\"\x97\x01\n" +
+	"\aroom_id\x18\x03 \x01(\tR\x06roomIdJ\x04\b\x02\x10\x03\"\xad\x01\n" +
 	"\x04Role\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1a\n" +
 	"\bposition\x18\x04 \x01(\x05R\bposition\x12\x1a\n" +
-	"\bpingable\x18\x05 \x01(\bR\bpingable\"m\n" +
+	"\bpingable\x18\x05 \x01(\bR\bpingable\x12\x14\n" +
+	"\x05color\x18\x06 \x01(\rR\x05color\"m\n" +
 	"\fUserPresence\x12:\n" +
 	"\x06status\x18\x01 \x01(\x0e2\".chatto.core.v1.UserPresenceStatusR\x06status\x12!\n" +
 	"\fmanually_set\x18\x02 \x01(\bR\vmanuallySet\"A\n" +

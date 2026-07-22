@@ -54,6 +54,14 @@ export class Role extends Message<Role> {
    */
   pingable = false;
 
+  /**
+   * Optional 24-bit RGB colour used for member names. Zero uses the client
+   * theme's default colour.
+   *
+   * @generated from field: uint32 color = 7;
+   */
+  color = 0;
+
   constructor(data?: PartialMessage<Role>) {
     super();
     proto3.util.initPartial(data, this);
@@ -68,6 +76,7 @@ export class Role extends Message<Role> {
     { no: 4, name: "is_system", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 5, name: "position", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 6, name: "pingable", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 7, name: "color", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Role {

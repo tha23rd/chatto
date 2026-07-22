@@ -25,7 +25,12 @@
       "description": "Descripción",
       "description_placeholder": "Descripción opcional para este rol",
       "pingable": "Permitir que las personas hagan ping a este rol",
-      "pingable_description": "Los roles a los que se puede hacer ping aparecen en @ autocompletar y notifican a los miembros de la sala asignados."
+      "pingable_description": "Los roles a los que se puede hacer ping aparecen en @ autocompletar y notifican a los miembros de la sala asignados.",
+      "colour": "Color del rol",
+      "colour_description": "El rol asignado más alto que tenga color determina el color del nombre del miembro.",
+      "default_colour": "Predeterminado",
+      "colour_updated": "Color del rol actualizado",
+      "colour_update_failed": "No se pudo actualizar el color del rol"
     },
     "permissions": {
       "loading": "Cargando permisos...",

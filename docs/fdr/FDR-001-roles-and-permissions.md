@@ -1,7 +1,7 @@
 # FDR-001: Roles & Permissions (RBAC)
 
 **Status:** Active
-**Last reviewed:** 2026-07-19
+**Last reviewed:** 2026-07-22
 
 ## Overview
 
@@ -21,6 +21,8 @@ Chatto controls who can do what through role-based access control. Every authent
 - RBAC editor and inspection APIs are exposed through ConnectRPC admin services. Admin entry is authenticated, and individual operations keep narrower gates such as `role.manage`, `role.assign`, `user.manage-accounts`, `user.manage-permissions`, or `room.manage`.
 - Default permissions are creation-time state: fresh server defaults are seeded only into an empty RBAC stream, and channel-room defaults are committed atomically with room creation. Startup does not backfill missing or cleared decisions.
 - Roles have a `pingable` setting that controls whether `@role` pings notify assigned room members. Fresh servers seed `moderator` as pingable and leave `owner`, `admin`, and `everyone` unpingable.
+- Named roles, including the built-in `owner`, `admin`, and `moderator` roles, may have an optional 24-bit RGB colour. The implicit `everyone` role remains uncoloured.
+- A user's public name colour comes from their highest-positioned explicitly assigned role that has a non-default colour. Higher uncoloured roles are skipped; if no assigned role has a colour, clients use their theme default. Role position remains unrelated to authorization.
 - User-initiated RBAC writes carry the authenticated user's ID as the event actor. Synthetic `system` actors are reserved for bootstrap, seeding, migrations, and other non-user maintenance.
 
 ## Design Decisions
@@ -80,6 +82,12 @@ User-triggered RBAC events are audit facts as well as state facts, so their even
 **Decision:** Apply the current server default set only when the durable RBAC stream is empty. New groups and ordinary rooms store no default decisions. Commit a channel room and any exceptional default decisions in one atomic EVT batch: fresh announcements rooms deny `message.post` to `everyone` and allow it for `admin`. Do not inspect, copy, reset, or reconcile existing permission state during startup.
 **Why:** Absence is a meaningful RBAC state. Reapplying code defaults on every startup makes an operator's explicit clear indistinguishable from incomplete bootstrap state.
 **Tradeoff:** Adding a new code default does not grant it to existing servers or rooms automatically. Older replicas in a rolling deployment still use their historical non-atomic room-creation path until they are replaced.
+
+### 10. Role colour is a derived public user attribute
+
+**Decision:** Persist colour on the role definition, then expose the effective colour on public user records. Resolve it from the highest-positioned explicitly assigned coloured role, skipping uncoloured roles. Zero means unset and `everyone` cannot be coloured.
+**Why:** Every username surface can render one server-authoritative value without receiving private assignment details or independently reproducing role ordering. This matches the familiar Discord role-colour model while keeping visual position separate from permission precedence.
+**Tradeoff:** Changing a colour, assignment, or role order invalidates realtime user projections so connected clients refresh the affected derived presentation. Older clients ignore the additive fields and continue using their theme colour.
 
 ## Permissions
 

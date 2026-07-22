@@ -25,6 +25,7 @@ var discoveryProtocolCapabilities = []string{
 	"chatto.admin.v1",
 	"chatto.realtime.v1",
 	"chatto.realtime.projection.v1",
+	"chatto.role-colors.v1",
 }
 
 type serverDiscoveryService struct {

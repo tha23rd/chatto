@@ -122,7 +122,7 @@ func TestV2ProjectionSnapshotsRoundTripTransactionally(t *testing.T) {
 		}},
 		{"rbac", func() snapshotProjection { return NewRBACProjection() }, func(raw snapshotProjection) {
 			p := raw.(*RBACProjection)
-			p.roles["member"] = &corev1.Role{Name: "member", DisplayName: "Member"}
+			p.roles["member"] = &corev1.Role{Name: "member", DisplayName: "Member", Color: 0x123456}
 			p.assignments["U1"] = map[string]struct{}{"member": {}}
 			p.decisions[rbacDecisionKey{scope: ScopeServer, subjectKind: corev1.RbacPermissionSubjectKind_RBAC_PERMISSION_SUBJECT_KIND_ROLE, subject: "member", permission: PermMessagePost}] = DecisionAllow
 			p.replayGuard.highestSeq = 41
@@ -143,7 +143,7 @@ func TestV2ProjectionSnapshotsRoundTripTransactionally(t *testing.T) {
 	expectedContract := map[string]string{
 		"room_directory": "v1", "server_config": "v1", "room_group_layout": "v1",
 		"room_timeline": "v1", "call_state": "v1", "assets": "v1", "reactions": "v1",
-		"content_keys": "v1", "rbac": "v1", "mentionables": "v1", "users": "v2",
+		"content_keys": "v1", "rbac": "v2", "mentionables": "v1", "users": "v2",
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

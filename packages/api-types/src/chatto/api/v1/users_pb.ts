@@ -100,6 +100,14 @@ export class User extends Message<User> {
    */
   kind = UserKind.UNSPECIFIED;
 
+  /**
+   * Effective 24-bit RGB colour from the highest positioned assigned role
+   * that has a colour. Absent when the client should use its theme default.
+   *
+   * @generated from field: optional uint32 role_color = 9;
+   */
+  roleColor?: number;
+
   constructor(data?: PartialMessage<User>) {
     super();
     proto3.util.initPartial(data, this);
@@ -116,6 +124,7 @@ export class User extends Message<User> {
     { no: 6, name: "presence_status", kind: "enum", T: proto3.getEnumType(PresenceStatus) },
     { no: 7, name: "custom_status", kind: "message", T: CustomUserStatus },
     { no: 8, name: "kind", kind: "enum", T: proto3.getEnumType(UserKind) },
+    { no: 9, name: "role_color", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): User {

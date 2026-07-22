@@ -11,6 +11,7 @@ export type Role = {
   isSystem: boolean;
   position: number;
   pingable: boolean;
+  color?: number;
 };
 
 export type PermissionState = 'allow' | 'deny' | 'neutral';

@@ -86,7 +86,8 @@ reconstruction. Legacy cohort paths remain outside application S3 expiry.
 
 | Projection | Contract | Payload store | Pointer store | Publication |
 | ---------- | -------- | ------------- | ------------- | ----------- |
-| Threads, Room Directory, Server Config, Room Group Layout, Room Timeline, Call State, Assets, Reactions, Content Keys, RBAC, Mentionables | `v1` per projection | `PROJECTION_SNAPSHOTS` or configured S3 | Encrypted per-projection `RUNTIME_STATE` pointer with KV revision OCC | Elected publisher checks hourly; cold/delta replay publishes immediately and unchanged state refreshes at 23 hours |
+| Threads, Room Directory, Server Config, Room Group Layout, Room Timeline, Call State, Assets, Reactions, Content Keys, Mentionables | `v1` per projection | `PROJECTION_SNAPSHOTS` or configured S3 | Encrypted per-projection `RUNTIME_STATE` pointer with KV revision OCC | Elected publisher checks hourly; cold/delta replay publishes immediately and unchanged state refreshes at 23 hours |
+| RBAC (roles include optional member-name colour) | `v2` | `PROJECTION_SNAPSHOTS` or configured S3 | Encrypted per-projection `RUNTIME_STATE` pointer with KV revision OCC | Same elected age-aware publisher |
 | Users (profile state only) | `v2` | `PROJECTION_SNAPSHOTS` or configured S3 | Encrypted per-projection `RUNTIME_STATE` pointer with KV revision OCC | Same elected age-aware publisher |
 
 ## Registered projections
@@ -104,7 +105,7 @@ reconstruction. Legacy cohort paths remain outside application S3 expiry.
 | Users              | Users                | `evt.user.>`                                               | Account/profile/custom-status state, verified emails, lookup digests, and encrypted user PII |
 | User authentication | User Auth            | Focused account, password, external-identity, consent, deletion, and key-shredding user facts | Password verifiers, auth generations, external identity links, and OAuth consent; always cold-replayed |
 | Content keys       | Content Keys         | `evt.user.*.dek_generated`, `evt.user.*.user_key_shredded` | Active and shredded user DEK epochs for message bodies and user PII                        |
-| RBAC               | RBAC                 | `evt.rbac.>`                                               | Roles, role order, assignments, scoped allow/deny decisions                                |
+| RBAC               | RBAC                 | `evt.rbac.>`                                               | Roles including optional colours, role order, assignments, effective user name colours, and scoped allow/deny decisions |
 | Mentions           | Mentionables         | `evt.>`                                                    | Global mention-handle ownership across users, roles, `@all`, and `@here`                  |
 | Custom emoji       | Custom Emojis        | `evt.custom_emoji.>`                                       | Current named custom-emoji catalog and positive public declarations for its image assets   |
 | Soundboard         | Soundboard           | `evt.soundboard.>`                                         | Current named sound catalog and positive public declarations for its audio assets           |

@@ -42,6 +42,7 @@ type RoleWithPermissions struct {
 	IsSystem          bool
 	Position          int32 // Display/order position. Everyone=0, Owner=1000.
 	Pingable          bool
+	Color             uint32 // Optional 24-bit RGB member-name colour; zero means unset.
 }
 
 // listKeysWithPattern returns all keys matching a pattern from a KV bucket.
@@ -457,6 +458,7 @@ func (c *ChattoCore) ListServerRoles(ctx context.Context) ([]RoleWithPermissions
 			IsSystem:          IsSystemRole(role.Name),
 			Position:          role.Position,
 			Pingable:          role.Pingable,
+			Color:             role.Color,
 		})
 	}
 
@@ -471,10 +473,23 @@ func (c *ChattoCore) CreateServerRole(ctx context.Context, actorID, name, displa
 	if len(pingableValue) > 0 {
 		pingable = pingableValue[0]
 	}
+	return c.createServerRole(ctx, actorID, name, displayName, description, pingable, 0)
+}
+
+// CreateServerRoleWithColor creates a custom role with an optional 24-bit RGB
+// member-name colour.
+func (c *ChattoCore) CreateServerRoleWithColor(ctx context.Context, actorID, name, displayName, description string, pingable bool, color uint32) (*RoleWithPermissions, error) {
+	return c.createServerRole(ctx, actorID, name, displayName, description, pingable, color)
+}
+
+func (c *ChattoCore) createServerRole(ctx context.Context, actorID, name, displayName, description string, pingable bool, color uint32) (*RoleWithPermissions, error) {
 	if err := ValidateRoleName(name); err != nil {
 		return nil, ErrInvalidRoleName
 	}
 	if err := validateRoleMetadata(displayName, description); err != nil {
+		return nil, err
+	}
+	if err := validateRoleColor(color); err != nil {
 		return nil, err
 	}
 	if c.roleNameConflictsWithMentionHandle(name) {
@@ -499,6 +514,7 @@ func (c *ChattoCore) CreateServerRole(ctx context.Context, actorID, name, displa
 			Description: description,
 			Position:    c.RBAC.NextAvailablePosition(),
 			Pingable:    pingable,
+			Color:       color,
 		}
 		event.Event = &corev1.Event_RbacRoleCreated{
 			RbacRoleCreated: &corev1.RbacRoleCreatedEvent{
@@ -507,6 +523,7 @@ func (c *ChattoCore) CreateServerRole(ctx context.Context, actorID, name, displa
 				Description: role.GetDescription(),
 				Rank:        role.GetPosition(),
 				Pingable:    role.GetPingable(),
+				Color:       role.GetColor(),
 			},
 		}
 		return nil
@@ -525,6 +542,7 @@ func (c *ChattoCore) CreateServerRole(ctx context.Context, actorID, name, displa
 		IsSystem:          false,
 		Position:          role.GetPosition(),
 		Pingable:          role.GetPingable(),
+		Color:             role.GetColor(),
 	}, nil
 }
 
@@ -553,6 +571,7 @@ func (c *ChattoCore) UpdateServerRole(ctx context.Context, actorID, name, displa
 			Description: existing.GetDescription(),
 			Position:    existing.GetPosition(),
 			Pingable:    existing.GetPingable(),
+			Color:       existing.GetColor(),
 		}
 		return nil
 	}); err != nil {
@@ -578,6 +597,7 @@ func (c *ChattoCore) UpdateServerRole(ctx context.Context, actorID, name, displa
 			Description: description,
 			Position:    existing.GetPosition(),
 			Pingable:    existing.GetPingable(),
+			Color:       existing.GetColor(),
 		}
 		return nil
 	}); err != nil {
@@ -605,6 +625,7 @@ func (c *ChattoCore) UpdateServerRole(ctx context.Context, actorID, name, displa
 				Description: existing.GetDescription(),
 				Position:    existing.GetPosition(),
 				Pingable:    pingable,
+				Color:       existing.GetColor(),
 			}
 			return nil
 		}); err != nil {
@@ -635,6 +656,7 @@ func (c *ChattoCore) UpdateServerRole(ctx context.Context, actorID, name, displa
 		IsSystem:          IsSystemRole(name),
 		Position:          updated.Position,
 		Pingable:          updated.Pingable,
+		Color:             updated.Color,
 	}, nil
 }
 
@@ -658,6 +680,7 @@ func (c *ChattoCore) GetServerRole(ctx context.Context, name string) (*RoleWithP
 		IsSystem:          IsSystemRole(name),
 		Position:          role.Position,
 		Pingable:          role.Pingable,
+		Color:             role.Color,
 	}, nil
 }
 
@@ -743,6 +766,7 @@ func (c *ChattoCore) ReorderServerRoles(ctx context.Context, actorID string, rol
 			IsSystem:          IsSystemRole(role.Name),
 			Position:          role.Position,
 			Pingable:          role.Pingable,
+			Color:             role.Color,
 		})
 	}
 
