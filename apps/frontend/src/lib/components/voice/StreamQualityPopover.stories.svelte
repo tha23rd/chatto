@@ -11,7 +11,7 @@
       docs: {
         description: {
           component:
-            'Discord-style screen-share quality picker. Opened from the Share Screen button before capture starts (preflight, with Go Live) and from the gear beside it while a share is live (applies immediately). Unlike Discord, the bitrate each choice needs is shown rather than hidden behind a tier.'
+            'Discord-style screen-share quality picker, and the single home for stream controls. The Share Screen button opens it in both states: before capture (preflight, with Go Live) and while a share is live (changes apply immediately, and the action becomes Stop sharing). Unlike Discord, the bitrate each choice needs is shown rather than hidden behind a tier.'
         }
       }
     }
@@ -52,7 +52,8 @@
   </div>
 </Story>
 
-<!-- Live: no Go Live action, because changes retune the running share in place. -->
+<!-- Live: changes retune the running share in place, and Go Live is replaced by Stop sharing,
+     which is why the toolbar needs no separate stream-settings gear. -->
 <Story name="While sharing" asChild>
   <div class="h-96 bg-background">
     <StreamQualityPopover
@@ -61,6 +62,7 @@
       quality={{ resolution: '720p', framerate: 60, shareAudio: true }}
       mode="live"
       onchange={() => {}}
+      onstop={() => {}}
       onclose={() => {}}
     />
   </div>
@@ -92,6 +94,7 @@
       mode="live"
       retuneFailed
       onchange={() => {}}
+      onstop={() => {}}
       onclose={() => {}}
     />
   </div>
