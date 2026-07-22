@@ -67,11 +67,15 @@ vi.mock('$lib/audio/notificationSounds', () => ({
   playNotificationSound: mocks.playNotificationSound
 }));
 
-vi.mock('$lib/notifications/appBadge', () => ({
-  updateBadge: mocks.updateBadge,
-  clearBadge: mocks.clearBadge,
-  syncServiceWorkerNotificationBadgeState: mocks.syncServiceWorkerNotificationBadgeState
-}));
+vi.mock('$lib/notifications/appBadge', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('$lib/notifications/appBadge')>();
+  return {
+    ...actual,
+    updateBadge: mocks.updateBadge,
+    clearBadge: mocks.clearBadge,
+    syncServiceWorkerNotificationBadgeState: mocks.syncServiceWorkerNotificationBadgeState
+  };
+});
 
 function dispatch(change?: RealtimeProjectionNotificationChange) {
   const event = new RealtimeProjectionEvent({
@@ -111,11 +115,13 @@ describe('NotificationSync', () => {
   it('plays a sound for a live non-silent notification creation', async () => {
     await renderAndWaitForSubscription();
 
-    dispatch(new RealtimeProjectionNotificationChange({
-      action: RealtimeProjectionNotificationAction.CREATED,
-      notificationId: 'n1',
-      silent: false
-    }));
+    dispatch(
+      new RealtimeProjectionNotificationChange({
+        action: RealtimeProjectionNotificationAction.CREATED,
+        notificationId: 'n1',
+        silent: false
+      })
+    );
 
     expect(mocks.playNotificationSound).toHaveBeenCalledOnce();
   });
@@ -123,11 +129,13 @@ describe('NotificationSync', () => {
   it('does not play a sound for a silent notification creation', async () => {
     await renderAndWaitForSubscription();
 
-    dispatch(new RealtimeProjectionNotificationChange({
-      action: RealtimeProjectionNotificationAction.CREATED,
-      notificationId: 'n1',
-      silent: true
-    }));
+    dispatch(
+      new RealtimeProjectionNotificationChange({
+        action: RealtimeProjectionNotificationAction.CREATED,
+        notificationId: 'n1',
+        silent: true
+      })
+    );
 
     expect(mocks.playNotificationSound).not.toHaveBeenCalled();
   });
@@ -136,10 +144,12 @@ describe('NotificationSync', () => {
     await renderAndWaitForSubscription();
 
     dispatch();
-    dispatch(new RealtimeProjectionNotificationChange({
-      action: RealtimeProjectionNotificationAction.DISMISSED,
-      notificationId: 'n1'
-    }));
+    dispatch(
+      new RealtimeProjectionNotificationChange({
+        action: RealtimeProjectionNotificationAction.DISMISSED,
+        notificationId: 'n1'
+      })
+    );
 
     expect(mocks.playNotificationSound).not.toHaveBeenCalled();
   });
