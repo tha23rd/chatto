@@ -1,7 +1,7 @@
 # FDR-031: Client–Server Compatibility Discovery
 
 **Status:** Experimental
-**Last reviewed:** 2026-07-17
+**Last reviewed:** 2026-07-22
 
 ## Overview
 
@@ -32,6 +32,9 @@ people useful upgrade guidance while Chatto's pre-1.0 API remains experimental.
 - The `chatto.realtime.v1` protobuf namespace implements only behavioural
   protocol version 2 in 0.5. Servers reject version 0, version 1, and unknown
   handshakes; clients must discover `chatto.realtime.projection.v1` first.
+- `chatto.role-colors.v1` advertises additive role-colour mutations and the
+  derived public user colour field. Newer clients omit colour controls and
+  mutations when it is absent; older clients ignore the additive fields.
 
 ## Design Decisions
 

@@ -25,7 +25,12 @@
       "description": "Beskrivning",
       "description_placeholder": "Valfri beskrivning för den här rollen",
       "pingable": "Tillåt andra att pinga den här rollen",
-      "pingable_description": "Pingbara roller visas i @ autocomplete och meddela tilldelade rumsmedlemmar."
+      "pingable_description": "Pingbara roller visas i @ autocomplete och meddela tilldelade rumsmedlemmar.",
+      "colour": "Rollfärg",
+      "colour_description": "Den högsta tilldelade rollen med en färg bestämmer färgen på medlemmens namn.",
+      "default_colour": "Standard",
+      "colour_updated": "Rollfärgen har uppdaterats",
+      "colour_update_failed": "Det gick inte att uppdatera rollfärgen"
     },
     "permissions": {
       "loading": "Läser in behörigheter...",

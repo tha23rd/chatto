@@ -295,6 +295,14 @@ export class CreateRoleRequest extends Message<CreateRoleRequest> {
    */
   pingable = false;
 
+  /**
+   * Optional 24-bit RGB colour used for member names. Zero uses the client
+   * theme's default colour.
+   *
+   * @generated from field: uint32 color = 5;
+   */
+  color = 0;
+
   constructor(data?: PartialMessage<CreateRoleRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -307,6 +315,7 @@ export class CreateRoleRequest extends Message<CreateRoleRequest> {
     { no: 2, name: "display_name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "pingable", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 5, name: "color", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateRoleRequest {
@@ -401,6 +410,14 @@ export class UpdateRoleRequest extends Message<UpdateRoleRequest> {
    */
   pingable?: boolean;
 
+  /**
+   * 24-bit RGB colour, when changing it. Zero restores the client theme's
+   * default colour.
+   *
+   * @generated from field: optional uint32 color = 5;
+   */
+  color?: number;
+
   constructor(data?: PartialMessage<UpdateRoleRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -413,6 +430,7 @@ export class UpdateRoleRequest extends Message<UpdateRoleRequest> {
     { no: 2, name: "display_name", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 3, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 4, name: "pingable", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 5, name: "color", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UpdateRoleRequest {

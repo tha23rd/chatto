@@ -11,6 +11,8 @@
   import { FormError } from '$lib/ui/form';
   import { RoleForm } from '$lib/components/rbac';
   import * as m from '$lib/i18n/messages';
+  import { ROLE_COLORS_CAPABILITY } from '$lib/roleColors';
+  import { serverRegistry } from '$lib/state/server/registry.svelte';
 
   const connection = useConnection();
 
@@ -18,10 +20,16 @@
   let displayName = $state('');
   let description = $state('');
   let pingable = $state(false);
+  let color = $state(0);
   let creating = $state(false);
   let error = $state<string | null>(null);
   let canManageRoles = $state(false);
   let loading = $state(true);
+  const supportsRoleColors = $derived(
+    serverRegistry
+      .tryGetStore(getActiveServer())
+      ?.serverInfo.supportsProtocolCapability(ROLE_COLORS_CAPABILITY) === true
+  );
 
   async function loadPermissions() {
     loading = true;
@@ -51,7 +59,8 @@
         name: name.trim(),
         displayName: displayName.trim(),
         description: description.trim(),
-        pingable
+        pingable,
+        ...(supportsRoleColors ? { color } : {})
       });
     } catch (err) {
       error = err instanceof Error ? err.message : m['admin.permissions.load_instance_failed']();
@@ -112,6 +121,8 @@
           bind:displayName
           bind:description
           bind:pingable
+          bind:color
+          showColor={supportsRoleColors}
           saving={creating}
           submitLabel={m['admin.permissions.create_role_action']()}
           savingLabel={m['admin.permissions.creating_role']()}

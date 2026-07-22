@@ -7,6 +7,7 @@
 package apiv1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -91,7 +92,10 @@ type User struct {
 	CustomStatus *CustomUserStatus `protobuf:"bytes,7,opt,name=custom_status,json=customStatus,proto3" json:"custom_status,omitempty"`
 	// Account kind. When automated (e.g. a channel webhook identity), clients
 	// may render an "automated" marker. Empty/unspecified means a human account.
-	Kind          UserKind `protobuf:"varint,8,opt,name=kind,proto3,enum=chatto.api.v1.UserKind" json:"kind,omitempty"`
+	Kind UserKind `protobuf:"varint,8,opt,name=kind,proto3,enum=chatto.api.v1.UserKind" json:"kind,omitempty"`
+	// Effective 24-bit RGB colour from the highest positioned assigned role
+	// that has a colour. Absent when the client should use its theme default.
+	RoleColor     *uint32 `protobuf:"varint,9,opt,name=role_color,json=roleColor,proto3,oneof" json:"role_color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -182,11 +186,18 @@ func (x *User) GetKind() UserKind {
 	return UserKind_USER_KIND_UNSPECIFIED
 }
 
+func (x *User) GetRoleColor() uint32 {
+	if x != nil && x.RoleColor != nil {
+		return *x.RoleColor
+	}
+	return 0
+}
+
 var File_chatto_api_v1_users_proto protoreflect.FileDescriptor
 
 const file_chatto_api_v1_users_proto_rawDesc = "" +
 	"\n" +
-	"\x19chatto/api/v1/users.proto\x12\rchatto.api.v1\x1a\x1cchatto/api/v1/presence.proto\x1a\x1fchatto/api/v1/user_status.proto\"\xd7\x02\n" +
+	"\x19chatto/api/v1/users.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1cchatto/api/v1/presence.proto\x1a\x1fchatto/api/v1/user_status.proto\"\x98\x03\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05login\x18\x02 \x01(\tR\x05login\x12!\n" +
@@ -196,8 +207,11 @@ const file_chatto_api_v1_users_proto_rawDesc = "" +
 	"avatar_url\x18\x05 \x01(\tH\x00R\tavatarUrl\x88\x01\x01\x12F\n" +
 	"\x0fpresence_status\x18\x06 \x01(\x0e2\x1d.chatto.api.v1.PresenceStatusR\x0epresenceStatus\x12D\n" +
 	"\rcustom_status\x18\a \x01(\v2\x1f.chatto.api.v1.CustomUserStatusR\fcustomStatus\x12+\n" +
-	"\x04kind\x18\b \x01(\x0e2\x17.chatto.api.v1.UserKindR\x04kindB\r\n" +
-	"\v_avatar_url*Q\n" +
+	"\x04kind\x18\b \x01(\x0e2\x17.chatto.api.v1.UserKindR\x04kind\x120\n" +
+	"\n" +
+	"role_color\x18\t \x01(\rB\f\xbaH\t*\a\x18\xff\xff\xff\a(\x01H\x01R\troleColor\x88\x01\x01B\r\n" +
+	"\v_avatar_urlB\r\n" +
+	"\v_role_color*Q\n" +
 	"\bUserKind\x12\x19\n" +
 	"\x15USER_KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fUSER_KIND_HUMAN\x10\x01\x12\x15\n" +

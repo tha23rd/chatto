@@ -25,7 +25,12 @@
       "description": "説明",
       "description_placeholder": "このロールの説明 (オプション)",
       "pingable": "ユーザーがこのロールに ping できるようにします",
-      "pingable_description": "Ping 可能なロールが @ オートコンプリートに表示され、割り当てられたルーム メンバーに通知されます。"
+      "pingable_description": "Ping 可能なロールが @ オートコンプリートに表示され、割り当てられたルーム メンバーに通知されます。",
+      "colour": "ロールの色",
+      "colour_description": "色が設定された最上位の割り当て済みロールがメンバー名の色になります。",
+      "default_colour": "デフォルト",
+      "colour_updated": "ロールの色を更新しました",
+      "colour_update_failed": "ロールの色を更新できませんでした"
     },
     "permissions": {
       "loading": "権限を読み込み中...",

@@ -47,6 +47,7 @@ Room sidebar panel for voice/video calls.
   import { startDMWith } from '$lib/dm/startDM';
   import { toast } from '$lib/ui/toast';
   import { serializeScreenShareDiagnostics } from '$lib/voice/webrtcDiagnostics';
+  import { roleColorToCSS } from '$lib/roleColors';
 
   let {
     roomId,
@@ -62,6 +63,9 @@ Room sidebar panel for voice/video calls.
   let isInAnotherCall = $derived(voiceCallState.isInAnyCall && !isInThisCall);
   let isConnecting = $derived(voiceCallState.connecting && voiceCallState.roomId === roomId);
   let hasActiveCall = $derived(activeCallRooms.has(roomId));
+  let roomMembers = $derived(
+    stores.rooms?.rooms?.find((room) => room.id === roomId)?.members ?? []
+  );
   let isStageLayout = $derived(layout === 'stage');
   let deviceMenuAnchor = $state<{ top: number; bottom: number; left: number } | null>(null);
 
@@ -75,6 +79,7 @@ Room sidebar panel for voice/video calls.
       displayName: string;
       avatarUrl: string | null;
       presenceStatus: PresenceStatus;
+      roleColor?: number | null;
     };
     isMuted: boolean;
     isDeafened: boolean;
@@ -98,7 +103,8 @@ Room sidebar panel for voice/video calls.
           login: p.login,
           displayName: p.name,
           avatarUrl: p.avatarUrl,
-          presenceStatus: 'ONLINE' as PresenceStatus
+          presenceStatus: 'ONLINE' as PresenceStatus,
+          roleColor: roomMembers.find((member) => member.id === p.identity)?.roleColor ?? null
         },
         isMuted: p.isMuted,
         isDeafened: p.isDeafened,
@@ -121,7 +127,8 @@ Room sidebar panel for voice/video calls.
         login: p.login,
         displayName: p.displayName,
         avatarUrl: p.avatarUrl,
-        presenceStatus: 'ONLINE' as PresenceStatus
+        presenceStatus: 'ONLINE' as PresenceStatus,
+        roleColor: roomMembers.find((member) => member.id === p.userId)?.roleColor ?? null
       },
       isMuted: false,
       isDeafened: false,
@@ -568,7 +575,10 @@ Room sidebar panel for voice/video calls.
       onclick={(e) => showUserMenu(participant, e)}
     >
       <UserAvatar user={participant.avatarUser} size="sm" />
-      <span class="min-w-0 flex-1 truncate text-sm font-medium">{label}</span>
+      <span
+        class="min-w-0 flex-1 truncate text-sm font-medium"
+        style:color={roleColorToCSS(participant.avatarUser.roleColor)}>{label}</span
+      >
       {#if showIndicators}
         {@render participantIndicators(participant)}
       {/if}

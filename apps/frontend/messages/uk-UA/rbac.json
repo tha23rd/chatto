@@ -25,7 +25,12 @@
       "description": "Опис",
       "description_placeholder": "Додатковий опис для цієї ролі",
       "pingable": "Дозволити людям перевіряти цю роль",
-      "pingable_description": "Ролі з можливістю ping відображаються в @ autocomplete і сповіщають призначених учасників кімнати."
+      "pingable_description": "Ролі з можливістю ping відображаються в @ autocomplete і сповіщають призначених учасників кімнати.",
+      "colour": "Колір ролі",
+      "colour_description": "Найвища призначена роль із кольором визначає колір імені учасника.",
+      "default_colour": "Типовий",
+      "colour_updated": "Колір ролі оновлено",
+      "colour_update_failed": "Не вдалося оновити колір ролі"
     },
     "permissions": {
       "loading": "Завантаження дозволів...",

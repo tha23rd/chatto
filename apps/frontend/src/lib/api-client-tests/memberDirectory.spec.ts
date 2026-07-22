@@ -62,6 +62,7 @@ describe('createMemberDirectoryAPI', () => {
             displayName: 'Alice',
             deleted: false,
             avatarUrl: 'https://cdn/avatar.webp',
+            roleColor: 0x336699,
             presenceStatus: APIPresenceStatus.AWAY,
             customStatus: {
               emoji: ':seedling:',
@@ -89,6 +90,7 @@ describe('createMemberDirectoryAPI', () => {
           displayName: 'Alice',
           deleted: false,
           avatarUrl: 'https://cdn/avatar.webp',
+          roleColor: 0x336699,
           presenceStatus: PresenceStatus.Away,
           customStatus: {
             emoji: ':seedling:',
@@ -187,6 +189,7 @@ describe('createMemberDirectoryAPI', () => {
           displayName: 'Bob',
           deleted: false,
           avatarUrl: null,
+          roleColor: null,
           presenceStatus: PresenceStatus.DoNotDisturb,
           customStatus: null,
           roles: [],

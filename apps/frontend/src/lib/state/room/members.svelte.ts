@@ -22,6 +22,7 @@ export type RoomMember = {
   displayName: string;
   deleted?: boolean;
   avatarUrl?: string | null;
+  roleColor?: number | null;
   customStatus?: CustomUserStatus | null;
   presenceStatus: PresenceStatus;
 };
@@ -366,6 +367,7 @@ function memberFromDirectory(member: DirectoryMember): RoomMember {
     displayName: member.displayName,
     deleted: member.deleted,
     avatarUrl: member.avatarUrl,
+    roleColor: member.roleColor,
     customStatus: member.customStatus,
     presenceStatus: member.presenceStatus
   };

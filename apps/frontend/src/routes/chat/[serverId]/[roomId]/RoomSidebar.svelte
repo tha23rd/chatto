@@ -13,6 +13,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import * as m from '$lib/i18n/messages';
+  import { roleColorToCSS } from '$lib/roleColors';
   import { startDMWith } from '$lib/dm/startDM';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import DeletedUserLabel from '$lib/components/DeletedUserLabel.svelte';
@@ -466,7 +467,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
     <UserAvatar user={member} size="sm" showPresence />
     <div class="min-w-0 flex-1">
       <div class="flex min-w-0 items-center gap-1.5">
-        <span class="min-w-0 truncate">
+        <span class="min-w-0 truncate" style:color={roleColorToCSS(member.roleColor)}>
           {#if member.deleted}
             <DeletedUserLabel />
           {:else}

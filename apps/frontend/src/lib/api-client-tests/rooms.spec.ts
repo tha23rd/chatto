@@ -305,6 +305,7 @@ describe('createRoomCommandAPI', () => {
               displayName: 'Alice',
               deleted: false,
               avatarUrl: 'https://cdn/avatar.webp',
+              roleColor: 0x336699,
               presenceStatus: APIPresenceStatus.AWAY
             },
             roles: [],
@@ -354,6 +355,7 @@ describe('createRoomCommandAPI', () => {
             displayName: 'Alice',
             deleted: false,
             avatarUrl: 'https://cdn/avatar.webp',
+            roleColor: 0x336699,
             presenceStatus: PresenceStatus.Away,
             customStatus: null,
             roles: [],
@@ -366,6 +368,7 @@ describe('createRoomCommandAPI', () => {
             displayName: 'Moderator',
             deleted: false,
             avatarUrl: null,
+            roleColor: null,
             presenceStatus: PresenceStatus.Offline,
             customStatus: null,
             roles: [],

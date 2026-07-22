@@ -25,7 +25,12 @@
       "description": "Descrição",
       "description_placeholder": "Descrição opcional para esta função",
       "pingable": "Permitir que as pessoas façam ping nesta função",
-      "pingable_description": "As funções pingáveis aparecem no preenchimento automático @ e notificam os membros atribuídos à sala."
+      "pingable_description": "As funções pingáveis aparecem no preenchimento automático @ e notificam os membros atribuídos à sala.",
+      "colour": "Cor da função",
+      "colour_description": "A função atribuída mais alta que tiver uma cor define a cor do nome do membro.",
+      "default_colour": "Predefinida",
+      "colour_updated": "Cor da função atualizada",
+      "colour_update_failed": "Não foi possível atualizar a cor da função"
     },
     "permissions": {
       "loading": "A carregar permissões...",

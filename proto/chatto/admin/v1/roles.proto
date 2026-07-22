@@ -57,6 +57,9 @@ message CreateRoleRequest {
   string description = 3 [(buf.validate.field).string.max_len = 500];
   // Whether messages may notify users assigned to this role.
   bool pingable = 4;
+  // Optional 24-bit RGB colour used for member names. Zero uses the client
+  // theme's default colour.
+  uint32 color = 5 [(buf.validate.field).uint32.lte = 16777215];
 }
 
 // Result of creating a role.
@@ -75,6 +78,9 @@ message UpdateRoleRequest {
   optional string description = 3 [(buf.validate.field).string.max_len = 500];
   // Whether messages may notify users assigned to this role, when changing it.
   optional bool pingable = 4;
+  // 24-bit RGB colour, when changing it. Zero restores the client theme's
+  // default colour.
+  optional uint32 color = 5 [(buf.validate.field).uint32.lte = 16777215];
 }
 
 // Result of updating a role.

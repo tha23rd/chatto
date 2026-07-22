@@ -261,7 +261,8 @@ renderable tombstone upserts.
 
 RBAC facts are fanned through the shared hub. The mapper responds with a
 reconnecting `projection_reset_required` close so the next subscription starts
-from current authorization.
+from current authorization and rehydrates derived user presentation such as
+effective role colours.
 
 ## Process-wide live ingress
 

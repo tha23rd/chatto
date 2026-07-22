@@ -27,6 +27,12 @@ Every Chatto server starts with four system roles. You cannot delete them.
 
 Roles still have a numeric position for display order and legacy event compatibility, but position is not an authorization rank.
 
+## Role colours
+
+Owners and people with `role.manage` can assign an optional colour to custom roles and to the built-in `owner`, `admin`, and `moderator` roles. The `everyone` role remains uncoloured.
+
+A member's name uses the colour of their highest-positioned assigned role that has one. Roles with the default colour are skipped, so an uncoloured owner or admin role does not hide a lower coloured role. If none of the member's roles has a colour, Chatto uses the current theme's normal text colour. This ordering affects presentation only; permission decisions never use role position or colour.
+
 ## How a permission check works
 
 When a user tries to do something, Chatto resolves the decision like this:
@@ -147,7 +153,7 @@ Use custom roles for repeated patterns across multiple users:
 2. Assign permissions to that role.
 3. Assign the role to users.
 
-Custom roles are permission bundles. They can override the `everyone` baseline, but they do not take precedence over other named roles. A deny from another named role the user also has still wins.
+Custom roles are permission bundles and may also provide a member-name colour. They can override the `everyone` baseline, but they do not take precedence over other named roles for authorization. A deny from another named role the user also has still wins.
 
 ## Owner vs admin
 

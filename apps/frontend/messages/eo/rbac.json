@@ -25,7 +25,12 @@
       "description": "Priskribo",
       "description_placeholder": "Laŭvola priskribo por ĉi tiu rolo",
       "pingable": "Permesu al homoj pingi ĉi tiun rolon",
-      "pingable_description": "Pingeblaj roloj aperas en @ aŭtokompleto kaj sciigas asignitajn ĉambrajn membrojn."
+      "pingable_description": "Pingeblaj roloj aperas en @ aŭtokompleto kaj sciigas asignitajn ĉambrajn membrojn.",
+      "colour": "Rola koloro",
+      "colour_description": "La plej alta asignita rolo kun koloro difinas la koloron de la membronomo.",
+      "default_colour": "Defaŭlta",
+      "colour_updated": "Rola koloro ĝisdatigita",
+      "colour_update_failed": "Ne eblis ĝisdatigi la rolan koloron"
     },
     "permissions": {
       "loading": "Ŝarĝante permesojn...",

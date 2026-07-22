@@ -177,7 +177,8 @@ async function batchTimelineUsers(
         login: summary.login,
         displayName: summary.displayName,
         deleted: summary.deleted,
-        avatarUrl: summary.avatarUrl ?? undefined
+        avatarUrl: summary.avatarUrl ?? undefined,
+        roleColor: summary.roleColor ?? undefined
       } as User;
     }
     primeTimelineUserIncludes(config, users);
@@ -220,7 +221,8 @@ function primeTimelineUserIncludes(config: RoomTimelineAPIConfig, users: Record<
       login: user.login,
       displayName: user.displayName,
       deleted: user.deleted,
-      avatarUrl: user.avatarUrl || null
+      avatarUrl: user.avatarUrl || null,
+      roleColor: user.roleColor ?? null
     })),
     config.onUserSummaries
   );
@@ -374,6 +376,7 @@ function userView(userId: string, users: Record<string, User>) {
       displayName: 'Deleted User',
       deleted: true,
       avatarUrl: null,
+      roleColor: null,
       presenceStatus: PresenceStatus.Offline
     };
   }
@@ -383,6 +386,7 @@ function userView(userId: string, users: Record<string, User>) {
     displayName: user.displayName,
     deleted: user.deleted,
     avatarUrl: user.avatarUrl || null,
+    roleColor: user.roleColor ?? null,
     presenceStatus: PresenceStatus.Offline,
     isWebhookAuthor: user.kind === UserKind.WEBHOOK
   };

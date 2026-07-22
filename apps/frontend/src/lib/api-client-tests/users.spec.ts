@@ -37,7 +37,8 @@ describe('createUserAPI', () => {
             login: 'alice',
             displayName: 'Alice',
             deleted: false,
-            avatarUrl: 'https://cdn/avatar.webp'
+            avatarUrl: 'https://cdn/avatar.webp',
+            roleColor: 0x336699
           })
         })
       ]
@@ -54,7 +55,8 @@ describe('createUserAPI', () => {
         login: 'alice',
         displayName: 'Alice',
         deleted: false,
-        avatarUrl: 'https://cdn/avatar.webp'
+        avatarUrl: 'https://cdn/avatar.webp',
+        roleColor: 0x336699
       }
     ]);
 
@@ -84,7 +86,8 @@ describe('createUserAPI', () => {
       login: 'bob',
       displayName: 'Bob',
       deleted: false,
-      avatarUrl: null
+      avatarUrl: null,
+      roleColor: null
     });
   });
 });

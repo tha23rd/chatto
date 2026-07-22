@@ -112,6 +112,7 @@ Request to create a role.
 | `display_name` | `string` | Display name shown in admin and mention UIs. |
 | `description` | `string` | Optional role description. |
 | `pingable` | `bool` | Whether messages may notify users assigned to this role. |
+| `color` | `uint32` | Optional 24-bit RGB colour used for member names. Zero uses the client theme's default colour. |
 
 
 <a id="chatto-admin-v1-CreateRoleResponse"></a>
@@ -147,6 +148,7 @@ Request to update role metadata.
 | `display_name` | `optional string` | Display name shown in admin and mention UIs, when changing it. |
 | `description` | `optional string` | Role description, when changing it. Empty clears the description. |
 | `pingable` | `optional bool` | Whether messages may notify users assigned to this role, when changing it. |
+| `color` | `optional uint32` | 24-bit RGB colour, when changing it. Zero restores the client theme's default colour. |
 
 
 <a id="chatto-admin-v1-UpdateRoleResponse"></a>
