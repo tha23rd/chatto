@@ -642,6 +642,44 @@ describe('RoomSidebar', () => {
     expect(callStore.voiceCall.toggleScreenShare).toHaveBeenCalledOnce();
   });
 
+  it('keeps one stream control while sharing: stop replaces go live inside the menu', async () => {
+    callStore.voiceCall.connected = true;
+    callStore.voiceCall.isInAnyCall = true;
+    callStore.voiceCall.roomId = 'room-1';
+    callStore.voiceCall.isScreenShareEnabled = true;
+
+    const { container } = render(RoomSidebarTestHarness, {
+      props: {
+        roomData: roomData([], 0, false),
+        activePanel: 'call',
+        livekitUrl: 'wss://livekit.example.test'
+      }
+    });
+
+    // The separate stream-settings gear is gone, so a live share no longer shows a second
+    // gear beside the call's device gear.
+    expect(q(container, '[data-testid="call-stream-quality-button"]')).toBeFalsy();
+
+    const screenShareButton = q(
+      container,
+      '[data-testid="call-screen-share-toggle"]'
+    ) as HTMLButtonElement;
+    screenShareButton.click();
+    await tick();
+
+    // Live mode still exposes the quality controls, but the action is Stop, not Go Live.
+    expect(q(container, '[data-testid="stream-quality-resolution"]')).toBeTruthy();
+    expect(q(container, '[data-testid="stream-quality-go-live"]')).toBeFalsy();
+    const stop = q(container, '[data-testid="stream-quality-stop"]') as HTMLButtonElement;
+    expect(stop).toBeTruthy();
+
+    // Opening the menu must not stop the share on its own; only the action does.
+    expect(callStore.voiceCall.toggleScreenShare).not.toHaveBeenCalled();
+    stop.click();
+    await tick();
+    expect(callStore.voiceCall.toggleScreenShare).toHaveBeenCalledOnce();
+  });
+
   it('uses green only for active call media controls', async () => {
     callStore.voiceCall.connected = true;
     callStore.voiceCall.isInAnyCall = true;
