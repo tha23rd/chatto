@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { syncServiceWorkerNotificationBadgeState } from './appBadge';
+import {
+  clearBadge,
+  registerAppBadgeHandler,
+  syncServiceWorkerNotificationBadgeState,
+  updateBadge
+} from './appBadge';
 
 function stubBadgeEnvironment(options: { installed: boolean; controlled?: boolean }) {
   const controllerPostMessage = vi.fn();
@@ -111,5 +116,79 @@ describe('syncServiceWorkerNotificationBadgeState', () => {
       notificationCount: 0,
       serviceWorkerAppBadgeEnabled: true
     });
+  });
+});
+
+describe('app badge handlers', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('publishes normalized badge intents when the browser Badging API is unavailable', async () => {
+    vi.stubGlobal('navigator', {});
+    const handler = vi.fn();
+    const unregister = registerAppBadgeHandler(handler);
+
+    await updateBadge({ kind: 'count', count: 2.8 });
+
+    expect(handler).toHaveBeenCalledWith({ kind: 'count', count: 2 });
+    unregister();
+  });
+
+  it('publishes a clear intent when the badge is cleared', async () => {
+    vi.stubGlobal('navigator', {});
+    const handler = vi.fn();
+    const unregister = registerAppBadgeHandler(handler);
+
+    await clearBadge();
+
+    expect(handler).toHaveBeenCalledWith({ kind: 'clear' });
+    unregister();
+  });
+
+  it('replays the latest intent to a newly registered host', async () => {
+    vi.stubGlobal('navigator', {});
+    await updateBadge({ kind: 'flag' });
+    const handler = vi.fn();
+
+    const unregister = registerAppBadgeHandler(handler);
+
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledWith({ kind: 'flag' }));
+    unregister();
+  });
+
+  it('stops publishing after a handler is unregistered', async () => {
+    vi.stubGlobal('navigator', {});
+    const handler = vi.fn();
+    const unregister = registerAppBadgeHandler(handler);
+    await vi.waitFor(() => expect(handler).toHaveBeenCalled());
+    handler.mockClear();
+
+    unregister();
+    await updateBadge({ kind: 'count', count: 1 });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('keeps the browser badge best-effort when a native handler fails', async () => {
+    const setAppBadge = vi.fn();
+    vi.stubGlobal('navigator', { setAppBadge, clearAppBadge: vi.fn() });
+    const unregister = registerAppBadgeHandler(() => Promise.reject(new Error('unavailable')));
+
+    await updateBadge({ kind: 'flag' });
+
+    expect(setAppBadge).toHaveBeenCalledWith();
+    unregister();
+  });
+
+  it('does not delay the browser badge while a native handler is pending', async () => {
+    const setAppBadge = vi.fn();
+    vi.stubGlobal('navigator', { setAppBadge, clearAppBadge: vi.fn() });
+    const unregister = registerAppBadgeHandler(() => new Promise(() => {}));
+
+    await updateBadge({ kind: 'flag' });
+
+    expect(setAppBadge).toHaveBeenCalledWith();
+    unregister();
   });
 });
