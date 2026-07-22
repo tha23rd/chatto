@@ -40,10 +40,15 @@ server before authentication. The response may include
 - `chatto.admin.v1`
 - `chatto.realtime.v1`
 - `chatto.realtime.projection.v1`
+- `chatto.role-colors.v1`
 
 These values tell you which broad protocol surfaces the server advertises. They
 do not negotiate an API version, guarantee a particular method or field, or say
 that the signed-in user has permission to use a feature.
+
+`chatto.role-colors.v1` specifically indicates that role resources accept the
+additive 24-bit RGB colour fields and public user resources expose an optional
+effective `role_color`. Clients should omit colour mutations when it is absent.
 
 Ignore capability values you do not recognise. If a capability you need is
 absent, treat that protocol as unavailable. Older servers may omit compatibility

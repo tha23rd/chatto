@@ -508,6 +508,7 @@ func TestServerDiscoveryServiceGetServerPublicMetadata(t *testing.T) {
 		"chatto.admin.v1",
 		"chatto.realtime.v1",
 		"chatto.realtime.projection.v1",
+		"chatto.role-colors.v1",
 	}
 	if got := msg.GetCompatibility().GetProtocolCapabilities(); !slices.Equal(got, wantCapabilities) {
 		t.Fatalf("protocol capabilities = %v, want %v", got, wantCapabilities)
@@ -1241,12 +1242,13 @@ func TestAdminRoleServiceManagesRoles(t *testing.T) {
 		DisplayName: "Helpdesk",
 		Description: "Support queue",
 		Pingable:    true,
+		Color:       0x336699,
 	}))
 	if err != nil {
 		t.Fatalf("CreateRole: %v", err)
 	}
-	if got := createResp.Msg.GetRole().GetRole(); got.GetName() != "helpdesk" || !got.GetPingable() {
-		t.Fatalf("created role = %+v, want helpdesk pingable", got)
+	if got := createResp.Msg.GetRole().GetRole(); got.GetName() != "helpdesk" || !got.GetPingable() || got.GetColor() != 0x336699 {
+		t.Fatalf("created role = %+v, want helpdesk pingable with color %#x", got, uint32(0x336699))
 	}
 
 	if _, err := env.roles.CreateRole(withCaller(env.ctx, env.viewer), connect.NewRequest(&adminv1.CreateRoleRequest{
@@ -1265,7 +1267,7 @@ func TestAdminRoleServiceManagesRoles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("public GetRole: %v", err)
 	}
-	if got := publicGetResp.Msg.GetRole(); got.GetName() != "helpdesk" || got.GetDisplayName() != "Helpdesk" || !got.GetPingable() {
+	if got := publicGetResp.Msg.GetRole(); got.GetName() != "helpdesk" || got.GetDisplayName() != "Helpdesk" || !got.GetPingable() || got.GetColor() != 0x336699 {
 		t.Fatalf("public GetRole role = %+v, want helpdesk metadata", got)
 	}
 	if _, err := env.publicRoles.GetRole(withCaller(env.ctx, env.viewer), connect.NewRequest(&apiv1.GetRoleRequest{Name: "missing-role"})); connect.CodeOf(err) != connect.CodeNotFound {
@@ -1314,6 +1316,9 @@ func TestAdminRoleServiceManagesRoles(t *testing.T) {
 	if len(getResp.Msg.GetUsers()) != 1 || getResp.Msg.GetUsers()[0].GetId() != member.Id {
 		t.Fatalf("GetRole users = %+v, want member %s", getResp.Msg.GetUsers(), member.Id)
 	}
+	if got := getResp.Msg.GetUsers()[0].GetRoleColor(); got != 0x336699 {
+		t.Fatalf("GetRole user role color = %#x, want %#x", got, uint32(0x336699))
+	}
 	if _, err := env.roles.GetRole(withCaller(env.ctx, env.viewer), connect.NewRequest(&adminv1.GetRoleRequest{Name: "missing-role"})); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Fatalf("missing GetRole code = %v, want not found", connect.CodeOf(err))
 	}
@@ -1345,6 +1350,23 @@ func TestAdminRoleServiceManagesRoles(t *testing.T) {
 	}
 	if got := partialRoleResp.Msg.GetRole().GetRole(); got.GetDisplayName() != "Support" || got.GetDescription() != "Escalation queue" || got.GetPingable() {
 		t.Fatalf("partial role = %+v, want preserved display/pingable and updated description", got)
+	}
+	moderatorColor := uint32(0xAA44CC)
+	moderatorResp, err := env.roles.UpdateRole(withCaller(env.ctx, env.viewer), connect.NewRequest(&adminv1.UpdateRoleRequest{
+		Name:  core.RoleModerator,
+		Color: &moderatorColor,
+	}))
+	if err != nil {
+		t.Fatalf("color-only UpdateRole(moderator): %v", err)
+	}
+	if got := moderatorResp.Msg.GetRole().GetRole().GetColor(); got != moderatorColor {
+		t.Fatalf("moderator color = %#x, want %#x", got, moderatorColor)
+	}
+	if _, err := env.roles.UpdateRole(withCaller(env.ctx, env.viewer), connect.NewRequest(&adminv1.UpdateRoleRequest{
+		Name:  core.RoleEveryone,
+		Color: &moderatorColor,
+	})); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("UpdateRole(everyone color) code = %v, want invalid argument", connect.CodeOf(err))
 	}
 
 	if _, err := env.roles.DeleteRole(withCaller(env.ctx, env.viewer), connect.NewRequest(&adminv1.DeleteRoleRequest{

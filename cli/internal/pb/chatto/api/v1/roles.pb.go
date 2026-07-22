@@ -36,7 +36,10 @@ type Role struct {
 	// Display/order position.
 	Position int32 `protobuf:"varint,5,opt,name=position,proto3" json:"position,omitempty"`
 	// Whether messages may notify users assigned to this role.
-	Pingable      bool `protobuf:"varint,6,opt,name=pingable,proto3" json:"pingable,omitempty"`
+	Pingable bool `protobuf:"varint,6,opt,name=pingable,proto3" json:"pingable,omitempty"`
+	// Optional 24-bit RGB colour used for member names. Zero uses the client
+	// theme's default colour.
+	Color         uint32 `protobuf:"varint,7,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -111,6 +114,13 @@ func (x *Role) GetPingable() bool {
 		return x.Pingable
 	}
 	return false
+}
+
+func (x *Role) GetColor() uint32 {
+	if x != nil {
+		return x.Color
+	}
+	return 0
 }
 
 // Request the current role catalog.
@@ -385,14 +395,16 @@ var File_chatto_api_v1_roles_proto protoreflect.FileDescriptor
 
 const file_chatto_api_v1_roles_proto_rawDesc = "" +
 	"\n" +
-	"\x19chatto/api/v1/roles.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\"\xb4\x01\n" +
+	"\x19chatto/api/v1/roles.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\"\xd6\x01\n" +
 	"\x04Role\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1b\n" +
 	"\tis_system\x18\x04 \x01(\bR\bisSystem\x12\x1a\n" +
 	"\bposition\x18\x05 \x01(\x05R\bposition\x12\x1a\n" +
-	"\bpingable\x18\x06 \x01(\bR\bpingable\"\x12\n" +
+	"\bpingable\x18\x06 \x01(\bR\bpingable\x12 \n" +
+	"\x05color\x18\a \x01(\rB\n" +
+	"\xbaH\a*\x05\x18\xff\xff\xff\aR\x05color\"\x12\n" +
 	"\x10ListRolesRequest\">\n" +
 	"\x11ListRolesResponse\x12)\n" +
 	"\x05roles\x18\x01 \x03(\v2\x13.chatto.api.v1.RoleR\x05roles\"-\n" +

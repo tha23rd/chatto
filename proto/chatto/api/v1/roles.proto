@@ -18,6 +18,9 @@ message Role {
   int32 position = 5;
   // Whether messages may notify users assigned to this role.
   bool pingable = 6;
+  // Optional 24-bit RGB colour used for member names. Zero uses the client
+  // theme's default colour.
+  uint32 color = 7 [(buf.validate.field).uint32.lte = 16777215];
 }
 
 // Request the current role catalog.

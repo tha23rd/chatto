@@ -42,6 +42,7 @@ unknown instance) the component renders nothing.
   import MessageContent from './MessageContent.svelte';
   import UserAvatar, { UserAvatarViewData } from './UserAvatar.svelte';
   import DeletedUserLabel from './DeletedUserLabel.svelte';
+  import { roleColorToCSS } from '$lib/roleColors';
 
   let {
     link,
@@ -408,7 +409,10 @@ unknown instance) the component renders nothing.
           <div class="flex min-w-0 items-center gap-2">
             {#if preview.actor && !preview.actor.deleted}
               <UserAvatar user={preview.actor} size="xs" />
-              <span class="truncate text-sm font-medium">{displayName}</span>
+              <span
+                class="truncate text-sm font-medium"
+                style:color={roleColorToCSS(preview.actor.roleColor)}>{displayName}</span
+              >
             {:else}
               <span class="truncate text-sm font-medium text-muted"><DeletedUserLabel /></span>
             {/if}

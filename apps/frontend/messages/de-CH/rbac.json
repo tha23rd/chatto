@@ -25,7 +25,12 @@
       "description": "Beschreibung",
       "description_placeholder": "Optionale Beschreibung für diese Rolle",
       "pingable": "Personen dürfen diese Rolle pingen",
-      "pingable_description": "Pingbare Rollen erscheinen in der @-Autovervollständigung und benachrichtigen zugewiesene Raummitglieder."
+      "pingable_description": "Pingbare Rollen erscheinen in der @-Autovervollständigung und benachrichtigen zugewiesene Raummitglieder.",
+      "colour": "Rollenfarbe",
+      "colour_description": "Die höchste zugewiesene Rolle mit einer Farbe bestimmt die Namensfarbe eines Mitglieds.",
+      "default_colour": "Standard",
+      "colour_updated": "Rollenfarbe aktualisiert",
+      "colour_update_failed": "Rollenfarbe konnte nicht aktualisiert werden"
     },
     "permissions": {
       "loading": "Berechtigungen werden geladen...",

@@ -1,12 +1,15 @@
 <script lang="ts">
   import { Button, Checkbox, Form, TextInput, TextArea } from '$lib/ui/form';
   import * as m from '$lib/i18n/messages';
+  import RoleColorPicker from './RoleColorPicker.svelte';
 
   let {
     name = $bindable(''),
     displayName = $bindable(''),
     description = $bindable(''),
     pingable = $bindable(false),
+    color = $bindable(0),
+    showColor = false,
     nameEditable = true,
     saving = false,
     submitLabel = m['rbac.role_form.save'](),
@@ -19,6 +22,8 @@
     displayName?: string;
     description?: string;
     pingable?: boolean;
+    color?: number;
+    showColor?: boolean;
     nameEditable?: boolean;
     saving?: boolean;
     submitLabel?: string;
@@ -106,6 +111,10 @@
     disabled={saving}
     description={m['rbac.role_form.pingable_description']()}
   />
+
+  {#if showColor}
+    <RoleColorPicker bind:color disabled={saving} />
+  {/if}
 
   {#snippet footer()}
     <Button

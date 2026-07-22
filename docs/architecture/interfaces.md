@@ -59,6 +59,8 @@ capability keys for mounted public packages and negotiated contracts, and an
 optional minimum bundled-web-client version. The
 `chatto.realtime.projection.v1` capability is the bundled 0.5 client's gate for
 opening realtime protocol 2, the only accepted behavioral version. The
+`chatto.role-colors.v1` capability gates additive role-colour writes and the
+derived public user colour field for mixed-version clients. The
 `chatto.realtime.v1` suffix is the protobuf namespace. This metadata is public
 pre-authentication state.
 It describes wire support, not enabled server features or the authenticated

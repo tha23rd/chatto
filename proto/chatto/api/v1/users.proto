@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package chatto.api.v1;
 
+import "buf/validate/validate.proto";
 import "chatto/api/v1/presence.proto";
 import "chatto/api/v1/user_status.proto";
 
@@ -24,6 +25,12 @@ message User {
   // Account kind. When automated (e.g. a channel webhook identity), clients
   // may render an "automated" marker. Empty/unspecified means a human account.
   UserKind kind = 8;
+  // Effective 24-bit RGB colour from the highest positioned assigned role
+  // that has a colour. Absent when the client should use its theme default.
+  optional uint32 role_color = 9 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 16777215
+  }];
 }
 
 // UserKind discriminates human accounts from synthetic, non-human identities

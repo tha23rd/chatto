@@ -25,7 +25,12 @@
       "description": "Opis",
       "description_placeholder": "Opcjonalny opis tej roli",
       "pingable": "Zezwalaj innym na pingowanie tej roli",
-      "pingable_description": "Role, które można pingować, pojawiają się w @ autouzupełnianiu i powiadamiają przypisanych członków pokoju."
+      "pingable_description": "Role, które można pingować, pojawiają się w @ autouzupełnianiu i powiadamiają przypisanych członków pokoju.",
+      "colour": "Kolor roli",
+      "colour_description": "Najwyższa przypisana rola z kolorem określa kolor nazwy członka.",
+      "default_colour": "Domyślny",
+      "colour_updated": "Kolor roli został zaktualizowany",
+      "colour_update_failed": "Nie udało się zaktualizować koloru roli"
     },
     "permissions": {
       "loading": "Ładowanie uprawnień...",

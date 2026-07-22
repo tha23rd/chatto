@@ -3519,6 +3519,7 @@ Public user fields.
 | `presence_status` | [`PresenceStatus`](#chatto-api-v1-PresenceStatus) | Current live presence status. |
 | `custom_status` | [`CustomUserStatus`](#chatto-api-v1-CustomUserStatus) | Custom profile status, when set. |
 | `kind` | [`UserKind`](#chatto-api-v1-UserKind) | Account kind. When automated (e.g. a channel webhook identity), clients may render an "automated" marker. Empty/unspecified means a human account. |
+| `role_color` | `optional uint32` | Effective 24-bit RGB colour from the highest positioned assigned role that has a colour. Absent when the client should use its theme default. |
 
 
 
@@ -4291,6 +4292,7 @@ Public role metadata used for rendering role mentions, labels, and catalogs.
 | `is_system` | `bool` | Whether this is a built-in role. |
 | `position` | `int32` | Display/order position. |
 | `pingable` | `bool` | Whether messages may notify users assigned to this role. |
+| `color` | `uint32` | Optional 24-bit RGB colour used for member names. Zero uses the client theme's default colour. |
 
 
 
