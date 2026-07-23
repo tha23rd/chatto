@@ -210,6 +210,7 @@ func (c *ChattoCore) PlanRealtimeReplay(ctx context.Context, userID, resumeCurso
 		roomID, roomSubject := realtimeReplayRoomSubject(msg.Subject)
 		assetID, assetSubject := events.ParseAssetSubject(msg.Subject)
 		_, userSubject := events.ParseUserSubject(msg.Subject)
+		_, soundboardSubject := events.ParseSoundboardSubject(msg.Subject)
 		switch {
 		case roomSubject:
 			if !isDeliverableLiveEVTRoomEvent(&event) {
@@ -266,6 +267,19 @@ func (c *ChattoCore) PlanRealtimeReplay(ctx context.Context, userID, resumeCurso
 			}
 			waitCtx, cancel := context.WithTimeout(ctx, liveEVTProjectionWaitTimeout)
 			err = c.myEvents().waitForLiveEVTUserEvent(waitCtx, msg.Subject, seq)
+			cancel()
+			if err != nil {
+				return RealtimeReplayPlan{}, fmt.Errorf("wait for replay sequence %d: %w", seq, err)
+			}
+		case soundboardSubject:
+			// The catalog is server-wide and readable by every authenticated
+			// member, so a gap needs no authorization decision — only a
+			// projection that already contains the replayed fact.
+			if !isDeliverableLiveEVTSoundboardEvent(&event) {
+				continue
+			}
+			waitCtx, cancel := context.WithTimeout(ctx, liveEVTProjectionWaitTimeout)
+			err = c.waitForSoundboardProjection(waitCtx, events.SubjectPosition(msg.Subject, seq))
 			cancel()
 			if err != nil {
 				return RealtimeReplayPlan{}, fmt.Errorf("wait for replay sequence %d: %w", seq, err)

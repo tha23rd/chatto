@@ -36,6 +36,8 @@
     "noise_suppression_loading": "Laddar modell…",
     "noise_suppression_unavailable": "Inte tillgänglig i den här webbläsaren",
     "fullscreen_feed": "Helskärmsflöde",
+    "pop_out_feed": "Visa flödet i bild-i-bild",
+    "pop_out_failed": "Kunde inte visa flödet i bild-i-bild.",
     "fullscreen_call": "Helskärmssamtal",
     "exit_fullscreen_call": "Avsluta helskärmssamtal",
     "locally_mute_participant": "Stäng av ljudet lokalt",
@@ -77,6 +79,8 @@
     "participant_volume": "Volym",
     "participant_volume_value": "{percent} % volym",
     "participant_volume_muted_hint": "Ljudlös lokalt – slå på ljudet för att höra den här deltagaren.",
+    "stream_volume": "Strömvolym",
+    "stream_volume_value": "{percent} % strömvolym",
     "media_device_failed": "Kunde inte komma åt en mediaenhet.",
     "tuning": {
       "strength_label": "Styrka på brusreducering",

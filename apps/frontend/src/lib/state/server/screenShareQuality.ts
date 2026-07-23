@@ -191,12 +191,33 @@ export function clampQualityPrefs(
   };
 }
 
+/**
+ * Capture constraints for shared audio.
+ *
+ * Voice DSP must be off. `getDisplayMedia({ audio: true })` leaves these to the browser,
+ * and Chromium turns echo cancellation, noise suppression, and automatic gain control on by
+ * default — the same speech-oriented processing that makes a microphone sound clean and makes
+ * game and music audio sound like a broken radio: sustained tones get treated as noise, and
+ * AGC pumps the level on every loud moment.
+ *
+ * The mic path deliberately keeps all three on (see `audioCaptureDefaults` in
+ * ./voiceCall.svelte.ts); only shared audio opts out.
+ *
+ * Written as plain (non-`exact`) constraints on purpose: a host that does not understand one
+ * of them ignores it instead of failing the whole capture request.
+ */
+export const SHARED_AUDIO_CAPTURE_CONSTRAINTS = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: false
+} as const;
+
 /** The capture + publish option pair for `setScreenShareEnabled`. */
 export type ResolvedScreenShareOptions = {
   capture: {
     resolution: { width: number; height: number; frameRate: number };
     contentHint: 'motion';
-    audio: boolean;
+    audio: false | typeof SHARED_AUDIO_CAPTURE_CONSTRAINTS;
     systemAudio: 'include' | 'exclude';
   };
   publish: {
@@ -235,7 +256,7 @@ export function resolveScreenShareOptions(
         frameRate
       },
       contentHint: 'motion',
-      audio: clamped.shareAudio,
+      audio: clamped.shareAudio ? SHARED_AUDIO_CAPTURE_CONSTRAINTS : false,
       systemAudio: clamped.shareAudio ? 'include' : 'exclude'
     },
     publish: {

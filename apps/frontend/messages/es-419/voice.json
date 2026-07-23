@@ -36,6 +36,8 @@
     "noise_suppression_loading": "Cargando modelo…",
     "noise_suppression_unavailable": "No disponible en este navegador",
     "fullscreen_feed": "Feed en pantalla completa",
+    "pop_out_feed": "Flujo en imagen en imagen",
+    "pop_out_failed": "No se pudo mostrar este flujo en imagen en imagen.",
     "fullscreen_call": "Llamada en pantalla completa",
     "exit_fullscreen_call": "Salir de la llamada en pantalla completa",
     "locally_mute_participant": "Silenciar localmente",
@@ -77,6 +79,8 @@
     "participant_volume": "Volumen",
     "participant_volume_value": "{percent}% de volumen",
     "participant_volume_muted_hint": "Silenciado localmente: reactiva el sonido para escuchar a esta persona.",
+    "stream_volume": "Volumen del flujo",
+    "stream_volume_value": "{percent}% del volumen del flujo",
     "media_device_failed": "No se pudo acceder a un dispositivo multimedia.",
     "tuning": {
       "strength_label": "Intensidad de supresión",

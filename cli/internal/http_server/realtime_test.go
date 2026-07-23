@@ -397,6 +397,43 @@ func TestRealtimeProjectionMapsDurableCallTransition(t *testing.T) {
 	}
 }
 
+// TestRealtimeProjectionMapsSoundboardCatalogChange keeps soundboard lifecycle
+// facts mapped to a projection operation. Without it the client keeps a stale
+// catalog until it reloads, which is what stopped members already in a voice
+// call from seeing a newly uploaded clip.
+func TestRealtimeProjectionMapsSoundboardCatalogChange(t *testing.T) {
+	env := setupWebSocketTestServer(t)
+	viewer, err := env.core.CreateUser(env.ctx, core.SystemActorID, "rt-soundboard-projection", "RT Soundboard", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	events := map[string]*corev1.Event{
+		"created": {Id: "sound-created-1", Event: &corev1.Event_SoundboardSoundCreated{SoundboardSoundCreated: &corev1.SoundboardSoundCreatedEvent{
+			Id: "SB1", Name: "airhorn",
+		}}},
+		"deleted": {Id: "sound-deleted-1", Event: &corev1.Event_SoundboardSoundDeleted{SoundboardSoundDeleted: &corev1.SoundboardSoundDeletedEvent{
+			Id: "SB1",
+		}}},
+	}
+	for name, event := range events {
+		t.Run(name, func(t *testing.T) {
+			frame, handled, err := env.httpServer.realtimeProjectionFrameForEvent(env.ctx, viewer.Id, core.NewEVTEventEnvelope(event))
+			if err != nil {
+				t.Fatalf("realtimeProjectionFrameForEvent: %v", err)
+			}
+			operations := frame.GetProjectionEvent().GetOperations()
+			if !handled || len(operations) != 1 {
+				t.Fatalf("soundboard projection frame = %+v, handled=%v", frame, handled)
+			}
+			// The catalog rides on authenticated server state, so the operation
+			// is a full server-state replacement rather than a delta.
+			if operations[0].GetServerStateUpsert() == nil {
+				t.Fatalf("soundboard projection operation = %T, want server_state_upsert", operations[0].GetOperation())
+			}
+		})
+	}
+}
+
 func TestRealtimeTransientMapperRejectsProjectionOwnedLiveEvents(t *testing.T) {
 	tests := []struct {
 		name  string

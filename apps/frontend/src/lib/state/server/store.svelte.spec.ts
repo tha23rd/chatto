@@ -6,6 +6,8 @@ import type { RoomFileItem } from '$lib/api-client/attachments';
 import { ServerPublicProfile } from '@chatto/api-types/api/v1/server_pb';
 import { ScreenShareConfig, ServerRuntimeConfig } from '@chatto/api-types/api/v1/server_state_pb';
 import { ActiveCall, CallParticipant } from '@chatto/api-types/api/v1/voice_calls_pb';
+import { Sound } from '@chatto/api-types/api/v1/soundboard_pb';
+import { getSoundboard, __resetSoundboardForTests } from '$lib/state/soundboard.svelte';
 import { User } from '@chatto/api-types/api/v1/users_pb';
 import { DirectoryMember } from '@chatto/api-types/api/v1/member_directory_pb';
 import { Message, MessageAttachment } from '@chatto/api-types/api/v1/message_types_pb';
@@ -27,6 +29,7 @@ import {
   RealtimeProjectionRoomTimelineEventUpsert,
   RealtimeProjectionRoomTimelineReplace,
   RealtimeProjectionServerState,
+  RealtimeProjectionSoundboard,
   RealtimeProjectionReset,
   RealtimeProjectionRoom,
   RealtimeProjectionUserRemove
@@ -926,6 +929,18 @@ describe('ServerStateStore live server updates', () => {
                   maxFramerate: 60,
                   maxBitrate: 9_000_000n
                 })
+              }),
+              soundboard: new RealtimeProjectionSoundboard({
+                sounds: [
+                  new Sound({
+                    id: 'sound-1',
+                    name: 'airhorn',
+                    url: 'https://cdn/assets/sound/a1',
+                    emoji: '📣',
+                    volume: 1,
+                    durationMs: 1_500n
+                  })
+                ]
               })
             })
           }
@@ -950,6 +965,105 @@ describe('ServerStateStore live server updates', () => {
       maxFramerate: 60,
       maxBitrate: 9_000_000
     });
+    // The catalog rides along with authenticated server state, so an admin
+    // upload reaches the shared soundboard store of a client that is already in
+    // a voice call.
+    expect(getSoundboard(store.serverId).sounds).toEqual([
+      {
+        id: 'sound-1',
+        name: 'airhorn',
+        url: 'https://cdn/assets/sound/a1',
+        emoji: '📣',
+        volume: 1,
+        durationMs: 1_500
+      }
+    ]);
+  });
+
+  it('keeps a ListSounds catalog when the server sends no soundboard in server state', async () => {
+    // A server older than the projection soundboard field. `sounds` would decode
+    // as an empty list, so the reducer has to key off catalog presence instead or
+    // it silently empties the soundboard for every mixed-version client.
+    __resetSoundboardForTests();
+    const fake = new FakeServerConnection([roomDirectoryResult(), adminRoomLayoutResult()]);
+    const store = makeStore(fake, registered);
+    await flushPromises();
+    getSoundboard(store.serverId).replace([
+      {
+        id: 'sound-1',
+        name: 'airhorn',
+        url: 'https://cdn/assets/sound/a1',
+        emoji: '📣',
+        volume: 1,
+        durationMs: 1_500
+      }
+    ]);
+
+    eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
+    flushSync();
+    const bus = eventBusManager.getBus(registered.id);
+    if (!bus) throw new Error('event bus did not start');
+
+    for (const handler of bus.projectionHandlers) {
+      handler(
+        new RealtimeProjectionEvent({
+          operations: [
+            new RealtimeProjectionOperation({
+              operation: {
+                case: 'serverStateUpsert',
+                value: new RealtimeProjectionServerState({ motd: 'Old server' })
+              }
+            })
+          ]
+        })
+      );
+    }
+
+    expect(store.serverInfo.motd).toBe('Old server');
+    expect(getSoundboard(store.serverId).sounds.map((sound) => sound.id)).toEqual(['sound-1']);
+  });
+
+  it('clears the catalog when the server sends an empty soundboard', async () => {
+    __resetSoundboardForTests();
+    const fake = new FakeServerConnection([roomDirectoryResult(), adminRoomLayoutResult()]);
+    const store = makeStore(fake, registered);
+    await flushPromises();
+    getSoundboard(store.serverId).replace([
+      {
+        id: 'sound-1',
+        name: 'airhorn',
+        url: 'https://cdn/assets/sound/a1',
+        emoji: '📣',
+        volume: 1,
+        durationMs: 1_500
+      }
+    ]);
+
+    eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
+    flushSync();
+    const bus = eventBusManager.getBus(registered.id);
+    if (!bus) throw new Error('event bus did not start');
+
+    for (const handler of bus.projectionHandlers) {
+      handler(
+        new RealtimeProjectionEvent({
+          operations: [
+            new RealtimeProjectionOperation({
+              operation: {
+                case: 'serverStateUpsert',
+                value: new RealtimeProjectionServerState({
+                  soundboard: new RealtimeProjectionSoundboard({ sounds: [] })
+                })
+              }
+            })
+          ]
+        })
+      );
+    }
+
+    // Deleting the last sound must reach clients, so a present-but-empty catalog
+    // is authoritative.
+    expect(getSoundboard(store.serverId).sounds).toEqual([]);
   });
 
   it('uses the projection as the authoritative active-call snapshot', () => {

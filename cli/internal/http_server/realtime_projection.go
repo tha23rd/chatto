@@ -746,6 +746,17 @@ func (s *HTTPServer) realtimeProjectionFrameForEventWithRooms(ctx context.Contex
 		appendOperation(&realtimev1.RealtimeProjectionOperation{Operation: &realtimev1.RealtimeProjectionOperation_UserRemove{
 			UserRemove: &realtimev1.RealtimeProjectionUserRemove{UserId: payload.UserAccountDeleted.GetUserId()},
 		}})
+	case *corev1.Event_SoundboardSoundCreated, *corev1.Event_SoundboardSoundDeleted:
+		// The soundboard catalog rides on authenticated server state, so a
+		// catalog change replaces it wholesale. Clients already in a voice call
+		// converge without rejoining.
+		serverState, err := s.connectAPI.BuildRealtimeProjectionServerState(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+		appendOperation(&realtimev1.RealtimeProjectionOperation{Operation: &realtimev1.RealtimeProjectionOperation_ServerStateUpsert{
+			ServerStateUpsert: realtimeProjectionServerState(serverState),
+		}})
 	default:
 		return nil, false, nil
 	}
@@ -760,7 +771,12 @@ func realtimeProjectionServerState(state *connectapi.RealtimeProjectionServerSta
 	if state == nil {
 		return &realtimev1.RealtimeProjectionServerState{}
 	}
-	out := &realtimev1.RealtimeProjectionServerState{Runtime: state.Runtime}
+	// Always present, so a client can distinguish an empty catalog from a server
+	// that does not implement the field and must not touch its own catalog.
+	out := &realtimev1.RealtimeProjectionServerState{
+		Runtime:    state.Runtime,
+		Soundboard: &realtimev1.RealtimeProjectionSoundboard{Sounds: state.Sounds},
+	}
 	if state.MOTD != "" {
 		out.Motd = &state.MOTD
 	}

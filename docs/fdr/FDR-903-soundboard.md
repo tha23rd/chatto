@@ -64,9 +64,16 @@ path for playback, so it adds no new media infrastructure.
 - Playing a sound is rate-limited per member (a minimum gap between triggers and
   a rolling per-window cap) to prevent audio spam. Throttled triggers are
   refused with brief feedback in the panel rather than queued.
+- Triggering a sound replaces that member's own currently-playing sound instead
+  of layering the two: their previous clip stops for them and for every
+  listener. Triggering the same sound again restarts it. One member can never
+  cut off another member's sound, and a trigger refused by the rate limiter
+  leaves the previous sound playing.
 - Deleting a sound removes it from the catalog and panel for everyone.
   Already-triggered playback is unaffected. Sounds are immutable once created;
   changing a sound means deleting it and uploading a new one.
+- Adding or deleting a sound reaches connected members immediately, including
+  members who are already in a voice call; no rejoin or reload is needed.
 - Playing or managing sounds does not post anything to the room timeline.
 
 ## Design Decisions
@@ -285,6 +292,63 @@ signal is deterministic and matches the "plays leave no durable fact" model
 **Tradeoff:** It introduces the first use of the LiveKit data channel in the app.
 A dropped "stopped" packet could briefly over-light a tile, which the auto-expiry
 bounds; a dropped "started" packet simply skips one highlight.
+
+### 12. A trigger supersedes the triggering member's own previous clip
+
+**Decision:** A member has at most one soundboard clip in the air. A successful
+trigger stops whatever that member was already playing — locally and, by
+unpublishing and stopping the track, for every listener — before starting the
+new clip. Re-triggering the same sound restarts it rather than toggling it off.
+The scope is deliberately per-player, not global.
+
+**Why:** Layering was the original behaviour and made the panel a spam surface:
+holding down clicks stacked several clips into the call at once, and the rate
+limiter only bounded how fast that could happen, not how many sounds could
+overlap. Replacement matches how members expect a soundboard to behave and makes
+"stop that" reachable by triggering something else. Per-player scope is required
+for fairness: a global "stop previous" would let any member silence another
+member's clip, which is a griefing tool rather than a fix. Restart-over-toggle
+keeps a single click predictable — the button always produces sound — and the
+minimum-gap limiter already prevents rapid re-trigger abuse.
+
+**Tradeoff:** Deliberate self-layering (playing two of your own clips together)
+is no longer possible, and there is no explicit "stop" control; stopping early
+means triggering another clip or letting it finish. The "playing" highlight is
+held across the handover so it does not flicker between two clips.
+
+### 13. Catalog changes propagate through authenticated server state
+
+**Decision:** The complete soundboard catalog is carried inside the realtime
+projection's authenticated server state, and the durable
+`soundboard_sound_created`/`soundboard_sound_deleted` facts are fanned out to
+every authenticated session, each mapping to one full server-state replacement.
+The catalog is not delivered by a dedicated projection operation.
+
+**Why:** The catalog was previously fetched once per client through
+`SoundboardService.ListSounds` with no live channel at all, so an upload or
+deletion was invisible to members who were already connected — most visibly to
+anyone already in a voice call, who had to rejoin or reload before the new clip
+appeared. The durable facts already existed; only live delivery was missing.
+Riding on existing server state reuses the reducer and bridge that MOTD and
+runtime settings already use, and keeps the change additive: an unknown
+projection operation is fatal for a client's subscription, whereas an unknown
+protobuf field is ignored, so older clients keep working and simply do not
+converge live. The catalog is readable by every authenticated member, so it
+needs no viewer-scoped authorization and no per-session visibility decision.
+
+The catalog is a nested message rather than a bare repeated field so that it has
+field presence. A client must be able to tell "this server sends no catalog"
+(leave the locally loaded one alone) from "this server's catalog is empty"
+(clear it, because the last sound was deleted). A bare repeated field decodes
+identically in both cases, which would silently empty the soundboard of any
+newer client talking to an older server.
+
+**Tradeoff:** The whole catalog (capped at 48 small metadata rows) is re-sent on
+every server-state upsert, including ones unrelated to soundboard, and a
+soundboard change re-sends unrelated server state. Both are cheap. Clients
+still perform the initial `ListSounds` read, so a projection replacement that
+lands during an in-flight list response has to win explicitly; the store
+versions its catalog so the older response cannot restore a deleted sound.
 
 ## Permissions
 

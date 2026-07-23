@@ -312,7 +312,10 @@ The `/api/realtime` WebSocket is backed by the single core stream `StreamMyEvent
   messages and one `ChanSubscribe("live.evt.>")` for raw committed EVT facts.
   Subject classification and decoding happen once. Authorization then applies
   per connected user using shared room visibility, asset room membership,
-  user/config/member subject gates, and projection readiness.
+  user/config/member subject gates, and projection readiness. Soundboard
+  catalog facts (`evt.soundboard.server.>`) are server-wide and readable by
+  every authenticated member, so they are fanned to all sessions after the
+  soundboard projection is ready, with no per-user visibility decision.
 - Live delivery plus protocol-v2 bounded replay of durable facts as current public projection operations. The WebSocket subscribes to the hub before capturing its EVT cutoff, replays through that cutoff, then drops buffered duplicates before continuing live. Fresh and unsafe resumes receive a compacted server projection through the same operation stream; transient sync and presence signals remain live-only.
 - The PresenceHub (single per-process KV watcher on `presence.>` fanning out per-user status changes to all subscribers).
 - An in-process heartbeat ticker (synthetic `Heartbeat` event every 15s for client-side liveness detection).

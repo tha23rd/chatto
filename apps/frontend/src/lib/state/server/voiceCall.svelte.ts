@@ -62,9 +62,20 @@ export type CallParticipantInfo = {
   videoTrack: Track | null;
   isScreenShareEnabled: boolean;
   screenShareTrack: Track | null;
+  /**
+   * Whether this participant is publishing audio alongside their screen share, so the UI
+   * only offers a stream-audio volume control when there is something to turn down.
+   */
+  hasScreenShareAudio: boolean;
   isLocallyMuted: boolean;
   /** Per-viewer playback volume for this remote participant, percent 0-100. Local participant is always 100. */
   localVolume: number;
+  /**
+   * Per-viewer playback volume for this participant's screen-share audio, percent 0-100.
+   * Independent of `localVolume`: a loud game should be turnable down without also turning
+   * down the voice explaining it. Local participant is always 100.
+   */
+  localScreenShareVolume: number;
 };
 
 /** Non-reactive audio level snapshot, read imperatively by the UI at ~60ms. */
@@ -214,6 +225,7 @@ export function getVoiceCallMediaDeviceErrorMessage(
 }
 
 const CALL_VOLUMES_SUFFIX = 'callParticipantVolumes';
+const CALL_SCREEN_SHARE_VOLUMES_SUFFIX = 'callScreenShareVolumes';
 const SCREEN_SHARE_QUALITY_SUFFIX = 'screenShareQuality';
 
 const screenShareQualityCodec = Codecs.json<ScreenShareQualityPrefs>(isScreenShareQualityPrefs);
@@ -321,6 +333,14 @@ export class VoiceCallState {
   // Persistence slot for participantVolumes; null when no serverId was provided (tests/in-memory only).
   #volumesSlot: StorageSlot<Record<string, number>> | null = null;
 
+  // Per-participant playback volume for *screen-share audio* (percent 0-100), kept separate
+  // from participantVolumes so a loud stream can be turned down without quietening the
+  // sharer's voice. Absent key == default 100. Persisted per server, same as the voice map.
+  screenShareVolumes = $state<Record<string, number>>({});
+
+  // Persistence slot for screenShareVolumes; null when no serverId was provided.
+  #screenShareVolumesSlot: StorageSlot<Record<string, number>> | null = null;
+
   // Screen-share quality choice (resolution / framerate / audio), persisted per server.
   // Always kept clamped to the server's advertised ceiling.
   screenShareQuality = $state<ScreenShareQualityPrefs>(DEFAULT_SCREEN_SHARE_QUALITY);
@@ -407,7 +427,10 @@ export class VoiceCallState {
   private soundboardAudioContext: AudioContext | null = null;
   // Timestamps of recent soundboard triggers, used by the rolling rate limiter.
   private soundboardPlayTimestamps: number[] = [];
-  // Cleanup callbacks for currently-playing clips, invoked on call teardown.
+  // Cleanup callbacks for currently-playing clips, invoked on call teardown and
+  // when a newer trigger supersedes them. Normally holds at most one entry,
+  // because a new clip stops this client's previous one; it stays a set so
+  // teardown and overlapping in-flight triggers cannot leak a published track.
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- non-reactive lifecycle bookkeeping
   private soundboardActiveCleanups = new Set<() => void>();
   private soundboardThrottleTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -462,6 +485,14 @@ export class VoiceCallState {
     if (serverId) {
       this.#volumesSlot = serverSlot(serverId, CALL_VOLUMES_SUFFIX, {}, volumeMapCodec);
       this.participantVolumes = sanitizeVolumeMap(this.#volumesSlot.get());
+
+      this.#screenShareVolumesSlot = serverSlot(
+        serverId,
+        CALL_SCREEN_SHARE_VOLUMES_SUFFIX,
+        {},
+        volumeMapCodec
+      );
+      this.screenShareVolumes = sanitizeVolumeMap(this.#screenShareVolumesSlot.get());
 
       this.#screenShareQualitySlot = serverSlot(
         serverId,
@@ -655,6 +686,34 @@ export class VoiceCallState {
       this.participantVolumes = { ...this.participantVolumes, [identity]: clamped };
     }
     this.#volumesSlot?.set(this.participantVolumes);
+    this.applyParticipantAudioVolume(identity);
+    this.updateParticipants();
+  }
+
+  /** Per-viewer playback volume for a participant's screen-share audio, percent 0-100. */
+  getParticipantScreenShareVolume(identity: string): number {
+    return this.screenShareVolumes[identity] ?? 100;
+  }
+
+  /**
+   * Set the per-viewer playback volume for a participant's screen-share audio.
+   *
+   * Deliberately independent of `setParticipantVolume`: game or music audio is routinely far
+   * louder than the voice mixed alongside it, and the two need separate faders.
+   */
+  setParticipantScreenShareVolume(identity: string, volumePercent: number): void {
+    if (!this.room || identity === this.room.localParticipant.identity) return;
+
+    const clamped = Math.max(0, Math.min(100, Math.round(volumePercent)));
+    if (clamped === 100) {
+      // Keep the map sparse: absent key == default 100.
+      const { [identity]: _removed, ...remaining } = this.screenShareVolumes;
+      void _removed;
+      this.screenShareVolumes = remaining;
+    } else {
+      this.screenShareVolumes = { ...this.screenShareVolumes, [identity]: clamped };
+    }
+    this.#screenShareVolumesSlot?.set(this.screenShareVolumes);
     this.applyParticipantAudioVolume(identity);
     this.updateParticipants();
   }
@@ -1237,6 +1296,7 @@ export class VoiceCallState {
       if (this.room !== room) return;
 
       this.isScreenShareEnabled = newEnabled;
+      if (newEnabled) this.markSharedAudioAsMusic(room);
     } catch (err) {
       if (this.room !== room) return;
       if (newEnabled) {
@@ -1265,6 +1325,23 @@ export class VoiceCallState {
   }
 
   /**
+   * Tell the audio pipeline that a published screen share's audio is music, not speech.
+   *
+   * livekit-client sets `contentHint` on the screen-share *video* track only, so the audio
+   * track is left at the default and is treated as speech end to end. `'music'` keeps the
+   * encoder out of speech-optimized behaviour, which is what makes game and music audio
+   * sound processed. Best-effort: an older host without `contentHint` simply keeps the
+   * default, and the share is already live either way.
+   */
+  private markSharedAudioAsMusic(room: Room): void {
+    const track = room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track;
+    const mediaStreamTrack = track?.mediaStreamTrack;
+    if (!mediaStreamTrack || !('contentHint' in mediaStreamTrack)) return;
+
+    mediaStreamTrack.contentHint = 'music';
+  }
+
+  /**
    * Play a soundboard clip into the active call so every participant hears it.
    *
    * The clip is decoded with the Web Audio API, routed through a gain node at
@@ -1276,6 +1353,10 @@ export class VoiceCallState {
    * When the buffer finishes the track is unpublished and stopped and all Web
    * Audio nodes are released. Client-side rate limiting (a minimum gap plus a
    * rolling per-window cap) rejects spam before any network work happens.
+   *
+   * A local player only ever has one clip in the air: a successful trigger
+   * stops whatever this client was already playing, locally and for every
+   * remote listener, instead of layering the two clips.
    */
   async playSoundIntoCall(sound: { url: string; volume: number }): Promise<SoundboardPlayResult> {
     const room = this.room;
@@ -1341,12 +1422,26 @@ export class VoiceCallState {
         }
         mediaStreamTrack.stop();
       };
+      // Anything of ours that is still playing is superseded by this clip.
+      // Captured before the new cleanup is registered so it never stops itself.
+      const superseded = [...this.soundboardActiveCleanups];
       this.soundboardActiveCleanups.add(cleanup);
-      // Light up our own tile on the first concurrent clip and announce it once.
+      // Light up our own tile on the first clip and announce it once.
       if (this.soundboardActiveCleanups.size === 1) {
         this.setSoundboardActive(room.localParticipant.identity, true);
         this.broadcastSoundboardActive(true);
       }
+      // Triggering a clip replaces our own previous one rather than layering on
+      // top of it, so one member cannot stack sounds. It is deliberately
+      // per-player: stopping the previous clip only unpublishes and stops our
+      // own track, so nobody can cut off another member's sound. Re-triggering
+      // the same clip restarts it, because the report asked for the previous
+      // sound to stop, not for the button to become a toggle — and the rate
+      // limiter already blocks rapid re-triggers.
+      //
+      // Registering the new cleanup first keeps the "playing" highlight steady:
+      // the set never empties, so no stop/start is broadcast between clips.
+      for (const stop of superseded) stop();
 
       source.onended = cleanup;
       source.start();
@@ -1676,8 +1771,10 @@ export class VoiceCallState {
         videoTrack: getParticipantCameraTrack(p),
         isScreenShareEnabled: isParticipantScreenShareEnabled(p),
         screenShareTrack: getParticipantScreenShareTrack(p),
+        hasScreenShareAudio: !isLocal && isParticipantScreenShareAudioPublished(p),
         isLocallyMuted: !isLocal && this.isParticipantLocallyMuted(p.identity),
-        localVolume: isLocal ? 100 : this.getParticipantVolume(p.identity)
+        localVolume: isLocal ? 100 : this.getParticipantVolume(p.identity),
+        localScreenShareVolume: isLocal ? 100 : this.getParticipantScreenShareVolume(p.identity)
       };
     });
   }
@@ -1696,9 +1793,14 @@ export class VoiceCallState {
 
   private applyRemoteParticipantAudioVolume(participant: RemoteParticipant): void {
     const muted = this.isDeafened || this.isParticipantLocallyMuted(participant.identity);
-    const gain = muted ? 0 : this.getParticipantVolume(participant.identity) / 100;
-    participant.setVolume(gain, Track.Source.Microphone);
-    participant.setVolume(gain, Track.Source.ScreenShareAudio);
+    // Two faders, one mute: deafen and local mute still silence everything from this
+    // participant, but their voice and their stream audio have independent levels.
+    const voiceGain = muted ? 0 : this.getParticipantVolume(participant.identity) / 100;
+    const screenShareGain = muted
+      ? 0
+      : this.getParticipantScreenShareVolume(participant.identity) / 100;
+    participant.setVolume(voiceGain, Track.Source.Microphone);
+    participant.setVolume(screenShareGain, Track.Source.ScreenShareAudio);
   }
 
   /**
@@ -1933,7 +2035,8 @@ export class VoiceCallState {
     this.isScreenSharePending = false;
     this.participants = [];
     this.locallyMutedParticipantIds = {};
-    // participantVolumes intentionally persists across leave/rejoin (see serverSlot).
+    // participantVolumes and screenShareVolumes intentionally persist across leave/rejoin
+    // (see serverSlot).
     this.audioDevices = [];
     this.selectedDeviceId = null;
     this.audioOutputDevices = [];
@@ -2047,6 +2150,21 @@ function getParticipantScreenShareTrack(participant: Participant): Track | null 
     }
   }
   return null;
+}
+
+/**
+ * Whether this participant publishes audio with their screen share.
+ *
+ * Screen-share audio is a separate track from the screen-share video, and sharers often have
+ * none, so the stream-audio volume control is only meaningful when this is true.
+ */
+function isParticipantScreenShareAudioPublished(participant: Participant): boolean {
+  for (const pub of participant.getTrackPublications()) {
+    if (pub.track?.source === Track.Source.ScreenShareAudio && !pub.isMuted) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function assertLiveKitE2EESupported(): void {

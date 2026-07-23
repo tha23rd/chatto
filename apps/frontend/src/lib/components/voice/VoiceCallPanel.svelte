@@ -47,6 +47,10 @@ Room sidebar panel for voice/video calls.
   import { startDMWith } from '$lib/dm/startDM';
   import { toast } from '$lib/ui/toast';
   import { serializeScreenShareDiagnostics } from '$lib/voice/webrtcDiagnostics';
+  import {
+    isPictureInPictureAvailable,
+    togglePictureInPicture
+  } from '$lib/voice/pictureInPicture';
   import { roleColorToCSS } from '$lib/roleColors';
 
   let {
@@ -86,6 +90,10 @@ Room sidebar panel for voice/video calls.
     isLocal: boolean;
     isLocallyMuted: boolean;
     volume: number;
+    /** Playback volume for this participant's screen-share audio, independent of `volume`. */
+    screenShareVolume: number;
+    /** Whether they publish stream audio at all; the stream fader is pointless without it. */
+    hasScreenShareAudio: boolean;
     connectionQuality: string;
     isCameraEnabled: boolean;
     videoTrack: Track | null;
@@ -111,6 +119,8 @@ Room sidebar panel for voice/video calls.
         isLocal: p.isLocal,
         isLocallyMuted: p.isLocallyMuted ?? false,
         volume: p.localVolume ?? 100,
+        screenShareVolume: p.localScreenShareVolume ?? 100,
+        hasScreenShareAudio: p.hasScreenShareAudio ?? false,
         connectionQuality: p.connectionQuality,
         isCameraEnabled: p.isCameraEnabled,
         videoTrack: p.videoTrack,
@@ -135,6 +145,8 @@ Room sidebar panel for voice/video calls.
       isLocal: false,
       isLocallyMuted: false,
       volume: 100,
+      screenShareVolume: 100,
+      hasScreenShareAudio: false,
       connectionQuality: 'unknown',
       isCameraEnabled: false,
       videoTrack: null,
@@ -328,6 +340,11 @@ Room sidebar panel for voice/video calls.
     voiceCallState.setParticipantVolume(participant.key, value);
   }
 
+  function onScreenShareVolumeInput(participant: DisplayParticipant, event: Event) {
+    const value = Number((event.currentTarget as HTMLInputElement).value);
+    voiceCallState.setParticipantScreenShareVolume(participant.key, value);
+  }
+
   // Stream-quality popover. The Share Screen button is the only entry point, in both states,
   // so a live share does not add a second gear beside the call's device gear:
   //  - 'preflight' before capture, shown *before* getDisplayMedia() so the user picks quality
@@ -435,6 +452,31 @@ Room sidebar panel for voice/video calls.
     }
   }
 
+  // Whether this host can float a feed above other windows at all. The desktop client's
+  // webview has no video context menu of its own, so the pop-out control is the only way
+  // there; WebKit-based webviews have no API to offer, so the control is hidden instead of
+  // failing. Read once because a document does not gain the API at runtime.
+  const canPopOutFeeds = isPictureInPictureAvailable(
+    typeof document === 'undefined' ? null : document
+  );
+
+  function mediaCardVideo(target: HTMLElement): HTMLVideoElement | null {
+    return target.closest<HTMLElement>('[data-call-media-card]')?.querySelector('video') ?? null;
+  }
+
+  // Nothing may be awaited before togglePictureInPicture: the request inside it needs the
+  // click's user activation, and Chromium rejects it after any async hop.
+  async function popOutClosestMedia(event: MouseEvent): Promise<void> {
+    event.stopPropagation();
+    const result = await togglePictureInPicture(
+      mediaCardVideo(event.currentTarget as HTMLElement),
+      document
+    );
+    if (result === 'failed' || result === 'unsupported') {
+      toast.error(m['voice.pop_out_failed']());
+    }
+  }
+
   async function toggleFullscreenElement(element: HTMLElement | null): Promise<void> {
     if (!element || typeof document === 'undefined') return;
 
@@ -488,6 +530,14 @@ Room sidebar panel for voice/video calls.
 
 {#snippet mediaTileActions(participant: DisplayParticipant)}
   <CallTileActionToolbar testId="call-media-actions">
+    {#if canPopOutFeeds}
+      <CallTileActionButton
+        icon="mdi--picture-in-picture-bottom-right"
+        label={m['voice.pop_out_feed']()}
+        testId="call-feed-pop-out-button"
+        onclick={(event) => void popOutClosestMedia(event)}
+      />
+    {/if}
     <CallTileActionButton
       icon="mdi--fullscreen"
       label={m['voice.fullscreen_feed']()}
@@ -1002,6 +1052,7 @@ Room sidebar panel for voice/video calls.
     participant={volumePopoverParticipant}
     onclose={closeVolumePopover}
     oninput={(event) => onVolumeInput(volumePopoverParticipant!, event)}
+    onscreensharinput={(event) => onScreenShareVolumeInput(volumePopoverParticipant!, event)}
   />
 {/if}
 

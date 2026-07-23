@@ -11,6 +11,7 @@ import "chatto/api/v1/room_directory.proto";
 import "chatto/api/v1/room_timeline.proto";
 import "chatto/api/v1/server.proto";
 import "chatto/api/v1/server_state.proto";
+import "chatto/api/v1/soundboard.proto";
 import "chatto/api/v1/viewer.proto";
 import "chatto/api/v1/voice_calls.proto";
 import "google/protobuf/timestamp.proto";
@@ -221,6 +222,28 @@ message RealtimeProjectionServerState {
   optional string motd = 1;
   // Runtime capabilities and limits advertised to the client.
   chatto.api.v1.ServerRuntimeConfig runtime = 2;
+  // Complete server soundboard catalog. Absent when the server does not
+  // implement it, which is deliberately distinguishable from a catalog that is
+  // present and empty: a client must leave its own catalog alone in the first
+  // case and clear it in the second.
+  //
+  // Carrying the catalog here instead of adding a new projection operation
+  // keeps older clients working, because an unknown operation is fatal for
+  // their subscription while an unknown field is not.
+  optional RealtimeProjectionSoundboard soundboard = 3;
+}
+
+// Complete server soundboard catalog for clients that render the in-call
+// soundboard. Every authenticated member may read the catalog, so it is plain
+// server state rather than viewer-scoped state.
+//
+// This is a full replacement on every server-state upsert, and a soundboard
+// change emits one, so members already in a voice call converge without a
+// rejoin.
+message RealtimeProjectionSoundboard {
+  // Every sound in the catalog, ordered exactly like
+  // `SoundboardService.ListSounds`. Empty means the server has no sounds.
+  repeated chatto.api.v1.Sound sounds = 1;
 }
 
 // Canonical lightweight room state retained by a server-scoped projection.

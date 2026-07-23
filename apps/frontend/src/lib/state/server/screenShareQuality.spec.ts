@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SCREEN_SHARE_QUALITY,
+  SHARED_AUDIO_CAPTURE_CONSTRAINTS,
   availableFramerates,
   availableResolutions,
   clampQualityPrefs,
@@ -95,8 +96,21 @@ describe('resolveScreenShareOptions', () => {
     expect(off.capture.systemAudio).toBe('exclude');
 
     const on = resolveScreenShareOptions(prefs({ shareAudio: true }), CEILING);
-    expect(on.capture.audio).toBe(true);
+    expect(on.capture.audio).toBeTruthy();
     expect(on.capture.systemAudio).toBe('include');
+  });
+
+  it('captures shared audio with speech processing off', () => {
+    const { capture } = resolveScreenShareOptions(prefs({ shareAudio: true }), CEILING);
+
+    // Left to the browser, Chromium applies mic-grade echo cancellation, noise suppression
+    // and AGC to display audio, which wrecks music and game audio.
+    expect(capture.audio).toEqual({
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false
+    });
+    expect(capture.audio).toBe(SHARED_AUDIO_CAPTURE_CONSTRAINTS);
   });
 });
 

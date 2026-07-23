@@ -100,7 +100,12 @@ export function createAdminSoundboardAPI(config: ConnectAPIConfig) {
   };
 }
 
-function mapSound(sound: {
+/**
+ * Map a protobuf `chatto.api.v1.Sound` to the UI render shape. Exported so the
+ * realtime projection, which carries the same catalog inside authenticated
+ * server state, produces identical objects to the ConnectRPC list calls.
+ */
+export function mapSound(sound: {
   id: string;
   name: string;
   url: string;

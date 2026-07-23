@@ -37,6 +37,10 @@ type RealtimeProjectionSnapshot struct {
 type RealtimeProjectionServerState struct {
 	MOTD    string
 	Runtime *apiv1.ServerRuntimeConfig
+	// Sounds is the complete server soundboard catalog, readable by every
+	// authenticated member. It rides along with server state so a catalog change
+	// converges on clients that are already in a voice call.
+	Sounds []*apiv1.Sound
 }
 
 // RealtimeProjectionRoom is lightweight room state retained for every visible
@@ -331,7 +335,11 @@ func (a *API) BuildRealtimeProjectionServerState(ctx context.Context) (*Realtime
 	if err != nil {
 		return nil, err
 	}
-	return &RealtimeProjectionServerState{MOTD: motd, Runtime: service.serverRuntimeConfig()}, nil
+	return &RealtimeProjectionServerState{
+		MOTD:    motd,
+		Runtime: service.serverRuntimeConfig(),
+		Sounds:  a.soundsToProto(a.core.ListSounds()),
+	}, nil
 }
 
 func (a *API) realtimeProjectionUsers(ctx context.Context) ([]*apiv1.DirectoryMember, error) {

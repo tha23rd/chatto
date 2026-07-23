@@ -32,3 +32,10 @@ func SoundboardAggregate() Aggregate {
 // the soundboard aggregate.
 // Pattern: evt.soundboard.>
 func SoundboardSubjectFilter() string { return SubjectRoot + AggregateSoundboard + ".>" }
+
+// ParseSoundboardSubject extracts the singleton aggregate ID from a
+// soundboard-aggregate event subject. Accepts durable and republished live
+// forms.
+func ParseSoundboardSubject(subject string) (aggregateID string, ok bool) {
+	return parseAggregateSubject(subject, AggregateSoundboard)
+}

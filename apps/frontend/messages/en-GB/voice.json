@@ -36,6 +36,8 @@
     "noise_suppression_loading": "Loading model…",
     "noise_suppression_unavailable": "Unavailable in this browser",
     "fullscreen_feed": "Fullscreen feed",
+    "pop_out_feed": "Pop out feed",
+    "pop_out_failed": "Could not pop out this feed.",
     "fullscreen_call": "Fullscreen call",
     "exit_fullscreen_call": "Exit fullscreen call",
     "locally_mute_participant": "Mute locally",
@@ -77,6 +79,8 @@
     "participant_volume": "Volume",
     "participant_volume_value": "{percent}% volume",
     "participant_volume_muted_hint": "Muted locally — unmute to hear this participant.",
+    "stream_volume": "Stream volume",
+    "stream_volume_value": "{percent}% stream volume",
     "media_device_failed": "Could not access a media device.",
     "tuning": {
       "strength_label": "Suppression strength",
