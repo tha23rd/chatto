@@ -36,6 +36,8 @@
     "noise_suppression_loading": "モデルを読み込み中…",
     "noise_suppression_unavailable": "このブラウザでは利用できません",
     "fullscreen_feed": "全画面フィード",
+    "pop_out_feed": "ピクチャーインピクチャーで表示",
+    "pop_out_failed": "このフィードをピクチャーインピクチャーで表示できませんでした。",
     "fullscreen_call": "全画面通話",
     "exit_fullscreen_call": "全画面通話を終了する",
     "locally_mute_participant": "ローカルでミュートします",
@@ -77,6 +79,8 @@
     "participant_volume": "音量",
     "participant_volume_value": "音量 {percent}%",
     "participant_volume_muted_hint": "ローカルでミュート中 — この参加者の音声を聞くにはミュートを解除してください。",
+    "stream_volume": "配信の音量",
+    "stream_volume_value": "配信の音量 {percent}%",
     "media_device_failed": "メディアデバイスにアクセスできませんでした。",
     "tuning": {
       "strength_label": "抑制の強さ",

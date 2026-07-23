@@ -41,6 +41,9 @@ let lastRoom: {
     // track and RTCRtpSender get retuned by setScreenShareQuality().
     getTrackPublication: ReturnType<typeof vi.fn>;
     setAttributes: ReturnType<typeof vi.fn>;
+    publishTrack: ReturnType<typeof vi.fn>;
+    unpublishTrack: ReturnType<typeof vi.fn>;
+    publishData: ReturnType<typeof vi.fn>;
   };
   switchActiveDevice: ReturnType<typeof vi.fn>;
 } | null = null;
@@ -134,6 +137,13 @@ vi.mock('livekit-client', () => {
       setAttributes: vi.fn(async (attrs: Record<string, string>) => {
         calls.push(`setAttributes:${JSON.stringify(attrs)}`);
       }),
+      publishTrack: vi.fn(async (track: MediaStreamTrack, options?: { name?: string }) => {
+        calls.push(`publishTrack:${options?.name ?? ''}:${track.id}`);
+      }),
+      unpublishTrack: vi.fn(async (track: MediaStreamTrack) => {
+        calls.push(`unpublishTrack:${track.id}`);
+      }),
+      publishData: vi.fn(async () => {}),
       identity: 'local-user',
       name: 'Local User',
       metadata: '',
@@ -205,7 +215,8 @@ vi.mock('livekit-client', () => {
         Microphone: 'microphone',
         Camera: 'camera',
         ScreenShare: 'screen_share',
-        ScreenShareAudio: 'screen_share_audio'
+        ScreenShareAudio: 'screen_share_audio',
+        Unknown: 'unknown'
       }
     },
     AudioPresets: {
@@ -262,6 +273,78 @@ async function flushPromises(times = 5): Promise<void> {
   for (let i = 0; i < times; i++) {
     await Promise.resolve();
   }
+}
+
+// Minimal Web Audio doubles for soundboard playback. Each buffer source records
+// whether it was started and released so a superseded clip is observable, and
+// the published MediaStreamTrack ids let publish/unpublish be paired up.
+type FakeSoundSource = {
+  id: string;
+  started: boolean;
+  disconnected: boolean;
+  onended: (() => void) | null;
+};
+let fakeSources: FakeSoundSource[] = [];
+let stoppedTrackIds: string[] = [];
+let nextNodeId = 0;
+// Clock the soundboard rate limiter reads through Date.now().
+let soundboardNow = 0;
+
+class MockAudioContext {
+  state = 'running';
+  destination = { kind: 'destination' };
+  resume = vi.fn(async () => {
+    this.state = 'running';
+  });
+  close = vi.fn(async () => {
+    this.state = 'closed';
+  });
+  decodeAudioData = vi.fn(async () => ({ duration: 1 }));
+  createGain = vi.fn(() => ({
+    gain: { value: 1 },
+    connect: vi.fn(),
+    disconnect: vi.fn()
+  }));
+  createBufferSource = vi.fn(() => {
+    const source: FakeSoundSource = {
+      id: `source-${++nextNodeId}`,
+      started: false,
+      disconnected: false,
+      onended: null
+    };
+    fakeSources.push(source);
+    return {
+      buffer: null,
+      connect: vi.fn(),
+      disconnect: vi.fn(() => {
+        source.disconnected = true;
+      }),
+      start: vi.fn(() => {
+        source.started = true;
+      }),
+      get onended() {
+        return source.onended;
+      },
+      set onended(handler: (() => void) | null) {
+        source.onended = handler;
+      }
+    };
+  });
+  createMediaStreamDestination = vi.fn(() => {
+    const id = `track-${++nextNodeId}`;
+    return {
+      stream: {
+        getAudioTracks: () => [
+          {
+            id,
+            stop: vi.fn(() => {
+              stoppedTrackIds.push(id);
+            })
+          }
+        ]
+      }
+    };
+  });
 }
 
 describe('VoiceCallState', () => {
@@ -1067,7 +1150,9 @@ describe('VoiceCallState', () => {
     state.setParticipantVolume('remote-user', 50);
     expect(state.getParticipantVolume('remote-user')).toBe(50);
     expect(setVolume).toHaveBeenCalledWith(0.5, 'microphone');
-    expect(setVolume).toHaveBeenCalledWith(0.5, 'screen_share_audio');
+    // This fader is the participant's voice only. Screen-share audio has its own
+    // (see the independent-fader test) and stays at its own level here.
+    expect(setVolume).toHaveBeenCalledWith(1, 'screen_share_audio');
     expect(state.participants.find((p) => p.identity === 'remote-user')).toMatchObject({
       localVolume: 50
     });
@@ -1076,7 +1161,6 @@ describe('VoiceCallState', () => {
     state.setParticipantVolume('remote-user', 150);
     expect(state.getParticipantVolume('remote-user')).toBe(100);
     expect(setVolume).toHaveBeenCalledWith(1, 'microphone');
-    expect(setVolume).toHaveBeenCalledWith(1, 'screen_share_audio');
 
     state.setParticipantVolume('remote-user', 80);
     setVolume.mockClear();
@@ -1087,10 +1171,168 @@ describe('VoiceCallState', () => {
     expect(setVolume).toHaveBeenCalledWith(0, 'screen_share_audio');
     expect(state.getParticipantVolume('remote-user')).toBe(80);
 
-    // Unmute restores the stored 80% => 0.8.
+    // Unmute restores the stored 80% => 0.8 for the voice, and the untouched stream level.
     state.toggleParticipantLocalMute('remote-user');
     expect(setVolume).toHaveBeenCalledWith(0.8, 'microphone');
-    expect(setVolume).toHaveBeenCalledWith(0.8, 'screen_share_audio');
+    expect(setVolume).toHaveBeenCalledWith(1, 'screen_share_audio');
+  });
+
+  it('gives screen-share audio a fader independent of the participant voice fader', async () => {
+    const setVolume = vi.fn();
+    mockRemoteParticipants.set('remote-user', {
+      identity: 'remote-user',
+      name: 'Remote User',
+      metadata: '',
+      connectionQuality: 'good',
+      isSpeaking: false,
+      audioLevel: 0,
+      setVolume,
+      trackPublications: new Map(),
+      getTrackPublications: vi.fn(() => [
+        { isMuted: false, track: { source: 'microphone' } },
+        { isMuted: false, track: { source: 'screen_share_audio' } }
+      ])
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    setVolume.mockClear();
+
+    expect(state.getParticipantScreenShareVolume('remote-user')).toBe(100);
+    expect(state.participants.find((p) => p.identity === 'remote-user')).toMatchObject({
+      hasScreenShareAudio: true,
+      localScreenShareVolume: 100
+    });
+
+    // Turning a loud stream down must leave the sharer's voice at full volume.
+    state.setParticipantScreenShareVolume('remote-user', 20);
+
+    expect(state.getParticipantScreenShareVolume('remote-user')).toBe(20);
+    expect(state.getParticipantVolume('remote-user')).toBe(100);
+    expect(setVolume).toHaveBeenCalledWith(1, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(0.2, 'screen_share_audio');
+    expect(state.participants.find((p) => p.identity === 'remote-user')).toMatchObject({
+      localVolume: 100,
+      localScreenShareVolume: 20
+    });
+
+    // And the voice fader must not drag the stream with it.
+    setVolume.mockClear();
+    state.setParticipantVolume('remote-user', 60);
+
+    expect(setVolume).toHaveBeenCalledWith(0.6, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(0.2, 'screen_share_audio');
+
+    // One mute, both faders: local mute still silences everything from this participant.
+    setVolume.mockClear();
+    state.toggleParticipantLocalMute('remote-user');
+
+    expect(setVolume).toHaveBeenCalledWith(0, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(0, 'screen_share_audio');
+    expect(state.getParticipantScreenShareVolume('remote-user')).toBe(20);
+
+    setVolume.mockClear();
+    state.toggleParticipantLocalMute('remote-user');
+
+    expect(setVolume).toHaveBeenCalledWith(0.6, 'microphone');
+    expect(setVolume).toHaveBeenCalledWith(0.2, 'screen_share_audio');
+  });
+
+  it('reports no screen-share audio when the sharer publishes none', async () => {
+    mockRemoteParticipants.set('remote-user', {
+      identity: 'remote-user',
+      name: 'Remote User',
+      metadata: '',
+      connectionQuality: 'good',
+      isSpeaking: false,
+      audioLevel: 0,
+      setVolume: vi.fn(),
+      trackPublications: new Map(),
+      getTrackPublications: vi.fn(() => [
+        { isMuted: false, track: { source: 'microphone' } },
+        { isMuted: false, track: { source: 'screen_share' } }
+      ])
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+
+    expect(state.participants.find((p) => p.identity === 'remote-user')).toMatchObject({
+      isScreenShareEnabled: true,
+      hasScreenShareAudio: false
+    });
+  });
+
+  it('persists screen-share volume per server, separately from voice volume', async () => {
+    mockRemoteParticipants.set('remote-user', {
+      identity: 'remote-user',
+      name: 'Remote User',
+      metadata: '',
+      connectionQuality: 'good',
+      isSpeaking: false,
+      audioLevel: 0,
+      setVolume: vi.fn(),
+      trackPublications: new Map(),
+      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+    });
+    localStorage.removeItem('chatto:i:server-1:callScreenShareVolumes');
+    localStorage.removeItem('chatto:i:server-2:callScreenShareVolumes');
+
+    const state1 = new VoiceCallState(createVoiceCallClient(), undefined, 'server-1');
+    await state1.join('wss://livekit.example.test', 'R1');
+    state1.setParticipantScreenShareVolume('remote-user', 35);
+
+    const state2 = new VoiceCallState(createVoiceCallClient(), undefined, 'server-1');
+    expect(state2.getParticipantScreenShareVolume('remote-user')).toBe(35);
+    expect(state2.getParticipantVolume('remote-user')).toBe(100);
+
+    const other = new VoiceCallState(createVoiceCallClient(), undefined, 'server-2');
+    expect(other.getParticipantScreenShareVolume('remote-user')).toBe(100);
+  });
+
+  it('ignores setParticipantScreenShareVolume for the local participant', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    state.setParticipantScreenShareVolume('local-user', 20);
+    expect(state.getParticipantScreenShareVolume('local-user')).toBe(100);
+  });
+
+  it('shares audio without voice DSP and marks the published track as music', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+    await state.setScreenShareQuality({ ...DEFAULT_SCREEN_SHARE_QUALITY, shareAudio: true });
+    const screenAudioMediaStreamTrack = { contentHint: '' };
+    lastRoom!.localParticipant.getTrackPublication = vi.fn((source: string) =>
+      source === 'screen_share_audio'
+        ? { track: { mediaStreamTrack: screenAudioMediaStreamTrack } }
+        : undefined
+    );
+
+    await state.toggleScreenShare();
+
+    // Speech processing is what makes game and music audio sound like a broken radio.
+    const capture = vi.mocked(lastRoom!.localParticipant.setScreenShareEnabled).mock.calls[0][1];
+    expect(capture).toMatchObject({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      systemAudio: 'include'
+    });
+    // The mic keeps its own DSP; only shared audio opts out.
+    expect(lastRoomOptions?.audioCaptureDefaults).toMatchObject({
+      autoGainControl: true,
+      echoCancellation: true,
+      noiseSuppression: true
+    });
+    // livekit-client only hints the screen-share *video* track, so we hint the audio one.
+    expect(screenAudioMediaStreamTrack.contentHint).toBe('music');
+  });
+
+  it('leaves shared audio out of the capture request when Share audio is off', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+
+    await state.toggleScreenShare();
+
+    expect(vi.mocked(lastRoom!.localParticipant.setScreenShareEnabled).mock.calls[0][1]).toMatchObject(
+      { audio: false, systemAudio: 'exclude' }
+    );
   });
 
   it('ignores setParticipantVolume for the local participant', async () => {
@@ -1374,6 +1616,82 @@ describe('VoiceCallState', () => {
       await state.toggleDeafen();
       expect(state.isMuted).toBe(true);
       expect(lastRoom?.localParticipant.setMicrophoneEnabled).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('soundboard', () => {
+    function stubSoundboardAudio(): void {
+      fakeSources = [];
+      stoppedTrackIds = [];
+      nextNodeId = 0;
+      vi.stubGlobal('AudioContext', MockAudioContext);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) }))
+      );
+      // The rate limiter enforces a minimum gap between triggers, so drive its
+      // clock explicitly instead of waiting in real time.
+      soundboardNow = 1_000;
+      vi.spyOn(Date, 'now').mockImplementation(() => soundboardNow);
+    }
+
+    const clip = (url: string) => ({ url, volume: 1 });
+
+    it('stops the previous clip from the same player instead of layering a second one', async () => {
+      stubSoundboardAudio();
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      expect(await state.playSoundIntoCall(clip('https://example.test/a.mp3'))).toBe('played');
+      soundboardNow += 1_000;
+      expect(await state.playSoundIntoCall(clip('https://example.test/b.mp3'))).toBe('played');
+
+      // Both clips started, but the first was torn down by the second: its Web
+      // Audio nodes are released and its published track was stopped, so remote
+      // listeners stop hearing it too.
+      expect(fakeSources).toHaveLength(2);
+      expect(fakeSources[0].started).toBe(true);
+      expect(fakeSources[0].disconnected).toBe(true);
+      expect(fakeSources[1].started).toBe(true);
+      expect(fakeSources[1].disconnected).toBe(false);
+      expect(stoppedTrackIds).toHaveLength(1);
+      const unpublished = vi.mocked(lastRoom!.localParticipant.unpublishTrack).mock.calls;
+      expect(unpublished).toHaveLength(1);
+      expect(unpublished[0][0].id).toBe(stoppedTrackIds[0]);
+
+      // The local player never stops being "playing", so the tile highlight and
+      // the remote signal do not flicker off between the two clips.
+      expect(state.isSoundboardActive('local-user')).toBe(true);
+      expect(vi.mocked(lastRoom!.localParticipant.publishData).mock.calls).toHaveLength(1);
+    });
+
+    it('restarts the same clip when it is triggered again', async () => {
+      stubSoundboardAudio();
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      const same = clip('https://example.test/a.mp3');
+      expect(await state.playSoundIntoCall(same)).toBe('played');
+      soundboardNow += 1_000;
+      expect(await state.playSoundIntoCall(same)).toBe('played');
+
+      expect(fakeSources).toHaveLength(2);
+      expect(fakeSources[0].disconnected).toBe(true);
+      expect(fakeSources[1].started).toBe(true);
+      expect(state.isSoundboardActive('local-user')).toBe(true);
+    });
+
+    it('keeps the previous clip playing when a trigger is rate limited', async () => {
+      stubSoundboardAudio();
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      expect(await state.playSoundIntoCall(clip('https://example.test/a.mp3'))).toBe('played');
+      expect(await state.playSoundIntoCall(clip('https://example.test/b.mp3'))).toBe('throttled');
+
+      expect(fakeSources).toHaveLength(1);
+      expect(fakeSources[0].disconnected).toBe(false);
+      expect(stoppedTrackIds).toHaveLength(0);
     });
   });
 });

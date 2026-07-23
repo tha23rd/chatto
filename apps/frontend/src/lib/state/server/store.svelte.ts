@@ -43,6 +43,7 @@ import {
   clearUserSummaryCache,
   removeUserSummaryCacheEntry
 } from '$lib/state/userSummaries.svelte';
+import { notifySoundboard } from '$lib/state/soundboard.svelte';
 import { avatarUserFromDirectoryMember } from './rooms.svelte';
 import { mapNotificationPage } from '$lib/api-client/notifications';
 import { RealtimeProjectionSyncState } from './realtimeSync.svelte';
@@ -317,6 +318,14 @@ export class ServerStateStore {
           break;
         case 'serverStateUpsert':
           this.serverInfo.applyProjectionState(operation.operation.value);
+          // Authenticated server state carries the complete soundboard catalog,
+          // and a soundboard change emits this operation, so members already in
+          // a voice call converge without rejoining. An absent catalog means the
+          // server does not send one: keep whatever ListSounds already loaded
+          // rather than clearing it. A present empty catalog does clear it.
+          if (operation.operation.value.soundboard) {
+            notifySoundboard(this.serverId, operation.operation.value.soundboard.sounds);
+          }
           break;
         case 'viewerUpsert': {
           const viewer = viewerResponseToState(operation.operation.value);

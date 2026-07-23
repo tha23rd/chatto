@@ -36,6 +36,8 @@
     "noise_suppression_loading": "Завантаження моделі…",
     "noise_suppression_unavailable": "Недоступно в цьому браузері",
     "fullscreen_feed": "Повноекранний канал",
+    "pop_out_feed": "Картинка в картинці",
+    "pop_out_failed": "Не вдалося відкрити цей потік у режимі «картинка в картинці».",
     "fullscreen_call": "Дзвінок на весь екран",
     "exit_fullscreen_call": "Вийти з повноекранного виклику",
     "locally_mute_participant": "Вимкнути звук локально",
@@ -77,6 +79,8 @@
     "participant_volume": "Гучність",
     "participant_volume_value": "{percent}% гучності",
     "participant_volume_muted_hint": "Вимкнено локально — увімкніть звук, щоб почути цього учасника.",
+    "stream_volume": "Гучність трансляції",
+    "stream_volume_value": "{percent}% гучності трансляції",
     "media_device_failed": "Не вдалося отримати доступ до мультимедійного пристрою.",
     "tuning": {
       "strength_label": "Сила пригнічення шуму",

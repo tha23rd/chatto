@@ -36,6 +36,8 @@
     "noise_suppression_loading": "Laster modell…",
     "noise_suppression_unavailable": "Ikke tilgjengelig i denne nettleseren",
     "fullscreen_feed": "Fullskjerm-feed",
+    "pop_out_feed": "Vis feeden i bilde-i-bilde",
+    "pop_out_failed": "Kunne ikke vise feeden i bilde-i-bilde.",
     "fullscreen_call": "Fullskjermsamtale",
     "exit_fullscreen_call": "Avslutt samtale i fullskjerm",
     "locally_mute_participant": "Demp lokalt",
@@ -77,6 +79,8 @@
     "participant_volume": "Volum",
     "participant_volume_value": "{percent} % volum",
     "participant_volume_muted_hint": "Dempet lokalt – slå på lyden for å høre denne deltakeren.",
+    "stream_volume": "Strømvolum",
+    "stream_volume_value": "{percent} % strømvolum",
     "media_device_failed": "Kunne ikke få tilgang til en medieenhet.",
     "tuning": {
       "strength_label": "Styrke på støyreduksjon",

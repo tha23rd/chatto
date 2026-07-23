@@ -36,6 +36,8 @@
     "noise_suppression_loading": "Ładowanie modelu…",
     "noise_suppression_unavailable": "Niedostępne w tej przeglądarce",
     "fullscreen_feed": "Kanał pełnoekranowy",
+    "pop_out_feed": "Obraz w obrazie",
+    "pop_out_failed": "Nie udało się otworzyć tego obrazu w obrazie.",
     "fullscreen_call": "Rozmowa na pełnym ekranie",
     "exit_fullscreen_call": "Zakończ połączenie pełnoekranowe",
     "locally_mute_participant": "Wycisz lokalnie",
@@ -77,6 +79,8 @@
     "participant_volume": "Głośność",
     "participant_volume_value": "{percent}% głośności",
     "participant_volume_muted_hint": "Wyciszony lokalnie — włącz dźwięk, aby usłyszeć tę osobę.",
+    "stream_volume": "Głośność transmisji",
+    "stream_volume_value": "{percent}% głośności transmisji",
     "media_device_failed": "Nie można uzyskać dostępu do urządzenia multimedialnego.",
     "tuning": {
       "strength_label": "Siła redukcji szumów",

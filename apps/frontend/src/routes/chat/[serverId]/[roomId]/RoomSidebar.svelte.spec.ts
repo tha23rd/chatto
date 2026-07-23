@@ -41,6 +41,9 @@ const callStore = vi.hoisted(() => ({
       videoTrack: unknown;
       isScreenShareEnabled: boolean;
       screenShareTrack: unknown;
+      hasScreenShareAudio?: boolean;
+      localVolume?: number;
+      localScreenShareVolume?: number;
     }>,
     audioDevices: [],
     audioOutputDevices: [],
@@ -66,6 +69,8 @@ const callStore = vi.hoisted(() => ({
     screenShareRetuneFailed: false,
     setScreenShareQuality: vi.fn().mockResolvedValue(undefined),
     toggleParticipantLocalMute: vi.fn(),
+    setParticipantVolume: vi.fn(),
+    setParticipantScreenShareVolume: vi.fn(),
     refreshDevices: vi.fn().mockResolvedValue(undefined),
     getAudioLevel: vi.fn((_identity?: string) => ({ isSpeaking: false, audioLevel: 0 })),
     isSoundboardActive: vi.fn((_identity?: string) => false),
@@ -1043,6 +1048,215 @@ describe('RoomSidebar', () => {
     expect(callStore.voiceCall.toggleParticipantLocalMute).toHaveBeenCalledWith('user-2');
 
     requestFullscreen.mockRestore();
+  });
+
+  it('offers a stream-audio fader separate from the participant voice fader', async () => {
+    const screenTrack = { attach: vi.fn(), detach: vi.fn() };
+    callStore.voiceCall.connected = true;
+    callStore.voiceCall.isInAnyCall = true;
+    callStore.voiceCall.roomId = 'room-1';
+    callStore.voiceCall.participants = [
+      {
+        identity: 'viewer',
+        login: 'alice',
+        name: 'Alice',
+        avatarUrl: null,
+        isMuted: false,
+        isLocal: true,
+        connectionQuality: 'excellent',
+        isCameraEnabled: false,
+        videoTrack: null,
+        isScreenShareEnabled: false,
+        screenShareTrack: null
+      },
+      {
+        identity: 'user-2',
+        login: 'bob',
+        name: 'Bob',
+        avatarUrl: null,
+        isMuted: false,
+        isLocal: false,
+        connectionQuality: 'good',
+        isCameraEnabled: false,
+        videoTrack: null,
+        isScreenShareEnabled: true,
+        screenShareTrack: screenTrack,
+        hasScreenShareAudio: true,
+        localVolume: 90,
+        localScreenShareVolume: 40
+      }
+    ];
+
+    const { container } = render(RoomSidebarTestHarness, {
+      props: {
+        activePanel: 'call',
+        maximized: true,
+        roomData: roomData([], 0, false),
+        livekitUrl: 'wss://livekit.example.test'
+      }
+    });
+
+    const featured = q(container, '[data-testid="call-featured-stage-card"]')!;
+    const volumeButton = q(featured, '[data-testid="call-feed-volume-button"]') as HTMLButtonElement;
+    volumeButton.click();
+    await tick();
+
+    const voiceSlider = q(
+      container,
+      '[data-testid="call-participant-volume-slider"]'
+    ) as HTMLInputElement;
+    const streamSlider = q(container, '[data-testid="call-stream-volume-slider"]') as HTMLInputElement;
+
+    expect(voiceSlider.value).toBe('90');
+    expect(streamSlider).toBeTruthy();
+    expect(streamSlider.value).toBe('40');
+    expect(streamSlider.getAttribute('aria-label')).toBe('40% stream volume');
+
+    streamSlider.value = '10';
+    streamSlider.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(callStore.voiceCall.setParticipantScreenShareVolume).toHaveBeenCalledWith('user-2', 10);
+    expect(callStore.voiceCall.setParticipantVolume).not.toHaveBeenCalled();
+
+    voiceSlider.value = '70';
+    voiceSlider.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(callStore.voiceCall.setParticipantVolume).toHaveBeenCalledWith('user-2', 70);
+  });
+
+  it('hides the stream-audio fader when the sharer publishes no audio', async () => {
+    const screenTrack = { attach: vi.fn(), detach: vi.fn() };
+    callStore.voiceCall.connected = true;
+    callStore.voiceCall.isInAnyCall = true;
+    callStore.voiceCall.roomId = 'room-1';
+    callStore.voiceCall.participants = [
+      {
+        identity: 'viewer',
+        login: 'alice',
+        name: 'Alice',
+        avatarUrl: null,
+        isMuted: false,
+        isLocal: true,
+        connectionQuality: 'excellent',
+        isCameraEnabled: false,
+        videoTrack: null,
+        isScreenShareEnabled: false,
+        screenShareTrack: null
+      },
+      {
+        identity: 'user-2',
+        login: 'bob',
+        name: 'Bob',
+        avatarUrl: null,
+        isMuted: false,
+        isLocal: false,
+        connectionQuality: 'good',
+        isCameraEnabled: false,
+        videoTrack: null,
+        isScreenShareEnabled: true,
+        screenShareTrack: screenTrack,
+        hasScreenShareAudio: false
+      }
+    ];
+
+    const { container } = render(RoomSidebarTestHarness, {
+      props: {
+        activePanel: 'call',
+        maximized: true,
+        roomData: roomData([], 0, false),
+        livekitUrl: 'wss://livekit.example.test'
+      }
+    });
+
+    const featured = q(container, '[data-testid="call-featured-stage-card"]')!;
+    (q(featured, '[data-testid="call-feed-volume-button"]') as HTMLButtonElement).click();
+    await tick();
+
+    expect(q(container, '[data-testid="call-participant-volume-slider"]')).toBeTruthy();
+    // A dead control is worse than no control.
+    expect(q(container, '[data-testid="call-stream-volume-slider"]')).toBeNull();
+  });
+
+  it('pops a call media feed out into a picture-in-picture window', async () => {
+    // The desktop client's webview has no video context menu of its own, so this control is
+    // the only way to float a feed above other windows. Both halves are stubbed because the
+    // test runner's support for Picture-in-Picture is not something the fix should depend on.
+    const popOutTargets: Element[] = [];
+    const videoPrototype = HTMLVideoElement.prototype as unknown as Record<string, unknown>;
+    const originalRequest = Object.getOwnPropertyDescriptor(
+      videoPrototype,
+      'requestPictureInPicture'
+    );
+    Object.defineProperty(videoPrototype, 'requestPictureInPicture', {
+      configurable: true,
+      writable: true,
+      value: function (this: HTMLVideoElement) {
+        popOutTargets.push(this);
+        return Promise.resolve({});
+      }
+    });
+    Object.defineProperty(document, 'pictureInPictureEnabled', {
+      configurable: true,
+      value: true
+    });
+
+    const screenTrack = { attach: vi.fn(), detach: vi.fn() };
+    callStore.voiceCall.connected = true;
+    callStore.voiceCall.isInAnyCall = true;
+    callStore.voiceCall.roomId = 'room-1';
+    callStore.voiceCall.participants = [
+      {
+        identity: 'viewer',
+        login: 'alice',
+        name: 'Alice',
+        avatarUrl: null,
+        isMuted: false,
+        isLocal: true,
+        connectionQuality: 'excellent',
+        isCameraEnabled: false,
+        videoTrack: null,
+        isScreenShareEnabled: true,
+        screenShareTrack: screenTrack
+      }
+    ];
+
+    const { container } = render(RoomSidebarTestHarness, {
+      props: {
+        activePanel: 'call',
+        maximized: true,
+        roomData: roomData([], 0, false),
+        livekitUrl: 'wss://livekit.example.test'
+      }
+    });
+
+    const featured = q(container, '[data-testid="call-featured-stage-card"]')!;
+    const popOutButton = q(
+      featured,
+      '[data-testid="call-feed-pop-out-button"]'
+    ) as HTMLButtonElement;
+
+    expect(popOutButton).toBeTruthy();
+    expect(popOutButton.getAttribute('aria-label')).toBe('Pop out feed');
+
+    const video = featured.querySelector('video');
+    // The feed must stay poppable: a video that opts out has no pop-out affordance at all.
+    expect(video?.hasAttribute('disablepictureinpicture')).toBe(false);
+    expect((video as HTMLVideoElement).disablePictureInPicture).toBe(false);
+
+    popOutButton.click();
+
+    // Asserted without awaiting on purpose: requestPictureInPicture() needs the click's
+    // transient user activation, so it must be reached with no await in front of it.
+    // Chromium rejects with NotAllowedError if an async hop sneaks in here.
+    expect(popOutTargets).toHaveLength(1);
+    expect(popOutTargets[0]).toBe(video);
+
+    if (originalRequest) {
+      Object.defineProperty(videoPrototype, 'requestPictureInPicture', originalRequest);
+    } else {
+      delete videoPrototype.requestPictureInPicture;
+    }
+    delete (document as unknown as Record<string, unknown>).pictureInPictureEnabled;
   });
 
   it('falls back to a camera participant for the maximized call stage', async () => {

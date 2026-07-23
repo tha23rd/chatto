@@ -427,6 +427,25 @@ Authenticated server state required by every signed-in client.
 | --- | --- | --- |
 | `motd` | `optional string` | Optional message of the day shown to authenticated members. |
 | `runtime` | `chatto.api.v1.ServerRuntimeConfig` | Runtime capabilities and limits advertised to the client. |
+| `soundboard` | optional [`RealtimeProjectionSoundboard`](#chatto-realtime-v1-RealtimeProjectionSoundboard) | Complete server soundboard catalog. Absent when the server does not implement it, which is deliberately distinguishable from a catalog that is present and empty: a client must leave its own catalog alone in the first case and clear it in the second.
+
+Carrying the catalog here instead of adding a new projection operation keeps older clients working, because an unknown operation is fatal for their subscription while an unknown field is not. |
+
+<a id="chatto-realtime-v1-RealtimeProjectionSoundboard"></a>
+
+### RealtimeProjectionSoundboard
+
+Complete server soundboard catalog for clients that render the in-call
+soundboard. Every authenticated member may read the catalog, so it is plain
+server state rather than viewer-scoped state.
+
+This is a full replacement on every server-state upsert, and a soundboard
+change emits one, so members already in a voice call converge without a
+rejoin.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `sounds` | `repeated chatto.api.v1.Sound` | Every sound in the catalog, ordered exactly like `SoundboardService.ListSounds`. Empty means the server has no sounds. |
 
 <a id="chatto-realtime-v1-RealtimeProjectionThreadViewerState"></a>
 

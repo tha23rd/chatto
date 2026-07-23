@@ -9,6 +9,7 @@ import { ServerPublicProfile } from "../../api/v1/server_pb.js";
 import { GetViewerResponse } from "../../api/v1/viewer_pb.js";
 import { DirectoryMember } from "../../api/v1/member_directory_pb.js";
 import { ServerRuntimeConfig } from "../../api/v1/server_state_pb.js";
+import { Sound } from "../../api/v1/soundboard_pb.js";
 import { RoomGroup, RoomViewerState, RoomWithViewerState } from "../../api/v1/room_directory_pb.js";
 import { PresenceStatus } from "../../api/v1/presence_pb.js";
 import { ThreadViewerState } from "../../api/v1/message_types_pb.js";
@@ -929,6 +930,20 @@ export class RealtimeProjectionServerState extends Message<RealtimeProjectionSer
    */
   runtime?: ServerRuntimeConfig;
 
+  /**
+   * Complete server soundboard catalog. Absent when the server does not
+   * implement it, which is deliberately distinguishable from a catalog that is
+   * present and empty: a client must leave its own catalog alone in the first
+   * case and clear it in the second.
+   *
+   * Carrying the catalog here instead of adding a new projection operation
+   * keeps older clients working, because an unknown operation is fatal for
+   * their subscription while an unknown field is not.
+   *
+   * @generated from field: optional chatto.realtime.v1.RealtimeProjectionSoundboard soundboard = 3;
+   */
+  soundboard?: RealtimeProjectionSoundboard;
+
   constructor(data?: PartialMessage<RealtimeProjectionServerState>) {
     super();
     proto3.util.initPartial(data, this);
@@ -939,6 +954,7 @@ export class RealtimeProjectionServerState extends Message<RealtimeProjectionSer
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "motd", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 2, name: "runtime", kind: "message", T: ServerRuntimeConfig },
+    { no: 3, name: "soundboard", kind: "message", T: RealtimeProjectionSoundboard, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RealtimeProjectionServerState {
@@ -955,6 +971,54 @@ export class RealtimeProjectionServerState extends Message<RealtimeProjectionSer
 
   static equals(a: RealtimeProjectionServerState | PlainMessage<RealtimeProjectionServerState> | undefined, b: RealtimeProjectionServerState | PlainMessage<RealtimeProjectionServerState> | undefined): boolean {
     return proto3.util.equals(RealtimeProjectionServerState, a, b);
+  }
+}
+
+/**
+ * Complete server soundboard catalog for clients that render the in-call
+ * soundboard. Every authenticated member may read the catalog, so it is plain
+ * server state rather than viewer-scoped state.
+ *
+ * This is a full replacement on every server-state upsert, and a soundboard
+ * change emits one, so members already in a voice call converge without a
+ * rejoin.
+ *
+ * @generated from message chatto.realtime.v1.RealtimeProjectionSoundboard
+ */
+export class RealtimeProjectionSoundboard extends Message<RealtimeProjectionSoundboard> {
+  /**
+   * Every sound in the catalog, ordered exactly like
+   * `SoundboardService.ListSounds`. Empty means the server has no sounds.
+   *
+   * @generated from field: repeated chatto.api.v1.Sound sounds = 1;
+   */
+  sounds: Sound[] = [];
+
+  constructor(data?: PartialMessage<RealtimeProjectionSoundboard>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "chatto.realtime.v1.RealtimeProjectionSoundboard";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "sounds", kind: "message", T: Sound, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RealtimeProjectionSoundboard {
+    return new RealtimeProjectionSoundboard().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RealtimeProjectionSoundboard {
+    return new RealtimeProjectionSoundboard().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RealtimeProjectionSoundboard {
+    return new RealtimeProjectionSoundboard().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RealtimeProjectionSoundboard | PlainMessage<RealtimeProjectionSoundboard> | undefined, b: RealtimeProjectionSoundboard | PlainMessage<RealtimeProjectionSoundboard> | undefined): boolean {
+    return proto3.util.equals(RealtimeProjectionSoundboard, a, b);
   }
 }
 

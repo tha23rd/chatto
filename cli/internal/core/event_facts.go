@@ -234,6 +234,24 @@ func isDeliverableLiveEVTUserEvent(event *corev1.Event) bool {
 	return isDeliverableLiveEVTUserEventType(events.EventTypeOf(event))
 }
 
+// isDeliverableLiveEVTSoundboardEventType reports whether a soundboard-aggregate
+// event type is delivered live. The catalog is readable by every authenticated
+// member, so both lifecycle facts are fanned out to every subscriber; clients
+// use them to converge the soundboard without rejoining a voice call.
+func isDeliverableLiveEVTSoundboardEventType(eventType string) bool {
+	switch eventType {
+	case events.EventSoundboardSoundCreated,
+		events.EventSoundboardSoundDeleted:
+		return true
+	default:
+		return false
+	}
+}
+
+func isDeliverableLiveEVTSoundboardEvent(event *corev1.Event) bool {
+	return isDeliverableLiveEVTSoundboardEventType(events.EventTypeOf(event))
+}
+
 // IsRBACEvent reports whether event changes roles or permission resolution.
 // Realtime protocol v2 uses this to invalidate an authorization-dependent
 // client projection without exposing the internal RBAC payload.

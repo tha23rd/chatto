@@ -392,6 +392,7 @@ func (h *MyEventsHub) handleLiveEVT(ctx context.Context, msg *nats.Msg) bool {
 		_, roomSubject := events.ParseRoomSubject(msg.Subject)
 		_, assetSubject := events.ParseAssetSubject(msg.Subject)
 		_, userSubject := events.ParseUserSubject(msg.Subject)
+		_, soundboardSubject := events.ParseSoundboardSubject(msg.Subject)
 		if roomSubject && !isDeliverableLiveEVTRoomEventType(eventType) {
 			h.prefiltered.Add(1)
 			return false
@@ -404,7 +405,11 @@ func (h *MyEventsHub) handleLiveEVT(ctx context.Context, msg *nats.Msg) bool {
 			h.prefiltered.Add(1)
 			return false
 		}
-		if !roomSubject && !assetSubject && !userSubject {
+		if soundboardSubject && !isDeliverableLiveEVTSoundboardEventType(eventType) {
+			h.prefiltered.Add(1)
+			return false
+		}
+		if !roomSubject && !assetSubject && !userSubject && !soundboardSubject {
 			h.prefiltered.Add(1)
 			return false
 		}
@@ -483,6 +488,23 @@ func (h *MyEventsHub) handleLiveEVT(ctx context.Context, msg *nats.Msg) bool {
 		if ok {
 			h.fanoutReadyAssetEvent(assetRoomID, &event, seq, bytes)
 		}
+		return false
+	}
+
+	if _, soundboardSubject := events.ParseSoundboardSubject(msg.Subject); soundboardSubject {
+		if !isDeliverableLiveEVTSoundboardEvent(&event) {
+			return true
+		}
+		waitCtx, cancel := context.WithTimeout(ctx, liveEVTProjectionWaitTimeout)
+		defer cancel()
+		// Wait for the soundboard projection so every recipient's projection
+		// frame is assembled from a catalog that already contains this fact.
+		if err := h.model.core.waitForSoundboardProjection(waitCtx, events.SubjectPosition(evtSubject, seq)); err != nil {
+			h.model.core.logger.Warn("Live EVT soundboard projection readiness failed", "subject", msg.Subject, "sequence", seq, "error", err)
+			return true
+		}
+		// The catalog is server-wide and readable by every authenticated member.
+		h.fanoutAll(NewEVTEventEnvelopeWithDeliverySeq(&event, seq), bytes)
 		return false
 	}
 

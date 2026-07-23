@@ -173,6 +173,59 @@ func TestStreamMyEvents_DeliversMessageRetracted(t *testing.T) {
 	}
 }
 
+// TestStreamMyEvents_DeliversSoundboardCatalogChange guards the live-delivery
+// prefilter in MyEventsHub.handleLiveEVT. Soundboard events are server-wide, so
+// they are neither room, asset, nor user subjects; before they were allowed
+// through, an admin's upload never reached members who were already connected
+// (visibly: nobody in a voice call saw the new clip until they rejoined).
+func TestStreamMyEvents_DeliversSoundboardCatalogChange(t *testing.T) {
+	core, _ := setupTestCore(t)
+	ctx := testContext(t)
+
+	admin, err := core.CreateUser(ctx, SystemActorID, "soundboard-admin", "Admin", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser admin: %v", err)
+	}
+	if err := core.AssignAdminRole(ctx, admin.Id); err != nil {
+		t.Fatalf("AssignAdminRole: %v", err)
+	}
+	viewer, err := core.CreateUser(ctx, SystemActorID, "soundboard-viewer", "Viewer", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser viewer: %v", err)
+	}
+
+	// A plain member with no room membership at all still sees the catalog.
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	eventChan, err := core.StreamMyEvents(subCtx, viewer.Id)
+	if err != nil {
+		t.Fatalf("StreamMyEvents: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	sound, err := core.CreateSound(ctx, admin.Id, "airhorn", "📣", 1, []byte("RIFFfake-wav-bytes"), "audio/wav")
+	if err != nil {
+		t.Fatalf("CreateSound: %v", err)
+	}
+
+	timeout := time.After(2 * time.Second)
+	for {
+		select {
+		case ev := <-eventChan:
+			created := ev.EVTEvent().GetSoundboardSoundCreated()
+			if created == nil {
+				continue
+			}
+			if created.GetId() != sound.ID {
+				t.Errorf("delivered sound id = %q, want %q", created.GetId(), sound.ID)
+			}
+			return
+		case <-timeout:
+			t.Fatal("viewer never received SoundboardSoundCreatedEvent from live.evt republish")
+		}
+	}
+}
+
 func TestStreamMyEvents_DeliversRBACChangeWithoutClosingLegacyStream(t *testing.T) {
 	core, _ := setupTestCore(t)
 	ctx := testContext(t)

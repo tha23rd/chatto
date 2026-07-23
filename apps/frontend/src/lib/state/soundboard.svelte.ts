@@ -15,7 +15,8 @@
  * normalize to one store instance.
  */
 
-import { createSoundboardAPI, type Sound } from '$lib/api-client/soundboard';
+import { createSoundboardAPI, mapSound, type Sound } from '$lib/api-client/soundboard';
+import type { Sound as SoundProto } from '@chatto/api-types/api/v1/soundboard_pb';
 import type { ConnectAPIConfig } from '$lib/api-client/connect';
 import { segmentToServerId } from '$lib/navigation';
 
@@ -26,6 +27,10 @@ export class SoundboardStore {
   /** True once a load has completed at least once. */
   loaded = $state(false);
   private loadPromise: Promise<void> | null = null;
+  // Bumped by every authoritative replace so a slower in-flight list response
+  // cannot restore a superseded catalog, such as a sound that was deleted while
+  // the request was in flight.
+  private catalogVersion = 0;
 
   /** Look up a sound by id, or `undefined`. */
   find(id: string): Sound | undefined {
@@ -48,13 +53,30 @@ export class SoundboardStore {
   }
 
   /**
+   * Replace the whole catalog with an authoritative list. Used by the realtime
+   * projection, which carries the complete catalog in authenticated server
+   * state, so admin uploads and deletions reach members who are already in a
+   * voice call without a rejoin or reload.
+   */
+  replace(sounds: Sound[]): void {
+    this.catalogVersion += 1;
+    this.sounds = [...sounds];
+    this.loaded = true;
+  }
+
+  /**
    * Fetch the server's sounds, replacing local state. Returns `true` on
    * success and `false` on failure; on failure existing state is left intact so
    * passive callers keep working, while the admin view can surface an error.
    */
   async load(config: ConnectAPIConfig): Promise<boolean> {
+    const version = this.catalogVersion;
     try {
-      this.sounds = await createSoundboardAPI(config).list();
+      const sounds = await createSoundboardAPI(config).list();
+      // An authoritative projection replace landed while this request was in
+      // flight; it already describes newer state, so keep it.
+      if (version !== this.catalogVersion) return true;
+      this.sounds = sounds;
       this.loaded = true;
       return true;
     } catch {
@@ -113,6 +135,16 @@ export function getSoundboard(serverId: string): SoundboardStore {
     stores.set(key, store);
   }
   return store;
+}
+
+/**
+ * Apply the authoritative soundboard catalog carried by a server-state
+ * projection operation. The projection re-sends the full catalog whenever a
+ * sound is added or deleted, so this is what makes an admin change visible to
+ * members who are already in a voice call.
+ */
+export function notifySoundboard(serverId: string, sounds: SoundProto[]): void {
+  getSoundboard(serverId).replace(sounds.map(mapSound));
 }
 
 /** Test-only: clear the store cache so a fresh instance is built per test. */
