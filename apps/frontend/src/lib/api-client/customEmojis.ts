@@ -49,7 +49,7 @@ export function createCustomEmojiAPI(config: ConnectAPIConfig) {
 
 /**
  * Administrative client for managing custom emojis (`chatto.admin.v1`).
- * Requires server-management permission; used by the server-admin UI.
+ * Requires server-management permission; used by the server management UI.
  */
 export function createAdminCustomEmojiAPI(config: ConnectAPIConfig) {
   const client = createChattoClient(AdminCustomEmojiService, config);

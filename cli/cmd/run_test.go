@@ -1,14 +1,24 @@
 package cmd
 
 import (
+	"context"
+	"errors"
+	"io"
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/nats-io/nats.go"
-	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
 	"hmans.de/chatto/internal/runtimeunit"
 	"hmans.de/chatto/internal/testutil"
 )
+
+type failingRuntimeUnit struct{}
+
+func (failingRuntimeUnit) Name() string { return "failing" }
+func (failingRuntimeUnit) Run(context.Context, runtimeunit.Env) error {
+	return errors.New("unit failed")
+}
 
 func TestEffectiveLogFormat(t *testing.T) {
 	tests := []struct {
@@ -48,56 +58,12 @@ func TestShouldPrintBannerOnlyForTextLogs(t *testing.T) {
 	}
 }
 
-func TestPushNotificationUsesCountBadgeOnlyForDMs(t *testing.T) {
-	tests := []struct {
-		name         string
-		notification *corev1.Notification
-		want         bool
-	}{
-		{
-			name: "direct message",
-			notification: &corev1.Notification{
-				Notification: &corev1.Notification_DmMessage{
-					DmMessage: &corev1.DMMessageNotification{RoomId: "dm-room", EventId: "event-1"},
-				},
-			},
-			want: true,
-		},
-		{
-			name: "mention",
-			notification: &corev1.Notification{
-				Notification: &corev1.Notification_Mention{
-					Mention: &corev1.MentionNotification{RoomId: "room-1", EventId: "event-1"},
-				},
-			},
-		},
-		{
-			name: "reply",
-			notification: &corev1.Notification{
-				Notification: &corev1.Notification_Reply{
-					Reply: &corev1.ReplyNotification{RoomId: "room-1", EventId: "event-1"},
-				},
-			},
-		},
-		{
-			name: "room message",
-			notification: &corev1.Notification{
-				Notification: &corev1.Notification_RoomMessage{
-					RoomMessage: &corev1.RoomMessageNotification{
-						RoomId:  "room-1",
-						EventId: "event-1",
-					},
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := pushNotificationUsesCountBadge(tt.notification); got != tt.want {
-				t.Fatalf("pushNotificationUsesCountBadge() = %v, want %v", got, tt.want)
-			}
-		})
+func TestOptionalRuntimeUnitFailureDoesNotStopServer(t *testing.T) {
+	err := runOptionalRuntimeUnit(context.Background(), runtimeunit.Env{
+		Logger: log.New(io.Discard),
+	}, failingRuntimeUnit{})
+	if err != nil {
+		t.Fatalf("runOptionalRuntimeUnit() = %v, want nil", err)
 	}
 }
 

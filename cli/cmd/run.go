@@ -24,6 +24,7 @@ import (
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
 	"hmans.de/chatto/internal/push"
 	"hmans.de/chatto/internal/runtimeunit"
+	searchbleve "hmans.de/chatto/internal/search/bleve"
 	"hmans.de/chatto/internal/video"
 )
 
@@ -49,6 +50,23 @@ var banner = `
 `
 
 var configFile string
+
+func runtimeUnitRegistrations() []runtimeunit.Registration {
+	return []runtimeunit.Registration{
+		{
+			Unit: exporter.Unit{},
+			StartWithRun: func(cfg config.ChattoConfig) bool {
+				return cfg.Exporter.Enabled
+			},
+		},
+		{
+			Unit: searchbleve.Unit{},
+			StartWithRun: func(cfg config.ChattoConfig) bool {
+				return cfg.SearchProvider.Enabled
+			},
+		},
+	}
+}
 
 var runCmd = &cobra.Command{
 	Use:     "run",
@@ -208,15 +226,25 @@ func runServer(configPath string) {
 	// Run dev startup hook (auto-bootstrap in dev builds, no-op in prod)
 	devStartupHook(ctx, chattoCore, cfg)
 
-	if cfg.Exporter.Enabled {
-		env, err := runtimeunit.NewEnv(ctx, cfg, nc, log.WithPrefix("exporter"), Version)
+	unitRegistrations := runtimeUnitRegistrations()
+	if err := runtimeunit.ValidateRegistrations(unitRegistrations); err != nil {
+		log.Error("Failed to configure runtime units", "error", err)
+		exitCode = 1
+		return
+	}
+	for _, registration := range unitRegistrations {
+		if !registration.Enabled(cfg) {
+			continue
+		}
+		unit := registration.Unit
+		env, err := runtimeunit.NewEnv(ctx, cfg, nc, log.WithPrefix(unit.Name()), Version)
 		if err != nil {
-			log.Error("Failed to create exporter environment", "error", err)
+			log.Error("Failed to create runtime unit environment", "unit", unit.Name(), "error", err)
 			exitCode = 1
 			return
 		}
 		g.Go(func() error {
-			return runtimeunit.Run(ctx, env, exporter.Unit{})
+			return runOptionalRuntimeUnit(ctx, env, unit)
 		})
 	}
 
@@ -258,6 +286,16 @@ func runServer(configPath string) {
 		log.Error("Server failed", "error", err)
 		exitCode = 1
 	}
+}
+
+func runOptionalRuntimeUnit(ctx context.Context, env runtimeunit.Env, unit runtimeunit.Unit) error {
+	err := runtimeunit.Run(ctx, env, unit)
+	if err != nil && ctx.Err() == nil {
+		env.Logger.Error("Optional runtime unit stopped", "error", err)
+	}
+	// Units composed into chatto run are optional capabilities. Their failure
+	// must not cancel the core server; standalone commands call Run directly.
+	return nil
 }
 
 func printBanner() {
@@ -408,14 +446,12 @@ func setupPushNotifications(chattoCore *core.ChattoCore, cfg config.ChattoConfig
 
 		// Build and send push notification
 		payload := push.BuildPayloadFromNotification(notification, actorName, cfg.Webserver.URL, payloadCtx)
-		if pushNotificationUsesCountBadge(notification) {
-			if count, err := chattoCore.GetNotificationCount(ctx, notification.RecipientId); err == nil {
-				payload.AppBadge = strconv.Itoa(count)
-			} else {
-				logger.Warn("Failed to get notification count for push app badge",
-					"user_id", notification.RecipientId,
-					"error", err)
-			}
+		if count, err := chattoCore.GetNotificationCount(ctx, notification.RecipientId); err == nil {
+			payload.AppBadge = strconv.Itoa(count)
+		} else {
+			logger.Warn("Failed to get notification count for push app badge",
+				"user_id", notification.RecipientId,
+				"error", err)
 		}
 
 		// Creation and dismissal callbacks run asynchronously. A dismissal can
@@ -491,6 +527,13 @@ func setupPushNotifications(chattoCore *core.ChattoCore, cfg config.ChattoConfig
 		payload := &push.Payload{
 			Action: "dismiss",
 			Tag:    tag,
+		}
+		if count, err := chattoCore.GetNotificationCount(ctx, userID); err == nil {
+			payload.AppBadge = strconv.Itoa(count)
+		} else {
+			logger.Warn("Failed to get notification count for dismiss app badge",
+				"user_id", userID,
+				"error", err)
 		}
 		subscriptions = filterOwnedPushSubscriptions(ctx, chattoCore, userID, subscriptions, logger)
 		if len(subscriptions) == 0 {
@@ -600,7 +643,7 @@ func fetchPayloadContext(ctx context.Context, chattoCore *core.ChattoCore, notif
 
 		// Extract message body from the event.
 		if _, ok := event.Event.(*corev1.Event_MessagePosted); ok {
-			body, err := chattoCore.GetMessageBody(ctx, kind, event.Id)
+			body, err := chattoCore.GetMessageBody(ctx, event.Id)
 			if err != nil {
 				logger.Debug("Failed to fetch message body for push notification preview",
 					"event_id", event.Id,
@@ -625,9 +668,4 @@ func fetchPayloadContext(ctx context.Context, chattoCore *core.ChattoCore, notif
 	}
 
 	return payloadCtx
-}
-
-func pushNotificationUsesCountBadge(notification *corev1.Notification) bool {
-	_, ok := notification.GetNotification().(*corev1.Notification_DmMessage)
-	return ok
 }

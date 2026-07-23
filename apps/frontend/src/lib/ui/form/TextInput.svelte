@@ -12,6 +12,7 @@
     error,
     description,
     required = false,
+    labelHidden = false,
     disabled = false,
     autocomplete,
     minlength,
@@ -31,6 +32,8 @@
     error?: string;
     description?: string;
     required?: boolean;
+    /** Keep the label available to assistive technology without displaying it. */
+    labelHidden?: boolean;
     disabled?: boolean;
     autocomplete?: HTMLInputAttributes['autocomplete'];
     minlength?: number;
@@ -45,7 +48,7 @@
   } = $props();
 </script>
 
-<FormField {label} {id} {error} {description} {required}>
+<FormField {label} {id} {error} {description} {required} {labelHidden}>
   <div class="relative">
     {#if leadingIcon}
       <span
@@ -71,7 +74,7 @@
       {autofocus}
       {onkeydown}
       {oninput}
-      class={['input', leadingIcon && 'pl-7', trailingText && 'pr-10']}
+      class={['input', leadingIcon && 'pl-8', trailingText && 'pr-10']}
       aria-invalid={error ? 'true' : undefined}
       aria-describedby={error ? `${id}-error` : description ? `${id}-description` : undefined}
     />
