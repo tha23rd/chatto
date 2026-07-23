@@ -20,6 +20,7 @@ registry.
   import * as m from '$lib/i18n/messages';
   import { Button } from '$lib/ui/form';
   import Dialog from '$lib/ui/Dialog.svelte';
+  import { Panel } from '$lib/components/admin';
   import type { RoomsStore } from '$lib/state/server/rooms.svelte';
   import type { RoomDirectoryStore, DirectoryRoom } from '$lib/state/server/roomDirectory.svelte';
 
@@ -211,11 +212,7 @@ registry.
     serverId: serverSegment,
     roomId: room.id
   })}
-  <li
-    class="flex items-center gap-3 rounded px-3 py-1.5 transition-colors {joined
-      ? 'hover:bg-surface-emphasized'
-      : ''}"
-  >
+  <li class="selectable-list-item flex items-center gap-3 px-3 py-1.5">
     {#snippet roomLabel()}
       <div class="flex min-w-0 items-start gap-2 font-medium">
         <span class="mt-0.5 shrink-0 text-muted/60">#</span>
@@ -284,38 +281,37 @@ registry.
 {#snippet groupCard(set: { id: string; name: string; roomIds: string[] }, rooms: DirectoryRoom[])}
   {@const joining = directory.joiningGroupIds.has(set.id)}
   {@const canJoinAll = canJoinAllInGroup(rooms)}
-  <div {@attach masonryItem} class="self-start overflow-hidden panel-shell">
-    <div class="flex items-center justify-between gap-4 border-b border-border p-4">
-      <h2 class="truncate text-lg font-semibold">{set.name}</h2>
-      {#if canJoinAll || joining}
-        <!-- Matches the per-row primary buttons: w-28 so the card's
-             header action lines up vertically with Join / Joined. -->
-        <button
-          type="button"
-          class="btn-action btn w-28 shrink-0 justify-center border border-transparent btn-sm transition-none"
-          onclick={() => handleJoinGroup(set)}
-          disabled={joining}
-        >
-          {#if joining}
-            <span class="iconify animate-spin uil--spinner"></span>
-            {m['room.directory.joining']()}
-          {:else}
-            <span class="iconify uil--plus-circle"></span>
-            {m['room.directory.join_all']()}
-          {/if}
-        </button>
-      {/if}
-    </div>
-    <!--
-      Horizontal inset (`px-1` + the menu-item's own `px-3` = 16px)
-      matches the header's `p-4` so the per-row buttons line up with
-      the "Join all" action above.
-    -->
-    <ul class="flex flex-col gap-0.5 px-1 py-2">
-      {#each rooms as room (room.id)}
-        {@render roomRow(room)}
-      {/each}
-    </ul>
+  <div {@attach masonryItem} class="self-start">
+    <Panel title={set.name} noPadding>
+      {#snippet actions()}
+        {#if canJoinAll || joining}
+          <!-- Matches the per-row primary buttons: w-28 so the card's
+               header action lines up vertically with Join / Joined. -->
+          <button
+            type="button"
+            class="btn-action btn w-28 shrink-0 justify-center border border-transparent btn-sm transition-none"
+            onclick={() => handleJoinGroup(set)}
+            disabled={joining}
+          >
+            {#if joining}
+              <span class="iconify animate-spin uil--spinner"></span>
+              {m['room.directory.joining']()}
+            {:else}
+              <span class="iconify uil--plus-circle"></span>
+              {m['room.directory.join_all']()}
+            {/if}
+          </button>
+        {/if}
+      {/snippet}
+
+      <!-- Horizontal inset (`px-1` + the menu-item's own `px-3` = 16px)
+           keeps per-row actions aligned within the shared panel inset. -->
+      <ul class="selectable-list py-2">
+        {#each rooms as room (room.id)}
+          {@render roomRow(room)}
+        {/each}
+      </ul>
+    </Panel>
   </div>
 {/snippet}
 

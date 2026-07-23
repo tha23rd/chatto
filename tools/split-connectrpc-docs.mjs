@@ -74,6 +74,12 @@ const categories = [
         description: 'Message creation, editing, deletion, composer link-preview, reaction, and attachment RPCs.'
       },
       {
+        name: 'MessageSearchService',
+        slug: 'message-search',
+        title: 'Message Search',
+        description: 'Authorized full-text message search and provider availability RPCs.'
+      },
+      {
         name: 'SoundboardService',
         slug: 'soundboard',
         title: 'Soundboard',

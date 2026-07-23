@@ -41,6 +41,7 @@ and exposes a typed API for text manipulation (mentions, emoji, drafts).
   import type { QuoteInsertionContent, SelectedQuoteBlock } from '$lib/state/room';
 
   const markdownLinkInputRegex = /(^|\s)\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)$/;
+  const markdownLinkPasteRegex = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
   const codeFenceLineRegex = /^```([\w-]+)?$/;
   const markdownBulletListLineRegex = /^[ \t]{0,3}[-+*]\s(.*)$/;
   const markdownOrderedListLineRegex = /^[ \t]{0,3}(\d{1,9})[.)]\s(.*)$/;
@@ -716,7 +717,52 @@ and exposes a typed API for text manipulation (mentions, emoji, drafts).
     );
   }
 
-  function createLiteralClipboardContent(
+  function applyDestinationMarks(node: ProseMirrorNode, marks: readonly Mark[]): ProseMirrorNode {
+    const children: ProseMirrorNode[] = [];
+
+    node.forEach((child) => {
+      if (child.isText) {
+        const combinedMarks = marks.reduce((current, mark) => mark.addToSet(current), child.marks);
+        children.push(child.mark(node.type.allowedMarks(combinedMarks)));
+      } else {
+        children.push(applyDestinationMarks(child, marks));
+      }
+    });
+
+    return node.copy(Fragment.fromArray(children));
+  }
+
+  function createClipboardInlineContent(
+    text: string,
+    schema: Schema,
+    destinationMarks: readonly Mark[]
+  ): ProseMirrorNode[] {
+    const linkType = schema.marks.link;
+    if (!text || !linkType) return text ? [schema.text(text, destinationMarks)] : [];
+
+    const nodes: ProseMirrorNode[] = [];
+    const nonLinkMarks = destinationMarks.filter((mark) => mark.type !== linkType);
+    let index = 0;
+
+    for (const match of text.matchAll(markdownLinkPasteRegex)) {
+      const matchIndex = match.index;
+      const label = match[1];
+      const href = match[2];
+      if (!label || !href || text[matchIndex - 1] === '!' || text[matchIndex - 1] === '\\') {
+        continue;
+      }
+
+      if (matchIndex > index)
+        nodes.push(schema.text(text.slice(index, matchIndex), destinationMarks));
+      nodes.push(schema.text(label, [...nonLinkMarks, linkType.create({ href })]));
+      index = matchIndex + match[0].length;
+    }
+
+    if (index < text.length) nodes.push(schema.text(text.slice(index), destinationMarks));
+    return nodes;
+  }
+
+  function createClipboardContent(
     text: string,
     schema: Schema,
     destinationMarks: readonly Mark[]
@@ -731,41 +777,13 @@ and exposes a typed API for text manipulation (mentions, emoji, drafts).
         const lines = paragraphText.split('\n');
 
         lines.forEach((line, index) => {
-          if (line) inlineNodes.push(schema.text(line, paragraphMarks));
+          inlineNodes.push(...createClipboardInlineContent(line, schema, paragraphMarks));
           if (index < lines.length - 1) inlineNodes.push(hardBreakType.create());
         });
 
         return paragraphType.create(null, inlineNodes);
       })
     );
-  }
-
-  function parseCompleteFencedCodeBlock(
-    text: string,
-    schema: Schema,
-    parseMarkdown: (markdown: string) => JSONContent
-  ): Fragment | null {
-    const lines = text.split('\n');
-    if (lines.at(-1) === '') lines.pop();
-    if (lines.length < 2) return null;
-
-    const openingFence = lines[0]?.match(/^ {0,3}(`{3,}|~{3,})[^\n]*$/)?.[1];
-    if (!openingFence) return null;
-
-    const fenceCharacter = openingFence[0];
-    const closingFence = lines.at(-1)?.match(/^ {0,3}(`+|~+)[ \t]*$/)?.[1];
-    if (
-      !closingFence ||
-      closingFence[0] !== fenceCharacter ||
-      closingFence.length < openingFence.length
-    ) {
-      return null;
-    }
-
-    const document = schema.nodeFromJSON(parseMarkdown(escapeMarkdownHtml(text)));
-    if (document.childCount !== 1 || document.firstChild?.type.name !== 'codeBlock') return null;
-
-    return document.content;
   }
 
   function hasDefaultEmptyDocument(e: Editor): boolean {
@@ -1349,19 +1367,16 @@ and exposes a typed API for text manipulation (mentions, emoji, drafts).
               const normalizedText = text.replace(/\r\n?/g, '\n');
               const markdown = editor?.markdown;
               const destinationMarks = view.state.storedMarks ?? context.marks();
-              const fencedCode = markdown
-                ? parseCompleteFencedCodeBlock(
-                    normalizedText,
-                    view.state.schema,
-                    markdown.parse.bind(markdown)
+              const document = markdown
+                ? view.state.schema.nodeFromJSON(
+                    markdown.parse(prepareMarkdownForEditor(normalizedText))
                   )
                 : null;
-
-              // Keep ordinary clipboard text literal. ProseMirror's default parser turns every
-              // pasted line into a paragraph, which creates an extra rendered blank line.
               const content =
-                fencedCode ??
-                createLiteralClipboardContent(normalizedText, view.state.schema, destinationMarks);
+                document && document.content.size > 0
+                  ? applyDestinationMarks(document, destinationMarks).content
+                  : createClipboardContent(normalizedText, view.state.schema, destinationMarks);
+
               return Slice.maxOpen(content);
             },
             handlePaste: (view, event) => {
@@ -1371,7 +1386,8 @@ and exposes a typed API for text manipulation (mentions, emoji, drafts).
               const html = event.clipboardData?.getData('text/html');
               if (!text || !html || editor?.isActive('codeBlock')) return false;
 
-              // Prefer the textual Markdown representation when the source also supplies HTML.
+              // Prefer and Markdown-parse the textual representation when the clipboard also
+              // supplies HTML.
               view.pasteText(text);
               return true;
             }
@@ -1535,6 +1551,9 @@ and exposes a typed API for text manipulation (mentions, emoji, drafts).
   :global(.tiptap-editor .ProseMirror h5),
   :global(.tiptap-editor .ProseMirror h6) {
     margin: 0;
+    /* Stable wrapping is essential while editing: `pretty` and `balance`
+       may move an earlier line break whenever the document changes. */
+    text-wrap: wrap;
   }
 
   :global(.tiptap-editor .ProseMirror > p),

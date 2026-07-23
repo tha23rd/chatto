@@ -94,9 +94,9 @@ func TestWebhookLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PostWebhookMessage: %v", err)
 	}
-	body, err := core.GetFullMessageBodyByEventID(ctx, event.GetId())
+	body, err := core.GetFullMessageBody(ctx, event.GetId())
 	if err != nil {
-		t.Fatalf("GetFullMessageBodyByEventID: %v", err)
+		t.Fatalf("GetFullMessageBody: %v", err)
 	}
 	if body.AuthorId != webhook.UserID {
 		t.Fatalf("message author = %q, want webhook user %q", body.AuthorId, webhook.UserID)

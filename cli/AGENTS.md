@@ -119,6 +119,23 @@ authorization, live events, backup/restore, and backend tests.
   boot-time sequence waiters when installing a restored cutoff, and test
   all-restored, partial, corrupt, future, tail-replay, and restore-in-flight
   waiter interleavings.
+- Keep projection `Subjects()` precise as the logical application and readiness
+  contract. Prefer one physical replay filter where practical. In particular,
+  benchmark a broad wildcard combined with sparse extra families against one
+  broader `ReplaySubjects()` filter on real EVT history: JetStream multi-filter
+  scanning can cost more than delivering extra envelopes, and the projector
+  rejects non-logical subjects before protobuf decoding.
+- Projection snapshot methods are optional. Locally checkpointed projections
+  own disposable derived state and must bind it to a stable projection key,
+  contract ID, EVT stream incarnation, and retained sequence bounds. A
+  successful `Apply` must atomically persist both its materialized changes and
+  the supplied logical EVT sequence.
+- Give each projection exactly one restore authority: shared snapshots or a
+  local checkpoint, never both. Missing, corrupt, incompatible, future, or
+  retention-gapped local state may be reset and replayed; transient filesystem
+  and volume failures must fail startup without destructively resetting a
+  potentially valid checkpoint. Define backup exclusion, deletion, and
+  plaintext/privacy behavior for each checkpointed feature.
 
 ## Live Events
 
@@ -160,14 +177,22 @@ authorization, live events, backup/restore, and backend tests.
   DM-boundary behavior.
 - Targeted operations are permission-gated, not rank-gated: role assignment uses
   `role.assign`, direct user permissions use `user.manage-permissions`, room
-  bans use `room.ban-member`.
+  bans use `room.ban-member`. A non-owner's role assignment authority is bounded
+  by the target role's explicit scoped permission decisions; assigning requires
+  every allow, revoking requires every allow and deny, and the `owner` role is
+  owner-only.
+- Authorization-sensitive event writes must evaluate authorization inside the
+  OCC retry that commits the mutation. Fence every projection input that can
+  change the decision through the narrow authorization boundary; do not use
+  unrelated `evt.>` traffic as the concurrency boundary.
 
 ## Admin Interface
 
 - Owners/admins can see operational metadata, not user content. Message/file
   visibility for moderation must be an explicit audited feature.
-- Server admin routes live under `/chat/[serverId]/server-admin/`.
-- The shared admin `Panel` component is used in both server-admin and settings
+- Management routes live under `/chat/[serverId]/manage/`, with server-only
+  pages under `manage/server/` and delegated room/group pages beside it.
+- The shared admin `Panel` component is used in both management and settings
   surfaces; changes affect both.
 - Implicit roles such as `everyone` must not be editable as normal assignments.
 

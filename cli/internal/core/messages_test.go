@@ -50,7 +50,7 @@ func TestChattoCore_PostMessage(t *testing.T) {
 	}
 
 	// Body is lazy-loaded from the body projection using the message event ID.
-	fetchedBody, err := core.GetMessageBody(ctx, KindChannel, roomEvent.Id)
+	fetchedBody, err := core.GetMessageBody(ctx, roomEvent.Id)
 	if err != nil {
 		t.Fatalf("Failed to fetch message body: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestChattoCore_EditMessageReconcilesThreadReplyEcho(t *testing.T) {
 	if !ok {
 		t.Fatal("expected edit to create a channel echo")
 	}
-	echoText, err := core.GetMessageBody(ctx, KindChannel, echoID)
+	echoText, err := core.GetMessageBody(ctx, echoID)
 	if err != nil {
 		t.Fatalf("Get echo body: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestChattoCore_EditMessageReconcilesThreadReplyEcho(t *testing.T) {
 	if _, ok := core.RoomTimeline.ChannelEchoEventID(reply.Id); ok {
 		t.Fatal("expected echo to be hidden after unchecking")
 	}
-	replyText, err := core.GetMessageBody(ctx, KindChannel, reply.Id)
+	replyText, err := core.GetMessageBody(ctx, reply.Id)
 	if err != nil {
 		t.Fatalf("Get reply body: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestChattoCore_EditMessageRejectsInvalidEchoStateTargets(t *testing.T) {
 	if err := core.EditMessage(ctx, other.Id, KindChannel, room.Id, reply.Id, "other edit", WithMessageChannelEcho(true)); !errors.Is(err, ErrNotMessageAuthor) {
 		t.Fatalf("expected ErrNotMessageAuthor, got %v", err)
 	}
-	if body, err := core.GetMessageBody(ctx, KindChannel, reply.Id); err != nil || body != "reply" {
+	if body, err := core.GetMessageBody(ctx, reply.Id); err != nil || body != "reply" {
 		t.Fatalf("invalid echo-state edit should not change body; body=%q err=%v", body, err)
 	}
 }
@@ -264,7 +264,7 @@ func TestChattoCore_PostMessage_BodyStoredInMessageBodyEvent(t *testing.T) {
 	}
 
 	// Verify the body can be fetched via GetMessageBody using the message event ID.
-	fetchedBody, err := core.GetMessageBody(ctx, KindChannel, roomEvent.Id)
+	fetchedBody, err := core.GetMessageBody(ctx, roomEvent.Id)
 	if err != nil {
 		t.Fatalf("Failed to fetch message body: %v", err)
 	}
@@ -359,7 +359,7 @@ func TestChattoCore_MessageBodyEventsKeepPublicEventsBodyless(t *testing.T) {
 	if editEvents[0].GetMessageEdited() == nil {
 		t.Fatal("expected MessageEditedEvent")
 	}
-	body, err := core.GetMessageBody(ctx, KindChannel, posted.Id)
+	body, err := core.GetMessageBody(ctx, posted.Id)
 	if err != nil {
 		t.Fatalf("GetMessageBody: %v", err)
 	}
@@ -794,11 +794,14 @@ func TestChattoCore_PostMessage_InvisibleChars(t *testing.T) {
 	ctx := testContext(t)
 
 	// Create space, room, and user
-	room, _ := core.CreateRoom(ctx, "test-user", KindChannel, "", "General", "General discussion")
-	user, _ := core.CreateUser(ctx, "system", "testuser", "testuser", "password123")
+	room, err := core.CreateRoom(ctx, "test-user", KindChannel, "", "invisible-characters", "Invisible character validation")
+	require.NoError(t, err)
+	user, err := core.CreateUser(ctx, "system", "invisiblechars", "Invisible Characters", "password123")
+	require.NoError(t, err)
 
 	// Join space and room
-	core.JoinRoom(ctx, user.Id, KindChannel, user.Id, room.Id)
+	_, err = core.JoinRoom(ctx, user.Id, KindChannel, user.Id, room.Id)
+	require.NoError(t, err)
 
 	t.Run("zero-width spaces only is rejected", func(t *testing.T) {
 		_, err := core.PostMessage(ctx, KindChannel, room.Id, user.Id, "\u200B\u200B\u200B", nil, "", "", nil, false)
@@ -869,7 +872,7 @@ func TestChattoCore_DeleteMessage_GDPR(t *testing.T) {
 	}
 
 	// Pre-deletion: GetMessageBody returns the plaintext.
-	bodyText, err := core.GetMessageBody(ctx, KindChannel, roomEvent.Id)
+	bodyText, err := core.GetMessageBody(ctx, roomEvent.Id)
 	if err != nil {
 		t.Fatalf("Failed to fetch message body before deletion: %v", err)
 	}
@@ -885,7 +888,7 @@ func TestChattoCore_DeleteMessage_GDPR(t *testing.T) {
 
 	// Post-deletion: projection tombstones the message, body
 	// disappears from GetMessageBody.
-	bodyText, err = core.GetMessageBody(ctx, KindChannel, roomEvent.Id)
+	bodyText, err = core.GetMessageBody(ctx, roomEvent.Id)
 	if err != nil {
 		t.Fatalf("GetMessageBody on retracted message returned error: %v", err)
 	}
@@ -951,7 +954,7 @@ func TestChattoCore_DeleteEcho_HidesEchoOnly(t *testing.T) {
 		t.Fatal("hidden echo should not be directly loadable from room event API")
 	}
 
-	body, err := core.GetMessageBody(ctx, KindChannel, replyEvent.Id)
+	body, err := core.GetMessageBody(ctx, replyEvent.Id)
 	if err != nil {
 		t.Fatalf("Get original reply body: %v", err)
 	}
@@ -986,7 +989,7 @@ func TestChattoCore_DeleteEcho_PreservesOriginalAttachment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UploadAttachment: %v", err)
 	}
-	store, err := core.GetAttachmentsStore(ctx)
+	store, err := core.mediaModel.GetAttachmentsStore(ctx)
 	if err != nil {
 		t.Fatalf("GetAttachmentsStore: %v", err)
 	}
@@ -1021,7 +1024,7 @@ func TestChattoCore_DeleteEcho_PreservesOriginalAttachment(t *testing.T) {
 	if _, err := store.Get(ctx, attachment.Id); err != nil {
 		t.Fatalf("echo delete should preserve backing attachment: %v", err)
 	}
-	body, err := core.GetFullMessageBody(ctx, KindChannel, replyEvent.Id)
+	body, err := core.GetFullMessageBody(ctx, replyEvent.Id)
 	if err != nil {
 		t.Fatalf("Get original reply body: %v", err)
 	}
@@ -1082,14 +1085,14 @@ func TestChattoCore_DeleteOriginalReply_TombstonesEcho(t *testing.T) {
 	if !foundEcho {
 		t.Fatal("echo should remain visible as a tombstone when original is deleted")
 	}
-	replyBody, err := core.GetMessageBody(ctx, KindChannel, replyEvent.Id)
+	replyBody, err := core.GetMessageBody(ctx, replyEvent.Id)
 	if err != nil {
 		t.Fatalf("Get original reply body: %v", err)
 	}
 	if replyBody != "" {
 		t.Fatalf("deleted original reply body = %q, want empty", replyBody)
 	}
-	echoBody, err := core.GetMessageBody(ctx, KindChannel, echoID)
+	echoBody, err := core.GetMessageBody(ctx, echoID)
 	if err != nil {
 		t.Fatalf("Get echo body: %v", err)
 	}
@@ -1128,7 +1131,7 @@ func TestChattoCore_DeleteMessage_DeletesAttachments(t *testing.T) {
 	}
 
 	// Verify attachment exists in ObjectStore
-	store, err := core.GetAttachmentsStore(ctx)
+	store, err := core.mediaModel.GetAttachmentsStore(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get attachments store: %v", err)
 	}
@@ -1151,7 +1154,7 @@ func TestChattoCore_DeleteMessage_DeletesAttachments(t *testing.T) {
 	}
 
 	// Verify message body is deleted
-	body, err := core.GetMessageBody(ctx, KindChannel, roomEvent.Id)
+	body, err := core.GetMessageBody(ctx, roomEvent.Id)
 	if err != nil {
 		t.Fatalf("Failed to get message body: %v", err)
 	}
@@ -1194,7 +1197,7 @@ func TestChattoCore_DeleteAttachmentFromMessage(t *testing.T) {
 	}
 
 	// Verify both attachments exist
-	store, err := core.GetAttachmentsStore(ctx)
+	store, err := core.mediaModel.GetAttachmentsStore(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get attachments store: %v", err)
 	}
@@ -1222,7 +1225,7 @@ func TestChattoCore_DeleteAttachmentFromMessage(t *testing.T) {
 	}
 
 	// Verify message body still has attachment 2 but not attachment 1
-	messageBody, err := core.GetFullMessageBody(ctx, KindChannel, roomEvent.Id)
+	messageBody, err := core.GetFullMessageBody(ctx, roomEvent.Id)
 	if err != nil {
 		t.Fatalf("Failed to get message body: %v", err)
 	}
@@ -1260,7 +1263,7 @@ func TestChattoCore_DeleteAttachmentFromMessage_DeletesVideoDerivatives(t *testi
 		t.Fatalf("Failed to post message: %v", err)
 	}
 
-	if err := core.RecordAssetProcessed(ctx, SystemActorID, KindChannel, room.Id, roomEvent.Id, original.Id, 1234, 640, 360, thumb, []*corev1.VideoVariant{
+	if err := core.assetModel.RecordAssetProcessed(ctx, SystemActorID, room.Id, roomEvent.Id, original.Id, 1234, 640, 360, thumb, []*corev1.VideoVariant{
 		{
 			AttachmentId: variantAttachment.Id,
 			Quality:      "720p",
@@ -1273,7 +1276,7 @@ func TestChattoCore_DeleteAttachmentFromMessage_DeletesVideoDerivatives(t *testi
 		t.Fatalf("Failed to record processed video manifest: %v", err)
 	}
 
-	store, err := core.GetAttachmentsStore(ctx)
+	store, err := core.mediaModel.GetAttachmentsStore(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get attachments store: %v", err)
 	}
@@ -1329,7 +1332,7 @@ func TestChattoCore_DeleteAttachmentFromMessage_NotAuthor(t *testing.T) {
 	}
 
 	// Verify attachment still exists
-	store, _ := core.GetAttachmentsStore(ctx)
+	store, _ := core.mediaModel.GetAttachmentsStore(ctx)
 	if _, err := store.Get(ctx, attachment.Id); err != nil {
 		t.Error("Attachment should still exist after failed deletion")
 	}
@@ -1427,7 +1430,7 @@ func TestChattoCore_DeleteAttachmentFromMessage_S3(t *testing.T) {
 	}
 
 	// Verify message body still has attachment 2 but not attachment 1
-	messageBody, err := core.GetFullMessageBody(ctx, KindChannel, roomEvent.Id)
+	messageBody, err := core.GetFullMessageBody(ctx, roomEvent.Id)
 	if err != nil {
 		t.Fatalf("Failed to get message body: %v", err)
 	}
@@ -1523,7 +1526,7 @@ func TestChattoCore_ArchiveRoom_BlocksWrites(t *testing.T) {
 			t.Fatalf("ArchiveRoom failed: %v", err)
 		}
 
-		_, err = core.AddReaction(ctx, KindChannel, room.Id, eventID, "thumbsup", user.Id)
+		_, err = core.ReactionModel().addReaction(ctx, KindChannel, room.Id, eventID, "thumbsup", user.Id)
 		if !errors.Is(err, ErrRoomArchived) {
 			t.Errorf("Expected ErrRoomArchived reacting in archived room, got: %v", err)
 		}

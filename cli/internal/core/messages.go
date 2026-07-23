@@ -143,7 +143,7 @@ func (c *ChattoCore) appendBodyAndMessage(ctx context.Context, agg events.Aggreg
 		})
 		if err == nil {
 			messageSeq := seqs[len(seqs)-1]
-			if err := c.rooms().waitForTimeline(ctx, events.SubjectPosition(messageSubject, messageSeq)); err != nil {
+			if err := c.roomModel.waitForTimeline(ctx, events.SubjectPosition(messageSubject, messageSeq)); err != nil {
 				return messageSeq, err
 			}
 			return messageSeq, nil
@@ -315,7 +315,7 @@ func (c *ChattoCore) hideChannelEchoForReply(ctx context.Context, actorID string
 }
 
 func (c *ChattoCore) appendMessageWithOptionalThreadCreated(ctx context.Context, agg events.Aggregate, bodyEvent, messageEvent, threadCreatedEvent *corev1.Event, threadRootEventID string) (uint64, error) {
-	if threadCreatedEvent == nil || threadRootEventID == "" || c.rooms().threadExists(threadRootEventID) {
+	if threadCreatedEvent == nil || threadRootEventID == "" || c.roomModel.threadExists(threadRootEventID) {
 		return c.appendBodyAndMessage(ctx, agg, bodyEvent, messageEvent)
 	}
 	if exists, err := c.threadCreatedExistsInStream(ctx, agg, threadRootEventID); err != nil {
@@ -354,7 +354,7 @@ func (c *ChattoCore) appendMessageWithOptionalThreadCreated(ctx context.Context,
 		})
 		if err == nil {
 			messageSeq := seqs[len(seqs)-1]
-			if err := c.rooms().waitForTimeline(ctx, events.SubjectPosition(messageSubject, messageSeq)); err != nil {
+			if err := c.roomModel.waitForTimeline(ctx, events.SubjectPosition(messageSubject, messageSeq)); err != nil {
 				return messageSeq, err
 			}
 			return messageSeq, nil
@@ -369,11 +369,11 @@ func (c *ChattoCore) appendMessageWithOptionalThreadCreated(ctx context.Context,
 			return 0, fmt.Errorf("read room OCC tail after conflict: %w", seqErr)
 		}
 		if currentSeq > 0 {
-			if err := c.rooms().waitForTimeline(ctx, events.SubjectPosition(roomFilter, currentSeq)); err != nil {
+			if err := c.roomModel.waitForTimeline(ctx, events.SubjectPosition(roomFilter, currentSeq)); err != nil {
 				return 0, err
 			}
 		}
-		if c.rooms().threadExists(threadRootEventID) {
+		if c.roomModel.threadExists(threadRootEventID) {
 			return c.appendBodyAndMessage(ctx, agg, bodyEvent, messageEvent)
 		}
 		if exists, err := c.threadCreatedExistsInStream(ctx, agg, threadRootEventID); err != nil {
@@ -442,13 +442,13 @@ func (c *ChattoCore) PostMessage(ctx context.Context, kind RoomKind, room_id, us
 		if id == "" {
 			continue
 		}
-		declared, ok := c.assetLifecycle().AssetCreation(id)
+		declared, ok := c.assetModel.AssetCreation(id)
 		if !ok || declared == nil || declared.GetAsset() == nil {
 			c.logger.Warn("PostMessage references unknown asset; dropping",
 				"asset_id", id, "room_id", room_id, "actor_id", user_id)
 			continue
 		}
-		assetRoomID, ok := c.assetLifecycle().AssetRoomID(id)
+		assetRoomID, ok := c.assetModel.AssetRoomID(id)
 		if !ok || assetRoomID != room_id {
 			c.logger.Warn("PostMessage references asset outside room; dropping",
 				"asset_id", id, "asset_room_id", assetRoomID, "room_id", room_id, "actor_id", user_id)
@@ -578,7 +578,7 @@ func (c *ChattoCore) PostMessage(ctx context.Context, kind RoomKind, room_id, us
 		},
 	})
 	var threadCreatedEvent *corev1.Event
-	if inThread != "" && !c.rooms().threadExists(inThread) {
+	if inThread != "" && !c.roomModel.threadExists(inThread) {
 		threadCreatedEvent = newEvent(user_id, &corev1.Event{
 			Id:        NewEventID(),
 			CreatedAt: timestamppb.New(now),
@@ -601,11 +601,11 @@ func (c *ChattoCore) PostMessage(ctx context.Context, kind RoomKind, room_id, us
 		if c.OnVideoProcessingRequested == nil {
 			continue
 		}
-		declared, _ := c.assetLifecycle().AssetCreation(att.GetId())
+		declared, _ := c.assetModel.AssetCreation(att.GetId())
 		if !options.shouldScheduleVideoProcessingForID(att.GetId()) && (declared == nil || !declared.GetNeedsVideoProcessing()) {
 			continue
 		}
-		if err := c.ScheduleVideoProcessingForMessageAttachment(ctx, user_id, kind, room_id, event.Id, att); err != nil {
+		if err := c.assetModel.ScheduleVideoProcessingForMessageAttachment(ctx, user_id, room_id, event.Id, att); err != nil {
 			c.logger.Warn("Failed to schedule video processing",
 				"room_id", room_id,
 				"message_event_id", event.Id,
@@ -627,16 +627,12 @@ func (c *ChattoCore) PostMessage(ctx context.Context, kind RoomKind, room_id, us
 	// Also wait for ThreadProjection if this is a thread reply, so a
 	// subsequent thread-pane fetch from the same request sees it.
 	if inThread != "" {
-		if err := c.rooms().waitForThreads(ctx, events.SubjectPosition(agg.SubjectFor(event), sequenceID)); err != nil {
+		if err := c.roomModel.waitForThreads(ctx, events.SubjectPosition(agg.SubjectFor(event), sequenceID)); err != nil {
 			c.logger.Debug("ThreadsProjector did not catch up", "error", err)
 		}
 	}
 
-	// messageBodyKey retained as a label for log lines and downstream
-	// notifications that historically logged the compound key — the
-	// projection-keyed event_id is the new canonical identifier.
-	messageBodyKey := event.Id
-	c.logger.Debug("Message posted", "kind", kind, "room_id", room_id, "message_body_key", messageBodyKey, "sequence_id", sequenceID, "user_id", user_id)
+	c.logger.Debug("Message posted", "kind", kind, "room_id", room_id, "event_id", event.Id, "sequence_id", sequenceID, "user_id", user_id)
 
 	// Mark the room as read for the poster. For root posts, the just-
 	// published event is the new last root. For thread replies, we look up
@@ -850,11 +846,9 @@ func (c *ChattoCore) notifyAllMessageSubscribers(ctx context.Context, kind RoomK
 // compliance while preserving the event in the stream for audit. For echoes,
 // the same durable MessageRetractedEvent hides only the echo artifact from the
 // room timeline; the original thread reply remains readable.
-// The messageBodyKey parameter is the legacy body key or canonical event ID.
 // Authorization: Caller must verify the actor is the message author OR
 // CanManageOthersMessage before calling.
-func (c *ChattoCore) DeleteMessage(ctx context.Context, actorID string, kind RoomKind, roomID, messageBodyKey string) error {
-	eventID := eventIDFromBodyKey(messageBodyKey)
+func (c *ChattoCore) DeleteMessage(ctx context.Context, actorID string, kind RoomKind, roomID, eventID string) error {
 	if eventID == "" {
 		return ErrMessageNotFound
 	}
@@ -862,16 +856,16 @@ func (c *ChattoCore) DeleteMessage(ctx context.Context, actorID string, kind Roo
 	// Snapshot the projection state for attachment cleanup before
 	// emitting the retract event. After retract, LatestBody returns
 	// nil (the message is tombstoned), so we need a copy first.
-	originalEntry, ok := c.rooms().timelineEntry(eventID)
+	originalEntry, ok := c.roomModel.timelineEntry(eventID)
 	if !ok {
 		c.logger.Debug("Delete on unknown message — no-op", "event_id", eventID)
 		return nil
 	}
-	isEcho := c.rooms().isEcho(eventID)
-	if isEcho && c.rooms().isHiddenEcho(eventID) {
+	isEcho := c.roomModel.isEcho(eventID)
+	if isEcho && c.roomModel.isHiddenEcho(eventID) {
 		return nil
 	}
-	body, retracted, _ := c.rooms().latestBody(eventID)
+	body, retracted, _ := c.roomModel.latestBody(eventID)
 	if retracted {
 		// Already tombstoned.
 		return nil
@@ -890,7 +884,7 @@ func (c *ChattoCore) DeleteMessage(ctx context.Context, actorID string, kind Roo
 		c.logger.Debug("Message echo hidden", "kind", kind, "room_id", roomID, "event_id", eventID, "actor_id", actorID, "envelope_seq", originalEntry.StreamSeq)
 		return nil
 	}
-	for _, linkedID := range c.rooms().linkedEventIDs(eventID) {
+	for _, linkedID := range c.roomModel.linkedEventIDs(eventID) {
 		c.secureDeleteAllMessageBodyEvents(ctx, linkedID)
 	}
 
@@ -899,9 +893,9 @@ func (c *ChattoCore) DeleteMessage(ctx context.Context, actorID string, kind Roo
 	// event log. Same posture as the legacy DeleteMessage path —
 	// best-effort, log warnings, keep going.
 	if body != nil {
-		for _, att := range c.MessageBodyAttachments(body) {
-			c.DeleteVideoDerivativesForAttachment(ctx, actorID, kind, att.GetId())
-			if err := c.RecordAssetDeleted(ctx, actorID, kind, roomID, att.GetId()); err != nil {
+		for _, att := range c.mediaModel.MessageBodyAttachments(body) {
+			c.assetModel.DeleteVideoDerivativesForAttachment(ctx, actorID, att.GetId())
+			if err := c.assetModel.RecordAssetDeleted(ctx, actorID, roomID, att.GetId()); err != nil {
 				c.logger.Warn("Failed to publish asset deletion event",
 					"attachment_id", att.GetId(),
 					"event_id", eventID,
@@ -923,15 +917,13 @@ func (c *ChattoCore) DeleteMessage(ctx context.Context, actorID string, kind Roo
 
 // EditMessage edits a message body. Updates the body content and sets updated_at.
 // Publishes a MessageEditedEvent to notify connected clients in real-time.
-// The messageBodyKey parameter is the full compound key ({userId}.{bodyId}) stored in the event.
-//
 // Business rule: there is no time limit on edits. Authors can edit their own
 // messages indefinitely, and non-authors (moderators with message.manage) can
 // edit at any time.
 //
 // Authorization: Caller must verify the actor is the author OR
 // CanManageOthersMessage before calling.
-func (c *ChattoCore) EditMessage(ctx context.Context, actorID string, kind RoomKind, roomID, messageBodyKey, newBody string, opts ...EditMessageOption) error {
+func (c *ChattoCore) EditMessage(ctx context.Context, actorID string, kind RoomKind, roomID, eventID, newBody string, opts ...EditMessageOption) error {
 	options := collectEditMessageOptions(opts)
 	if len(newBody) > MaxMessageBodyLength {
 		return ErrMessageTooLong
@@ -946,11 +938,10 @@ func (c *ChattoCore) EditMessage(ctx context.Context, actorID string, kind RoomK
 		return ErrRoomArchived
 	}
 
-	eventID := eventIDFromBodyKey(messageBodyKey)
 	if eventID == "" {
 		return ErrMessageNotFound
 	}
-	originalEntry, ok := c.rooms().timelineEntry(eventID)
+	originalEntry, ok := c.roomModel.timelineEntry(eventID)
 	if !ok {
 		return ErrMessageNotFound
 	}
@@ -984,7 +975,7 @@ func (c *ChattoCore) EditMessage(ctx context.Context, actorID string, kind RoomK
 	// Fold in current body so attachments/link preview/timestamps
 	// survive the edit. We then overwrite ciphertext + nonce with the
 	// new content.
-	current, retracted, _ := c.rooms().latestBody(eventID)
+	current, retracted, _ := c.roomModel.latestBody(eventID)
 	if retracted {
 		return ErrMessageNotFound
 	}
@@ -1010,7 +1001,7 @@ func (c *ChattoCore) EditMessage(ctx context.Context, actorID string, kind RoomK
 	c.secureDeleteObsoleteMessageBodyEvents(ctx, eventID)
 	// Fan out to echoes (and to the original if this IS an echo) so
 	// the legacy "edit one, both update" semantic is preserved.
-	for _, linkedID := range c.rooms().linkedEventIDs(eventID) {
+	for _, linkedID := range c.roomModel.linkedEventIDs(eventID) {
 		linkedBody := proto.Clone(updated).(*corev1.MessageBody)
 		linkedBodyEventID := NewEventID()
 		if err := c.encryptMessageBody(ctx, linkedBody, roomID, linkedID, linkedBodyEventID, newBody); err != nil {
@@ -1106,7 +1097,7 @@ func (c *ChattoCore) publishMessageRetract(ctx context.Context, actorID string, 
 			},
 		},
 	})
-	if _, err := c.rooms().appendTimelineEventually(ctx, c.EventPublisher, agg, event); err != nil {
+	if _, err := c.roomModel.appendTimelineEventually(ctx, c.EventPublisher, agg, event); err != nil {
 		return fmt.Errorf("publish MessageRetractedEvent: %w", err)
 	}
 
@@ -1164,7 +1155,7 @@ func (c *ChattoCore) publishMessageEdit(ctx context.Context, actorID string, kin
 			},
 		})
 		if err == nil {
-			if err := c.rooms().waitForTimeline(ctx, events.SubjectPosition(editSubject, seqs[len(seqs)-1])); err != nil {
+			if err := c.roomModel.waitForTimeline(ctx, events.SubjectPosition(editSubject, seqs[len(seqs)-1])); err != nil {
 				return err
 			}
 			return nil
@@ -1328,21 +1319,20 @@ func (c *ChattoCore) editEmbeddedBody(
 	ctx context.Context,
 	actorID string,
 	kind RoomKind,
-	roomID, messageBodyKey string,
+	roomID, eventID string,
 	mutate func(*corev1.MessageBody) error,
 ) error {
-	eventID := eventIDFromBodyKey(messageBodyKey)
 	if eventID == "" {
 		return ErrMessageNotFound
 	}
-	entry, ok := c.rooms().timelineEntry(eventID)
+	entry, ok := c.roomModel.timelineEntry(eventID)
 	if !ok {
 		return ErrMessageNotFound
 	}
 	if entry.Event.GetMessagePosted() == nil {
 		return ErrMessageNotFound
 	}
-	current, retracted, _ := c.rooms().latestBody(eventID)
+	current, retracted, _ := c.roomModel.latestBody(eventID)
 	if retracted || current == nil {
 		return ErrMessageNotFound
 	}
@@ -1368,8 +1358,8 @@ func (c *ChattoCore) editEmbeddedBody(
 		return err
 	}
 	c.secureDeleteObsoleteMessageBodyEvents(ctx, eventID)
-	for _, linkedID := range c.rooms().linkedEventIDs(eventID) {
-		linkedCurrent, linkedRetracted, _ := c.rooms().latestBody(linkedID)
+	for _, linkedID := range c.roomModel.linkedEventIDs(eventID) {
+		linkedCurrent, linkedRetracted, _ := c.roomModel.latestBody(linkedID)
 		if linkedRetracted || linkedCurrent == nil {
 			continue
 		}
@@ -1399,12 +1389,12 @@ func (c *ChattoCore) editEmbeddedBody(
 // message. Only the message author can delete their attachments.
 // Emits a MessageEditedEvent with the attachment removed; also
 // deletes the file from the asset store best-effort.
-func (c *ChattoCore) DeleteAttachmentFromMessage(ctx context.Context, actorID string, kind RoomKind, roomID, messageBodyKey, attachmentID string) error {
+func (c *ChattoCore) DeleteAttachmentFromMessage(ctx context.Context, actorID string, kind RoomKind, roomID, eventID, attachmentID string) error {
 	var removed *corev1.Attachment
-	err := c.editEmbeddedBody(ctx, actorID, kind, roomID, messageBodyKey, func(body *corev1.MessageBody) error {
+	err := c.editEmbeddedBody(ctx, actorID, kind, roomID, eventID, func(body *corev1.MessageBody) error {
 		// Resolve the attachment (new bodies hold IDs; older bodies hold
 		// embedded protos). Then trim from whichever shape holds it.
-		for _, att := range c.MessageBodyAttachments(body) {
+		for _, att := range c.mediaModel.MessageBodyAttachments(body) {
 			if att.GetId() == attachmentID {
 				removed = att
 				break
@@ -1434,16 +1424,16 @@ func (c *ChattoCore) DeleteAttachmentFromMessage(ctx context.Context, actorID st
 	}
 
 	if removed != nil {
-		c.DeleteVideoDerivativesForAttachment(ctx, actorID, kind, removed.GetId())
-		if err := c.RecordAssetDeleted(ctx, actorID, kind, roomID, removed.GetId()); err != nil {
+		c.assetModel.DeleteVideoDerivativesForAttachment(ctx, actorID, removed.GetId())
+		if err := c.assetModel.RecordAssetDeleted(ctx, actorID, roomID, removed.GetId()); err != nil {
 			c.logger.Warn("Failed to publish asset deletion event",
 				"attachment_id", attachmentID,
-				"message_body_key", messageBodyKey,
+				"event_id", eventID,
 				"error", err)
 		} else if delErr := c.DeleteAttachmentFromStorage(ctx, removed); delErr != nil {
 			c.logger.Warn("Failed to delete attachment file after removing from message",
 				"attachment_id", attachmentID,
-				"message_body_key", messageBodyKey,
+				"event_id", eventID,
 				"error", delErr)
 		}
 	}
@@ -1451,7 +1441,7 @@ func (c *ChattoCore) DeleteAttachmentFromMessage(ctx context.Context, actorID st
 	c.logger.Debug("Attachment deleted from message",
 		"kind", kind,
 		"room_id", roomID,
-		"message_body_key", messageBodyKey,
+		"event_id", eventID,
 		"attachment_id", attachmentID,
 		"actor_id", actorID)
 	return nil
@@ -1460,8 +1450,8 @@ func (c *ChattoCore) DeleteAttachmentFromMessage(ctx context.Context, actorID st
 // DeleteLinkPreviewFromMessage removes a link preview from a message.
 // Only the message author can delete link previews from their
 // messages.
-func (c *ChattoCore) DeleteLinkPreviewFromMessage(ctx context.Context, actorID string, kind RoomKind, roomID, messageBodyKey, previewURL string) error {
-	err := c.editEmbeddedBody(ctx, actorID, kind, roomID, messageBodyKey, func(body *corev1.MessageBody) error {
+func (c *ChattoCore) DeleteLinkPreviewFromMessage(ctx context.Context, actorID string, kind RoomKind, roomID, eventID, previewURL string) error {
+	err := c.editEmbeddedBody(ctx, actorID, kind, roomID, eventID, func(body *corev1.MessageBody) error {
 		if body.GetLinkPreview() == nil || body.GetLinkPreview().GetUrl() != previewURL {
 			return fmt.Errorf("link preview not found in message: %w", ErrMessageLinkPreviewNotFound)
 		}
@@ -1474,7 +1464,7 @@ func (c *ChattoCore) DeleteLinkPreviewFromMessage(ctx context.Context, actorID s
 	c.logger.Debug("Link preview deleted from message",
 		"kind", kind,
 		"room_id", roomID,
-		"message_body_key", messageBodyKey,
+		"event_id", eventID,
 		"link_preview_removed", true,
 		"actor_id", actorID)
 	return nil

@@ -4,6 +4,7 @@ buf = "latest"
 go = "1.26.2"
 goreleaser = "latest"
 node = "22"
+uv = "0.11.30"
 
 [env]
 _.file = '.env'
@@ -56,7 +57,7 @@ depends = ["deps-frontend"]
 
 [tasks.license-check]
 description = "Check SPDX/REUSE license metadata"
-run = "mise x uv@latest -- uvx reuse lint"
+run = "uvx --with charset-normalizer 'reuse==6.2.0' lint"
 
 # =============================================================================
 # Code Generation
@@ -77,12 +78,6 @@ run = [
 description = "Generate Go emoji map from gemoji npm package"
 depends = ["setup-frontend"]
 run = "node tools/gen-emoji-map.mjs"
-
-[tasks.codegen-types]
-description = "Generate TypeScript types from Go using tygo"
-depends = ["setup-cli"]
-dir = "cli"
-run = "go tool tygo generate"
 
 [tasks.codegen]
 description = "Run all code generation tasks"
@@ -207,7 +202,7 @@ run = "exec pnpm exec storybook dev --host 127.0.0.1 --port \"$CHATTO_STORYBOOK_
 description = "Build and run the local development backend"
 depends = ["setup-cli"]
 dir = "cli"
-run = "go build -trimpath -tags bootstrap -o bin/chatto-dev . && exec ./bin/chatto-dev start"
+run = "mkdir -p internal/http_server/.client && touch internal/http_server/.client/.gitkeep && go build -trimpath -tags bootstrap -o bin/chatto-dev . && exec ./bin/chatto-dev start"
 
 [tasks.dev-frontend]
 description = "Run the local development frontend"
@@ -294,6 +289,10 @@ env = {
 }
 run = "exec bin/chatto"
 
+[tasks.dev-compiled]
+description = "Build and run the bundled Chatto stack with LiveKit and Mailpit"
+run = { tasks = ["chatto run", "dev-livekit", "dev-mailpit"] }
+
 # =============================================================================
 # Benchmarking
 # =============================================================================
@@ -322,7 +321,10 @@ run = "go test -trimpath ./internal/core -run '^$' -bench '^BenchmarkProjectionR
 description = "Run CLI tests"
 depends = ["setup-cli", "build-frontend"]
 dir = "cli"
-run = "go test -trimpath -p ${CHATTO_GO_TEST_P:-4} -tags test_endpoints ./..."
+run = [
+    "../tools/dev-supervisor_test.sh",
+    "go test -trimpath -p ${CHATTO_GO_TEST_P:-4} -tags test_endpoints ./...",
+]
 sources = ["**/*.go", "cmd/embedded/LICENSE", "cmd/embedded/NOTICE"]
 
 [tasks.test-cli-shutdown]
