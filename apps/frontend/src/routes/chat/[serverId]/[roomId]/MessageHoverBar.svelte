@@ -24,11 +24,12 @@ Hover-capable input only; pure touch devices use the long-press action sheet ins
 - `onOpenMenu` - Callback to open the full context menu
 -->
 <script lang="ts">
-  import { useMessageActions, type MessageActionParams } from '$lib/hooks';
+  import { useMessageActions, useEnsureCustomEmojis, type MessageActionParams } from '$lib/hooks';
   import * as m from '$lib/i18n/messages';
   import type { MessagesStore } from '$lib/state/room';
   import { getRecentEmojis } from '$lib/state/recentEmojis.svelte';
   import { getEmojiByName } from '$lib/emoji';
+  import EmojiToken from '$lib/components/EmojiToken.svelte';
 
   let {
     serverId,
@@ -76,6 +77,10 @@ Hover-capable input only; pure touch devices use the long-press action sheet ins
 
   const recentEmojis = $derived(getRecentEmojis(serverId));
   const quickReactions = $derived(recentEmojis.quickReactions);
+
+  // A recent quick reaction can be a custom emoji, which only renders once this
+  // server's custom emojis have loaded.
+  useEnsureCustomEmojis(() => serverId);
 
   const actions = useMessageActions();
   const replyInRoomActionLabel = $derived(replyInRoomLabel ?? m['room.message.actions.reply']());
@@ -148,7 +153,7 @@ Hover-capable input only; pure touch devices use the long-press action sheet ins
             ? m['room.message.actions.remove_reaction']({ emoji })
             : m['room.message.actions.react_with']({ emoji })}
         >
-          {emoji}
+          <EmojiToken {serverId} {emoji} imgClass="h-[1.15rem] w-auto" />
         </button>
       {/each}
       {#if onOpenEmojiPicker}

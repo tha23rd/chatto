@@ -41,7 +41,7 @@
   import { formatMessageTime } from '$lib/utils/formatTime';
   import { getLocale } from '$lib/i18n/runtime';
   import { useMessageActions } from '$lib/hooks';
-  import { emojiToName } from '$lib/emoji';
+  import { reactionKey } from '$lib/emoji';
   import { toast } from '$lib/ui/toast';
   import {
     copyMessageLinkToClipboard,
@@ -197,7 +197,10 @@
       messageBody: msg.body ?? '',
       messageStore
     };
-    const name = emojiToName(emoji);
+    // Derive the reaction key exactly as add/remove do, so an already-applied
+    // custom reaction (keyed by its shortcode, not a unicode glyph) is detected
+    // and toggled off rather than re-added.
+    const name = reactionKey(emoji);
     const alreadyReacted = msg.reactions.some((r) => r.emoji === name && r.hasReacted);
     await emojiActions.toggleReaction(params, emoji, alreadyReacted);
   }

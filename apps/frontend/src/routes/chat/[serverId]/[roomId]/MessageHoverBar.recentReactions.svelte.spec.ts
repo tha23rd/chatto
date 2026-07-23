@@ -4,6 +4,10 @@ import { flushSync, tick } from 'svelte';
 import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 import { PINNED_REACTIONS } from '$lib/emoji';
 import { __resetRecentEmojisForTests, getRecentEmojis } from '$lib/state/recentEmojis.svelte';
+import {
+  getCustomEmojis,
+  __resetCustomEmojisForTests
+} from '$lib/state/customEmojis.svelte';
 import { serverStorageKey } from '$lib/storage/serverStorage';
 import MessageHoverBar from './MessageHoverBar.svelte';
 
@@ -18,7 +22,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$lib/hooks', () => ({
-  useMessageActions: () => mocks.actions
+  useMessageActions: () => mocks.actions,
+  // The bar's custom-emoji load is a no-op here; these tests seed custom
+  // emojis directly on the store, so nothing needs fetching.
+  useEnsureCustomEmojis: () => {}
 }));
 
 function renderBar() {
@@ -57,8 +64,18 @@ async function searchEmoji(container: HTMLElement, query: string) {
 beforeEach(() => {
   localStorage.clear();
   __resetRecentEmojisForTests();
+  __resetCustomEmojisForTests();
   vi.clearAllMocks();
 });
+
+/** Register a custom emoji so recents on this server can resolve its shortcode. */
+function addCustomEmoji(name: string) {
+  getCustomEmojis(SERVER_ID).upsert({
+    id: `id-${name}`,
+    name,
+    url: `https://example.test/emoji/${name}.png`
+  });
+}
 
 describe('MessageHoverBar recent reactions integration', () => {
   it('uses a checkmark emoji selected in the picker as the first non-pinned quick reaction', async () => {
@@ -92,6 +109,56 @@ describe('MessageHoverBar recent reactions integration', () => {
 
     expect(reactions.slice(0, PINNED_REACTIONS.length)).toEqual([...PINNED_REACTIONS]);
     expect(reactions[PINNED_REACTIONS.length]).toBe('🔥');
+  });
+
+  it('shows a recent custom emoji as an image in a quick-reaction slot', async () => {
+    addCustomEmoji('partyparrot');
+    localStorage.setItem(serverStorageKey(SERVER_ID, 'recentEmojis'), JSON.stringify(['partyparrot']));
+
+    const { container } = renderBar();
+    await tick();
+
+    const slot = container.querySelector<HTMLButtonElement>(
+      '[aria-label="React with partyparrot"]'
+    );
+    expect(slot?.querySelector('img')?.getAttribute('src')).toBe(
+      'https://example.test/emoji/partyparrot.png'
+    );
+    // The bare shortcode must never leak into the toolbar as text.
+    expect(slot?.textContent?.trim()).toBe('');
+  });
+
+  it('reacts with the shortcode when a custom quick reaction is clicked', async () => {
+    addCustomEmoji('partyparrot');
+    localStorage.setItem(serverStorageKey(SERVER_ID, 'recentEmojis'), JSON.stringify(['partyparrot']));
+
+    const { container } = renderBar();
+    await tick();
+
+    (
+      container.querySelector('[aria-label="React with partyparrot"]') as HTMLButtonElement
+    ).click();
+
+    await vi.waitFor(() => expect(mocks.actions.toggleReaction).toHaveBeenCalledOnce());
+    expect(mocks.actions.toggleReaction).toHaveBeenCalledWith(
+      expect.anything(),
+      'partyparrot',
+      false
+    );
+  });
+
+  it('falls back rather than leaving a slot empty for a deleted custom emoji', () => {
+    localStorage.setItem(
+      serverStorageKey(SERVER_ID, 'recentEmojis'),
+      JSON.stringify(['deleted_emoji'])
+    );
+
+    const { container } = renderBar();
+    const reactions = quickReactionLabels(container);
+
+    expect(reactions).toHaveLength(6);
+    expect(reactions).not.toContain('deleted_emoji');
+    expect(reactions[PINNED_REACTIONS.length]).toBe('❤️');
   });
 
   it('does not reorder recent reactions when a toolbar quick reaction is clicked', async () => {

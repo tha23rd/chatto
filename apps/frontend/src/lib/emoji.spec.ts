@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { getEmojiDisplayName, searchCustomEmojis } from './emoji';
+import { getEmojiDisplayName, reactionKey, searchCustomEmojis } from './emoji';
+
+describe('reactionKey', () => {
+  it('maps a unicode emoji to its gemoji shortcode', () => {
+    expect(reactionKey('👍')).toBe('thumbsup');
+  });
+
+  it('returns a value not in the glyph map unchanged', () => {
+    // Custom emoji arrive already as their shortcode name; emojiToName has no
+    // entry for them, so the raw value must flow through as the reaction key.
+    expect(reactionKey('partyparrot')).toBe('partyparrot');
+  });
+});
 
 describe('searchCustomEmojis', () => {
   const emojis = [

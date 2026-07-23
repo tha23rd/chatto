@@ -12,7 +12,8 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('$lib/hooks', () => ({
-  useMessageActions: () => mocks.actions
+  useMessageActions: () => mocks.actions,
+  useEnsureCustomEmojis: () => {}
 }));
 
 vi.mock('$lib/state/recentEmojis.svelte', () => ({

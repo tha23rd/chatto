@@ -9,6 +9,9 @@ export {
 export { useMessageActions, useReactionActions } from './useMessageActions.svelte';
 export type { MessageActionParams } from './useMessageActions.svelte';
 
+// Custom emoji loading
+export { useEnsureCustomEmojis } from './useEnsureCustomEmojis.svelte';
+
 // Data hooks
 export { useRoomData } from './useRoomData.svelte';
 export { useRoomUnread } from './useRoomUnread.svelte';
