@@ -6,7 +6,9 @@
 	import type { ServerPermissions } from '$lib/state/server/permissions.svelte';
 	import { createPresenceCache } from '$lib/state/presenceCache.svelte';
 	import { createUserProfileCache } from '$lib/state/userProfiles.svelte';
+	import { provideConnection } from '$lib/state/server/connection.svelte';
 	import { serverRegistry, type RegisteredServer } from '$lib/state/server/registry.svelte';
+	import { serverConnectionManager } from '$lib/state/server/serverConnection.svelte';
 
 	type VoiceCallPanelProps = {
 		roomId: string;
@@ -188,6 +190,11 @@
 		serverRegistry.addServer(server);
 		return server;
 	}
+
+	// VoiceCallPanel consumes the active server connection during component
+	// initialisation. Provide it before the panel's lazy import resolves so the
+	// asynchronous Storybook mount cannot escape the story context lifecycle.
+	provideConnection(() => serverConnectionManager.getClient(ensureStorybookServer().id));
 
 	function seedStore() {
 		const server = ensureStorybookServer();
