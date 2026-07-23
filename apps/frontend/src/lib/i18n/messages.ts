@@ -1092,6 +1092,8 @@ const msg_voice_noise_suppression_enhanced = (): LocalizedString => messages().v
 const msg_voice_noise_suppression_loading = (): LocalizedString => messages().voice_noise_suppression_loading(empty());
 const msg_voice_noise_suppression_unavailable = (): LocalizedString => messages().voice_noise_suppression_unavailable(empty());
 const msg_voice_fullscreen_feed = (): LocalizedString => messages().voice_fullscreen_feed(empty());
+const msg_voice_pop_out_feed = (): LocalizedString => messages().voice_pop_out_feed(empty());
+const msg_voice_pop_out_failed = (): LocalizedString => messages().voice_pop_out_failed(empty());
 const msg_voice_fullscreen_call = (): LocalizedString => messages().voice_fullscreen_call(empty());
 const msg_voice_exit_fullscreen_call = (): LocalizedString => messages().voice_exit_fullscreen_call(empty());
 const msg_voice_locally_mute_participant = (): LocalizedString => messages().voice_locally_mute_participant(empty());
@@ -1141,6 +1143,10 @@ const msg_voice_participant_volume_value = (
   inputs: Parameters<LocaleMessages['voice_participant_volume_value']>[0]
 ): LocalizedString => messages().voice_participant_volume_value(inputs);
 const msg_voice_participant_volume_muted_hint = (): LocalizedString => messages().voice_participant_volume_muted_hint(empty());
+const msg_voice_stream_volume = (): LocalizedString => messages().voice_stream_volume(empty());
+const msg_voice_stream_volume_value = (
+  inputs: Parameters<LocaleMessages['voice_stream_volume_value']>[0]
+): LocalizedString => messages().voice_stream_volume_value(inputs);
 const msg_voice_media_device_failed = (): LocalizedString => messages().voice_media_device_failed(empty());
 const msg_voice_tuning_strength_label = (): LocalizedString => messages().voice_tuning_strength_label(empty());
 const msg_voice_tuning_strength_hint = (): LocalizedString => messages().voice_tuning_strength_hint(empty());
@@ -2673,6 +2679,8 @@ export { msg_voice_noise_suppression_enhanced as 'voice.noise_suppression_enhanc
 export { msg_voice_noise_suppression_loading as 'voice.noise_suppression_loading' };
 export { msg_voice_noise_suppression_unavailable as 'voice.noise_suppression_unavailable' };
 export { msg_voice_fullscreen_feed as 'voice.fullscreen_feed' };
+export { msg_voice_pop_out_feed as 'voice.pop_out_feed' };
+export { msg_voice_pop_out_failed as 'voice.pop_out_failed' };
 export { msg_voice_fullscreen_call as 'voice.fullscreen_call' };
 export { msg_voice_exit_fullscreen_call as 'voice.exit_fullscreen_call' };
 export { msg_voice_locally_mute_participant as 'voice.locally_mute_participant' };
@@ -2714,6 +2722,8 @@ export { msg_voice_stream_quality_next_share as 'voice.stream_quality_next_share
 export { msg_voice_participant_volume as 'voice.participant_volume' };
 export { msg_voice_participant_volume_value as 'voice.participant_volume_value' };
 export { msg_voice_participant_volume_muted_hint as 'voice.participant_volume_muted_hint' };
+export { msg_voice_stream_volume as 'voice.stream_volume' };
+export { msg_voice_stream_volume_value as 'voice.stream_volume_value' };
 export { msg_voice_media_device_failed as 'voice.media_device_failed' };
 export { msg_voice_tuning_strength_label as 'voice.tuning.strength_label' };
 export { msg_voice_tuning_strength_hint as 'voice.tuning.strength_hint' };

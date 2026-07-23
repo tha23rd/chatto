@@ -36,6 +36,8 @@
     "noise_suppression_loading": "Loading model…",
     "noise_suppression_unavailable": "Unavailable in this browser",
     "fullscreen_feed": "Plenekrana fluo",
+    "pop_out_feed": "Bildo en bildo",
+    "pop_out_failed": "Ne eblis montri ĉi tiun fluon kiel bildon en bildo.",
     "fullscreen_call": "Plenekrana voko",
     "exit_fullscreen_call": "Eliru plenekranan vokon",
     "locally_mute_participant": "Mutigu loke",
@@ -77,6 +79,8 @@
     "participant_volume": "Volume",
     "participant_volume_value": "{percent}% volume",
     "participant_volume_muted_hint": "Muted locally — unmute to hear this participant.",
+    "stream_volume": "Laŭteco de la fluo",
+    "stream_volume_value": "{percent}% laŭteco de la fluo",
     "media_device_failed": "Ne eblis aliri amaskomunikilaron.",
     "tuning": {
       "strength_label": "Forto de bruosubpremo",

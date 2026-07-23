@@ -36,6 +36,8 @@
     "noise_suppression_loading": "Modell wird geladen…",
     "noise_suppression_unavailable": "In diesem Browser nicht verfügbar",
     "fullscreen_feed": "Feed im Vollbild",
+    "pop_out_feed": "Feed als Bild im Bild",
+    "pop_out_failed": "Dieser Feed konnte nicht als Bild im Bild geöffnet werden.",
     "fullscreen_call": "Anruf im Vollbild",
     "exit_fullscreen_call": "Anruf-Vollbild verlassen",
     "locally_mute_participant": "Lokal stummschalten",
@@ -77,6 +79,8 @@
     "participant_volume": "Lautstärke",
     "participant_volume_value": "{percent} % Lautstärke",
     "participant_volume_muted_hint": "Lokal stummgeschaltet – Stummschaltung aufheben, um diese Person zu hören.",
+    "stream_volume": "Stream-Lautstärke",
+    "stream_volume_value": "{percent} % Stream-Lautstärke",
     "media_device_failed": "Auf ein Mediengerät konnte nicht zugegriffen werden.",
     "tuning": {
       "strength_label": "Stärke der Rauschunterdrückung",

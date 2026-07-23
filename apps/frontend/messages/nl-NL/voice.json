@@ -36,6 +36,8 @@
     "noise_suppression_loading": "Model laden…",
     "noise_suppression_unavailable": "Niet beschikbaar in deze browser",
     "fullscreen_feed": "Feed op volledig scherm",
+    "pop_out_feed": "Feed in beeld-in-beeld",
+    "pop_out_failed": "Kan deze feed niet in beeld-in-beeld openen.",
     "fullscreen_call": "Gesprek op volledig scherm",
     "exit_fullscreen_call": "Gesprek op volledig scherm afsluiten",
     "locally_mute_participant": "Lokaal dempen",
@@ -77,6 +79,8 @@
     "participant_volume": "Volume",
     "participant_volume_value": "{percent}% volume",
     "participant_volume_muted_hint": "Lokaal gedempt — zet het geluid aan om deze deelnemer te horen.",
+    "stream_volume": "Streamvolume",
+    "stream_volume_value": "{percent}% streamvolume",
     "media_device_failed": "Kan geen toegang krijgen tot een media-apparaat.",
     "tuning": {
       "strength_label": "Sterkte van ruisonderdrukking",

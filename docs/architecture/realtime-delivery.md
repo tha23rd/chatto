@@ -66,7 +66,8 @@ idempotent operations:
 
 - `reset`;
 - current public server profile, authenticated server presentation/runtime
-  state, and authenticated viewer state;
+  state including the complete server soundboard catalog, and authenticated
+  viewer state;
 - every public server directory user;
 - lightweight state for every room visible to the viewer and the complete
   visible room-group layout; DM participant references remain eager;
@@ -90,9 +91,12 @@ live-hub authorization capture retain them so a `StartDM` response can be
 navigated immediately and its first message can arrive through the stream.
 
 The frontend applies this prefix and every later event through the same
-`ServerProjectionStore` reducer. Server profile, MOTD, and runtime capability
-changes replace canonical projection state instead of causing a ConnectRPC
-refresh. Canonical timeline pages evict rows beyond their newest 50. Heavier
+`ServerProjectionStore` reducer. Server profile, MOTD, runtime capability, and
+soundboard catalog changes replace canonical projection state instead of causing
+a ConnectRPC refresh. The soundboard catalog is carried inside authenticated
+server state rather than by its own operation, so a soundboard change emits one
+full server-state replacement and clients that predate the field keep working
+instead of failing on an unknown operation. Canonical timeline pages evict rows beyond their newest 50. Heavier
 message stores are created lazily, and selecting a cold room sends
 `hydrate_room`. The response atomically replaces its full room membership and
 current timeline through the normal projection reducer; it is not a ConnectRPC
@@ -289,6 +293,13 @@ through notification signals and the finite resume replacement. Message
 delivery does not reassemble or retransmit complete channel membership. Echo
 tombstone upserts explicitly distinguish
 canonical-reply deletion from direct echo removal.
+
+Soundboard catalog facts are server-wide and readable by every authenticated
+member, so the hub waits for the soundboard projection and then fans them to
+every session without a visibility decision. Resume replay treats them the same
+way. Each fact maps to one authenticated server-state replacement carrying the
+current catalog, so members already connected — including members already in a
+voice call — converge without a reload.
 
 Room-read signals emit a `RoomViewerStateReplace` for the affected room and a
 finite `NotificationsReplace`. This keeps the retained canonical room row,
