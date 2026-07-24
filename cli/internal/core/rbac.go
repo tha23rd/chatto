@@ -206,8 +206,8 @@ func (c *ChattoCore) ListAdmins(ctx context.Context) ([]string, error) {
 
 // AssignServerRole assigns any role to a user.
 // The role must exist (system or custom). The everyone role cannot be assigned (it's implicit).
-// Authorization is enforced by the API boundary (`role.assign`); this model
-// method validates role existence and writes the assignment fact.
+// The model enforces that non-owner actors cannot assign authority they do not
+// possess; API boundaries additionally require role.assign.
 func (c *ChattoCore) AssignServerRole(ctx context.Context, actorID, userID, roleName string) error {
 	if roleName == RoleEveryone {
 		return ErrImplicitRole
@@ -217,9 +217,12 @@ func (c *ChattoCore) AssignServerRole(ctx context.Context, actorID, userID, role
 		RbacRoleAssigned: &corev1.RbacRoleAssignedEvent{UserId: userID, RoleName: roleName},
 	}})
 
-	if _, err := c.appendRBACEvent(ctx, event, func() error {
+	if _, err := c.appendRoleAssignmentEvent(ctx, userID, false, event, func() error {
 		if _, ok := c.RBAC.GetRole(roleName); !ok {
 			return ErrRoleNotFound
+		}
+		if err := c.requireRoleAssignmentWithinAuthority(ctx, actorID, roleName, false); err != nil {
+			return err
 		}
 		if c.RBAC.HasRole(userID, roleName) {
 			return errRBACNoop
@@ -249,9 +252,12 @@ func (c *ChattoCore) AssignServerRoleToExistingUser(ctx context.Context, actorID
 		RbacRoleAssigned: &corev1.RbacRoleAssignedEvent{UserId: userID, RoleName: roleName},
 	}})
 
-	if _, err := c.appendRBACEventWithUserCheck(ctx, userID, event, func() error {
+	if _, err := c.appendRoleAssignmentEvent(ctx, userID, true, event, func() error {
 		if _, ok := c.RBAC.GetRole(roleName); !ok {
 			return ErrRoleNotFound
+		}
+		if err := c.requireRoleAssignmentWithinAuthority(ctx, actorID, roleName, false); err != nil {
+			return err
 		}
 		if c.RBAC.HasRole(userID, roleName) {
 			return errRBACNoop
@@ -270,8 +276,8 @@ func (c *ChattoCore) AssignServerRoleToExistingUser(ctx context.Context, actorID
 
 // RevokeServerRole removes an role from a user.
 // The role must exist (system or custom). The everyone role cannot be revoked (it's implicit).
-// Authorization is enforced by the API boundary (`role.assign`). The only
-// service-level guard is self-owner lockout prevention.
+// The model enforces assignment-authority bounds and self-owner lockout;
+// API boundaries additionally require role.assign.
 func (c *ChattoCore) RevokeServerRole(ctx context.Context, actorID, userID, roleName string) error {
 	if roleName == RoleEveryone {
 		return ErrImplicitRole
@@ -281,12 +287,15 @@ func (c *ChattoCore) RevokeServerRole(ctx context.Context, actorID, userID, role
 		RbacRoleRevoked: &corev1.RbacRoleRevokedEvent{UserId: userID, RoleName: roleName},
 	}})
 
-	if _, err := c.appendRBACEvent(ctx, event, func() error {
+	if _, err := c.appendRoleAssignmentEvent(ctx, userID, false, event, func() error {
 		if roleName == RoleOwner && actorID == userID {
 			return ErrCannotRevokeSelfAdmin
 		}
 		if _, ok := c.RBAC.GetRole(roleName); !ok {
 			return ErrRoleNotFound
+		}
+		if err := c.requireRoleAssignmentWithinAuthority(ctx, actorID, roleName, true); err != nil {
+			return err
 		}
 		return nil
 	}); err != nil {
@@ -310,12 +319,15 @@ func (c *ChattoCore) RevokeServerRoleFromExistingUser(ctx context.Context, actor
 		RbacRoleRevoked: &corev1.RbacRoleRevokedEvent{UserId: userID, RoleName: roleName},
 	}})
 
-	if _, err := c.appendRBACEventWithUserCheck(ctx, userID, event, func() error {
+	if _, err := c.appendRoleAssignmentEvent(ctx, userID, true, event, func() error {
 		if roleName == RoleOwner && actorID == userID {
 			return ErrCannotRevokeSelfAdmin
 		}
 		if _, ok := c.RBAC.GetRole(roleName); !ok {
 			return ErrRoleNotFound
+		}
+		if err := c.requireRoleAssignmentWithinAuthority(ctx, actorID, roleName, true); err != nil {
+			return err
 		}
 		return nil
 	}); err != nil {

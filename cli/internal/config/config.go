@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -101,6 +102,59 @@ type ExporterConfig struct {
 	Path              string   `toml:"path,commented" env:"CHATTO_EXPORTER_PATH" comment:"HTTP path for Prometheus scrapes. Default: /metrics."`
 	S3RefreshInterval Duration `toml:"s3_refresh_interval,commented" env:"CHATTO_EXPORTER_S3_REFRESH_INTERVAL" comment:"How often to refresh cached S3 bucket size metrics. Default: 15m."`
 	S3Timeout         Duration `toml:"s3_timeout,commented" env:"CHATTO_EXPORTER_S3_TIMEOUT" comment:"Timeout for one S3 bucket-size refresh. Default: 30s."`
+}
+
+// SearchConfig controls Chatto's consumer-facing search API and UI.
+type SearchConfig struct {
+	Enabled bool `toml:"enabled" env:"CHATTO_SEARCH_ENABLED" comment:"Enable consumer-facing message search queries. Default: false."`
+}
+
+// SearchProviderConfig controls the bundled Bleve search provider.
+type SearchProviderConfig struct {
+	Enabled   bool     `toml:"enabled" env:"CHATTO_SEARCH_PROVIDER_ENABLED" comment:"Start the bundled Bleve search provider from chatto run. Default: false."`
+	Directory string   `toml:"directory,commented" env:"CHATTO_SEARCH_PROVIDER_DIRECTORY" comment:"Directory for the disposable local Bleve index. Default: ./data/search."`
+	Languages []string `toml:"languages,commented" env:"CHATTO_SEARCH_PROVIDER_LANGUAGES" comment:"Bleve language analyzers used for message indexing and queries. Omit to enable all bundled analyzers; use an empty list for literal matching only."`
+}
+
+var searchProviderLanguageCodes = []string{
+	"ar", "cjk", "ckb", "da", "de", "en", "es", "fa", "fi", "fr", "hi",
+	"hr", "hu", "it", "nl", "no", "pl", "pt", "ro", "ru", "sv", "tr",
+}
+
+// SupportedSearchProviderLanguages returns the language analyzer codes accepted
+// by the bundled Bleve provider.
+func SupportedSearchProviderLanguages() []string {
+	return append([]string(nil), searchProviderLanguageCodes...)
+}
+
+// DirectoryOrDefault returns the bundled provider's local index directory.
+func (c SearchProviderConfig) DirectoryOrDefault() string {
+	if strings.TrimSpace(c.Directory) == "" {
+		return "./data/search"
+	}
+	return strings.TrimSpace(c.Directory)
+}
+
+// LanguagesOrDefault returns the normalized configured analyzer codes. An
+// omitted setting enables every bundled analyzer, while an explicit empty list
+// retains only language-neutral literal and fuzzy matching.
+func (c SearchProviderConfig) LanguagesOrDefault() []string {
+	if c.Languages == nil {
+		return SupportedSearchProviderLanguages()
+	}
+	return normalizeSearchProviderLanguages(c.Languages)
+}
+
+func normalizeSearchProviderLanguages(languages []string) []string {
+	normalized := make([]string, len(languages))
+	for i, language := range languages {
+		normalized[i] = strings.ToLower(strings.TrimSpace(language))
+	}
+	if len(normalized) == 1 && normalized[0] == "none" {
+		return []string{}
+	}
+	sort.Strings(normalized)
+	return normalized
 }
 
 // ShieldsConfig controls public Shields.io-compatible community badges.
@@ -643,27 +697,16 @@ func (c *EmbeddedNATSConfig) BindAddressOrDefault() string {
 	return c.BindAddress
 }
 
-// NATSAuthMethod is an alias for natsauth.AuthMethod, kept for backward compatibility.
-type NATSAuthMethod = natsauth.AuthMethod
-
-const (
-	NATSAuthNone        = natsauth.AuthNone
-	NATSAuthToken       = natsauth.AuthToken
-	NATSAuthUserPass    = natsauth.AuthUserPass
-	NATSAuthCredentials = natsauth.AuthCredentials
-	NATSAuthNKey        = natsauth.AuthNKey
-)
-
 // NATSClientConfig contains settings for connecting to an external NATS server.
 type NATSClientConfig struct {
-	URL             string         `toml:"url" env:"CHATTO_NATS_CLIENT_URL" comment:"NATS server URL. Use a comma-separated list for cluster failover, e.g. nats://n1:4222,nats://n2:4222."`
-	AuthMethod      NATSAuthMethod `toml:"auth_method" env:"CHATTO_NATS_CLIENT_AUTH_METHOD" comment:"Authentication method for the external NATS server: none, token, userpass, credentials, or nkey."`
-	Token           string         `toml:"token" env:"CHATTO_NATS_CLIENT_TOKEN" comment:"Token for token auth. Only used when auth_method = 'token'. NEVER SHARE THIS!"`
-	Username        string         `toml:"username,commented" env:"CHATTO_NATS_CLIENT_USERNAME" comment:"Username for userpass auth. Only used when auth_method = 'userpass'."`
-	Password        string         `toml:"password,commented" env:"CHATTO_NATS_CLIENT_PASSWORD" comment:"Password for userpass auth. Only used when auth_method = 'userpass'. NEVER SHARE THIS!"`
-	CredentialsFile string         `toml:"credentials_file,commented" env:"CHATTO_NATS_CLIENT_CREDENTIALS_FILE" comment:"Path to a NATS .creds file. Only used when auth_method = 'credentials'."`
-	NKeySeed        string         `toml:"nkey_seed,commented" env:"CHATTO_NATS_CLIENT_NKEY_SEED" comment:"NKey seed. Only used when auth_method = 'nkey'. NEVER SHARE THIS!"`
-	CACert          string         `toml:"ca_cert,commented" env:"CHATTO_NATS_CLIENT_CA_CERT" comment:"PEM-encoded CA certificate for verifying the NATS server's TLS certificate. When set, the connection uses TLS."`
+	URL             string              `toml:"url" env:"CHATTO_NATS_CLIENT_URL" comment:"NATS server URL. Use a comma-separated list for cluster failover, e.g. nats://n1:4222,nats://n2:4222."`
+	AuthMethod      natsauth.AuthMethod `toml:"auth_method" env:"CHATTO_NATS_CLIENT_AUTH_METHOD" comment:"Authentication method for the external NATS server: none, token, userpass, credentials, or nkey."`
+	Token           string              `toml:"token" env:"CHATTO_NATS_CLIENT_TOKEN" comment:"Token for token auth. Only used when auth_method = 'token'. NEVER SHARE THIS!"`
+	Username        string              `toml:"username,commented" env:"CHATTO_NATS_CLIENT_USERNAME" comment:"Username for userpass auth. Only used when auth_method = 'userpass'."`
+	Password        string              `toml:"password,commented" env:"CHATTO_NATS_CLIENT_PASSWORD" comment:"Password for userpass auth. Only used when auth_method = 'userpass'. NEVER SHARE THIS!"`
+	CredentialsFile string              `toml:"credentials_file,commented" env:"CHATTO_NATS_CLIENT_CREDENTIALS_FILE" comment:"Path to a NATS .creds file. Only used when auth_method = 'credentials'."`
+	NKeySeed        string              `toml:"nkey_seed,commented" env:"CHATTO_NATS_CLIENT_NKEY_SEED" comment:"NKey seed. Only used when auth_method = 'nkey'. NEVER SHARE THIS!"`
+	CACert          string              `toml:"ca_cert,commented" env:"CHATTO_NATS_CLIENT_CA_CERT" comment:"PEM-encoded CA certificate for verifying the NATS server's TLS certificate. When set, the connection uses TLS."`
 }
 
 // NATSAuthConfig returns the auth configuration suitable for natsauth.ConnectOptions.
@@ -959,22 +1002,24 @@ type BootstrapServer struct {
 }
 
 type ChattoConfig struct {
-	General     GeneralConfig     `toml:"general"`
-	Owners      OwnersConfig      `toml:"owners" comment:"Email addresses that confer owner status."`
-	Webserver   WebserverConfig   `toml:"webserver"`
-	Metrics     MetricsConfig     `toml:"metrics,commented" comment:"Process-local Prometheus metrics endpoint."`
-	Exporter    ExporterConfig    `toml:"exporter,commented" comment:"Deployment-wide Prometheus metrics exporter."`
-	Diagnostics DiagnosticsConfig `toml:"diagnostics,commented" comment:"Opt-in diagnostics for local benchmarking and operator troubleshooting."`
-	OperatorAPI OperatorAPIConfig `toml:"operator_api,commented" comment:"Local root-equivalent operator API Unix socket. Disabled by default."`
-	Core        CoreConfig        `toml:"core" comment:"Core service configuration."`
-	Auth        AuthConfig        `toml:"auth" comment:"Authentication configuration."`
-	Limits      LimitsConfig      `toml:"limits,commented" comment:"Instance-wide resource limits. Use -1 for unlimited."`
-	SMTP        SMTPConfig        `toml:"smtp" comment:"SMTP configuration for transactional emails."`
-	Push        PushConfig        `toml:"push,commented" comment:"Web Push notification configuration."`
-	Video       VideoConfig       `toml:"video,commented" comment:"Video processing configuration. Requires ffmpeg."`
-	LiveKit     LiveKitConfig     `toml:"livekit,commented" comment:"LiveKit voice call configuration."`
-	NATS        NATSConfig        `toml:"nats"`
-	Bootstrap   BootstrapConfig   `toml:"bootstrap,commented" comment:"Dev/E2E-only: users and spaces auto-created on startup. ONLY honored by builds compiled with the 'bootstrap' build tag; release binaries ignore this section entirely."`
+	General        GeneralConfig        `toml:"general"`
+	Owners         OwnersConfig         `toml:"owners" comment:"Email addresses that confer owner status."`
+	Webserver      WebserverConfig      `toml:"webserver"`
+	Metrics        MetricsConfig        `toml:"metrics,commented" comment:"Process-local Prometheus metrics endpoint."`
+	Exporter       ExporterConfig       `toml:"exporter,commented" comment:"Deployment-wide Prometheus metrics exporter."`
+	Search         SearchConfig         `toml:"search,commented" comment:"Consumer-facing message search configuration."`
+	SearchProvider SearchProviderConfig `toml:"search_provider,commented" comment:"Bundled Bleve message search provider."`
+	Diagnostics    DiagnosticsConfig    `toml:"diagnostics,commented" comment:"Opt-in diagnostics for local benchmarking and operator troubleshooting."`
+	OperatorAPI    OperatorAPIConfig    `toml:"operator_api,commented" comment:"Local root-equivalent operator API Unix socket. Disabled by default."`
+	Core           CoreConfig           `toml:"core" comment:"Core service configuration."`
+	Auth           AuthConfig           `toml:"auth" comment:"Authentication configuration."`
+	Limits         LimitsConfig         `toml:"limits,commented" comment:"Instance-wide resource limits. Use -1 for unlimited."`
+	SMTP           SMTPConfig           `toml:"smtp" comment:"SMTP configuration for transactional emails."`
+	Push           PushConfig           `toml:"push,commented" comment:"Web Push notification configuration."`
+	Video          VideoConfig          `toml:"video,commented" comment:"Video processing configuration. Requires ffmpeg."`
+	LiveKit        LiveKitConfig        `toml:"livekit,commented" comment:"LiveKit voice call configuration."`
+	NATS           NATSConfig           `toml:"nats"`
+	Bootstrap      BootstrapConfig      `toml:"bootstrap,commented" comment:"Dev/E2E-only: users and spaces auto-created on startup. ONLY honored by builds compiled with the 'bootstrap' build tag; release binaries ignore this section entirely."`
 }
 
 // ApplyDefaults fills derived config values that are safe to compute from other
@@ -986,12 +1031,12 @@ func (c *ChattoConfig) ApplyDefaults() {
 		}
 		if c.NATS.Client.AuthMethod == "" {
 			if c.NATS.Embedded.AuthToken != "" {
-				c.NATS.Client.AuthMethod = NATSAuthToken
+				c.NATS.Client.AuthMethod = natsauth.AuthToken
 			} else {
-				c.NATS.Client.AuthMethod = NATSAuthNone
+				c.NATS.Client.AuthMethod = natsauth.AuthNone
 			}
 		}
-		if c.NATS.Client.AuthMethod == NATSAuthToken && c.NATS.Client.Token == "" {
+		if c.NATS.Client.AuthMethod == natsauth.AuthToken && c.NATS.Client.Token == "" {
 			c.NATS.Client.Token = c.NATS.Embedded.AuthToken
 		}
 	}
@@ -1017,6 +1062,9 @@ func (c *ChattoConfig) ApplyDefaults() {
 // semantic defaults.
 func (c *ChattoConfig) Normalize() {
 	c.Core.Assets.S3.NormalizePathPrefix()
+	if c.SearchProvider.Languages != nil {
+		c.SearchProvider.Languages = normalizeSearchProviderLanguages(c.SearchProvider.Languages)
+	}
 }
 
 func embeddedNATSClientURL(cfg EmbeddedNATSConfig) string {
@@ -1092,6 +1140,42 @@ func (c *ChattoConfig) Validate() error {
 		}
 		if c.Exporter.S3Timeout.Duration() < 0 {
 			errs = append(errs, "exporter.s3_timeout must not be negative")
+		}
+	}
+	if c.SearchProvider.Enabled || strings.TrimSpace(c.SearchProvider.Directory) != "" || c.SearchProvider.Languages != nil {
+		searchDirectory := filepath.Clean(c.SearchProvider.DirectoryOrDefault())
+		if searchDirectory == "." || filepath.IsAbs(searchDirectory) && searchDirectory == filepath.VolumeName(searchDirectory)+string(filepath.Separator) {
+			errs = append(errs, "search_provider.directory must name a dedicated index directory")
+		}
+		if dataDirectory := strings.TrimSpace(c.NATS.Embedded.DataDir); dataDirectory != "" {
+			absoluteSearch, searchErr := filepath.Abs(searchDirectory)
+			absoluteData, dataErr := filepath.Abs(filepath.Clean(dataDirectory))
+			if searchErr == nil && dataErr == nil {
+				relativeData, relErr := filepath.Rel(absoluteSearch, absoluteData)
+				if relErr == nil && relativeData != ".." && !strings.HasPrefix(relativeData, ".."+string(filepath.Separator)) {
+					errs = append(errs, "search_provider.directory must not contain the embedded NATS data directory")
+				}
+			}
+		}
+		supportedLanguages := make(map[string]struct{}, len(searchProviderLanguageCodes))
+		for _, language := range searchProviderLanguageCodes {
+			supportedLanguages[language] = struct{}{}
+		}
+		languages := normalizeSearchProviderLanguages(c.SearchProvider.Languages)
+		seenLanguages := make(map[string]struct{}, len(languages))
+		for _, language := range languages {
+			if language == "" {
+				errs = append(errs, "search_provider.languages must not contain empty language codes")
+				continue
+			}
+			if _, duplicate := seenLanguages[language]; duplicate {
+				errs = append(errs, fmt.Sprintf("search_provider.languages contains duplicate language %q", language))
+				continue
+			}
+			seenLanguages[language] = struct{}{}
+			if _, ok := supportedLanguages[language]; !ok {
+				errs = append(errs, fmt.Sprintf("search_provider.languages contains unsupported language %q", language))
+			}
 		}
 	}
 	if c.NATS.Embedded.Enabled {
@@ -1304,7 +1388,7 @@ func (c *ChattoConfig) Validate() error {
 	if c.NATS.Embedded.Enabled &&
 		c.NATS.Embedded.Port > 0 &&
 		c.NATS.Embedded.AuthToken != "" &&
-		c.NATS.Client.AuthMethod == NATSAuthToken &&
+		c.NATS.Client.AuthMethod == natsauth.AuthToken &&
 		c.NATS.Client.Token != "" &&
 		c.NATS.Client.Token != c.NATS.Embedded.AuthToken {
 		errs = append(errs, "nats.client.token must match nats.embedded.auth_token when embedded NATS uses token auth")

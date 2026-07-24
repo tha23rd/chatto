@@ -42,7 +42,7 @@ export type CreatedWebhook = {
 
 /**
  * Administrative client for managing channel webhooks (`chatto.admin.v1`).
- * Requires `server.manage`; used by the server-admin UI.
+ * Requires `server.manage`; used by the server management UI.
  */
 export function createAdminWebhookAPI(config: ConnectAPIConfig) {
   const client = createChattoClient(AdminWebhookService, config);

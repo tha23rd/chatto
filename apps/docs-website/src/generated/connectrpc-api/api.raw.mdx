@@ -1016,6 +1016,87 @@ Batch user directory response.
 | `users` | repeated [`DirectoryMember`](#chatto-api-v1-DirectoryMember) | Found users. The server preserves first-seen request order and de-duplicates repeated IDs. |
 
 
+<a id="chatto-api-v1-MessageSearchService"></a>
+
+## MessageSearchService
+
+Searches current message content visible to an authenticated user.
+
+<a id="chatto-api-v1-MessageSearchService-GetStatus"></a>
+
+### GetStatus
+
+Reports whether the operator enabled Search and whether its provider can
+currently answer. This method remains available when Search is disabled.
+
+```http
+POST /api/connect/chatto.api.v1.MessageSearchService/GetStatus
+```
+
+<a id="chatto-api-v1-GetStatusRequest"></a>
+
+#### Input: GetStatusRequest
+
+Request for current message-search availability.
+
+
+<a id="chatto-api-v1-GetStatusResponse"></a>
+
+#### Result: GetStatusResponse
+
+Current message-search availability.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `state` | [`MessageSearchState`](#chatto-api-v1-MessageSearchState) | Current feature/provider state. |
+| `retry_after` | `google.protobuf.Duration` | Suggested delay before checking again while search is not ready. |
+
+
+<a id="chatto-api-v1-MessageSearchService-SearchMessages"></a>
+
+### SearchMessages
+
+Searches current message bodies. Results are authorized and hydrated from
+current Chatto state after provider matching. Returns FAILED_PRECONDITION
+when Search is disabled and UNAVAILABLE when its provider is not ready.
+
+```http
+POST /api/connect/chatto.api.v1.MessageSearchService/SearchMessages
+```
+
+<a id="chatto-api-v1-SearchMessagesRequest"></a>
+
+#### Input: SearchMessagesRequest
+
+Request to search current message bodies visible to the authenticated user.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `query` | `string` | Required query text. Words are required terms, quoted text is an exact phrase, and `AND` may separate terms. The query also accepts `in:`, `from:`, `before:`, `after:`, and `has:attachment` filters. |
+| `room_id` | `optional string` | Optional room-ID scope. The server intersects this room with rooms the current user may read and with any `in:` filters in query. |
+| `author_id` | `optional string` | Optional author-ID scope. The server intersects this author with any `from:` filters in query. |
+| `created_after` | `google.protobuf.Timestamp` | Exclusive lower bound on message creation time. The stricter bound wins when query also contains `after:`. |
+| `created_before` | `google.protobuf.Timestamp` | Exclusive upper bound on message creation time. The stricter bound wins when query also contains `before:`. |
+| `has_attachments` | `bool` | When true, return only messages that currently have attachments. |
+| `order` | [`MessageSearchOrder`](#chatto-api-v1-MessageSearchOrder) | Result ordering. Unspecified defaults to relevance. |
+| `page_size` | `uint32` | Maximum messages to return. Zero uses the server default of 50; the maximum is 100. Stale or no-longer-visible provider hits are omitted, so a page may contain fewer messages than requested even when next_cursor is present. |
+| `cursor` | `string` | Opaque cursor returned by the preceding response. It is bound to the authenticated user and every other query field. |
+
+
+<a id="chatto-api-v1-SearchMessagesResponse"></a>
+
+#### Result: SearchMessagesResponse
+
+One ordered page of current, authorized messages. Pagination reads a live
+search index rather than a pinned snapshot, so results may move, repeat, or
+disappear between page requests while the index advances.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `messages` | repeated [`Message`](#chatto-api-v1-Message) | Current renderable messages in provider result order. Clients can batch hydrate the referenced room and actor IDs through the existing APIs. |
+| `next_cursor` | `string` | Opaque cursor for the next provider page. Empty means no more matches. |
+
+
 <a id="chatto-api-v1-MessageService"></a>
 
 ## MessageService
@@ -1674,8 +1755,8 @@ Result of leaving a room.
 
 ### ListMembers
 
-Lists effective room members. Existing members may list their room;
-nonmembers of a channel room need both room.list and room.join.
+Lists effective room members. Existing members and room.manage holders may
+list a channel room; other nonmembers need both room.list and room.join.
 
 ```http
 POST /api/connect/chatto.api.v1.RoomService/ListMembers
@@ -1689,7 +1770,7 @@ Request for members of one room.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `room_id` | `string` | Required. Room whose effective members should be listed. Existing members may list their room; nonmembers of a channel room need both room.list and room.join. |
+| `room_id` | `string` | Required. Room whose effective members should be listed. Existing members and room.manage holders may list a channel room; other nonmembers need both room.list and room.join. |
 | `search` | `string` | Optional case-insensitive search against login and display name. |
 | `page` | [`PageRequest`](#chatto-api-v1-PageRequest) | Page request. Defaults to 250 results when absent or limit is zero. |
 
@@ -1710,8 +1791,9 @@ Room member page.
 
 ### GetMember
 
-Gets one explicit member of a room. The caller must be a member of the
-room. Returns NOT_FOUND when the target is unknown or not a room member.
+Gets one explicit member of a room. Existing members and room.manage
+holders may read channel-room members; DMs remain membership-only. Returns
+NOT_FOUND when the target is unknown or not a room member.
 
 ```http
 POST /api/connect/chatto.api.v1.RoomService/GetMember
@@ -1744,8 +1826,9 @@ Room member response.
 
 ### BatchGetMembers
 
-Gets explicit room member rows for multiple users. The caller must be a
-member of the room.
+Gets explicit room member rows for multiple users. Existing members and
+room.manage holders may read channel-room members; DMs remain
+membership-only.
 
 ```http
 POST /api/connect/chatto.api.v1.RoomService/BatchGetMembers
@@ -3153,7 +3236,7 @@ Voice-call request/response APIs backed by Chatto call-state projections.
 
 ### ListActiveCalls
 
-Lists member channel rooms that currently have active calls as a finite
+Lists member rooms that currently have active calls as a finite
 runtime snapshot. Rooms the caller is not a member of are omitted.
 
 Returns an empty list when LiveKit is not configured.
@@ -3166,14 +3249,14 @@ POST /api/connect/chatto.api.v1.VoiceCallService/ListActiveCalls
 
 #### Input: ListActiveCallsRequest
 
-Request for active channel call snapshots.
+Request for active room call snapshots.
 
 
 <a id="chatto-api-v1-ListActiveCallsResponse"></a>
 
 #### Result: ListActiveCallsResponse
 
-Finite runtime snapshot of active channel calls.
+Finite runtime snapshot of active room calls.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -3836,6 +3919,18 @@ user has reacted with the same emoji.
 
 
 
+<a id="chatto-api-v1-MessageVideoHLS"></a>
+
+### MessageVideoHLS
+
+HLS adaptive-streaming metadata for a processed video.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `master_playlist_url` | [`MessageAssetUrl`](#chatto-api-v1-MessageAssetUrl) | Signed URL for the HLS master playlist. The URL authorises all playlists and segments in this video generation and expires with the attachment URL. |
+
+
+
 <a id="chatto-api-v1-MessageVideoProcessing"></a>
 
 ### MessageVideoProcessing
@@ -3856,6 +3951,7 @@ state.
 | `reason_code` | `string` | Stable reason code for a failed or incomplete processing state. |
 | `thumbnail_asset_url` | [`MessageAssetUrl`](#chatto-api-v1-MessageAssetUrl) | Signed URL for the generated thumbnail, when available. |
 | `variants` | repeated [`MessageVideoVariant`](#chatto-api-v1-MessageVideoVariant) | Available transcoded renditions. |
+| `hls` | [`MessageVideoHLS`](#chatto-api-v1-MessageVideoHLS) | Adaptive-streaming metadata. Absent on MP4-only historical results and servers that do not support HLS processing. |
 
 
 
@@ -4627,6 +4723,36 @@ Upload lifecycle state for a room-scoped attachment upload.
 | `ASSET_UPLOAD_STATUS_OPEN` | `1` | The upload accepts more chunks. |
 | `ASSET_UPLOAD_STATUS_COMPLETED` | `2` | The upload has been completed and produced an attachment asset. |
 | `ASSET_UPLOAD_STATUS_CANCELLED` | `3` | The upload was cancelled or expired. |
+
+
+<a id="chatto-api-v1-MessageSearchOrder"></a>
+
+### MessageSearchOrder
+
+Ordering for message-search results.
+
+| Name | Number | Description |
+| --- | --- | --- |
+| `MESSAGE_SEARCH_ORDER_UNSPECIFIED` | `0` | Use relevance order. |
+| `MESSAGE_SEARCH_ORDER_RELEVANCE` | `1` | Return the most relevant messages first. |
+| `MESSAGE_SEARCH_ORDER_NEWEST` | `2` | Return the most recently created messages first. |
+
+
+<a id="chatto-api-v1-MessageSearchState"></a>
+
+### MessageSearchState
+
+Current availability of message search on this server.
+
+| Name | Number | Description |
+| --- | --- | --- |
+| `MESSAGE_SEARCH_STATE_UNSPECIFIED` | `0` | The server did not report a meaningful state. |
+| `MESSAGE_SEARCH_STATE_DISABLED` | `1` | Search is disabled by the server operator. |
+| `MESSAGE_SEARCH_STATE_STARTING` | `2` | Search is enabled but its provider has not established index state yet. |
+| `MESSAGE_SEARCH_STATE_INDEXING` | `3` | The provider is rebuilding or catching up and cannot answer queries yet. |
+| `MESSAGE_SEARCH_STATE_READY` | `4` | Search is ready to answer queries. |
+| `MESSAGE_SEARCH_STATE_DEGRADED` | `5` | Search can answer queries but has a known non-fatal limitation. |
+| `MESSAGE_SEARCH_STATE_UNAVAILABLE` | `6` | Search is enabled but no provider can currently answer. |
 
 
 <a id="chatto-api-v1-RoomKind"></a>

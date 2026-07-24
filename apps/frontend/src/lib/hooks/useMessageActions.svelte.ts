@@ -2,7 +2,7 @@ import { useConnection } from '$lib/state/server/connection.svelte';
 import { toast } from '$lib/ui/toast';
 import { pushState } from '$app/navigation';
 import { getComposerContext, type MessagesStore } from '$lib/state/room';
-import { emojiToName } from '$lib/emoji';
+import { reactionKey } from '$lib/emoji';
 import { copyMessageLinkToClipboard } from '$lib/messageLinks';
 import { createReactionAPI } from '$lib/api-client/reactions';
 import * as m from '$lib/i18n/messages';
@@ -37,11 +37,11 @@ export function useReactionActions() {
   const connection = useConnection();
 
   // Normalize a unicode emoji to its gemoji shortcode. Custom emojis are
-  // already passed in by name (not a unicode char), so `emojiToName` returns
-  // undefined for them and the raw name flows through unchanged as the
-  // reaction key.
-  function reactionName(emojiOrName: string): string | null {
-    return emojiToName(emojiOrName) ?? emojiOrName;
+  // already passed in by name (not a unicode char), so the raw name flows
+  // through unchanged as the reaction key. Shared with the already-reacted
+  // check in MessageEvent via reactionKey so the two cannot diverge.
+  function reactionName(emojiOrName: string): string {
+    return reactionKey(emojiOrName);
   }
 
   async function addReaction(params: MessageActionParams, emojiOrName: string) {

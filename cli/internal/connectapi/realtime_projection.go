@@ -51,6 +51,7 @@ type RealtimeProjectionRoom struct {
 	Room                    *apiv1.RoomWithViewerState
 	MemberUserIDs           []string
 	ViewerNotificationCount uint32
+	HasMessageHistory       *bool
 }
 
 // RealtimeProjectionRoomTimeline identifies one compacted recent room window.
@@ -178,10 +179,7 @@ func (a *API) BuildRealtimeProjectionSnapshot(ctx context.Context, userID string
 	if err != nil {
 		return nil, fmt.Errorf("assemble realtime server profile: %w", err)
 	}
-	serverState, err := a.BuildRealtimeProjectionServerState(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("assemble realtime authenticated server state: %w", err)
-	}
+	serverState := a.BuildRealtimeProjectionServerState()
 	viewer, err := a.buildViewer(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("assemble realtime viewer: %w", err)
@@ -270,14 +268,13 @@ func (a *API) BuildRealtimeProjectionActiveCalls(ctx context.Context, userID str
 	if !a.config.LiveKit.IsConfigured() {
 		return nil, nil
 	}
-	roomIDs, err := a.core.GetActiveCallRoomIDs(ctx, core.LegacySpaceIDForRoomKind(core.KindChannel))
+	roomIDs, err := a.core.GetActiveCallRoomIDs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	service := &voiceCallService{api: a}
 	calls := make([]*apiv1.ActiveCall, 0, len(roomIDs))
 	for _, roomID := range roomIDs {
-		call, err := service.activeCall(ctx, userID, roomID)
+		call, err := activeCall(ctx, a, userID, roomID)
 		if err != nil {
 			if errors.Is(err, core.ErrNotFound) || errors.Is(err, core.ErrPermissionDenied) || errors.Is(err, core.ErrNotRoomMember) {
 				continue
@@ -329,17 +326,15 @@ func (a *API) BuildRealtimeProjectionRoomTimeline(ctx context.Context, userID, r
 
 // BuildRealtimeProjectionServerState returns current authenticated server
 // presentation and runtime settings for snapshot and live convergence.
-func (a *API) BuildRealtimeProjectionServerState(ctx context.Context) (*RealtimeProjectionServerState, error) {
-	service := &serverService{api: a}
-	motd, err := service.serverMotd(ctx)
-	if err != nil {
-		return nil, err
-	}
+func (a *API) BuildRealtimeProjectionServerState() *RealtimeProjectionServerState {
+	// Sounds rides along with server state so a soundboard catalog change
+	// converges on clients already in a voice call (fork addition on top of
+	// upstream's free-function MOTD/runtime derivation).
 	return &RealtimeProjectionServerState{
-		MOTD:    motd,
-		Runtime: service.serverRuntimeConfig(),
+		MOTD:    serverMOTD(a),
+		Runtime: serverRuntimeConfig(a),
 		Sounds:  a.soundsToProto(a.core.ListSounds()),
-	}, nil
+	}
 }
 
 func (a *API) realtimeProjectionUsers(ctx context.Context) ([]*apiv1.DirectoryMember, error) {
@@ -398,14 +393,22 @@ func (a *API) realtimeProjectionRoom(ctx context.Context, userID string, room *c
 	if room == nil || room.Room == nil {
 		return nil, core.ErrNotFound
 	}
+	var hasMessageHistory *bool
+	if core.KindOfRoom(room.Room) == core.KindDM {
+		_, _, exists, err := a.core.GetRoomLastEvent(ctx, core.KindDM, room.Room.GetId())
+		if err != nil {
+			return nil, err
+		}
+		hasMessageHistory = &exists
+	}
 	// Directory-visible rooms are part of the server projection even before
 	// the viewer joins. Their member list is not authorized at that point and
 	// is not needed until the room becomes a joined-room projection.
 	if !room.ViewerState.IsMember {
-		return &RealtimeProjectionRoom{Room: apiRoomWithViewerState(room), ViewerNotificationCount: notificationCount}, nil
+		return &RealtimeProjectionRoom{Room: apiRoomWithViewerState(room), ViewerNotificationCount: notificationCount, HasMessageHistory: hasMessageHistory}, nil
 	}
 	if room.Room.GetKind() != corev1.RoomKind_ROOM_KIND_DM && !includeChannelMembership {
-		return &RealtimeProjectionRoom{Room: apiRoomWithViewerState(room), ViewerNotificationCount: notificationCount}, nil
+		return &RealtimeProjectionRoom{Room: apiRoomWithViewerState(room), ViewerNotificationCount: notificationCount, HasMessageHistory: hasMessageHistory}, nil
 	}
 	members, err := a.core.ListRoomMemberReferencesForList(ctx, userID, room.Room.GetId())
 	if err != nil {
@@ -417,7 +420,7 @@ func (a *API) realtimeProjectionRoom(ctx context.Context, userID string, room *c
 			memberIDs = append(memberIDs, member.GetId())
 		}
 	}
-	return &RealtimeProjectionRoom{Room: apiRoomWithViewerState(room), MemberUserIDs: memberIDs, ViewerNotificationCount: notificationCount}, nil
+	return &RealtimeProjectionRoom{Room: apiRoomWithViewerState(room), MemberUserIDs: memberIDs, ViewerNotificationCount: notificationCount, HasMessageHistory: hasMessageHistory}, nil
 }
 
 func (a *API) realtimeProjectionNotificationCounts(ctx context.Context, userID string) (map[string]uint32, error) {

@@ -97,6 +97,26 @@ export function searchEmojis(query: string, limit = 10): EmojiResult[] {
 export type CustomEmojiLike = { name: string; url: string };
 
 /**
+ * The backend's custom-emoji shortcode grammar, anchored. Kept in sync with the
+ * pattern used by {@link ../customEmojiRender}.
+ */
+const CUSTOM_EMOJI_NAME = /^[a-z0-9_]{1,64}$/;
+
+/**
+ * True when `value` is shaped like a custom-emoji shortcode name rather than a
+ * unicode glyph.
+ *
+ * Recent-emoji entries are stored as bare strings and may be either form, so
+ * this is how render surfaces decide whether to look the entry up as a custom
+ * emoji. A unicode glyph can never match the `[a-z0-9_]` charset, so the two
+ * are unambiguous — this is a shape test only, not a claim that the emoji
+ * exists on the server.
+ */
+export function isCustomEmojiName(value: string): boolean {
+  return CUSTOM_EMOJI_NAME.test(value);
+}
+
+/**
  * Search a server's custom emojis by shortcode name (case-insensitive).
  * Scored like {@link searchEmojis} (exact > prefix > substring) so custom and
  * built-in results can be merged in a stable, sensible order. Returns
@@ -184,6 +204,23 @@ const emojiToNameMap: Record<string, string> = (() => {
  */
 export function emojiToName(emoji: string): string | undefined {
   return emojiToNameMap[emoji];
+}
+
+/**
+ * The server-side reaction key for an emoji or shortcode. Unicode glyphs map to
+ * their gemoji shortcode; a value that is already a shortcode (custom emoji, or
+ * an unknown glyph) is returned unchanged.
+ *
+ * This is the single source of truth for "what string identifies this
+ * reaction". Adding, removing, and already-reacted checks must all derive the
+ * key the same way, or a custom reaction added under `partyparrot` would be
+ * looked up under `undefined` and never match.
+ *
+ * @example reactionKey('👍') // 'thumbsup'
+ * @example reactionKey('partyparrot') // 'partyparrot'
+ */
+export function reactionKey(emojiOrName: string): string {
+  return emojiToName(emojiOrName) ?? emojiOrName;
 }
 
 const EMOJI_DISPLAY_NAME_OVERRIDES: Record<string, string> = {

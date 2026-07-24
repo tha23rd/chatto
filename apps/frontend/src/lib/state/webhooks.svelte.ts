@@ -2,7 +2,7 @@
  * Channel webhooks, per-server (FDR-902).
  *
  * Single source of truth for a server's admin-defined channel webhooks, used
- * by the server-admin webhooks management page. Unlike custom emojis this
+ * by the server management webhooks page. Unlike custom emojis this
  * store is admin-only: webhooks are not referenced by ordinary chat surfaces,
  * so there is no picker/typeahead consumer to keep in sync — the store just
  * gives the admin page a shared, refreshable list across mount/unmount.

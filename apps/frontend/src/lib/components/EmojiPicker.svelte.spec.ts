@@ -4,8 +4,22 @@ import { flushSync, tick } from 'svelte';
 import EmojiPicker from './EmojiPicker.svelte';
 import { EMOJI_BY_CATEGORY } from '$lib/emoji';
 import { __resetRecentEmojisForTests } from '$lib/state/recentEmojis.svelte';
+import {
+  getCustomEmojis,
+  __resetCustomEmojisForTests
+} from '$lib/state/customEmojis.svelte';
 
 const TEST_SERVER_ID = 'test-server';
+const CUSTOM_EMOJI_URL = 'https://example.test/emoji/partyparrot.png';
+
+/** Register a custom emoji so the picker's Custom category and recents resolve it. */
+function addCustomEmoji(name: string, serverId = TEST_SERVER_ID) {
+  getCustomEmojis(serverId).upsert({
+    id: `id-${name}`,
+    name,
+    url: `https://example.test/emoji/${name}.png`
+  });
+}
 
 function renderPicker(
   props: { onSelect?: (e: string) => void; onClose?: () => void; serverId?: string } = {}
@@ -22,6 +36,7 @@ function renderPicker(
 beforeEach(() => {
   localStorage.clear();
   __resetRecentEmojisForTests();
+  __resetCustomEmojisForTests();
 });
 
 function searchInput(container: HTMLElement): HTMLInputElement {
@@ -153,6 +168,68 @@ describe('EmojiPicker', () => {
       localStorage.setItem(`chatto:i:server-a:recentEmojis`, JSON.stringify(['🚀']));
       const { container } = renderPicker({ serverId: 'server-b' });
       expect(container.textContent).not.toContain('Recently Used');
+    });
+  });
+
+  describe('custom emojis in Recently Used', () => {
+    /** The "Recently Used" grid is the first grid when recents are present. */
+    function recentGrid(container: HTMLElement): HTMLElement {
+      return container.querySelector('.grid') as HTMLElement;
+    }
+
+    it('records a picked custom emoji into recents as its shortcode', () => {
+      addCustomEmoji('partyparrot');
+      const onSelect = vi.fn();
+      const { container } = renderPicker({ onSelect });
+
+      // The Custom category is prepended, so its emoji is the first button.
+      const customButton = container.querySelector('button[title="partyparrot"]');
+      (customButton as HTMLButtonElement).click();
+      flushSync();
+
+      expect(onSelect).toHaveBeenCalledWith('partyparrot');
+      expect(JSON.parse(localStorage.getItem(`chatto:i:${TEST_SERVER_ID}:recentEmojis`) ?? '[]'))
+        .toEqual(['partyparrot']);
+    });
+
+    it('renders a recent custom emoji as its image, not the raw shortcode', async () => {
+      addCustomEmoji('partyparrot');
+      localStorage.setItem(
+        `chatto:i:${TEST_SERVER_ID}:recentEmojis`,
+        JSON.stringify(['partyparrot'])
+      );
+      const { container } = renderPicker();
+      await tick();
+
+      const img = recentGrid(container).querySelector('img');
+      expect(img?.getAttribute('src')).toBe(CUSTOM_EMOJI_URL);
+      expect(recentGrid(container).textContent).not.toContain('partyparrot');
+    });
+
+    it('clicking a recent custom emoji re-selects it by shortcode', async () => {
+      addCustomEmoji('partyparrot');
+      localStorage.setItem(
+        `chatto:i:${TEST_SERVER_ID}:recentEmojis`,
+        JSON.stringify(['partyparrot'])
+      );
+      const onSelect = vi.fn();
+      const { container } = renderPicker({ onSelect });
+      await tick();
+
+      (recentGrid(container).querySelector('button') as HTMLButtonElement).click();
+      expect(onSelect).toHaveBeenCalledWith('partyparrot');
+    });
+
+    it('omits a recent whose custom emoji no longer exists', () => {
+      localStorage.setItem(
+        `chatto:i:${TEST_SERVER_ID}:recentEmojis`,
+        JSON.stringify(['deleted_emoji'])
+      );
+      const { container } = renderPicker();
+      // Nothing renderable is left, so the section is hidden entirely rather
+      // than showing a bare `deleted_emoji`.
+      expect(container.textContent).not.toContain('Recently Used');
+      expect(container.textContent).not.toContain('deleted_emoji');
     });
   });
 
