@@ -90,11 +90,7 @@ func (c *ChattoCore) CreateUser(ctx context.Context, actorID string, login, disp
 	}
 
 	// Check if login is blocked (defense in depth - HTTP layer should check first)
-	isBlocked, err := c.configManager.IsUsernameBlocked(ctx, login)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check blocked usernames: %w", err)
-	}
-	if isBlocked {
+	if c.configModel.IsUsernameBlocked(login) {
 		return nil, ErrUsernameBlocked
 	}
 	if c.loginConflictsWithMentionHandle(login) {
@@ -938,11 +934,7 @@ func (c *ChattoCore) updateUserProfileAs(ctx context.Context, actorID, userID st
 		loginChanged = user.GetLogin() != nextLogin
 		loginNeedsMentionCheck = loginChanged && !strings.EqualFold(user.GetLogin(), nextLogin)
 		if loginNeedsMentionCheck {
-			isBlocked, err := c.configManager.IsUsernameBlocked(ctx, nextLogin)
-			if err != nil {
-				return nil, fmt.Errorf("failed to check blocked usernames: %w", err)
-			}
-			if isBlocked {
+			if c.configModel.IsUsernameBlocked(nextLogin) {
 				return nil, ErrUsernameBlocked
 			}
 			if c.loginConflictsWithMentionHandle(nextLogin) {
@@ -1121,11 +1113,7 @@ func (c *ChattoCore) applyLoginChange(ctx context.Context, actorID, userID, newL
 
 	caseOnly := strings.EqualFold(user.Login, newLogin)
 	if !caseOnly {
-		isBlocked, err := c.configManager.IsUsernameBlocked(ctx, newLogin)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check blocked usernames: %w", err)
-		}
-		if isBlocked {
+		if c.configModel.IsUsernameBlocked(newLogin) {
 			return nil, ErrUsernameBlocked
 		}
 		if c.loginConflictsWithMentionHandle(newLogin) {
@@ -1408,7 +1396,7 @@ func (c *ChattoCore) DeleteUser(ctx context.Context, actorID, userID string) err
 		// Continue - this is best-effort
 	}
 
-	if deleted := c.DeleteMessageOwnedAssetsForUser(ctx, actorID, userID); deleted > 0 {
+	if deleted := c.assetModel.DeleteMessageOwnedAssetsForUser(ctx, actorID, userID); deleted > 0 {
 		c.logger.Info("Deleted message-owned assets during user deletion", "user_id", userID, "count", deleted)
 	}
 

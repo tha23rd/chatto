@@ -10,6 +10,7 @@
   import GlobalKeyboardShortcuts from '$lib/components/GlobalKeyboardShortcuts.svelte';
   import IdleTracker from '$lib/components/IdleTracker.svelte';
   import MobileSidebarChrome from '$lib/components/MobileSidebarChrome.svelte';
+  import NotificationSync from '$lib/components/NotificationSync.svelte';
   import UpdateNotifier from '$lib/components/UpdateNotifier.svelte';
   import DesktopUpdateNotifier from '$lib/components/DesktopUpdateNotifier.svelte';
   import { usePageTitle, usePinchZoomPrevention, useVisualViewport } from '$lib/hooks';
@@ -84,6 +85,7 @@
 
 <GlobalKeyboardShortcuts />
 <IdleTracker />
+<NotificationSync />
 <UpdateNotifier />
 <DesktopUpdateNotifier />
 

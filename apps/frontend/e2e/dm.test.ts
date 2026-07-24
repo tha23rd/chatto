@@ -24,6 +24,27 @@ import { TIMEOUTS } from './constants';
  */
 
 test.describe('Direct Messages (room-shaped)', () => {
+  test('an empty DM stays hidden until its first attachment-only message', async ({
+    page,
+    browser,
+    serverURL
+  }) => {
+    const userA = await createAndLoginTestUser(page);
+
+    await withServerUser(browser, serverURL, async ({ page: pageB, user: userB }) => {
+      const roomB = await new DMPage(pageB).startConversation(userA.login);
+
+      await page.goto(routes.browseRooms);
+      await page.waitForURL(routes.browseRooms);
+      const conversation = new DMPage(page).getConversation(userB.displayName);
+      await expect(conversation).not.toBeVisible();
+
+      await roomB.sendAttachment('e2e/fixtures/brighton.jpg');
+
+      await expect(conversation).toBeVisible({ timeout: TIMEOUTS.REALTIME_EVENT });
+    });
+  });
+
   test('post a DM message, reload, and stay on the conversation', async ({
     page,
     browser,
@@ -52,9 +73,6 @@ test.describe('Direct Messages (room-shaped)', () => {
       const roomA = new RoomPage(page);
       const postedBody = `dm round-trip ${Date.now()}`;
       const postedMessage = await roomA.sendMessage(postedBody);
-      await expect(page.getByText(postedBody)).toBeVisible({
-        timeout: TIMEOUTS.REALTIME_EVENT
-      });
 
       // DMs support flat reply attribution, but threads are a channel-room-only
       // capability. The server-provided room capability must suppress thread

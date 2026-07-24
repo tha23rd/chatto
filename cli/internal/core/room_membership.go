@@ -68,7 +68,7 @@ func (c *ChattoCore) JoinRoom(ctx context.Context, actorID string, kind RoomKind
 	if room.Archived {
 		return nil, fmt.Errorf("cannot join archived room")
 	}
-	if kind == KindChannel && c.rooms().isRoomBanActive(room_id, user_id, time.Now()) {
+	if kind == KindChannel && c.roomModel.isRoomBanActive(room_id, user_id, time.Now()) {
 		return nil, ErrPermissionDenied
 	}
 
@@ -100,7 +100,7 @@ func (c *ChattoCore) JoinRoom(ctx context.Context, actorID string, kind RoomKind
 			return nil, fmt.Errorf("read UserJoinedRoomEvent OCC seq: %w", err)
 		}
 		if expectedSeq > 0 {
-			if err := c.rooms().waitForDirectory(ctx, events.SubjectPosition(joinSubject, expectedSeq)); err != nil {
+			if err := c.roomModel.waitForDirectory(ctx, events.SubjectPosition(joinSubject, expectedSeq)); err != nil {
 				return nil, fmt.Errorf("wait for room directory projection before join: %w", err)
 			}
 			if c.RoomMembership.IsMember(room_id, user_id) {
@@ -110,7 +110,7 @@ func (c *ChattoCore) JoinRoom(ctx context.Context, actorID string, kind RoomKind
 
 		seq, err = c.EventPublisher.AppendAt(ctx, joinSubject, event, expectedSeq)
 		if err == nil {
-			if err := c.rooms().waitForDirectoryAndTimeline(ctx, events.SubjectPosition(joinSubject, seq)); err != nil {
+			if err := c.roomModel.waitForDirectoryAndTimeline(ctx, events.SubjectPosition(joinSubject, seq)); err != nil {
 				return nil, err
 			}
 			break
@@ -174,14 +174,14 @@ func (c *ChattoCore) AddMember(ctx context.Context, actorID string, kind RoomKin
 			return nil, fmt.Errorf("read room membership add OCC tail: %w", err)
 		}
 		if expectedSeq > 0 {
-			if err := c.rooms().waitForDirectory(ctx, events.SubjectPosition(filter, expectedSeq)); err != nil {
+			if err := c.roomModel.waitForDirectory(ctx, events.SubjectPosition(filter, expectedSeq)); err != nil {
 				return nil, fmt.Errorf("wait for room directory projection before member add: %w", err)
 			}
 		}
 		if c.RoomMembership.IsMember(roomID, targetUserID) {
 			return membership, nil
 		}
-		if kind == KindChannel && c.rooms().isRoomBanActive(roomID, targetUserID, time.Now()) {
+		if kind == KindChannel && c.roomModel.isRoomBanActive(roomID, targetUserID, time.Now()) {
 			return nil, ErrPermissionDenied
 		}
 
@@ -351,7 +351,7 @@ func (c *ChattoCore) waitForRoomLeaveTail(ctx context.Context, filter string, se
 		return nil
 	}
 	pos := events.SubjectPosition(filter, seq)
-	if err := c.rooms().waitForDirectory(ctx, pos); err != nil {
+	if err := c.roomModel.waitForDirectory(ctx, pos); err != nil {
 		return err
 	}
 	if c.CallStateProjector != nil {
@@ -431,7 +431,7 @@ func (c *ChattoCore) appendRoomLeaveBatch(ctx context.Context, kind RoomKind, ro
 		}
 	}
 
-	if err := c.rooms().waitForDirectoryAndTimeline(ctx, pos); err != nil {
+	if err := c.roomModel.waitForDirectoryAndTimeline(ctx, pos); err != nil {
 		return err
 	}
 	if cleanup.callID != "" && c.CallStateProjector != nil {
@@ -447,7 +447,7 @@ func (c *ChattoCore) removeLiveKitParticipantAfterRoomLeave(ctx context.Context,
 	if cleanup.callID == "" || c.callModel == nil {
 		return
 	}
-	if err := c.callModel.RemoveLiveKitParticipant(ctx, LegacySpaceIDForRoomKind(cleanup.kind), cleanup.roomID, cleanup.callID, cleanup.userID); err != nil {
+	if err := c.callModel.RemoveLiveKitParticipant(ctx, cleanup.kind, cleanup.roomID, cleanup.callID, cleanup.userID); err != nil {
 		c.logger.Warn("Failed to remove room-leaving participant from LiveKit call", "room_id", cleanup.roomID, "call_id", cleanup.callID, "error", err)
 	}
 }
@@ -476,7 +476,7 @@ func (c *ChattoCore) appendRoomMembershipAuditBatch(ctx context.Context, roomID 
 
 	lastSubject := entries[len(entries)-1].Subject
 	lastSeq := seqs[len(seqs)-1]
-	if err := c.rooms().waitForDirectoryAndTimeline(ctx, events.SubjectPosition(lastSubject, lastSeq)); err != nil {
+	if err := c.roomModel.waitForDirectoryAndTimeline(ctx, events.SubjectPosition(lastSubject, lastSeq)); err != nil {
 		return err
 	}
 	return nil
@@ -626,10 +626,10 @@ func (c *ChattoCore) deleteUserRoomMembershipsInSpace(ctx context.Context, user_
 	}
 
 	if lastSeq > 0 {
-		if err := c.rooms().waitForDirectory(ctx, events.SubjectPosition(lastSubject, lastSeq)); err != nil {
+		if err := c.roomModel.waitForDirectory(ctx, events.SubjectPosition(lastSubject, lastSeq)); err != nil {
 			return fmt.Errorf("wait for room directory projection after membership cleanup: %w", err)
 		}
-		if err := c.rooms().waitForTimeline(ctx, events.SubjectPosition(lastSubject, lastSeq)); err != nil {
+		if err := c.roomModel.waitForTimeline(ctx, events.SubjectPosition(lastSubject, lastSeq)); err != nil {
 			return fmt.Errorf("wait for room timeline projection after membership cleanup: %w", err)
 		}
 	}
@@ -699,10 +699,21 @@ func (c *ChattoCore) ListRoomMemberReferences(ctx context.Context, actorID, room
 }
 
 // ListRoomMemberReferencesForList authorizes the public room-member listing.
-// Existing members may list their room. A channel-room nonmember may list only
-// when both room.list and room.join resolve to allow at that room; DMs retain
-// their membership-only privacy boundary.
+// Existing members and channel-room managers may list their room. Other
+// channel-room nonmembers need both room.list and room.join; DMs retain their
+// membership-only privacy boundary.
 func (c *ChattoCore) ListRoomMemberReferencesForList(ctx context.Context, actorID, roomID string) ([]*corev1.User, error) {
+	return c.listRoomMemberReferencesForRead(ctx, actorID, roomID, true)
+}
+
+// ListRoomMemberReferencesForLookup authorizes singular and batch member
+// hydration. Existing members and channel-room managers may hydrate rows; DMs
+// retain their membership-only privacy boundary.
+func (c *ChattoCore) ListRoomMemberReferencesForLookup(ctx context.Context, actorID, roomID string) ([]*corev1.User, error) {
+	return c.listRoomMemberReferencesForRead(ctx, actorID, roomID, false)
+}
+
+func (c *ChattoCore) listRoomMemberReferencesForRead(ctx context.Context, actorID, roomID string, allowDiscoverableNonmember bool) ([]*corev1.User, error) {
 	room, kind, err := c.requireRoomMember(ctx, actorID, roomID)
 	if err == nil {
 		return c.roomMemberReferences(ctx, kind, room.GetId())
@@ -716,7 +727,17 @@ func (c *ChattoCore) ListRoomMemberReferencesForList(ctx context.Context, actorI
 		return nil, err
 	}
 	kind = KindOfRoom(room)
-	if kind == KindDM || room.GetArchived() {
+	if kind == KindDM {
+		return nil, ErrNotRoomMember
+	}
+	canManage, err := c.hasRoomPermission(ctx, kind, room.GetId(), actorID, PermRoomManage)
+	if err != nil {
+		return nil, err
+	}
+	if canManage {
+		return c.roomMemberReferences(ctx, kind, room.GetId())
+	}
+	if !allowDiscoverableNonmember || room.GetArchived() {
 		return nil, ErrNotRoomMember
 	}
 	canList, err := c.hasRoomPermission(ctx, kind, room.GetId(), actorID, PermRoomList)

@@ -744,7 +744,7 @@ func TestDMReactions(t *testing.T) {
 	messageEventID := event.Id
 
 	t.Run("can add reaction to DM message", func(t *testing.T) {
-		added, err := core.AddReaction(ctx, KindDM, room.Id, messageEventID, "thumbsup", user2.Id)
+		added, err := core.ReactionModel().addReaction(ctx, KindDM, room.Id, messageEventID, "thumbsup", user2.Id)
 		if err != nil {
 			t.Fatalf("AddReaction error: %v", err)
 		}
@@ -764,7 +764,7 @@ func TestDMReactions(t *testing.T) {
 	})
 
 	t.Run("can remove reaction from DM message", func(t *testing.T) {
-		removed, err := core.RemoveReaction(ctx, KindDM, room.Id, messageEventID, "thumbsup", user2.Id)
+		removed, err := core.ReactionModel().removeReaction(ctx, KindDM, room.Id, messageEventID, "thumbsup", user2.Id)
 		if err != nil {
 			t.Fatalf("RemoveReaction error: %v", err)
 		}
@@ -1007,7 +1007,7 @@ func TestDMThreadsUnsupported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("append historical thread reply: %v", err)
 	}
-	if err := core.rooms().waitForTimelineAndThreads(ctx, events.SubjectPosition(legacySubject, legacySeq)); err != nil {
+	if err := core.roomModel.waitForTimelineAndThreads(ctx, events.SubjectPosition(legacySubject, legacySeq)); err != nil {
 		t.Fatalf("wait for historical DM thread: %v", err)
 	}
 	threadEvents, err := core.GetThreadEvents(ctx, KindDM, room.Id, root.Id)

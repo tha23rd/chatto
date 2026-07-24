@@ -51,7 +51,7 @@ export function createSoundboardAPI(config: ConnectAPIConfig) {
 /**
  * Administrative client for managing soundboard sounds (`chatto.admin.v1`).
  * Requires `soundboard.manage` (or the broader `server.manage`); used by the
- * server-admin UI.
+ * server management UI.
  */
 export function createAdminSoundboardAPI(config: ConnectAPIConfig) {
   const client = createChattoClient(AdminSoundboardService, config);

@@ -6,7 +6,7 @@
  * into an active voice call so every participant hears them.
  *
  * Used by:
- * - The server-admin soundboard settings view, which lists/creates/deletes.
+ * - The server management soundboard settings view, which lists/creates/deletes.
  * - The in-call soundboard panel, which lists sounds and plays them into the
  *   LiveKit room.
  *

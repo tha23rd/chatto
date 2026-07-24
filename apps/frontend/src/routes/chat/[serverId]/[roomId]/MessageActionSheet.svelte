@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { useMessageActions, type MessageActionParams } from '$lib/hooks';
+  import { useMessageActions, useEnsureCustomEmojis, type MessageActionParams } from '$lib/hooks';
   import type { MessagesStore } from '$lib/state/room';
   import { getRecentEmojis } from '$lib/state/recentEmojis.svelte';
   import { getEmojiByName } from '$lib/emoji';
+  import EmojiToken from '$lib/components/EmojiToken.svelte';
   import * as m from '$lib/i18n/messages';
 
   let {
@@ -53,6 +54,10 @@
 
   const recentEmojis = $derived(getRecentEmojis(serverId));
   const quickReactions = $derived(recentEmojis.quickReactions);
+
+  // A recent quick reaction can be a custom emoji, which only renders once this
+  // server's custom emojis have loaded.
+  useEnsureCustomEmojis(() => serverId);
 
   const actions = useMessageActions();
   const replyInRoomActionLabel = $derived(replyInRoomLabel ?? m['room.message.actions.reply']());
@@ -129,7 +134,7 @@
           onclick={() => handleReaction(emoji)}
           aria-label={m['room.message.actions.react_with']({ emoji })}
         >
-          {emoji}
+          <EmojiToken {serverId} {emoji} imgClass="h-7 w-7" />
         </button>
       {/each}
       {#if onOpenEmojiPicker}

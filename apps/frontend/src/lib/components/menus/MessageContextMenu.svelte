@@ -19,11 +19,12 @@ Rendered inside a ContextMenu when right-clicking a message.
 - `onClose` - Callback to close the context menu
 -->
 <script lang="ts">
-  import { useMessageActions, type MessageActionParams } from '$lib/hooks';
+  import { useMessageActions, useEnsureCustomEmojis, type MessageActionParams } from '$lib/hooks';
   import * as m from '$lib/i18n/messages';
   import type { MessagesStore } from '$lib/state/room';
   import { getRecentEmojis } from '$lib/state/recentEmojis.svelte';
   import { getEmojiByName } from '$lib/emoji';
+  import EmojiToken from '$lib/components/EmojiToken.svelte';
 
   let {
     serverId,
@@ -73,6 +74,10 @@ Rendered inside a ContextMenu when right-clicking a message.
 
   const recentEmojis = $derived(getRecentEmojis(serverId));
   const quickReactions = $derived(recentEmojis.quickReactions);
+
+  // A recent quick reaction can be a custom emoji, which only renders once this
+  // server's custom emojis have loaded.
+  useEnsureCustomEmojis(() => serverId);
 
   const actions = useMessageActions();
   const replyInRoomActionLabel = $derived(replyInRoomLabel ?? m['room.message.actions.reply']());
@@ -149,7 +154,7 @@ Rendered inside a ContextMenu when right-clicking a message.
           aria-label={m['room.message.actions.react_with']({ emoji })}
           role="menuitem"
         >
-          {emoji}
+          <EmojiToken {serverId} {emoji} imgClass="h-[1.35rem] w-auto" />
         </button>
       {/each}
       {#if onOpenEmojiPicker}

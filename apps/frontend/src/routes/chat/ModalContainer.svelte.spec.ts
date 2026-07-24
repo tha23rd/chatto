@@ -242,7 +242,7 @@ describe('ModalContainer image viewer', () => {
     );
 
     render(ModalContainer);
-    await vi.advanceTimersByTimeAsync(23 * 60 * 60 * 1000);
+    await vi.advanceTimersByTimeAsync(22 * 60 * 60 * 1000);
 
     expect(mocks.refreshAttachmentUrlsForAssets).toHaveBeenCalledWith(
       expect.anything(),
@@ -279,6 +279,7 @@ describe('ModalContainer sign out modal', () => {
     expect(
       [...container.querySelectorAll('button')].map((button) => button.textContent?.trim())
     ).toEqual(['Cancel', 'Current Server', 'All Servers']);
+    expect(findButton(container, 'All Servers').dataset.variant).toBe('danger');
   });
 
   it('signs out of only the active remote server', async () => {

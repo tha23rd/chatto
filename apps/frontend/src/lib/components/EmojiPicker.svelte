@@ -20,6 +20,7 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
   import { getRecentEmojis, MAX_RECENT_EMOJIS } from '$lib/state/recentEmojis.svelte';
   import { getCustomEmojis } from '$lib/state/customEmojis.svelte';
   import { useConnection } from '$lib/state/server/connection.svelte';
+  import EmojiToken from '$lib/components/EmojiToken.svelte';
 
   let {
     serverId,
@@ -37,7 +38,9 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
   const canUseHoverActions = supportsHoverActions();
 
   const recentStore = $derived(getRecentEmojis(serverId));
-  const recent = $derived(recentStore.recent.slice(0, MAX_RECENT_EMOJIS));
+  // `renderable` drops custom shortcodes this server can no longer resolve, so
+  // a deleted custom emoji leaves no dead entry behind.
+  const recent = $derived(recentStore.renderable.slice(0, MAX_RECENT_EMOJIS));
 
   // The picker renders in a few surfaces; most sit inside a server connection,
   // but some (e.g. the custom-status editor) do not. Guard so those still work;
@@ -116,13 +119,9 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
   }
 
   function selectEntry(entry: { emoji: string; name: string; url?: string }) {
-    if (entry.url) {
-      // Custom emoji: emit the shortcode name so it flows through as a reaction
-      // key. Not recorded in recents, which can only render unicode glyphs.
-      onSelect(entry.name);
-    } else {
-      selectEmoji(entry.emoji);
-    }
+    // Custom emoji are emitted (and recorded) as their shortcode name, which is
+    // also the reaction key. Recents render them back as images via EmojiToken.
+    selectEmoji(entry.url ? entry.name : entry.emoji);
   }
 </script>
 
@@ -175,8 +174,9 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
               <button
                 class="flex aspect-square cursor-pointer items-center justify-center rounded text-3xl hover:bg-surface active:bg-surface md:h-8 md:w-8 md:text-base"
                 onclick={() => selectEmoji(emoji)}
+                title={emoji}
               >
-                {emoji}
+                <EmojiToken {serverId} {emoji} imgClass="h-8 w-8 md:h-6 md:w-6" />
               </button>
             {/each}
           </div>

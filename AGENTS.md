@@ -24,7 +24,7 @@ path-specific guidance.
 - Chatto is public, self-hosted, and has real user data.
 - The project is pre-1.0, but people are already self-hosting Chatto. The public API is experimental: compatibility is preferred, not guaranteed, and `v1` identifies the current wire namespace rather than a long-term stability promise. Prefer additive changes. Breaking public API changes are allowed when they materially improve the design, but discuss them with the user first and include an explicit compatibility plan, generated-client/docs updates, and release-note guidance. Changes to the `core` protobuf messages used by persistence must never be breaking. Follow ADR-045.
 - Assume that mixed versions are in use in the wider ecosystem; but self-hosters have been advised to track `:latest`, or upgrade to newly released versions quickly.
-- The next planned version is `0.5.0`. There's a 0.5.0 milestone on GitHub, but also we're locally tracking planned features and changes for 0.5.0 in `docs/TODO-0-5.md`. Please use these for guidance, and update them as we cross off features from the list. Do not add to the list unless the user specifically asks you to.
+- The next planned version is `0.5.0`. Use the GitHub `0.5.0` milestone as the canonical roadmap and keep its issues current as work progresses.
 
 ## Prime Directives
 
@@ -65,11 +65,15 @@ mise test-frontend
 mise test-e2e
 mise codegen
 mise codegen-proto
-mise codegen-types
 ```
 
 For ad-hoc tool invocations, use `mise x -- ...` rather than assuming `go`,
 `pnpm`, `node`, or related binaries are on `PATH`.
+
+When an agent needs the long-running development stack, launch it as
+`exec tools/dev-supervisor.sh mise dev` so lifecycle signals reach the dev
+supervisor directly, and stop it before handing control back to the user. Never
+leave a dev stack running in a detached or yielded terminal session.
 
 ## Backend Principles
 
@@ -190,8 +194,6 @@ For ad-hoc tool invocations, use `mise x -- ...` rather than assuming `go`,
   committed.
 - New public ConnectRPC services also need `proto/buf.gen.yaml` and docs sidebar
   entries in `apps/docs-website/astro.config.mjs`.
-- Shared Go types used by frontend TypeScript require `mise codegen-types`.
-
 ## Issues, Commits, And PRs
 
 - Use GitHub Issues for planning.

@@ -11,6 +11,10 @@ import {
   QUICK_REACTIONS_COUNT,
   RECENT_REACTION_FALLBACKS
 } from '$lib/emoji';
+import {
+  getCustomEmojis,
+  __resetCustomEmojisForTests
+} from '$lib/state/customEmojis.svelte';
 import { serverStorageKey } from '$lib/storage/serverStorage';
 
 const PINNED_COUNT = PINNED_REACTIONS.length;
@@ -23,7 +27,17 @@ describe('RecentEmojisStore', () => {
   beforeEach(() => {
     localStorage.clear();
     __resetRecentEmojisForTests();
+    __resetCustomEmojisForTests();
   });
+
+  /** Register a custom emoji on `serverId` so recents can resolve its shortcode. */
+  function addCustomEmoji(serverId: string, name: string) {
+    getCustomEmojis(serverId).upsert({
+      id: `id-${name}`,
+      name,
+      url: `https://example.test/emoji/${name}.png`
+    });
+  }
 
   describe('initial state', () => {
     it('starts empty when storage is empty', () => {
@@ -175,6 +189,85 @@ describe('RecentEmojisStore', () => {
       const list = [...store.quickReactions];
       expect(list.filter((e) => e === PINNED_REACTIONS[0]).length).toBe(1);
       expect(list.slice(0, PINNED_COUNT)).toEqual([...PINNED_REACTIONS]);
+    });
+  });
+
+  describe('custom emojis in recents', () => {
+    it('records a custom emoji shortcode like any other entry', () => {
+      const store = new RecentEmojisStore(SERVER_A);
+      store.record('partyparrot');
+      expect([...store.recent]).toEqual(['partyparrot']);
+    });
+
+    it('keeps a resolvable custom shortcode in renderable', () => {
+      addCustomEmoji(SERVER_A, 'partyparrot');
+      const store = new RecentEmojisStore(SERVER_A);
+      store.record('partyparrot');
+      store.record('🚀');
+      expect([...store.renderable]).toEqual(['🚀', 'partyparrot']);
+    });
+
+    it('hides an unresolvable custom shortcode without deleting it', () => {
+      const store = new RecentEmojisStore(SERVER_A);
+      store.record('deleted_emoji');
+      store.record('🚀');
+
+      // Not renderable — a bare shortcode would show as literal text...
+      expect([...store.renderable]).toEqual(['🚀']);
+      // ...but it survives in the persisted list, so a later load restores it.
+      expect([...store.recent]).toEqual(['🚀', 'deleted_emoji']);
+    });
+
+    // Recents are recorded before the custom-emoji store has loaded on a cold
+    // open, so the entry must appear on its own once the fetch lands. Read
+    // through an effect, which is how components consume it.
+    it('reveals a custom shortcode once its emoji loads', () => {
+      const store = new RecentEmojisStore(SERVER_A);
+      store.record('partyparrot');
+
+      let captured: readonly string[] = [];
+      const cleanup = $effect.root(() => {
+        $effect(() => {
+          captured = store.renderable;
+        });
+      });
+      flushSync();
+      expect([...captured]).toEqual([]);
+
+      addCustomEmoji(SERVER_A, 'partyparrot');
+      flushSync();
+      expect([...captured]).toEqual(['partyparrot']);
+      cleanup();
+    });
+
+    it('resolves custom emojis per server, not globally', () => {
+      addCustomEmoji(SERVER_A, 'partyparrot');
+      const a = new RecentEmojisStore(SERVER_A);
+      const b = new RecentEmojisStore(SERVER_B);
+      a.record('partyparrot');
+      b.record('partyparrot');
+
+      expect([...a.renderable]).toEqual(['partyparrot']);
+      expect([...b.renderable]).toEqual([]);
+    });
+
+    it('puts a custom emoji into a trailing quick-reaction slot', () => {
+      addCustomEmoji(SERVER_A, 'partyparrot');
+      const store = new RecentEmojisStore(SERVER_A);
+      store.record('partyparrot');
+      const list = [...store.quickReactions];
+      expect(list.slice(0, PINNED_COUNT)).toEqual([...PINNED_REACTIONS]);
+      expect(list[PINNED_COUNT]).toBe('partyparrot');
+      expect(list.length).toBe(QUICK_REACTIONS_COUNT);
+    });
+
+    it('backfills a fallback instead of leaving a hole for a deleted emoji', () => {
+      const store = new RecentEmojisStore(SERVER_A);
+      store.record('deleted_emoji');
+      const list = [...store.quickReactions];
+      expect(list.length).toBe(QUICK_REACTIONS_COUNT);
+      expect(list).not.toContain('deleted_emoji');
+      expect(list[PINNED_COUNT]).toBe(RECENT_REACTION_FALLBACKS[0]);
     });
   });
 
