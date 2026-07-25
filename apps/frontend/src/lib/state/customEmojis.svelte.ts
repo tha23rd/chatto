@@ -30,15 +30,45 @@ export class CustomEmojisStore {
   /** True once a load has completed at least once. */
   loaded = $state(false);
   private loadPromise: Promise<void> | null = null;
+  /**
+   * Lowercase-name index over {@link emojis}, so {@link find} does not rescan
+   * the array per call. Rebuilt whenever the array identity changes; every
+   * writer here assigns a fresh array, so identity is a sound cache key.
+   *
+   * Deliberately non-reactive: this store is a lazily created module singleton,
+   * so a `$derived` declared here would be owned by whichever component reaction
+   * first constructed the store and would go inert once that component
+   * unmounted, and a `SvelteMap` would invalidate readers as it filled during
+   * their own render. Reactivity comes from the {@link emojis} read in
+   * {@link find}; the index is a private cache hanging off it.
+   *
+   * A null-prototype record rather than a `Map`, so admin-chosen shortcodes such
+   * as `constructor` cannot collide with prototype members.
+   */
+  private index: Record<string, CustomEmoji | undefined> = Object.create(null);
+  private indexedFrom: CustomEmoji[] | null = null;
 
   /**
    * Look up a custom emoji by shortcode name (case-insensitive), or `undefined`.
    * Reads the {@link emojis} state array directly so it is safe to call from
-   * plain (non-reactive) helpers as well as component render.
+   * plain (non-reactive) helpers as well as component render, and so callers
+   * inside a reaction still track later loads and edits.
    */
   find(name: string): CustomEmoji | undefined {
-    const target = name.toLowerCase();
-    return this.emojis.find((emoji) => emoji.name.toLowerCase() === target);
+    const emojis = this.emojis;
+    if (this.indexedFrom !== emojis) {
+      const index: Record<string, CustomEmoji | undefined> = Object.create(null);
+      // First entry wins, matching the previous `Array.find` scan: `upsert`
+      // keeps the list newest-first, so a duplicated name resolves to the
+      // newest emoji.
+      for (const emoji of emojis) {
+        const key = emoji.name.toLowerCase();
+        if (index[key] === undefined) index[key] = emoji;
+      }
+      this.index = index;
+      this.indexedFrom = emojis;
+    }
+    return this.index[name.toLowerCase()];
   }
 
   /**
