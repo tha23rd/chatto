@@ -38,9 +38,9 @@ export class RecentEmojisStore {
   recent = $state<string[]>([]);
   private storage: StorageSlot<string[]>;
   /**
-   * Resolved once here rather than inside {@link renderable}. Looking it up in
-   * the derived would lazily create the custom-emoji store mid-computation, and
-   * that mutate-during-derived left the derived unable to track later loads.
+   * Resolved once here rather than inside {@link renderable}. Looking it up per
+   * read would lazily create the custom-emoji store mid-computation, and that
+   * mutate-during-render left consumers unable to track later loads.
    */
   private customEmojis: CustomEmojisStore;
 
@@ -61,12 +61,14 @@ export class RecentEmojisStore {
    * shortcode would otherwise show up as literal text (`partyparrot`). They
    * reappear on their own once the custom-emoji store loads, and stay hidden
    * for good if an admin deleted the emoji.
+   *
+   * A plain getter for the same lifetime reason as {@link quickReactions}.
    */
-  renderable: readonly string[] = $derived.by(() =>
-    this.recent.filter(
+  get renderable(): readonly string[] {
+    return this.recent.filter(
       (entry) => !isCustomEmojiName(entry) || !!this.customEmojis.find(entry)
-    )
-  );
+    );
+  }
 
   record(emoji: string) {
     const filtered = this.recent.filter((e) => e !== emoji);
@@ -83,11 +85,20 @@ export class RecentEmojisStore {
    * Draws from {@link renderable}, so an unresolvable custom emoji yields a
    * fallback rather than an empty slot.
    *
-   * Declared as a $derived class field rather than a JS getter so consumers
-   * across the app share one memoised computation that re-fires on `recent`
-   * mutations — the getter form silently lost reactivity for some consumers.
+   * A plain getter, not a `$derived` field: this store is a lazily created
+   * module singleton, so a `$derived` declared here would be owned by whichever
+   * component's reaction happened to construct it first and would go inert
+   * ("derived_inert") the moment that component unmounted, freezing every later
+   * reader on a stale list. Reading `$state` from a getter re-tracks per
+   * consumer instead.
+   *
+   * The cost of dropping the shared memoisation is one recomputation per
+   * consumer whenever recents or the server's custom emojis change — a hover
+   * bar mounts per message row, so that is per row rather than once. It stays
+   * cheap because the list is {@link QUICK_REACTIONS_COUNT} entries and custom
+   * shortcodes resolve through an indexed O(1) lookup.
    */
-  quickReactions: readonly string[] = $derived.by(() => {
+  get quickReactions(): readonly string[] {
     const pinned = PINNED_REACTIONS as readonly string[];
     const result: string[] = [...pinned];
     const recent = [...this.renderable];
@@ -103,7 +114,7 @@ export class RecentEmojisStore {
     }
 
     return result;
-  });
+  }
 }
 
 // Private singleton registry. Reactivity comes from each store's $state.recent

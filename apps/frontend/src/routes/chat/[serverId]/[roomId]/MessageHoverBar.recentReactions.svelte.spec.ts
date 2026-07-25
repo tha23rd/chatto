@@ -170,4 +170,39 @@ describe('MessageHoverBar recent reactions integration', () => {
 
     expect([...getRecentEmojis(SERVER_ID).quickReactions]).toEqual(before);
   });
+
+  // The per-server store is a lazily created module singleton, so it outlives
+  // the bar that happened to construct it. While its views were $derived class
+  // fields they belonged to that bar's reaction and went inert (Svelte's
+  // `derived_inert`) on unmount, so every later bar rendered the list captured
+  // at construction — on a fresh profile, pinned plus fallbacks forever.
+  it('shows an emoji recorded after the bar that created the store unmounted', () => {
+    const first = renderBar();
+    flushSync();
+    first.unmount();
+    flushSync();
+
+    getRecentEmojis(SERVER_ID).record('🚀');
+    flushSync();
+
+    const { container } = renderBar();
+    expect(quickReactionLabels(container)).toContain('🚀');
+  });
+
+  it('shows a custom emoji recorded after that unmount', async () => {
+    addCustomEmoji('partyparrot');
+    const first = renderBar();
+    flushSync();
+    first.unmount();
+    flushSync();
+
+    getRecentEmojis(SERVER_ID).record('partyparrot');
+    flushSync();
+
+    const { container } = renderBar();
+    await tick();
+    expect(
+      container.querySelector('[aria-label="React with partyparrot"] img')?.getAttribute('src')
+    ).toBe('https://example.test/emoji/partyparrot.png');
+  });
 });
