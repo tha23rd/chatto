@@ -264,4 +264,28 @@ describe('EmojiPicker', () => {
       expect(onClose).toHaveBeenCalledOnce();
     });
   });
+
+  // The per-server recents store is a module singleton that outlives the picker
+  // which happened to create it. While its recents view was a $derived class
+  // field, that field belonged to the first picker's reaction and went inert on
+  // unmount, so every later picker rendered an empty "Recently Used" no matter
+  // what the user picked.
+  describe('recents across picker lifetimes', () => {
+    it('still updates in a picker mounted after an earlier one unmounted', async () => {
+      const first = renderPicker();
+      first.unmount();
+      flushSync();
+
+      const { container } = renderPicker();
+      const firstButton = container.querySelector('button') as HTMLButtonElement;
+      const emojiText = firstButton.textContent?.trim() ?? '';
+      firstButton.click();
+      flushSync();
+      await tick();
+
+      expect(container.textContent).toContain('Recently Used');
+      const recentGrid = container.querySelector('.grid') as HTMLElement;
+      expect(recentGrid.querySelector('button')?.textContent?.trim()).toBe(emojiText);
+    });
+  });
 });

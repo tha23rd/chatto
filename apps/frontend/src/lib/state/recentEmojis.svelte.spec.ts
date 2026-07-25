@@ -133,12 +133,8 @@ describe('RecentEmojisStore', () => {
   });
 
   describe('quickReactions reactivity', () => {
-    // Regression: previously `quickReactions` was a plain JS getter on the
-    // class. Reading it inside a $derived/$effect tracked correctly in
-    // isolation, but cross-component consumers (the message hover bar) didn't
-    // re-fire after `record()`, so the toolbar showed stale recents until a
-    // page reload. Switching to a $derived.by class field fixed it. This test
-    // pins the reactive contract so a future refactor can't quietly regress.
+    // Pins the reactive contract every consuming surface depends on: reading
+    // quickReactions from an effect must re-fire after record().
     it('an external $effect sees quickReactions updates after record()', () => {
       const store = getRecentEmojis(SERVER_A);
       let captured: readonly string[] = [];
