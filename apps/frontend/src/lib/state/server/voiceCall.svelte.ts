@@ -1528,7 +1528,14 @@ export class VoiceCallState {
       RoomEvent.TrackSubscribed,
       (track: RemoteTrack, publication: RemoteTrackPublication, participant: RemoteParticipant) => {
         if (track.kind === Track.Kind.Audio) {
-          track.attach();
+          try {
+            track.attach();
+          } catch (err) {
+            // attach() creates the element before it can throw (e.g. applying a
+            // stored output sink id), so the volume rules below must still run —
+            // otherwise a deafened listener keeps an element at full volume.
+            console.warn('audio track attach failed', err);
+          }
           if (publication.trackName === SOUNDBOARD_TRACK_NAME) {
             // Soundboard audio gets its own listener-side volume/mute, applied
             // to the track directly — participant.setVolume only affects the
@@ -1644,6 +1651,7 @@ export class VoiceCallState {
 
   private applyRemoteParticipantAudioVolume(participant: RemoteParticipant): void {
     const muted = this.isDeafened || this.isParticipantLocallyMuted(participant.identity);
+    this.applyDeafenGate(participant);
     // Two faders, one mute: deafen and local mute still silence everything from this
     // participant, but their voice and their stream audio have independent levels.
     const voiceGain = muted ? 0 : this.getParticipantVolume(participant.identity) / 100;
@@ -1652,6 +1660,20 @@ export class VoiceCallState {
       : this.getParticipantScreenShareVolume(participant.identity) / 100;
     participant.setVolume(voiceGain, Track.Source.Microphone);
     participant.setVolume(screenShareGain, Track.Source.ScreenShareAudio);
+  }
+
+  /**
+   * While deafened, stop audio delivery entirely instead of relying on element
+   * volume: a freshly subscribed track attaches at full volume (livekit-client
+   * skips re-applying a stored volume of `0`), and the corrections that mask
+   * that can be skipped when the subscribe chain throws mid-way. With delivery
+   * disabled the server sends no audio, so no element state can leak sound.
+   * Speaking indicators are unaffected; they come from the server.
+   */
+  private applyDeafenGate(participant: RemoteParticipant): void {
+    for (const publication of participant.audioTrackPublications.values()) {
+      publication.setEnabled(!this.isDeafened);
+    }
   }
 
   /**
