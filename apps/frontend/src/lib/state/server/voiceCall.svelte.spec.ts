@@ -1200,6 +1200,7 @@ describe('VoiceCallState', () => {
       audioLevel: 0,
       setVolume,
       trackPublications: new Map(),
+      audioTrackPublications: new Map(),
       getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
     });
     const client = createVoiceCallClient();
@@ -1236,6 +1237,7 @@ describe('VoiceCallState', () => {
       audioLevel: 0,
       setVolume,
       trackPublications: new Map(),
+      audioTrackPublications: new Map(),
       getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
     });
     const client = createVoiceCallClient();
@@ -1282,6 +1284,7 @@ describe('VoiceCallState', () => {
       audioLevel: 0,
       setVolume,
       trackPublications: new Map(),
+      audioTrackPublications: new Map(),
       getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
     });
     const state = new VoiceCallState(createVoiceCallClient());
@@ -1332,6 +1335,7 @@ describe('VoiceCallState', () => {
       audioLevel: 0,
       setVolume,
       trackPublications: new Map(),
+      audioTrackPublications: new Map(),
       getTrackPublications: vi.fn(() => [
         { isMuted: false, track: { source: 'microphone' } },
         { isMuted: false, track: { source: 'screen_share_audio' } }
@@ -1391,6 +1395,7 @@ describe('VoiceCallState', () => {
       audioLevel: 0,
       setVolume: vi.fn(),
       trackPublications: new Map(),
+      audioTrackPublications: new Map(),
       getTrackPublications: vi.fn(() => [
         { isMuted: false, track: { source: 'microphone' } },
         { isMuted: false, track: { source: 'screen_share' } }
@@ -1415,6 +1420,7 @@ describe('VoiceCallState', () => {
       audioLevel: 0,
       setVolume: vi.fn(),
       trackPublications: new Map(),
+      audioTrackPublications: new Map(),
       getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
     });
     localStorage.removeItem('chatto:i:server-1:callScreenShareVolumes');
@@ -1496,6 +1502,7 @@ describe('VoiceCallState', () => {
       audioLevel: 0,
       setVolume: vi.fn(),
       trackPublications: new Map(),
+      audioTrackPublications: new Map(),
       getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
     });
     localStorage.removeItem('chatto:i:server-1:callParticipantVolumes');
@@ -1528,6 +1535,7 @@ describe('VoiceCallState', () => {
         audioLevel: 0,
         setVolume,
         trackPublications: new Map(),
+        audioTrackPublications: new Map(),
         getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
       });
     }
@@ -1565,6 +1573,88 @@ describe('VoiceCallState', () => {
       expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(true);
       expect(setVolume).toHaveBeenCalledWith(1, 'microphone');
       expect(setVolume).toHaveBeenCalledWith(1, 'screen_share_audio');
+    });
+
+    // A remote participant whose microphone publication is gate-capable
+    // (exposes setEnabled), so deafen-gate behavior can be asserted.
+    function addRemoteParticipantWithAudio(
+      identity: string,
+      setEnabled: ReturnType<typeof vi.fn>,
+      setVolume: ReturnType<typeof vi.fn> = vi.fn()
+    ): Record<string, unknown> {
+      const micPublication = { setEnabled, track: { source: 'microphone' } };
+      mockRemoteParticipants.set(identity, {
+        identity,
+        name: identity,
+        metadata: '',
+        attributes: {},
+        connectionQuality: 'good',
+        isSpeaking: false,
+        audioLevel: 0,
+        setVolume,
+        trackPublications: new Map(),
+        audioTrackPublications: new Map([['pub-1', micPublication]]),
+        getTrackPublications: vi.fn(() => [micPublication])
+      });
+      return micPublication;
+    }
+
+    it('keeps a track that resubscribes while deafened silent, so undeafening is not audible to a deafened listener', async () => {
+      const setEnabled = vi.fn();
+      const micPublication = addRemoteParticipantWithAudio('remote-user', setEnabled);
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      await state.toggleDeafen();
+      expect(setEnabled).toHaveBeenLastCalledWith(false);
+      setEnabled.mockClear();
+
+      // The remote undeafens, so their microphone resubscribes here.
+      const micTrack = { kind: 'audio', source: 'microphone', attach: vi.fn(), detach: vi.fn() };
+      roomEventHandlers.get('TrackSubscribed')?.(micTrack, micPublication);
+
+      expect(setEnabled).toHaveBeenLastCalledWith(false);
+    });
+
+    it('still silences a deafened listener when attaching a subscribed track throws', async () => {
+      const setEnabled = vi.fn();
+      const setVolume = vi.fn();
+      const micPublication = addRemoteParticipantWithAudio('remote-user', setEnabled, setVolume);
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      await state.toggleDeafen();
+      setEnabled.mockClear();
+      setVolume.mockClear();
+
+      const failingTrack = {
+        kind: 'audio',
+        source: 'microphone',
+        attach: vi.fn(() => {
+          throw new Error('sink failure');
+        }),
+        detach: vi.fn()
+      };
+      roomEventHandlers.get('TrackSubscribed')?.(failingTrack, micPublication);
+
+      expect(failingTrack.attach).toHaveBeenCalledOnce();
+      expect(setVolume).toHaveBeenCalledWith(0, 'microphone');
+      expect(setEnabled).toHaveBeenLastCalledWith(false);
+    });
+
+    it('resumes incoming audio delivery when undeafening', async () => {
+      const setEnabled = vi.fn();
+      addRemoteParticipantWithAudio('remote-user', setEnabled);
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+
+      await state.toggleDeafen();
+      setEnabled.mockClear();
+
+      await state.toggleDeafen();
+
+      expect(state.isDeafened).toBe(false);
+      expect(setEnabled).toHaveBeenLastCalledWith(true);
     });
 
     it('stays muted after undeafen when already muted before deafening', async () => {
