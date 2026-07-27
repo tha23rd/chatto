@@ -38,10 +38,13 @@
     "fullscreen_feed": "Fullskjerm-feed",
     "pop_out_feed": "Vis feeden i bilde-i-bilde",
     "pop_out_failed": "Kunne ikke vise feeden i bilde-i-bilde.",
-    "pin_feed": "Fest som hovedfeed",
-    "unpin_feed": "Løsne hovedfeeden",
-    "hide_other_feeds": "Skjul andre feeder",
-    "show_other_feeds": "Vis andre feeder",
+    "focus_feed": "Fokuser denne strømmen",
+    "unfocus_feed": "Slutt å fokusere denne strømmen",
+    "view_options": "Visningsvalg",
+    "grid_view": "Rutenettvisning",
+    "show_own_camera": "Vis mitt eget kamera",
+    "show_non_video_participants": "Vis deltakere uten video",
+    "show_own_screen_share": "Vis min skjermdeling",
     "fullscreen_call": "Fullskjermsamtale",
     "exit_fullscreen_call": "Avslutt samtale i fullskjerm",
     "locally_mute_participant": "Demp lokalt",
@@ -103,6 +106,15 @@
       "error": "Kunne ikke starte mikrofontesten. Sjekk mikrofontillatelsene.",
       "headphones_hint": "Bruk hodetelefoner for å unngå ekko.",
       "level": "Inngangsnivå"
-    }
+    },
+    "all_feeds_hidden": "Alle strømmer er skjult.",
+    "all_feeds_hidden_hint": "Endre hva du ser under Visningsvalg.",
+    "feed_not_watched": "Ses ikke",
+    "hide_own_camera": "Skjul mitt eget kamera",
+    "hide_own_screen_share": "Skjul min skjermdeling",
+    "hide_participants": "Skjul deltakere",
+    "show_participants": "Vis deltakere",
+    "start_watching_feed": "Begynn å se",
+    "stop_watching_feed": "Slutt å se"
   }
 }

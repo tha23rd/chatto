@@ -32,6 +32,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import CollapsibleGroup from '$lib/ui/CollapsibleGroup.svelte';
   import PaneHeader from '$lib/ui/PaneHeader.svelte';
+  import CallViewOptionsMenu from '$lib/components/voice/CallViewOptionsMenu.svelte';
   import ResizeHandle from '$lib/components/ResizeHandle.svelte';
   import { roomSidebarWidth } from '$lib/state/roomSidebarWidth.svelte';
   import { useConnection } from '$lib/state/server/connection.svelte';
@@ -95,6 +96,23 @@ calls, and similar room-specific panels can plug into the same shell. See the
     presentation === 'desktop' && activePanel === 'call' && hasActiveCall && !!onToggleMaximized
   );
   const showCallFullscreenButton = $derived(activePanel === 'call' && hasActiveCall);
+  // The view options describe the stage layout, which only exists while the
+  // call pane is maximized; in the narrow sidebar they would be inert.
+  const showCallViewOptionsButton = $derived(
+    activePanel === 'call' && hasActiveCall && maximized
+  );
+  let callViewOptionsAnchor = $state<{ top: number; bottom: number; left: number } | null>(
+    null
+  );
+
+  function toggleCallViewOptions(event: MouseEvent) {
+    if (callViewOptionsAnchor) {
+      callViewOptionsAnchor = null;
+      return;
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    callViewOptionsAnchor = { top: rect.top, bottom: rect.bottom, left: rect.left };
+  }
 
   // Check if user can start DMs (from centralized server permissions)
   const serverPerms = getServerPermissions();
@@ -275,6 +293,13 @@ calls, and similar room-specific panels can plug into the same shell. See the
   {/if}
   <PaneHeader {title} {loading} skeletonButtons={0}>
     {#snippet actions()}
+      {#if showCallViewOptionsButton}
+        <HeaderIconButton
+          icon="uil--apps"
+          label={m['voice.view_options']()}
+          onclick={toggleCallViewOptions}
+        />
+      {/if}
       {#if showMaximizeButton}
         <HeaderIconButton
           icon={maximized ? 'mdi--arrow-collapse-right' : 'mdi--arrow-expand-left'}
@@ -484,3 +509,10 @@ calls, and similar room-specific panels can plug into the same shell. See the
     </div>
   </button>
 {/snippet}
+
+{#if callViewOptionsAnchor}
+  <CallViewOptionsMenu
+    anchor={callViewOptionsAnchor}
+    onclose={() => (callViewOptionsAnchor = null)}
+  />
+{/if}

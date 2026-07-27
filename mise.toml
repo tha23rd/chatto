@@ -240,6 +240,10 @@ run = "exec ./node_modules/.bin/vite dev"
 
 [tasks.dev-livekit]
 description = "Run a local LiveKit server with workspace-safe ports"
+# Scoped to this task so CI and non-voice work never download the SFU. Upstream
+# publishes Linux and Windows release assets only; on macOS, install it
+# separately with `brew install livekit` and mise will use that binary.
+tools = { "github:livekit/livekit" = { version = "latest", exe = "livekit-server" } }
 env = {
   CHATTO_DEV_PORT_BASE = "{{env.CONDUCTOR_PORT | default(value=env.PASEO_PORT | default(value='4000'))}}",
   CHATTO_DEV_LIVEKIT_KEYS = "devkey: devsecret",
@@ -247,10 +251,31 @@ env = {
   CHATTO_DEV_LIVEKIT_RTC_TCP_PORT = "{{env.CHATTO_DEV_PORT_BASE | int + 6}}",
   CHATTO_DEV_LIVEKIT_UDP_PORTS = "{{env.CHATTO_DEV_PORT_BASE | int + 7}}",
 }
-run = "exec livekit-server --dev --bind 127.0.0.1 --node-ip 127.0.0.1 --keys \"$CHATTO_DEV_LIVEKIT_KEYS\" --port \"$CHATTO_DEV_LIVEKIT_PORT\" --rtc.tcp_port \"$CHATTO_DEV_LIVEKIT_RTC_TCP_PORT\" --udp-port \"$CHATTO_DEV_LIVEKIT_UDP_PORTS\""
+run = """
+# LiveKit advertises --node-ip as its ICE host candidate, and ICE only tests
+# pairs of local and remote candidates. Browsers never gather a loopback
+# candidate, so 127.0.0.1 is only pairable when the browser shares this host.
+# It is not pairable when the browser is elsewhere -- on Windows talking to WSL,
+# or on a phone on the LAN -- and ICE then fails with no viable pair at all.
+# Set CHATTO_DEV_LIVEKIT_NODE_IP to an address the browser can reach, or to
+# "auto" for this machine's primary interface.
+node_ip="${CHATTO_DEV_LIVEKIT_NODE_IP:-127.0.0.1}"
+if [ "$node_ip" = "auto" ]; then
+  node_ip="$(ip route get 1.1.1.1 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }')"
+  if [ -z "$node_ip" ]; then
+    echo "dev-livekit: could not detect a primary IP; set CHATTO_DEV_LIVEKIT_NODE_IP to an explicit address" >&2
+    exit 1
+  fi
+fi
+echo "dev-livekit: advertising node IP $node_ip"
+exec livekit-server --dev --bind 0.0.0.0 --node-ip "$node_ip" --keys "$CHATTO_DEV_LIVEKIT_KEYS" --port "$CHATTO_DEV_LIVEKIT_PORT" --rtc.tcp_port "$CHATTO_DEV_LIVEKIT_RTC_TCP_PORT" --udp-port "$CHATTO_DEV_LIVEKIT_UDP_PORTS"
+"""
 
 [tasks.dev-mailpit]
 description = "Run a local Mailpit SMTP server with workspace-safe ports"
+# Scoped to this task so CI never downloads it. `mise dev` runs its tasks as one
+# group, so a missing Mailpit takes the whole stack down with it.
+tools = { "github:axllent/mailpit" = "latest" }
 env = {
   CHATTO_DEV_PORT_BASE = "{{env.CONDUCTOR_PORT | default(value=env.PASEO_PORT | default(value='4000'))}}",
   CHATTO_DEV_MAILPIT_SMTP_PORT = "{{env.CHATTO_DEV_PORT_BASE | int + 8}}",

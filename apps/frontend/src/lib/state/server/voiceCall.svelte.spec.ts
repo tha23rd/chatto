@@ -57,8 +57,11 @@ let screenShareGate: { promise: Promise<void>; resolve: () => void } | null = nu
 let screenShareFailure: Error | null = null;
 let switchActiveDeviceFailure: Error | null = null;
 let roomEventHandlers = new Map<string, (...args: unknown[]) => void>();
+// `source` sits on the publication as well as the track, mirroring LiveKit: the
+// publication knows its source even while unsubscribed, which is what the store reads.
 let localTrackPublications: Array<{
   isMuted: boolean;
+  source?: string;
   track: { source: string; mediaStreamTrack?: MediaStreamTrack };
 }> = [];
 let mockRemoteParticipants = new Map<string, unknown>();
@@ -112,7 +115,7 @@ vi.mock('livekit-client', () => {
         if (enabled) {
           localTrackPublications.push({
             isMuted: false,
-            track: { source: 'camera' }
+            track: { source: 'camera' }, source: 'camera'
           });
         }
       }),
@@ -129,7 +132,7 @@ vi.mock('livekit-client', () => {
         if (enabled) {
           localTrackPublications.push({
             isMuted: false,
-            track: { source: 'screen_share' }
+            track: { source: 'screen_share' }, source: 'screen_share'
           });
         }
       }),
@@ -911,6 +914,42 @@ describe('VoiceCallState', () => {
     expect(state.screenShareRetuneFailed).toBe(false);
   });
 
+  it('moves the content hint with the degradation preference when retuning', async () => {
+    // The hint and the degradation preference are two halves of one decision
+    // (see resolveScreenShareOptions). Retuning applied only the latter, so a
+    // live share dropped to 15 fps kept asking the encoder to favour motion
+    // while the sender was told to preserve resolution.
+    const params: RTCRtpSendParameters = {
+      encodings: [{}],
+      transactionId: 't',
+      codecs: [],
+      headerExtensions: [],
+      rtcp: {}
+    };
+    const mediaStreamTrack = { applyConstraints: vi.fn(async () => {}), contentHint: '' };
+    const client = createVoiceCallClient();
+    const state = new VoiceCallState(client);
+    await state.join('wss://livekit.example.test', 'R1');
+    lastRoom!.localParticipant.getTrackPublication = vi.fn(() => ({
+      track: {
+        mediaStreamTrack,
+        sender: { getParameters: () => params, setParameters: vi.fn(async () => {}) }
+      }
+    }));
+    await state.toggleScreenShare();
+
+    await state.setScreenShareQuality({ resolution: '1080p', framerate: 15, shareAudio: false });
+
+    expect(mediaStreamTrack.contentHint).toBe('detail');
+    expect(params.degradationPreference).toBe('maintain-resolution');
+
+    // Back up to a motion-oriented rate and both halves move together again.
+    await state.setScreenShareQuality({ resolution: '1080p', framerate: 60, shareAudio: false });
+
+    expect(mediaStreamTrack.contentHint).toBe('motion');
+    expect(params.degradationPreference).toBe('maintain-framerate');
+  });
+
   it('keeps the quality preference and flags it when a live share cannot be retuned', async () => {
     const client = createVoiceCallClient();
     const state = new VoiceCallState(client);
@@ -1201,7 +1240,7 @@ describe('VoiceCallState', () => {
       setVolume,
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
     });
     const client = createVoiceCallClient();
     const state = new VoiceCallState(client);
@@ -1238,7 +1277,7 @@ describe('VoiceCallState', () => {
       setVolume,
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
     });
     const client = createVoiceCallClient();
     const state = new VoiceCallState(client);
@@ -1285,7 +1324,7 @@ describe('VoiceCallState', () => {
       setVolume,
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
     });
     const state = new VoiceCallState(createVoiceCallClient());
     await state.join('wss://livekit.example.test', 'R1');
@@ -1337,8 +1376,8 @@ describe('VoiceCallState', () => {
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
       getTrackPublications: vi.fn(() => [
-        { isMuted: false, track: { source: 'microphone' } },
-        { isMuted: false, track: { source: 'screen_share_audio' } }
+        { isMuted: false, track: { source: 'microphone' }, source: 'microphone' },
+        { isMuted: false, track: { source: 'screen_share_audio' }, source: 'screen_share_audio' }
       ])
     });
     const state = new VoiceCallState(createVoiceCallClient());
@@ -1397,8 +1436,8 @@ describe('VoiceCallState', () => {
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
       getTrackPublications: vi.fn(() => [
-        { isMuted: false, track: { source: 'microphone' } },
-        { isMuted: false, track: { source: 'screen_share' } }
+        { isMuted: false, track: { source: 'microphone' }, source: 'microphone' },
+        { isMuted: false, track: { source: 'screen_share' }, source: 'screen_share' }
       ])
     });
     const state = new VoiceCallState(createVoiceCallClient());
@@ -1408,6 +1447,70 @@ describe('VoiceCallState', () => {
       isScreenShareEnabled: true,
       hasScreenShareAudio: false
     });
+  });
+
+  it('unsubscribes a feed the viewer stops watching, and its stream audio with it', async () => {
+    const camera = {
+      isMuted: false,
+      source: 'camera',
+      track: { source: 'camera' },
+      isSubscribed: true,
+      setSubscribed: vi.fn()
+    };
+    const screen = {
+      isMuted: false,
+      source: 'screen_share',
+      track: { source: 'screen_share' },
+      isSubscribed: true,
+      setSubscribed: vi.fn()
+    };
+    const screenAudio = {
+      isMuted: false,
+      source: 'screen_share_audio',
+      track: { source: 'screen_share_audio' },
+      isSubscribed: true,
+      setSubscribed: vi.fn()
+    };
+    const mic = {
+      isMuted: false,
+      source: 'microphone',
+      track: { source: 'microphone' },
+      isSubscribed: true,
+      setSubscribed: vi.fn()
+    };
+    mockRemoteParticipants.set('remote-user', {
+      identity: 'remote-user',
+      name: 'Remote User',
+      metadata: '',
+      connectionQuality: 'good',
+      isSpeaking: false,
+      audioLevel: 0,
+      setVolume: vi.fn(),
+      trackPublications: new Map(),
+      audioTrackPublications: new Map(),
+      getTrackPublications: vi.fn(() => [mic, camera, screen, screenAudio])
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+
+    state.toggleFeedWatched('remote-user', 'screen');
+
+    // The picture and the sound that belongs to it both stop; the voice is untouched,
+    // because silencing someone is what a local mute is for.
+    expect(screen.setSubscribed).toHaveBeenCalledWith(false);
+    expect(screenAudio.setSubscribed).toHaveBeenCalledWith(false);
+    expect(camera.setSubscribed).not.toHaveBeenCalled();
+    expect(mic.setSubscribed).not.toHaveBeenCalled();
+    expect(state.isFeedWatched('remote-user', 'screen')).toBe(false);
+    expect(state.isFeedWatched('remote-user', 'camera')).toBe(true);
+
+    screen.isSubscribed = false;
+    screenAudio.isSubscribed = false;
+    state.toggleFeedWatched('remote-user', 'screen');
+
+    expect(screen.setSubscribed).toHaveBeenLastCalledWith(true);
+    expect(screenAudio.setSubscribed).toHaveBeenLastCalledWith(true);
+    expect(state.isFeedWatched('remote-user', 'screen')).toBe(true);
   });
 
   it('persists screen-share volume per server, separately from voice volume', async () => {
@@ -1421,7 +1524,7 @@ describe('VoiceCallState', () => {
       setVolume: vi.fn(),
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
     });
     localStorage.removeItem('chatto:i:server-1:callScreenShareVolumes');
     localStorage.removeItem('chatto:i:server-2:callScreenShareVolumes');
@@ -1503,7 +1606,7 @@ describe('VoiceCallState', () => {
       setVolume: vi.fn(),
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
     });
     localStorage.removeItem('chatto:i:server-1:callParticipantVolumes');
     localStorage.removeItem('chatto:i:server-2:callParticipantVolumes');
@@ -1536,7 +1639,7 @@ describe('VoiceCallState', () => {
         setVolume,
         trackPublications: new Map(),
         audioTrackPublications: new Map(),
-        getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' } }])
+        getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
       });
     }
 
@@ -1582,7 +1685,7 @@ describe('VoiceCallState', () => {
       setEnabled: ReturnType<typeof vi.fn>,
       setVolume: ReturnType<typeof vi.fn> = vi.fn()
     ): Record<string, unknown> {
-      const micPublication = { setEnabled, track: { source: 'microphone' } };
+      const micPublication = { setEnabled, track: { source: 'microphone' }, source: 'microphone' };
       mockRemoteParticipants.set(identity, {
         identity,
         name: identity,

@@ -107,6 +107,8 @@
 			isLocallyMuted: false,
 			localVolume: 100,
 			localScreenShareVolume: 100,
+			isCameraWatched: true,
+			isScreenShareWatched: true,
 			...overrides
 		};
 	}
@@ -171,6 +173,12 @@
 
 	function ensureStorybookServer(): RegisteredServer {
 		const origin = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
+		// The registry hydrates its server list from localStorage but only creates
+		// stores in init(), which the root layout normally owns. localStorage is
+		// shared by every spec file and story in this origin, so a server another
+		// file registered arrives here already listed and store-less — and the
+		// getStore() below would throw. init() is idempotent and fills that gap.
+		serverRegistry.init();
 		const existingOrigin = serverRegistry.originServer;
 		if (existingOrigin) return existingOrigin;
 
@@ -211,6 +219,38 @@
 		store.voiceCall.isCameraEnabled = scenario !== 'voice';
 		store.voiceCall.isScreenShareEnabled = scenario === 'screen';
 		store.voiceCall.participants = participantsForScenario();
+
+		// The real toggle unsubscribes LiveKit tracks, which needs a room this harness has
+		// no way to provide. Stand in for it by flipping the same flags the panel reads, so
+		// the UI's response to stopping and resuming a feed stays testable. Track presence
+		// follows too, because an unsubscribed feed genuinely has none.
+		store.voiceCall.toggleFeedWatched = (identity: string, surface: 'camera' | 'screen') => {
+			let resumed = false;
+			store.voiceCall.participants = store.voiceCall.participants.map((p) => {
+				if (p.identity !== identity) return p;
+				const watched = surface === 'screen' ? !p.isScreenShareWatched : !p.isCameraWatched;
+				resumed = watched;
+				// Dropping is immediate; resuming deliberately leaves the track null for now.
+				if (surface === 'screen') {
+					return { ...p, isScreenShareWatched: watched, screenShareTrack: null };
+				}
+				return { ...p, isCameraWatched: watched, videoTrack: null };
+			});
+			if (!resumed) return;
+			// Resubscribing is not instant: LiveKit marks the feed watched as soon as the
+			// viewer asks, and the track only lands once the server starts sending again.
+			// Modelling that gap is the point — the stage has to hold the tile through it
+			// instead of dropping it and building a new one when the picture arrives.
+			setTimeout(() => {
+				store.voiceCall.participants = store.voiceCall.participants.map((p) =>
+					p.identity === identity
+						? surface === 'screen'
+							? { ...p, screenShareTrack: screenTrack }
+							: { ...p, videoTrack: cameraTrack }
+						: p
+				);
+			}, 20);
+		};
 	}
 
 	onMount(async () => {

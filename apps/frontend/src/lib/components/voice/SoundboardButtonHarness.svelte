@@ -39,6 +39,10 @@ connection that CI does not have.
   let Panel = $state<Component<VoiceCallPanelProps> | null>(null);
 
   function ensureServer(): RegisteredServer {
+    // See VoiceCallPanelStoryHarness: the registry lists servers persisted by
+    // other spec files but only creates their stores in init(), so call it
+    // before any getStore() to avoid a cross-file "No store for server" throw.
+    serverRegistry.init();
     const existingOrigin = serverRegistry.originServer;
     if (existingOrigin) return existingOrigin;
     const server: RegisteredServer = {
@@ -82,7 +86,9 @@ connection that CI does not have.
       hasScreenShareAudio: false,
       isLocallyMuted: false,
       localVolume: 100,
-      localScreenShareVolume: 100
+      localScreenShareVolume: 100,
+      isCameraWatched: true,
+      isScreenShareWatched: true
     };
   }
 

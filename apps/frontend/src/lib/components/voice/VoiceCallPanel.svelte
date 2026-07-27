@@ -99,6 +99,10 @@ Room sidebar panel for voice/video calls.
     videoTrack: Track | null;
     isScreenShareEnabled: boolean;
     screenShareTrack: Track | null;
+    /** Whether this viewer is watching their camera; false means the track is unsubscribed. */
+    isCameraWatched: boolean;
+    /** Whether this viewer is watching their screen share; false means the track is unsubscribed. */
+    isScreenShareWatched: boolean;
   };
 
   let participants: DisplayParticipant[] = $derived.by(() => {
@@ -125,7 +129,9 @@ Room sidebar panel for voice/video calls.
         isCameraEnabled: p.isCameraEnabled,
         videoTrack: p.videoTrack,
         isScreenShareEnabled: p.isScreenShareEnabled,
-        screenShareTrack: p.screenShareTrack
+        screenShareTrack: p.screenShareTrack,
+        isCameraWatched: p.isCameraWatched ?? true,
+        isScreenShareWatched: p.isScreenShareWatched ?? true
       }));
     }
 
@@ -151,7 +157,10 @@ Room sidebar panel for voice/video calls.
       isCameraEnabled: false,
       videoTrack: null,
       isScreenShareEnabled: false,
-      screenShareTrack: null
+      screenShareTrack: null,
+      // Observer mode has no LiveKit subscriptions to stop watching.
+      isCameraWatched: true,
+      isScreenShareWatched: true
     }));
   });
 
@@ -162,51 +171,129 @@ Room sidebar panel for voice/video calls.
       return 0;
     })
   );
+  // Keyed on whether they are sharing, never on whether the track has arrived. A track is
+  // absent both while a stopped feed is unsubscribed and for the moment after the viewer
+  // resumes one, so testing for it made the tile vanish and the stage reflow mid-resume.
+  // Someone is either sharing or not; the track only decides what the tile paints.
   let screenShareParticipants = $derived(
-    sortedParticipants.filter((p) => p.isScreenShareEnabled && p.screenShareTrack)
+    sortedParticipants.filter((p) => p.isScreenShareEnabled)
   );
-  let videoParticipants = $derived(
-    sortedParticipants.filter((p) => p.isCameraEnabled && p.videoTrack)
-  );
-  let mediaTileCount = $derived(screenShareParticipants.length + videoParticipants.length);
+  // `hidden` means the viewer stopped watching this feed: the track is unsubscribed and,
+  // for a screen share, its audio goes with it. It is deliberately not part of `key` or
+  // `kind` — the tile keeps its place so the control that resumes it stays reachable, and
+  // the feed is still a screen share or a camera for every other decision.
   type StageTile = {
     key: string;
     kind: 'screen' | 'video' | 'voice';
     participant: DisplayParticipant;
+    hidden: boolean;
   };
+  function toggleFeedWatched(tile: StageTile, event: MouseEvent) {
+    event.stopPropagation();
+    const surface = tile.kind === 'screen' ? 'screen' : 'camera';
+    if (tile.participant.isLocal) {
+      // Your own feeds are published, not subscribed, so there is nothing to stop
+      // receiving and no audio to drop. What the control means for yourself is "hide my
+      // self-view", which is the view option the header menu already owns — and a
+      // self-view choice reasonably outlives the call, unlike stopping someone else's
+      // picture.
+      const option = surface === 'screen' ? 'showOwnScreenShare' : 'showOwnCamera';
+      userPreferences.setCallViewPreference(option, !callView[option]);
+      return;
+    }
+    voiceCallState.toggleFeedWatched(tile.participant.key, surface);
+  }
+  function feedWatchedLabel(tile: StageTile): string {
+    if (tile.participant.isLocal) {
+      // Only ever the hiding direction: the view option removes the tile outright, so the
+      // way back is the header menu rather than a control on a tile that is no longer there.
+      return tile.kind === 'screen'
+        ? m['voice.hide_own_screen_share']()
+        : m['voice.hide_own_camera']();
+    }
+    return tile.hidden ? m['voice.start_watching_feed']() : m['voice.stop_watching_feed']();
+  }
   let screenShareTiles = $derived(
     screenShareParticipants.map((participant) => ({
       key: `${participant.key}:screen`,
       kind: 'screen' as const,
-      participant
+      participant,
+      hidden: !participant.isScreenShareWatched
     }))
   );
   let participantTiles = $derived(
     sortedParticipants.map((participant) => ({
-      key: `${participant.key}:${hasVideo(participant) ? 'video' : 'voice'}`,
-      kind: hasVideo(participant) ? ('video' as const) : ('voice' as const),
-      participant
+      // `isCameraEnabled` rather than `hasVideo`, for the same reason screen shares no
+      // longer test for a track. The kind is part of the key, so deriving it from track
+      // arrival tore the tile down and rebuilt it the instant a resumed camera came back.
+      // Having a camera on is the durable fact; the track landing is just the moment the
+      // card swaps its avatar for video, which `participantCard` already handles.
+      key: `${participant.key}:${participant.isCameraEnabled ? 'video' : 'voice'}`,
+      kind: participant.isCameraEnabled ? ('video' as const) : ('voice' as const),
+      participant,
+      hidden: participant.isCameraEnabled && !participant.isCameraWatched
     }))
   );
-  let stageTiles = $derived([...screenShareTiles, ...participantTiles]);
-  // Viewer-local stage pin: which tile stays featured in the maximized layout.
-  // Scoped to the room so a leftover pin cannot select a tile in a later call in
-  // another room. While the pinned feed is absent the automatic pick below takes
-  // over; the pin re-applies if the same feed comes back.
-  let pinnedStage = $state<{ roomId: string; key: string } | null>(null);
-  let pinnedStageKey = $derived(pinnedStage?.roomId === roomId ? pinnedStage.key : null);
+  let allStageTiles = $derived([...screenShareTiles, ...participantTiles]);
+  // Viewer-local visibility choices. Hidden tiles are dropped before the stage
+  // decides what to feature, so switching a feed off also stops it claiming the
+  // featured slot rather than merely hiding it from the strip.
+  let callView = $derived(userPreferences.callView);
+  let stripCollapsedLabel = $derived(
+    callView.collapsedStrip ? m['voice.show_participants']() : m['voice.hide_participants']()
+  );
+  let filteredStageTiles = $derived(
+    allStageTiles.filter((tile) => {
+      if (tile.kind === 'screen') return callView.showOwnScreenShare || !tile.participant.isLocal;
+      if (tile.kind === 'video') return callView.showOwnCamera || !tile.participant.isLocal;
+      return callView.showNonVideoParticipants;
+    })
+  );
+  // Filters are honoured exactly, even when they hide every feed: a control that
+  // silently does nothing is worse than an empty stage, and the roster still
+  // shows who is in the call. The empty stage explains itself instead of going
+  // blank. The sidebar layout ignores the filters entirely, because its control
+  // lives in the maximized pane header and a hidden tile there would have no way
+  // back.
+  let stageTiles = $derived(isStageLayout ? filteredStageTiles : allStageTiles);
+  // Clicking a stream enlarges it and pushes everyone else below, until the same
+  // stream is clicked again or it goes away. Held as participant + surface
+  // rather than as a tile key, because a participant tile's key changes kind
+  // when they turn their camera on or off: focus follows the person, while a
+  // focused screen share stays bound to the screen. Scoped to the room, since
+  // the panel is not re-created when only the route's room changes.
+  type StageFocus = { roomId: string; participantKey: string; surface: 'screen' | 'participant' };
+  let stageFocus = $state<StageFocus | null>(null);
+  let activeStageFocus = $derived(stageFocus?.roomId === roomId ? stageFocus : null);
+  function tileMatchesFocus(tile: StageTile, focus: StageFocus): boolean {
+    if (tile.participant.key !== focus.participantKey) return false;
+    return focus.surface === 'screen' ? tile.kind === 'screen' : tile.kind !== 'screen';
+  }
+  // A focused feed that is gone (they left, or stopped sharing) falls back to
+  // the automatic pick, and re-takes the stage if it returns.
+  let focusedStageTile = $derived(
+    activeStageFocus
+      ? stageTiles.find((tile) => tileMatchesFocus(tile, activeStageFocus))
+      : undefined
+  );
+  // Focusing a stream is an explicit "show me this now", so it wins over the
+  // grid preference until it is released.
+  let isGridView = $derived(callView.grid && !focusedStageTile);
+  // A feed the viewer switched off should not be handed the featured slot by the
+  // automatic pick, or hiding it would enlarge it instead.
   let featuredStageTile = $derived(
-    stageTiles.find((tile) => tile.key === pinnedStageKey) ??
-      screenShareTiles[0] ??
-      participantTiles.find((tile) => tile.kind === 'video') ??
-      participantTiles[0]
+    focusedStageTile ??
+      stageTiles.find((tile) => tile.kind === 'screen' && !tile.hidden) ??
+      stageTiles.find((tile) => tile.kind === 'video' && !tile.hidden) ??
+      stageTiles.find((tile) => !tile.hidden) ??
+      stageTiles[0]
   );
   let secondaryStageTiles = $derived(
     featuredStageTile ? stageTiles.filter((tile) => tile.key !== featuredStageTile.key) : []
   );
-  // "Minimize other streams": collapse the secondary strip so the featured feed
-  // gets the whole stage. Viewer-local and session-only, like the pin.
-  let stageStripHidden = $state(false);
+  let mediaTileCount = $derived(
+    stageTiles.filter((tile) => tile.kind !== 'voice' && !tile.hidden).length
+  );
   let isIdle = $derived(!hasActiveCall && !isInThisCall);
   let joinLabel = $derived.by(() => {
     if (isConnecting) return hasActiveCall ? m['voice.joining']() : m['voice.starting']();
@@ -225,10 +312,6 @@ Room sidebar panel for voice/video calls.
 
   function hasVideo(participant: DisplayParticipant) {
     return participant.isCameraEnabled && participant.videoTrack;
-  }
-
-  function hasScreenShare(participant: DisplayParticipant) {
-    return participant.isScreenShareEnabled && participant.screenShareTrack;
   }
 
   function hasConnectionWarning(participant: DisplayParticipant) {
@@ -509,39 +592,27 @@ Room sidebar panel for voice/video calls.
     void toggleFullscreenElement(mediaCard);
   }
 
-  function toggleStagePin(key: string, event: MouseEvent): void {
+  function toggleStageFocus(tile: StageTile, event: MouseEvent): void {
     event.stopPropagation();
-    pinnedStage = pinnedStageKey === key ? null : { roomId, key };
-  }
-
-  function toggleStageStrip(event: MouseEvent): void {
-    event.stopPropagation();
-    stageStripHidden = !stageStripHidden;
-  }
-
-  // Esc backs out of the stage one layer at a time: restore the hidden strip
-  // first, then unpin. Otherwise the event is left unconsumed so Room-level Esc
-  // handling (mobile sidebar, threads) still runs; open popovers and browser
-  // fullscreen keep their own Esc semantics.
-  function onStageKeydown(event: KeyboardEvent): void {
-    if (event.key !== 'Escape' || !isStageLayout || event.defaultPrevented) return;
-    if (typeof document !== 'undefined' && document.fullscreenElement) return;
-    if (
-      deviceMenuAnchor ||
-      popoverParticipant ||
-      volumePopoverKey ||
-      soundboardAnchor ||
-      streamQualityAnchor
-    ) {
+    if (focusedStageTile?.key === tile.key) {
+      // Releasing focus lands in grid rather than back on a single featured feed: having
+      // just said "not this one", the useful answer is everything at once. Grid view is
+      // switched on with it so the menu never disagrees with what is on screen.
+      stageFocus = null;
+      userPreferences.setCallViewPreference('grid', true);
       return;
     }
-    if (stageStripHidden) {
-      event.preventDefault();
-      stageStripHidden = false;
-    } else if (pinnedStageKey) {
-      event.preventDefault();
-      pinnedStage = null;
-    }
+    stageFocus = {
+      roomId,
+      participantKey: tile.participant.key,
+      surface: tile.kind === 'screen' ? 'screen' : 'participant'
+    };
+  }
+
+  function stageFocusLabel(tile: StageTile): string {
+    return focusedStageTile?.key === tile.key
+      ? m['voice.unfocus_feed']()
+      : m['voice.focus_feed']();
   }
 
   function toggleFeedMute(participant: DisplayParticipant, event: MouseEvent): void {
@@ -553,8 +624,6 @@ Room sidebar panel for voice/video calls.
     }
   }
 </script>
-
-<svelte:window onkeydown={onStageKeydown} />
 
 {#snippet localMuteButton(participant: DisplayParticipant)}
   {@const isMutedForViewer = participant.isLocal
@@ -575,34 +644,30 @@ Room sidebar panel for voice/video calls.
   />
 {/snippet}
 
-{#snippet stagePinButton(stageKey: string)}
-  {@const isPinned = pinnedStageKey === stageKey}
+{#snippet hiddenFeedBody()}
+  <div
+    class="flex aspect-video w-full items-center justify-center rounded-sm bg-surface-emphasized/40 text-muted"
+    data-testid="call-feed-hidden-placeholder"
+  >
+    <span class="iconify text-2xl uil--eye-slash" aria-hidden="true"></span>
+    <span class="sr-only">{m['voice.feed_not_watched']()}</span>
+  </div>
+{/snippet}
+
+{#snippet hideFeedButton(tile: StageTile)}
   <CallTileActionButton
-    icon={isPinned ? 'mdi--pin-off' : 'mdi--pin'}
-    active={isPinned}
-    label={isPinned ? m['voice.unpin_feed']() : m['voice.pin_feed']()}
-    testId="call-feed-pin-button"
-    onclick={(event) => toggleStagePin(stageKey, event)}
+    icon={tile.hidden ? 'uil--eye-slash' : 'uil--eye'}
+    active={tile.hidden}
+    label={feedWatchedLabel(tile)}
+    testId="call-feed-watch-button"
+    onclick={(event) => toggleFeedWatched(tile, event)}
   />
 {/snippet}
 
-{#snippet stageStripButton()}
-  <CallTileActionButton
-    icon={stageStripHidden ? 'mdi--arrow-expand-vertical' : 'mdi--arrow-collapse-vertical'}
-    active={stageStripHidden}
-    label={stageStripHidden ? m['voice.show_other_feeds']() : m['voice.hide_other_feeds']()}
-    testId="call-stage-strip-toggle"
-    onclick={toggleStageStrip}
-  />
-{/snippet}
-
-{#snippet mediaTileActions(participant: DisplayParticipant, stageKey: string | null = null)}
+{#snippet mediaTileActions(participant: DisplayParticipant, tile: StageTile | null = null)}
   <CallTileActionToolbar testId="call-media-actions">
-    {#if stageKey && stageTiles.length > 1}
-      {@render stagePinButton(stageKey)}
-    {/if}
-    {#if stageKey && stageKey === featuredStageTile?.key && secondaryStageTiles.length > 0}
-      {@render stageStripButton()}
+    {#if tile && tile.kind !== 'voice'}
+      {@render hideFeedButton(tile)}
     {/if}
     {#if canPopOutFeeds}
       <CallTileActionButton
@@ -633,14 +698,12 @@ Room sidebar panel for voice/video calls.
   </CallTileActionToolbar>
 {/snippet}
 
-{#snippet voiceTileActions(participant: DisplayParticipant, stageKey: string | null = null)}
+{#snippet voiceTileActions(participant: DisplayParticipant, tile: StageTile | null = null)}
   {#if isInThisCall}
     <CallTileActionToolbar testId="call-voice-actions">
-      {#if stageKey && stageTiles.length > 1}
-        {@render stagePinButton(stageKey)}
-      {/if}
-      {#if stageKey && stageKey === featuredStageTile?.key && secondaryStageTiles.length > 0}
-        {@render stageStripButton()}
+      <!-- A hidden feed keeps its card so the switch back is always in reach. -->
+      {#if tile?.hidden}
+        {@render hideFeedButton(tile)}
       {/if}
       {@render localMuteButton(participant)}
       {#if !participant.isLocal}
@@ -697,7 +760,7 @@ Room sidebar panel for voice/video calls.
   label: string,
   actions: 'media' | 'voice' | 'none',
   showIndicators = true,
-  stageKey: string | null = null
+  tile: StageTile | null = null
 )}
   <div class={callTileHeaderClass}>
     <button
@@ -716,25 +779,28 @@ Room sidebar panel for voice/video calls.
     </button>
 
     {#if actions === 'media'}
-      {@render mediaTileActions(participant, stageKey)}
+      {@render mediaTileActions(participant, tile)}
     {:else if actions === 'voice'}
-      {@render voiceTileActions(participant, stageKey)}
+      {@render voiceTileActions(participant, tile)}
     {/if}
   </div>
 {/snippet}
 
-{#snippet participantCard(participant: DisplayParticipant, mode: 'compact' | 'video')}
+{#snippet participantCard(
+  participant: DisplayParticipant,
+  mode: 'compact' | 'video',
+  tile: StageTile | null = null,
+  fill = false
+)}
   {@const showVideo = mode === 'video' && hasVideo(participant)}
   {@const showVoiceActions = isInThisCall && !showVideo}
   {@const actions = showVideo ? 'media' : showVoiceActions ? 'voice' : 'none'}
-  {@const stageKey = isStageLayout
-    ? `${participant.key}:${hasVideo(participant) ? 'video' : 'voice'}`
-    : null}
   {#if isInThisCall}
     <div
       class={[
         callTileCardClass,
-        mode === 'video' ? 'participant-card-video' : 'participant-card-compact'
+        mode === 'video' ? 'participant-card-video' : 'participant-card-compact',
+        fill && 'h-full min-h-0'
       ]}
       {@attach speakingCard(participant.key)}
       title={participantTitle(participant)}
@@ -742,23 +808,23 @@ Room sidebar panel for voice/video calls.
       data-speaking-ring
       data-call-media-card={showVideo ? true : undefined}
     >
-      {@render participantHeader(participant, participant.displayName, actions, true, stageKey)}
+      {@render participantHeader(participant, participant.displayName, actions, true, tile)}
 
       {#if showVideo}
         <button
           type="button"
-          class={callTileMediaButtonClass}
+          class={[callTileMediaButtonClass, fill && 'min-h-0']}
+          title={tile ? stageFocusLabel(tile) : undefined}
+          aria-label={tile ? stageFocusLabel(tile) : undefined}
           data-testid="call-tile-media-button"
-          onclick={stageKey
-            ? (e) => toggleStagePin(stageKey, e)
-            : (e) => showUserMenu(participant, e)}
-          ondblclick={stageKey ? toggleClosestMediaFullscreen : undefined}
+          onclick={tile ? (e) => toggleStageFocus(tile, e) : (e) => showUserMenu(participant, e)}
         >
           <VideoThumbnail
             track={participant.videoTrack!}
             name={participant.displayName}
             user={participant.avatarUser}
             showIdentityOverlay={false}
+            {fill}
           />
         </button>
       {/if}
@@ -786,6 +852,7 @@ Room sidebar panel for voice/video calls.
             name={participant.displayName}
             user={participant.avatarUser}
             showIdentityOverlay={false}
+            {fill}
           />
         </button>
       {/if}
@@ -793,10 +860,17 @@ Room sidebar panel for voice/video calls.
   {/if}
 {/snippet}
 
-{#snippet screenShareCard(participant: DisplayParticipant)}
-  {@const stageKey = isStageLayout ? `${participant.key}:screen` : null}
+{#snippet screenShareCard(
+  participant: DisplayParticipant,
+  tile: StageTile | null = null,
+  fill = false
+)}
   <div
-    class={[callTileCardClass, 'participant-card-video @min-[368px]:col-span-2']}
+    class={[
+      callTileCardClass,
+      'participant-card-video',
+      fill ? 'h-full min-h-0' : '@min-[368px]:col-span-2'
+    ]}
     {@attach isInThisCall && speakingCard(participant.key)}
     title={m['voice.screen_title']({ name: participant.displayName })}
     data-testid="call-screen-share-card"
@@ -808,30 +882,36 @@ Room sidebar panel for voice/video calls.
       m['voice.screen_title']({ name: participant.displayName }),
       'media',
       false,
-      stageKey
+      tile
     )}
-    <button
-      type="button"
-      class={callTileMediaButtonClass}
-      data-testid="call-tile-media-button"
-      onclick={stageKey ? (e) => toggleStagePin(stageKey, e) : (e) => showUserMenu(participant, e)}
-      ondblclick={stageKey ? toggleClosestMediaFullscreen : undefined}
-    >
-      <VideoThumbnail
-        track={participant.screenShareTrack!}
-        name={m['voice.screen_title']({ name: participant.displayName })}
-        user={participant.avatarUser}
-        showIdentityOverlay={false}
-        fit="contain"
-      />
-    </button>
+    {#if tile?.hidden}
+      {@render hiddenFeedBody()}
+    {:else}
+      <button
+        type="button"
+        class={[callTileMediaButtonClass, fill && 'min-h-0']}
+        title={tile ? stageFocusLabel(tile) : undefined}
+        aria-label={tile ? stageFocusLabel(tile) : undefined}
+        data-testid="call-tile-media-button"
+        onclick={tile ? (e) => toggleStageFocus(tile, e) : (e) => showUserMenu(participant, e)}
+      >
+        <VideoThumbnail
+          track={participant.screenShareTrack!}
+          name={m['voice.screen_title']({ name: participant.displayName })}
+          user={participant.avatarUser}
+          showIdentityOverlay={false}
+          fit="contain"
+          {fill}
+        />
+      </button>
+    {/if}
   </div>
 {/snippet}
 
 {#snippet featuredStageCard(tile: StageTile)}
   {@const participant = tile.participant}
-  {@const isScreen = tile.kind === 'screen'}
-  {@const isVideo = tile.kind === 'video'}
+  {@const isScreen = tile.kind === 'screen' && !tile.hidden}
+  {@const isVideo = tile.kind === 'video' && !tile.hidden}
   <div
     class={[callTileCardClass, 'participant-card-video h-full min-h-0']}
     {@attach isInThisCall && speakingCard(participant.key)}
@@ -849,7 +929,7 @@ Room sidebar panel for voice/video calls.
         : participant.displayName,
       isScreen || isVideo ? 'media' : 'voice',
       true,
-      tile.key
+      tile
     )}
     <button
       type="button"
@@ -859,10 +939,15 @@ Room sidebar panel for voice/video calls.
         !isScreen && !isVideo && 'p-6'
       ]}
       data-testid="call-tile-media-button"
-      onclick={(e) => toggleStagePin(tile.key, e)}
-      ondblclick={isScreen || isVideo ? toggleClosestMediaFullscreen : undefined}
+      title={isScreen || isVideo ? stageFocusLabel(tile) : undefined}
+      aria-label={isScreen || isVideo ? stageFocusLabel(tile) : undefined}
+      onclick={isScreen || isVideo
+        ? (e) => toggleStageFocus(tile, e)
+        : (e) => showUserMenu(participant, e)}
     >
-      {#if isScreen}
+      {#if tile.hidden}
+        {@render hiddenFeedBody()}
+      {:else if isScreen}
         <VideoThumbnail
           track={participant.screenShareTrack!}
           name={m['voice.screen_title']({ name: participant.displayName })}
@@ -889,11 +974,16 @@ Room sidebar panel for voice/video calls.
   </div>
 {/snippet}
 
-{#snippet stageTile(tile: StageTile)}
+{#snippet stageTile(tile: StageTile, fill = false)}
   {#if tile.kind === 'screen'}
-    {@render screenShareCard(tile.participant)}
+    {@render screenShareCard(tile.participant, isStageLayout ? tile : null, fill)}
   {:else}
-    {@render participantCard(tile.participant, tile.kind === 'video' ? 'video' : 'compact')}
+    {@render participantCard(
+      tile.participant,
+      tile.kind === 'video' && !tile.hidden ? 'video' : 'compact',
+      isStageLayout ? tile : null,
+      fill
+    )}
   {/if}
 {/snippet}
 
@@ -1071,7 +1161,22 @@ Room sidebar panel for voice/video calls.
     ]}
   >
     {#if !isIdle}
-      {#if isStageLayout && featuredStageTile}
+      {#if isStageLayout && isGridView && stageTiles.length > 0}
+        <section
+          class="flex min-h-0 flex-1 flex-col"
+          aria-label={m['voice.participants']()}
+          data-testid="call-stage-grid"
+        >
+          <div
+            class="grid min-h-0 flex-1 auto-rows-fr grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-3 overflow-y-auto"
+            data-testid="call-grid-stage-list"
+          >
+            {#each stageTiles as tile (tile.key)}
+              {@render stageTile(tile, true)}
+            {/each}
+          </div>
+        </section>
+      {:else if isStageLayout && featuredStageTile}
         <section
           class="flex min-h-0 flex-1 flex-col gap-3"
           aria-label={m['voice.participants']()}
@@ -1081,18 +1186,52 @@ Room sidebar panel for voice/video calls.
             {@render featuredStageCard(featuredStageTile)}
           </div>
 
-          {#if secondaryStageTiles.length > 0 && !stageStripHidden}
-            <div
-              class="flex max-h-[190px] shrink-0 flex-wrap content-start justify-center gap-3 overflow-y-auto"
-              data-testid="call-secondary-stage-list"
-            >
-              {#each secondaryStageTiles as tile (tile.key)}
-                <div class="w-[clamp(180px,22vw,240px)] max-w-full min-w-0">
-                  {@render stageTile(tile)}
+          {#if secondaryStageTiles.length > 0}
+            <div class="flex shrink-0 flex-col items-center gap-1">
+              <button
+                type="button"
+                class="flex cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-sm text-muted transition-colors hover:text-text focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-neutral-action"
+                title={stripCollapsedLabel}
+                aria-label={stripCollapsedLabel}
+                aria-expanded={!callView.collapsedStrip}
+                aria-controls="call-secondary-stage-list"
+                data-testid="call-strip-collapse-button"
+                onclick={() => userPreferences.toggleCallViewPreference('collapsedStrip')}
+              >
+                <span
+                  class={[
+                    'iconify uil--angle-down',
+                    callView.collapsedStrip && 'rotate-180'
+                  ]}
+                  aria-hidden="true"
+                ></span>
+                <span class="iconify uil--users-alt" aria-hidden="true"></span>
+              </button>
+
+              {#if !callView.collapsedStrip}
+                <div
+                  id="call-secondary-stage-list"
+                  class="flex max-h-[190px] w-full shrink-0 flex-wrap content-start justify-center gap-3 overflow-y-auto"
+                  data-testid="call-secondary-stage-list"
+                >
+                  {#each secondaryStageTiles as tile (tile.key)}
+                    <div class="w-[clamp(180px,22vw,240px)] max-w-full min-w-0">
+                      {@render stageTile(tile)}
+                    </div>
+                  {/each}
                 </div>
-              {/each}
+              {/if}
             </div>
           {/if}
+        </section>
+      {:else if isStageLayout}
+        <section
+          class="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 text-center"
+          aria-label={m['voice.participants']()}
+          data-testid="call-stage-empty"
+        >
+          <p class="text-muted">{m['voice.all_feeds_hidden']()}</p>
+          <p class="text-muted">{m['voice.all_feeds_hidden_hint']()}</p>
         </section>
       {:else}
         <section class="@container flex flex-col gap-2" aria-label={m['voice.participants']()}>
@@ -1103,16 +1242,8 @@ Room sidebar panel for voice/video calls.
             ]}
             data-testid="call-participants-list"
           >
-            {#each screenShareParticipants as participant (`${participant.key}:screen`)}
-              {#if hasScreenShare(participant)}
-                {@render screenShareCard(participant)}
-              {/if}
-            {/each}
-            {#each sortedParticipants as participant (participant.key)}
-              {@render participantCard(
-                participant,
-                isInThisCall && hasVideo(participant) ? 'video' : 'compact'
-              )}
+            {#each stageTiles as tile (tile.key)}
+              {@render stageTile(tile)}
             {/each}
           </div>
         </section>

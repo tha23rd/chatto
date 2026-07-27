@@ -38,10 +38,13 @@
     "fullscreen_feed": "Feed im Vollbild",
     "pop_out_feed": "Feed als Bild im Bild",
     "pop_out_failed": "Dieser Feed konnte nicht als Bild im Bild geöffnet werden.",
-    "pin_feed": "Als Haupt-Feed anheften",
-    "unpin_feed": "Haupt-Feed lösen",
-    "hide_other_feeds": "Andere Feeds ausblenden",
-    "show_other_feeds": "Andere Feeds einblenden",
+    "focus_feed": "Diesen Stream fokussieren",
+    "unfocus_feed": "Fokus auf diesen Stream beenden",
+    "view_options": "Ansichtsoptionen",
+    "grid_view": "Rasteransicht",
+    "show_own_camera": "Eigene Kamera anzeigen",
+    "show_non_video_participants": "Teilnehmer ohne Video anzeigen",
+    "show_own_screen_share": "Eigene Bildschirmfreigabe anzeigen",
     "fullscreen_call": "Anruf im Vollbild",
     "exit_fullscreen_call": "Anruf-Vollbild verlassen",
     "locally_mute_participant": "Lokal stummschalten",
@@ -103,6 +106,15 @@
       "error": "Der Mikrofontest konnte nicht gestartet werden. Prüfe die Mikrofonberechtigungen.",
       "headphones_hint": "Verwende Kopfhörer, um ein Echo zu vermeiden.",
       "level": "Eingangspegel"
-    }
+    },
+    "all_feeds_hidden": "Alle Feeds sind ausgeblendet.",
+    "all_feeds_hidden_hint": "Ändere unter „Ansichtsoptionen“, was du siehst.",
+    "feed_not_watched": "Wird nicht angesehen",
+    "hide_own_camera": "Eigene Kamera ausblenden",
+    "hide_own_screen_share": "Eigene Bildschirmfreigabe ausblenden",
+    "hide_participants": "Teilnehmer ausblenden",
+    "show_participants": "Teilnehmer anzeigen",
+    "start_watching_feed": "Ansehen",
+    "stop_watching_feed": "Nicht mehr ansehen"
   }
 }
