@@ -171,6 +171,12 @@
 
 	function ensureStorybookServer(): RegisteredServer {
 		const origin = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
+		// The registry hydrates its server list from localStorage but only creates
+		// stores in init(), which the root layout normally owns. localStorage is
+		// shared by every spec file and story in this origin, so a server another
+		// file registered arrives here already listed and store-less — and the
+		// getStore() below would throw. init() is idempotent and fills that gap.
+		serverRegistry.init();
 		const existingOrigin = serverRegistry.originServer;
 		if (existingOrigin) return existingOrigin;
 
