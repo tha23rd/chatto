@@ -38,10 +38,13 @@
     "fullscreen_feed": "Fullscreen feed",
     "pop_out_feed": "Pop out feed",
     "pop_out_failed": "Could not pop out this feed.",
-    "pin_feed": "Pin as main feed",
-    "unpin_feed": "Unpin main feed",
-    "hide_other_feeds": "Hide other feeds",
-    "show_other_feeds": "Show other feeds",
+    "focus_feed": "Focus this stream",
+    "unfocus_feed": "Stop focusing this stream",
+    "view_options": "View options",
+    "grid_view": "Grid view",
+    "show_own_camera": "Show my own camera",
+    "show_non_video_participants": "Show non-video participants",
+    "show_own_screen_share": "Show my screen share",
     "fullscreen_call": "Fullscreen call",
     "exit_fullscreen_call": "Exit fullscreen call",
     "locally_mute_participant": "Mute locally",
@@ -103,6 +106,15 @@
       "error": "Could not start the mic test. Check microphone permissions.",
       "headphones_hint": "Use headphones to avoid an echo.",
       "level": "Input level"
-    }
+    },
+    "all_feeds_hidden": "All feeds are hidden.",
+    "all_feeds_hidden_hint": "Change what you see in View options.",
+    "feed_not_watched": "Not watching",
+    "hide_own_camera": "Hide my own camera",
+    "hide_own_screen_share": "Hide my screen share",
+    "hide_participants": "Hide participants",
+    "show_participants": "Show participants",
+    "start_watching_feed": "Start watching",
+    "stop_watching_feed": "Stop watching"
   }
 }

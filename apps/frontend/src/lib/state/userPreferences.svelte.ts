@@ -33,18 +33,51 @@ const defaultSoundboardPlayback: SoundboardPlaybackPreferences = {
   muted: false
 };
 
+/**
+ * How the viewer wants call tiles laid out and which of them are worth screen
+ * space. All four are per-device presentation choices: they change nothing for
+ * other participants and publish no media state.
+ *
+ * `grid` lays every tile out at equal size instead of one featured feed above a
+ * secondary strip. The three `show*` flags drop tiles the viewer does not want
+ * to look at — their own camera, their own screen share (they are already
+ * looking at the real thing), and participants with no video at all.
+ *
+ * `collapsedStrip` folds away the secondary strip under the featured feed, giving that
+ * feed the whole stage. It has no effect in grid view, which has no strip.
+ */
+export interface CallViewPreferences {
+  grid: boolean;
+  showOwnCamera: boolean;
+  showNonVideoParticipants: boolean;
+  showOwnScreenShare: boolean;
+  collapsedStrip: boolean;
+}
+
+export type CallViewPreferenceKey = keyof CallViewPreferences;
+
+const defaultCallView: CallViewPreferences = {
+  grid: false,
+  showOwnCamera: true,
+  showNonVideoParticipants: true,
+  showOwnScreenShare: true,
+  collapsedStrip: false
+};
+
 interface Preferences {
   displayTheme: DisplayTheme;
   notificationSound: NotificationSoundId;
   notificationSoundFilters: NotificationSoundFilters;
   soundboardPlayback: SoundboardPlaybackPreferences;
+  callView: CallViewPreferences;
 }
 
 const defaultPreferences: Preferences = {
   displayTheme: 'system',
   notificationSound: defaultSoundId,
   notificationSoundFilters: defaultNotificationSoundFilters,
-  soundboardPlayback: defaultSoundboardPlayback
+  soundboardPlayback: defaultSoundboardPlayback,
+  callView: defaultCallView
 };
 
 const slot = globalSlot('preferences', defaultPreferences, Codecs.json<Preferences>());
@@ -126,6 +159,19 @@ function normalizeSoundboardPlayback(value: unknown): SoundboardPlaybackPreferen
   };
 }
 
+function normalizeCallView(value: unknown): CallViewPreferences {
+  const stored = isRecord(value) ? value : {};
+  const flag = (key: CallViewPreferenceKey): boolean =>
+    typeof stored[key] === 'boolean' ? (stored[key] as boolean) : defaultCallView[key];
+  return {
+    grid: flag('grid'),
+    showOwnCamera: flag('showOwnCamera'),
+    showNonVideoParticipants: flag('showNonVideoParticipants'),
+    showOwnScreenShare: flag('showOwnScreenShare'),
+    collapsedStrip: flag('collapsedStrip')
+  };
+}
+
 function loadPreferences(): Preferences {
   const stored = slot.get();
   // Validate that the stored sound ID is still valid — silently fall back
@@ -139,7 +185,8 @@ function loadPreferences(): Preferences {
     displayTheme,
     notificationSound: isValidSound ? stored.notificationSound : defaultSoundId,
     notificationSoundFilters: normalizeNotificationSoundFilters(stored.notificationSoundFilters),
-    soundboardPlayback: normalizeSoundboardPlayback(stored.soundboardPlayback)
+    soundboardPlayback: normalizeSoundboardPlayback(stored.soundboardPlayback),
+    callView: normalizeCallView(stored.callView)
   };
 }
 
@@ -228,6 +275,23 @@ export class UserPreferencesState {
    */
   get soundboardPlaybackGain(): number {
     return this.#prefs.soundboardPlayback.muted ? 0 : this.#prefs.soundboardPlayback.volume;
+  }
+
+  get callView(): CallViewPreferences {
+    return this.#prefs.callView;
+  }
+
+  set callView(value: CallViewPreferences) {
+    this.#prefs.callView = normalizeCallView(value);
+    slot.set(this.#prefs);
+  }
+
+  setCallViewPreference(key: CallViewPreferenceKey, value: boolean): void {
+    this.callView = { ...this.#prefs.callView, [key]: value };
+  }
+
+  toggleCallViewPreference(key: CallViewPreferenceKey): void {
+    this.setCallViewPreference(key, !this.#prefs.callView[key]);
   }
 }
 
