@@ -38,10 +38,13 @@
     "fullscreen_feed": "全画面フィード",
     "pop_out_feed": "ピクチャーインピクチャーで表示",
     "pop_out_failed": "このフィードをピクチャーインピクチャーで表示できませんでした。",
-    "pin_feed": "メインフィードとして固定",
-    "unpin_feed": "メインフィードの固定を解除",
-    "hide_other_feeds": "他のフィードを非表示",
-    "show_other_feeds": "他のフィードを表示",
+    "focus_feed": "このストリームをフォーカス",
+    "unfocus_feed": "このストリームのフォーカスを解除",
+    "view_options": "表示オプション",
+    "grid_view": "グリッド表示",
+    "show_own_camera": "自分のカメラを表示",
+    "show_non_video_participants": "ビデオなしの参加者を表示",
+    "show_own_screen_share": "自分の画面共有を表示",
     "fullscreen_call": "全画面通話",
     "exit_fullscreen_call": "全画面通話を終了する",
     "locally_mute_participant": "ローカルでミュートします",
@@ -103,6 +106,15 @@
       "error": "マイクテストを開始できませんでした。マイクの権限を確認してください。",
       "headphones_hint": "エコーを防ぐにはヘッドホンを使用してください。",
       "level": "入力レベル"
-    }
+    },
+    "all_feeds_hidden": "すべての映像が非表示です。",
+    "all_feeds_hidden_hint": "表示オプションで表示内容を変更できます。",
+    "feed_not_watched": "視聴していません",
+    "hide_own_camera": "自分のカメラを非表示",
+    "hide_own_screen_share": "自分の画面共有を非表示",
+    "hide_participants": "参加者を非表示",
+    "show_participants": "参加者を表示",
+    "start_watching_feed": "視聴を開始",
+    "stop_watching_feed": "視聴を停止"
   }
 }

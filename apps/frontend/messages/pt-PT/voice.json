@@ -38,10 +38,13 @@
     "fullscreen_feed": "Feed em ecrã inteiro",
     "pop_out_feed": "Feed em imagem sobre imagem",
     "pop_out_failed": "Não foi possível abrir este feed em imagem sobre imagem.",
-    "pin_feed": "Fixar como feed principal",
-    "unpin_feed": "Desafixar o feed principal",
-    "hide_other_feeds": "Ocultar outros feeds",
-    "show_other_feeds": "Mostrar outros feeds",
+    "focus_feed": "Focar nesta transmissão",
+    "unfocus_feed": "Parar de focar nesta transmissão",
+    "view_options": "Opções de visualização",
+    "grid_view": "Vista em grelha",
+    "show_own_camera": "Mostrar a minha câmara",
+    "show_non_video_participants": "Mostrar participantes sem vídeo",
+    "show_own_screen_share": "Mostrar a minha partilha de ecrã",
     "fullscreen_call": "Chamada em ecrã completo",
     "exit_fullscreen_call": "Sair da chamada em modo de ecrã inteiro",
     "locally_mute_participant": "Silenciar localmente",
@@ -103,6 +106,15 @@
       "error": "Não foi possível iniciar o teste do microfone. Verifique as permissões do microfone.",
       "headphones_hint": "Utilize auscultadores para evitar eco.",
       "level": "Nível de entrada"
-    }
+    },
+    "all_feeds_hidden": "Todas as transmissões estão ocultas.",
+    "all_feeds_hidden_hint": "Altere o que vê em Opções de visualização.",
+    "feed_not_watched": "Não está a ser visto",
+    "hide_own_camera": "Ocultar a minha câmara",
+    "hide_own_screen_share": "Ocultar a minha partilha de ecrã",
+    "hide_participants": "Ocultar participantes",
+    "show_participants": "Mostrar participantes",
+    "start_watching_feed": "Ver",
+    "stop_watching_feed": "Parar de ver"
   }
 }

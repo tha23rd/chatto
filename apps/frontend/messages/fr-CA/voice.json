@@ -38,10 +38,13 @@
     "fullscreen_feed": "Flux plein écran",
     "pop_out_feed": "Flux en image dans l'image",
     "pop_out_failed": "Impossible d'afficher ce flux en image dans l'image.",
-    "pin_feed": "Épingler comme flux principal",
-    "unpin_feed": "Désépingler le flux principal",
-    "hide_other_feeds": "Masquer les autres flux",
-    "show_other_feeds": "Afficher les autres flux",
+    "focus_feed": "Mettre ce flux en avant",
+    "unfocus_feed": "Ne plus mettre ce flux en avant",
+    "view_options": "Options d'affichage",
+    "grid_view": "Vue en grille",
+    "show_own_camera": "Afficher ma propre caméra",
+    "show_non_video_participants": "Afficher les participants sans vidéo",
+    "show_own_screen_share": "Afficher mon partage d'écran",
     "fullscreen_call": "Appel en plein écran",
     "exit_fullscreen_call": "Sortir de l'appel en mode plein écran",
     "locally_mute_participant": "Muet localement",
@@ -103,6 +106,15 @@
       "error": "Impossible de démarrer le test du micro. Vérifiez les permissions du microphone.",
       "headphones_hint": "Utilisez des écouteurs pour éviter l'écho.",
       "level": "Niveau d'entrée"
-    }
+    },
+    "all_feeds_hidden": "Tous les flux sont masqués.",
+    "all_feeds_hidden_hint": "Modifiez ce que vous voyez dans Options d'affichage.",
+    "feed_not_watched": "Non regardé",
+    "hide_own_camera": "Masquer ma propre caméra",
+    "hide_own_screen_share": "Masquer mon partage d'écran",
+    "hide_participants": "Masquer les participants",
+    "show_participants": "Afficher les participants",
+    "start_watching_feed": "Regarder",
+    "stop_watching_feed": "Arrêter de regarder"
   }
 }

@@ -38,10 +38,13 @@
     "fullscreen_feed": "Helskärmsflöde",
     "pop_out_feed": "Visa flödet i bild-i-bild",
     "pop_out_failed": "Kunde inte visa flödet i bild-i-bild.",
-    "pin_feed": "Fäst som huvudflöde",
-    "unpin_feed": "Lossa huvudflödet",
-    "hide_other_feeds": "Dölj andra flöden",
-    "show_other_feeds": "Visa andra flöden",
+    "focus_feed": "Fokusera denna ström",
+    "unfocus_feed": "Sluta fokusera denna ström",
+    "view_options": "Visningsalternativ",
+    "grid_view": "Rutnätsvy",
+    "show_own_camera": "Visa min egen kamera",
+    "show_non_video_participants": "Visa deltagare utan video",
+    "show_own_screen_share": "Visa min skärmdelning",
     "fullscreen_call": "Helskärmssamtal",
     "exit_fullscreen_call": "Avsluta helskärmssamtal",
     "locally_mute_participant": "Stäng av ljudet lokalt",
@@ -103,6 +106,15 @@
       "error": "Det gick inte att starta mikrofontestet. Kontrollera mikrofonbehörigheterna.",
       "headphones_hint": "Använd hörlurar för att undvika eko.",
       "level": "Ingångsnivå"
-    }
+    },
+    "all_feeds_hidden": "Alla strömmar är dolda.",
+    "all_feeds_hidden_hint": "Ändra vad du ser under Visningsalternativ.",
+    "feed_not_watched": "Visas inte",
+    "hide_own_camera": "Dölj min egen kamera",
+    "hide_own_screen_share": "Dölj min skärmdelning",
+    "hide_participants": "Dölj deltagare",
+    "show_participants": "Visa deltagare",
+    "start_watching_feed": "Börja titta",
+    "stop_watching_feed": "Sluta titta"
   }
 }

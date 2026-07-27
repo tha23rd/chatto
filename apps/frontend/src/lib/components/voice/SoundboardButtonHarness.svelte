@@ -86,7 +86,9 @@ connection that CI does not have.
       hasScreenShareAudio: false,
       isLocallyMuted: false,
       localVolume: 100,
-      localScreenShareVolume: 100
+      localScreenShareVolume: 100,
+      isCameraWatched: true,
+      isScreenShareWatched: true
     };
   }
 
