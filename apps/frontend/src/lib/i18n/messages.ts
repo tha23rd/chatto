@@ -1131,6 +1131,10 @@ const msg_voice_noise_suppression_unavailable = (): LocalizedString => messages(
 const msg_voice_fullscreen_feed = (): LocalizedString => messages().voice_fullscreen_feed(empty());
 const msg_voice_pop_out_feed = (): LocalizedString => messages().voice_pop_out_feed(empty());
 const msg_voice_pop_out_failed = (): LocalizedString => messages().voice_pop_out_failed(empty());
+const msg_voice_pin_feed = (): LocalizedString => messages().voice_pin_feed(empty());
+const msg_voice_unpin_feed = (): LocalizedString => messages().voice_unpin_feed(empty());
+const msg_voice_hide_other_feeds = (): LocalizedString => messages().voice_hide_other_feeds(empty());
+const msg_voice_show_other_feeds = (): LocalizedString => messages().voice_show_other_feeds(empty());
 const msg_voice_fullscreen_call = (): LocalizedString => messages().voice_fullscreen_call(empty());
 const msg_voice_exit_fullscreen_call = (): LocalizedString => messages().voice_exit_fullscreen_call(empty());
 const msg_voice_locally_mute_participant = (): LocalizedString => messages().voice_locally_mute_participant(empty());
@@ -2788,6 +2792,10 @@ export { msg_voice_noise_suppression_unavailable as 'voice.noise_suppression_una
 export { msg_voice_fullscreen_feed as 'voice.fullscreen_feed' };
 export { msg_voice_pop_out_feed as 'voice.pop_out_feed' };
 export { msg_voice_pop_out_failed as 'voice.pop_out_failed' };
+export { msg_voice_pin_feed as 'voice.pin_feed' };
+export { msg_voice_unpin_feed as 'voice.unpin_feed' };
+export { msg_voice_hide_other_feeds as 'voice.hide_other_feeds' };
+export { msg_voice_show_other_feeds as 'voice.show_other_feeds' };
 export { msg_voice_fullscreen_call as 'voice.fullscreen_call' };
 export { msg_voice_exit_fullscreen_call as 'voice.exit_fullscreen_call' };
 export { msg_voice_locally_mute_participant as 'voice.locally_mute_participant' };
