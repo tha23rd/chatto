@@ -71,9 +71,14 @@ describe('in-call soundboard button', () => {
   });
 
   it('disappears again when the last sound is deleted', async () => {
-    getSoundboard(SERVER_ID).replace([sound('1', 'airhorn')]);
-
     const screen = render(SoundboardButtonHarness, { props: { serverId: SERVER_ID } });
+    await expect.element(screen.getByTestId('call-mute-toggle')).toBeInTheDocument();
+
+    // Seed through activeSoundboard() rather than getSoundboard(SERVER_ID): the harness
+    // reuses whatever origin server the registry already holds, so when an earlier spec
+    // file registered one, the panel reads that server's catalogue and a SERVER_ID seed
+    // lands in a store nothing renders.
+    activeSoundboard().replace([sound('1', 'airhorn')]);
 
     await expect.element(screen.getByTestId('call-soundboard-button')).toBeInTheDocument();
 
