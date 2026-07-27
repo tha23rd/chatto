@@ -67,8 +67,27 @@ describe('resolveScreenShareOptions', () => {
     expect(publish.degradationPreference).toBe('maintain-framerate');
   });
 
+  it('hints detail and maintains resolution for 15 fps shares', () => {
+    // A 15 fps share is documents/code: bits go to sharp text, and frames drop
+    // before resolution when the link degrades.
+    const { capture, publish } = resolveScreenShareOptions(prefs({ framerate: 15 }), CEILING);
+
+    expect(capture.contentHint).toBe('detail');
+    expect(publish.degradationPreference).toBe('maintain-resolution');
+  });
+
   it('disables simulcast to avoid paying for parallel encodes', () => {
     expect(resolveScreenShareOptions(prefs(), CEILING).publish.simulcast).toBe(false);
+  });
+
+  it('publishes VP9 with temporal-only scalability', () => {
+    const { publish } = resolveScreenShareOptions(prefs(), CEILING);
+
+    expect(publish.videoCodec).toBe('vp9');
+    // L1T3 keeps one full-resolution spatial layer: the L3T3_KEY default would
+    // downscale text-heavy content and add multi-layer encodings the live
+    // retune path cannot handle.
+    expect(publish.scalabilityMode).toBe('L1T3');
   });
 
   it('clamps bitrate to a lower server ceiling while keeping the requested framerate', () => {

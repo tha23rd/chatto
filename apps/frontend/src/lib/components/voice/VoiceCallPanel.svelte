@@ -189,14 +189,24 @@ Room sidebar panel for voice/video calls.
     }))
   );
   let stageTiles = $derived([...screenShareTiles, ...participantTiles]);
+  // Viewer-local stage pin: which tile stays featured in the maximized layout.
+  // Scoped to the room so a leftover pin cannot select a tile in a later call in
+  // another room. While the pinned feed is absent the automatic pick below takes
+  // over; the pin re-applies if the same feed comes back.
+  let pinnedStage = $state<{ roomId: string; key: string } | null>(null);
+  let pinnedStageKey = $derived(pinnedStage?.roomId === roomId ? pinnedStage.key : null);
   let featuredStageTile = $derived(
-    screenShareTiles[0] ??
+    stageTiles.find((tile) => tile.key === pinnedStageKey) ??
+      screenShareTiles[0] ??
       participantTiles.find((tile) => tile.kind === 'video') ??
       participantTiles[0]
   );
   let secondaryStageTiles = $derived(
     featuredStageTile ? stageTiles.filter((tile) => tile.key !== featuredStageTile.key) : []
   );
+  // "Minimize other streams": collapse the secondary strip so the featured feed
+  // gets the whole stage. Viewer-local and session-only, like the pin.
+  let stageStripHidden = $state(false);
   let isIdle = $derived(!hasActiveCall && !isInThisCall);
   let joinLabel = $derived.by(() => {
     if (isConnecting) return hasActiveCall ? m['voice.joining']() : m['voice.starting']();
@@ -499,6 +509,41 @@ Room sidebar panel for voice/video calls.
     void toggleFullscreenElement(mediaCard);
   }
 
+  function toggleStagePin(key: string, event: MouseEvent): void {
+    event.stopPropagation();
+    pinnedStage = pinnedStageKey === key ? null : { roomId, key };
+  }
+
+  function toggleStageStrip(event: MouseEvent): void {
+    event.stopPropagation();
+    stageStripHidden = !stageStripHidden;
+  }
+
+  // Esc backs out of the stage one layer at a time: restore the hidden strip
+  // first, then unpin. Otherwise the event is left unconsumed so Room-level Esc
+  // handling (mobile sidebar, threads) still runs; open popovers and browser
+  // fullscreen keep their own Esc semantics.
+  function onStageKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || !isStageLayout || event.defaultPrevented) return;
+    if (typeof document !== 'undefined' && document.fullscreenElement) return;
+    if (
+      deviceMenuAnchor ||
+      popoverParticipant ||
+      volumePopoverKey ||
+      soundboardAnchor ||
+      streamQualityAnchor
+    ) {
+      return;
+    }
+    if (stageStripHidden) {
+      event.preventDefault();
+      stageStripHidden = false;
+    } else if (pinnedStageKey) {
+      event.preventDefault();
+      pinnedStage = null;
+    }
+  }
+
   function toggleFeedMute(participant: DisplayParticipant, event: MouseEvent): void {
     event.stopPropagation();
     if (participant.isLocal) {
@@ -508,6 +553,8 @@ Room sidebar panel for voice/video calls.
     }
   }
 </script>
+
+<svelte:window onkeydown={onStageKeydown} />
 
 {#snippet localMuteButton(participant: DisplayParticipant)}
   {@const isMutedForViewer = participant.isLocal
@@ -528,8 +575,35 @@ Room sidebar panel for voice/video calls.
   />
 {/snippet}
 
-{#snippet mediaTileActions(participant: DisplayParticipant)}
+{#snippet stagePinButton(stageKey: string)}
+  {@const isPinned = pinnedStageKey === stageKey}
+  <CallTileActionButton
+    icon={isPinned ? 'mdi--pin-off' : 'mdi--pin'}
+    active={isPinned}
+    label={isPinned ? m['voice.unpin_feed']() : m['voice.pin_feed']()}
+    testId="call-feed-pin-button"
+    onclick={(event) => toggleStagePin(stageKey, event)}
+  />
+{/snippet}
+
+{#snippet stageStripButton()}
+  <CallTileActionButton
+    icon={stageStripHidden ? 'mdi--arrow-expand-vertical' : 'mdi--arrow-collapse-vertical'}
+    active={stageStripHidden}
+    label={stageStripHidden ? m['voice.show_other_feeds']() : m['voice.hide_other_feeds']()}
+    testId="call-stage-strip-toggle"
+    onclick={toggleStageStrip}
+  />
+{/snippet}
+
+{#snippet mediaTileActions(participant: DisplayParticipant, stageKey: string | null = null)}
   <CallTileActionToolbar testId="call-media-actions">
+    {#if stageKey && stageTiles.length > 1}
+      {@render stagePinButton(stageKey)}
+    {/if}
+    {#if stageKey && stageKey === featuredStageTile?.key && secondaryStageTiles.length > 0}
+      {@render stageStripButton()}
+    {/if}
     {#if canPopOutFeeds}
       <CallTileActionButton
         icon="mdi--picture-in-picture-bottom-right"
@@ -559,9 +633,15 @@ Room sidebar panel for voice/video calls.
   </CallTileActionToolbar>
 {/snippet}
 
-{#snippet voiceTileActions(participant: DisplayParticipant)}
+{#snippet voiceTileActions(participant: DisplayParticipant, stageKey: string | null = null)}
   {#if isInThisCall}
     <CallTileActionToolbar testId="call-voice-actions">
+      {#if stageKey && stageTiles.length > 1}
+        {@render stagePinButton(stageKey)}
+      {/if}
+      {#if stageKey && stageKey === featuredStageTile?.key && secondaryStageTiles.length > 0}
+        {@render stageStripButton()}
+      {/if}
       {@render localMuteButton(participant)}
       {#if !participant.isLocal}
         <CallTileActionButton
@@ -616,7 +696,8 @@ Room sidebar panel for voice/video calls.
   participant: DisplayParticipant,
   label: string,
   actions: 'media' | 'voice' | 'none',
-  showIndicators = true
+  showIndicators = true,
+  stageKey: string | null = null
 )}
   <div class={callTileHeaderClass}>
     <button
@@ -635,9 +716,9 @@ Room sidebar panel for voice/video calls.
     </button>
 
     {#if actions === 'media'}
-      {@render mediaTileActions(participant)}
+      {@render mediaTileActions(participant, stageKey)}
     {:else if actions === 'voice'}
-      {@render voiceTileActions(participant)}
+      {@render voiceTileActions(participant, stageKey)}
     {/if}
   </div>
 {/snippet}
@@ -646,6 +727,9 @@ Room sidebar panel for voice/video calls.
   {@const showVideo = mode === 'video' && hasVideo(participant)}
   {@const showVoiceActions = isInThisCall && !showVideo}
   {@const actions = showVideo ? 'media' : showVoiceActions ? 'voice' : 'none'}
+  {@const stageKey = isStageLayout
+    ? `${participant.key}:${hasVideo(participant) ? 'video' : 'voice'}`
+    : null}
   {#if isInThisCall}
     <div
       class={[
@@ -658,13 +742,17 @@ Room sidebar panel for voice/video calls.
       data-speaking-ring
       data-call-media-card={showVideo ? true : undefined}
     >
-      {@render participantHeader(participant, participant.displayName, actions)}
+      {@render participantHeader(participant, participant.displayName, actions, true, stageKey)}
 
       {#if showVideo}
         <button
           type="button"
           class={callTileMediaButtonClass}
-          onclick={(e) => showUserMenu(participant, e)}
+          data-testid="call-tile-media-button"
+          onclick={stageKey
+            ? (e) => toggleStagePin(stageKey, e)
+            : (e) => showUserMenu(participant, e)}
+          ondblclick={stageKey ? toggleClosestMediaFullscreen : undefined}
         >
           <VideoThumbnail
             track={participant.videoTrack!}
@@ -706,6 +794,7 @@ Room sidebar panel for voice/video calls.
 {/snippet}
 
 {#snippet screenShareCard(participant: DisplayParticipant)}
+  {@const stageKey = isStageLayout ? `${participant.key}:screen` : null}
   <div
     class={[callTileCardClass, 'participant-card-video @min-[368px]:col-span-2']}
     {@attach isInThisCall && speakingCard(participant.key)}
@@ -718,12 +807,15 @@ Room sidebar panel for voice/video calls.
       participant,
       m['voice.screen_title']({ name: participant.displayName }),
       'media',
-      false
+      false,
+      stageKey
     )}
     <button
       type="button"
       class={callTileMediaButtonClass}
-      onclick={(e) => showUserMenu(participant, e)}
+      data-testid="call-tile-media-button"
+      onclick={stageKey ? (e) => toggleStagePin(stageKey, e) : (e) => showUserMenu(participant, e)}
+      ondblclick={stageKey ? toggleClosestMediaFullscreen : undefined}
     >
       <VideoThumbnail
         track={participant.screenShareTrack!}
@@ -756,7 +848,8 @@ Room sidebar panel for voice/video calls.
         ? m['voice.screen_title']({ name: participant.displayName })
         : participant.displayName,
       isScreen || isVideo ? 'media' : 'voice',
-      true
+      true,
+      tile.key
     )}
     <button
       type="button"
@@ -765,7 +858,9 @@ Room sidebar panel for voice/video calls.
         'min-h-0 items-center justify-center',
         !isScreen && !isVideo && 'p-6'
       ]}
-      onclick={(e) => showUserMenu(participant, e)}
+      data-testid="call-tile-media-button"
+      onclick={(e) => toggleStagePin(tile.key, e)}
+      ondblclick={isScreen || isVideo ? toggleClosestMediaFullscreen : undefined}
     >
       {#if isScreen}
         <VideoThumbnail
@@ -805,7 +900,7 @@ Room sidebar panel for voice/video calls.
 {#snippet callControls()}
   {#if isInThisCall}
     <div class={isStageLayout ? 'mx-auto max-w-2xl' : ''}>
-      <div class="grid grid-cols-6 gap-2">
+      <div class="grid grid-flow-col auto-cols-fr gap-2">
         <button
           type="button"
           class={controlButtonClass}
@@ -986,7 +1081,7 @@ Room sidebar panel for voice/video calls.
             {@render featuredStageCard(featuredStageTile)}
           </div>
 
-          {#if secondaryStageTiles.length > 0}
+          {#if secondaryStageTiles.length > 0 && !stageStripHidden}
             <div
               class="flex max-h-[190px] shrink-0 flex-wrap content-start justify-center gap-3 overflow-y-auto"
               data-testid="call-secondary-stage-list"

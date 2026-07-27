@@ -216,14 +216,16 @@ export const SHARED_AUDIO_CAPTURE_CONSTRAINTS = {
 export type ResolvedScreenShareOptions = {
   capture: {
     resolution: { width: number; height: number; frameRate: number };
-    contentHint: 'motion';
+    contentHint: 'motion' | 'detail';
     audio: false | typeof SHARED_AUDIO_CAPTURE_CONSTRAINTS;
     systemAudio: 'include' | 'exclude';
   };
   publish: {
     screenShareEncoding: { maxBitrate: number; maxFramerate: number };
-    degradationPreference: 'maintain-framerate';
+    degradationPreference: 'maintain-framerate' | 'maintain-resolution';
     simulcast: false;
+    videoCodec: 'vp9';
+    scalabilityMode: 'L1T3';
   };
   /** The bitrate actually published, after the ceiling clamp — surfaced in the picker. */
   effectiveBitrate: number;
@@ -235,6 +237,8 @@ export type ResolvedScreenShareOptions = {
  * The ceiling clamps every axis independently: a 1080p60 preference on a server capped at
  * 4 Mbps still publishes 1080p60, but at 4 Mbps — the encoder then honours
  * `degradationPreference: 'maintain-framerate'` and sheds resolution to stay smooth.
+ * 15 fps shares invert that bias: `detail` content hint plus `maintain-resolution`,
+ * so text stays sharp and frames drop first.
  */
 export function resolveScreenShareOptions(
   prefs: ScreenShareQualityPrefs,
@@ -247,6 +251,11 @@ export function resolveScreenShareOptions(
     requiredBitrate(clamped.resolution, clamped.framerate),
     ceiling.maxBitrate
   );
+  // A 15 fps share is documents/code, not gameplay: hint `detail` so the
+  // encoder spends bits on sharp text instead of smooth motion, and shed
+  // frames before resolution under pressure. Faster shares keep the motion
+  // bias below and the maintain-framerate degradation.
+  const isDetailContent = frameRate <= 15;
 
   return {
     capture: {
@@ -255,14 +264,24 @@ export function resolveScreenShareOptions(
         height: Math.min(height, ceiling.maxHeight),
         frameRate
       },
-      contentHint: 'motion',
+      contentHint: isDetailContent ? 'detail' : 'motion',
       audio: clamped.shareAudio ? SHARED_AUDIO_CAPTURE_CONSTRAINTS : false,
       systemAudio: clamped.shareAudio ? 'include' : 'exclude'
     },
     publish: {
       screenShareEncoding: { maxBitrate: effectiveBitrate, maxFramerate: frameRate },
-      degradationPreference: 'maintain-framerate',
-      simulcast: false
+      degradationPreference: isDetailContent ? 'maintain-resolution' : 'maintain-framerate',
+      simulcast: false,
+      // VP9 beats the VP8 default on quality per bit, which matters most for the
+      // text-heavy content screen shares carry. If the LiveKit server does not
+      // allow VP9, livekit-client falls back to the server-selected codec at
+      // publish time and recomputes encodings.
+      videoCodec: 'vp9',
+      // Temporal-only scalability: without this, livekit-client defaults SVC
+      // codecs to L3T3_KEY, whose extra spatial layers downscale exactly the
+      // content this module works to keep sharp — and whose multi-layer
+      // encodings would break the single-encoding retune in voiceCall.svelte.ts.
+      scalabilityMode: 'L1T3'
     },
     effectiveBitrate
   };
