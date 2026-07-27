@@ -792,7 +792,7 @@ Room sidebar panel for voice/video calls.
 {#snippet callControls()}
   {#if isInThisCall}
     <div class={isStageLayout ? 'mx-auto max-w-2xl' : ''}>
-      <div class="grid grid-cols-6 gap-2">
+      <div class="grid grid-flow-col auto-cols-fr gap-2">
         <button
           type="button"
           class={controlButtonClass}
