@@ -254,7 +254,20 @@ async function typeInEditor(editor: HTMLElement, text: string) {
   editor.focus();
   document.execCommand('selectAll');
   document.execCommand('insertText', false, text);
-  await vi.waitFor(() => expect(editor.textContent).toBe(text));
+  // `textContent` alone is not enough to say the editor is ready. execCommand edits the
+  // DOM directly, and ProseMirror only adopts that edit into its own document when its
+  // DOMObserver flushes, which it debounces by 20ms. Until then `state.selection` still
+  // points at the pre-edit caret, and — because `flush()` returns early while a flush is
+  // pending — a selection change made in the meantime is dropped rather than queued, so a
+  // caller that selects and pastes replaces nothing. Waiting for the Placeholder
+  // extension's `is-empty` decoration to clear proves the flush ran, because decorations
+  // are only recomputed inside a ProseMirror transaction. That signal exists only when the
+  // editor starts empty, which covers every caller that renders a fresh composer; one that
+  // types over a restored draft has no `is-empty` to lose and keeps the text check alone.
+  await vi.waitFor(() => {
+    expect(editor.textContent).toBe(text);
+    expect(editor.querySelector('.is-empty')).toBeNull();
+  });
 }
 
 async function typeEditorKeys(editor: HTMLElement, text: string) {
