@@ -540,7 +540,8 @@ export class VoiceCallState {
       }
 
       const params = sender.getParameters();
-      // simulcast is off for screen share, so there is exactly one encoding to retune.
+      // simulcast is off and SVC is temporal-only (L1T3) for screen share, so
+      // there is exactly one encoding to retune.
       if (params.encodings.length === 0) {
         this.screenShareRetuneFailed = true;
         return;
