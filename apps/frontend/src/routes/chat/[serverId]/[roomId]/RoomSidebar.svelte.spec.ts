@@ -10,6 +10,7 @@ import type { RoomData } from '$lib/hooks/useRoomData.svelte';
 import { PresenceStatus } from '$lib/render/types';
 import { RoomKind } from '@chatto/api-types/api/v1/rooms_pb';
 import RoomSidebarTestHarness from './RoomSidebarTestHarness.svelte';
+import { userPreferences } from '$lib/state/userPreferences.svelte';
 
 const queryMock = vi.hoisted(() => vi.fn());
 const memberDirectoryMocks = vi.hoisted(() => ({
@@ -2036,5 +2037,63 @@ describe('RoomSidebar', () => {
     await tick();
 
     expect(container.textContent).not.toContain('Ban from room');
+  });
+});
+
+describe('call view options', () => {
+  beforeEach(() => {
+    userPreferences.callView = {
+      grid: false,
+      showOwnCamera: true,
+      showNonVideoParticipants: true,
+      showOwnScreenShare: true,
+      collapsedStrip: false
+    };
+  });
+
+  function renderCallPane(maximized: boolean) {
+    return render(RoomSidebarTestHarness, {
+      props: {
+        activePanel: 'call',
+        hasActiveCall: true,
+        livekitUrl: 'wss://livekit.example.test',
+        roomData: roomData([member(1)], 1, false),
+        maximized
+      }
+    });
+  }
+
+  it('offers view options only while the call is maximised', async () => {
+    // The options describe the stage layout, which only exists when maximised;
+    // offering them in the narrow sidebar would leave an inert control.
+    const { container } = renderCallPane(false);
+    await tick();
+    expect(container.querySelector('[aria-label="View options"]')).toBeFalsy();
+
+    const maximisedPane = renderCallPane(true);
+    await tick();
+    expect(maximisedPane.container.querySelector('[aria-label="View options"]')).toBeTruthy();
+  });
+
+  it('applies a choice made from the header menu', async () => {
+    // Covers the wiring end to end: the options tests elsewhere drive the
+    // preference store directly, so only this catches a broken button or menu.
+    const { container } = renderCallPane(true);
+    await tick();
+
+    const button = container.querySelector('[aria-label="View options"]') as HTMLButtonElement;
+    button.click();
+    await tick();
+
+    const grid = document.querySelector(
+      '[data-testid="call-view-option-grid"]'
+    ) as HTMLButtonElement | null;
+    expect(grid).toBeTruthy();
+    expect(grid!.getAttribute('aria-checked')).toBe('false');
+
+    grid!.click();
+    await tick();
+
+    expect(userPreferences.callView.grid).toBe(true);
   });
 });

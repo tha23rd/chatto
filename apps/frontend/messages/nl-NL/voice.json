@@ -38,10 +38,13 @@
     "fullscreen_feed": "Feed op volledig scherm",
     "pop_out_feed": "Feed in beeld-in-beeld",
     "pop_out_failed": "Kan deze feed niet in beeld-in-beeld openen.",
-    "pin_feed": "Als hoofdfeed vastzetten",
-    "unpin_feed": "Hoofdfeed losmaken",
-    "hide_other_feeds": "Andere feeds verbergen",
-    "show_other_feeds": "Andere feeds tonen",
+    "focus_feed": "Deze stream uitlichten",
+    "unfocus_feed": "Deze stream niet meer uitlichten",
+    "view_options": "Weergaveopties",
+    "grid_view": "Rasterweergave",
+    "show_own_camera": "Mijn eigen camera tonen",
+    "show_non_video_participants": "Deelnemers zonder video tonen",
+    "show_own_screen_share": "Mijn schermdeling tonen",
     "fullscreen_call": "Gesprek op volledig scherm",
     "exit_fullscreen_call": "Gesprek op volledig scherm afsluiten",
     "locally_mute_participant": "Lokaal dempen",
@@ -103,6 +106,15 @@
       "error": "Kan de microfoontest niet starten. Controleer je microfoonrechten.",
       "headphones_hint": "Gebruik een koptelefoon om een echo te voorkomen.",
       "level": "Invoerniveau"
-    }
+    },
+    "all_feeds_hidden": "Alle streams zijn verborgen.",
+    "all_feeds_hidden_hint": "Wijzig wat je ziet bij Weergaveopties.",
+    "feed_not_watched": "Wordt niet bekeken",
+    "hide_own_camera": "Mijn eigen camera verbergen",
+    "hide_own_screen_share": "Mijn schermdeling verbergen",
+    "hide_participants": "Deelnemers verbergen",
+    "show_participants": "Deelnemers tonen",
+    "start_watching_feed": "Beginnen met kijken",
+    "stop_watching_feed": "Stoppen met kijken"
   }
 }

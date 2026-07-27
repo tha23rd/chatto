@@ -38,10 +38,13 @@
     "fullscreen_feed": "Kanał pełnoekranowy",
     "pop_out_feed": "Obraz w obrazie",
     "pop_out_failed": "Nie udało się otworzyć tego obrazu w obrazie.",
-    "pin_feed": "Przypnij jako główny kanał",
-    "unpin_feed": "Odepnij główny kanał",
-    "hide_other_feeds": "Ukryj pozostałe kanały",
-    "show_other_feeds": "Pokaż pozostałe kanały",
+    "focus_feed": "Wyróżnij ten strumień",
+    "unfocus_feed": "Przestań wyróżniać ten strumień",
+    "view_options": "Opcje widoku",
+    "grid_view": "Widok siatki",
+    "show_own_camera": "Pokaż moją kamerę",
+    "show_non_video_participants": "Pokaż uczestników bez wideo",
+    "show_own_screen_share": "Pokaż moje udostępnianie ekranu",
     "fullscreen_call": "Rozmowa na pełnym ekranie",
     "exit_fullscreen_call": "Zakończ połączenie pełnoekranowe",
     "locally_mute_participant": "Wycisz lokalnie",
@@ -103,6 +106,15 @@
       "error": "Nie można było uruchomić testu mikrofonu. Sprawdź uprawnienia mikrofonu.",
       "headphones_hint": "Użyj słuchawek, aby uniknąć echa.",
       "level": "Poziom wejściowy"
-    }
+    },
+    "all_feeds_hidden": "Wszystkie transmisje są ukryte.",
+    "all_feeds_hidden_hint": "Zmień to, co widzisz, w Opcjach widoku.",
+    "feed_not_watched": "Nieoglądane",
+    "hide_own_camera": "Ukryj moją kamerę",
+    "hide_own_screen_share": "Ukryj moje udostępnianie ekranu",
+    "hide_participants": "Ukryj uczestników",
+    "show_participants": "Pokaż uczestników",
+    "start_watching_feed": "Zacznij oglądać",
+    "stop_watching_feed": "Przestań oglądać"
   }
 }

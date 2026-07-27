@@ -76,7 +76,18 @@ export type CallParticipantInfo = {
    * down the voice explaining it. Local participant is always 100.
    */
   localScreenShareVolume: number;
+  /** Whether this viewer is watching this participant's camera. Always true for the local participant. */
+  isCameraWatched: boolean;
+  /** Whether this viewer is watching this participant's screen share. Always true for the local participant. */
+  isScreenShareWatched: boolean;
 };
+
+/** The two pictures a participant can publish, each of which a viewer can stop watching. */
+export type FeedSurface = 'camera' | 'screen';
+
+function feedKey(identity: string, surface: FeedSurface): string {
+  return `${identity}:${surface}`;
+}
 
 /** Non-reactive audio level snapshot, read imperatively by the UI at ~60ms. */
 export type AudioLevelInfo = {
@@ -326,6 +337,11 @@ export class VoiceCallState {
   // Remote participants locally muted by this browser session only.
   locallyMutedParticipantIds = $state<Record<string, boolean>>({});
 
+  // Feeds this viewer has stopped watching, keyed `${identity}:${surface}`. Session-only:
+  // the reason for dropping one person's picture rarely outlives the call, so unlike the
+  // volume maps this is deliberately not persisted. Absent key == watching.
+  unwatchedFeeds = $state<Record<string, boolean>>({});
+
   // Per-participant playback volume (percent 0-100) for this viewer. Absent key == default 100.
   // Persisted per-server across leave/rejoin; keyed by LiveKit participant identity.
   participantVolumes = $state<Record<string, number>>({});
@@ -560,6 +576,16 @@ export class VoiceCallState {
         frameRate: capture.resolution.frameRate
       });
 
+      // The content hint is part of the same quality decision as the degradation
+      // preference below (see resolveScreenShareOptions), so a retune that moves
+      // between the detail and motion profiles has to move both. Leaving it at the
+      // value chosen when capture started would tell the encoder to optimise for
+      // motion while the sender is asked to preserve resolution, or vice versa.
+      const retunedTrack = track.mediaStreamTrack;
+      if (retunedTrack && 'contentHint' in retunedTrack) {
+        retunedTrack.contentHint = capture.contentHint;
+      }
+
       const sender = track.sender;
       if (!sender) {
         this.screenShareRetuneFailed = true;
@@ -667,6 +693,36 @@ export class VoiceCallState {
       this.locallyMutedParticipantIds = remaining;
     }
     this.applyParticipantAudioVolume(identity);
+    this.updateParticipants();
+  }
+
+  /**
+   * Whether this viewer is watching a participant's camera or screen share.
+   *
+   * "Not watching" is stronger than hiding the tile: the track is unsubscribed, so the
+   * server stops sending it, and screen-share audio is silenced with it. The sharer's
+   * voice is untouched — that is what a local mute is for.
+   */
+  isFeedWatched(identity: string, surface: FeedSurface): boolean {
+    return !this.unwatchedFeeds[feedKey(identity, surface)];
+  }
+
+  toggleFeedWatched(identity: string, surface: FeedSurface): void {
+    if (!this.room || identity === this.room.localParticipant.identity) return;
+
+    const key = feedKey(identity, surface);
+    if (this.unwatchedFeeds[key]) {
+      // Keep the map sparse: absent key == watching.
+      const { [key]: _removed, ...remaining } = this.unwatchedFeeds;
+      void _removed;
+      this.unwatchedFeeds = remaining;
+    } else {
+      this.unwatchedFeeds = { ...this.unwatchedFeeds, [key]: true };
+    }
+    this.applyFeedSubscriptions(identity);
+    // Screen-share audio rides on the same decision, and routing it through the existing
+    // fader means the viewer's own stream volume comes back untouched when they resume.
+    if (surface === 'screen') this.applyParticipantAudioVolume(identity);
     this.updateParticipants();
   }
 
@@ -1757,6 +1813,9 @@ export class VoiceCallState {
     this.isCameraEnabled = isParticipantCameraEnabled(this.room.localParticipant);
     this.isScreenShareEnabled = isParticipantScreenShareEnabled(this.room.localParticipant);
     this.applyAllParticipantAudioVolumes();
+    // A feed stopped earlier must stay stopped when its publication changes or arrives
+    // late, so re-assert subscriptions whenever the participant set is rebuilt.
+    this.applyAllFeedSubscriptions();
     // Deafen / local-mute changes flow through here; keep soundboard tracks in
     // step so muting someone also silences their sounds.
     this.applyAllSoundboardTrackVolumes();
@@ -1782,9 +1841,52 @@ export class VoiceCallState {
         hasScreenShareAudio: !isLocal && isParticipantScreenShareAudioPublished(p),
         isLocallyMuted: !isLocal && this.isParticipantLocallyMuted(p.identity),
         localVolume: isLocal ? 100 : this.getParticipantVolume(p.identity),
-        localScreenShareVolume: isLocal ? 100 : this.getParticipantScreenShareVolume(p.identity)
+        localScreenShareVolume: isLocal ? 100 : this.getParticipantScreenShareVolume(p.identity),
+        // Your own preview is never unsubscribed; there is nothing to stop watching.
+        isCameraWatched: isLocal || this.isFeedWatched(p.identity, 'camera'),
+        isScreenShareWatched: isLocal || this.isFeedWatched(p.identity, 'screen')
       };
     });
+  }
+
+  /**
+   * Subscribe or unsubscribe a participant's pictures to match what this viewer is
+   * watching.
+   *
+   * `setSubscribed` rather than `setEnabled`: the room runs with `adaptiveStream`, which
+   * owns the enabled flag for video and would overwrite a manual change on the next
+   * visibility calculation. Unsubscribing is also the honest expression of "stop
+   * watching" — the server stops sending the track rather than sending it to a paused
+   * element. Resuming costs a renegotiation and a keyframe, hence the brief black frame.
+   */
+  private applyFeedSubscriptions(identity: string): void {
+    const participant = this.room?.remoteParticipants.get(identity);
+    if (!participant) return;
+
+    const watchCamera = this.isFeedWatched(identity, 'camera');
+    const watchScreen = this.isFeedWatched(identity, 'screen');
+    for (const publication of participant.getTrackPublications()) {
+      let wanted: boolean;
+      if (publication.source === Track.Source.Camera) wanted = watchCamera;
+      // Screen-share audio follows the picture: stopping a stream stops its sound too.
+      else if (
+        publication.source === Track.Source.ScreenShare ||
+        publication.source === Track.Source.ScreenShareAudio
+      )
+        wanted = watchScreen;
+      else continue;
+
+      const remote = publication as RemoteTrackPublication;
+      if (typeof remote.setSubscribed !== 'function') continue;
+      if (remote.isSubscribed !== wanted) remote.setSubscribed(wanted);
+    }
+  }
+
+  private applyAllFeedSubscriptions(): void {
+    if (!this.room) return;
+    for (const identity of this.room.remoteParticipants.keys()) {
+      this.applyFeedSubscriptions(identity);
+    }
   }
 
   private applyAllParticipantAudioVolumes(): void {
@@ -2131,7 +2233,7 @@ function parseParticipantMetadata(metadata: string | undefined): ParticipantMeta
 
 function isParticipantMuted(participant: Participant): boolean {
   for (const pub of participant.getTrackPublications()) {
-    if (pub.track?.source === Track.Source.Microphone) {
+    if (pub.source === Track.Source.Microphone) {
       return pub.isMuted;
     }
   }
@@ -2139,9 +2241,17 @@ function isParticipantMuted(participant: Participant): boolean {
   return true;
 }
 
+/**
+ * Whether a participant is publishing this surface right now.
+ *
+ * Read from the publication's own source rather than `pub.track?.source`: an unsubscribed
+ * publication has no track, and a viewer who stopped watching — or `adaptiveStream`
+ * dropping an off-screen video — must not be mistaken for the participant switching their
+ * camera or screen off.
+ */
 function isParticipantCameraEnabled(participant: Participant): boolean {
   for (const pub of participant.getTrackPublications()) {
-    if (pub.track?.source === Track.Source.Camera) {
+    if (pub.source === Track.Source.Camera) {
       return !pub.isMuted;
     }
   }
@@ -2150,8 +2260,10 @@ function isParticipantCameraEnabled(participant: Participant): boolean {
 
 function getParticipantCameraTrack(participant: Participant): Track | null {
   for (const pub of participant.getTrackPublications()) {
-    if (pub.track?.source === Track.Source.Camera && !pub.isMuted) {
-      return pub.track;
+    if (pub.source === Track.Source.Camera && !pub.isMuted) {
+      // Undefined once the publication is unsubscribed; the caller treats that as "no
+      // picture to show" while `is…Enabled` still reports that they are publishing.
+      return pub.track ?? null;
     }
   }
   return null;
@@ -2159,7 +2271,7 @@ function getParticipantCameraTrack(participant: Participant): Track | null {
 
 function isParticipantScreenShareEnabled(participant: Participant): boolean {
   for (const pub of participant.getTrackPublications()) {
-    if (pub.track?.source === Track.Source.ScreenShare) {
+    if (pub.source === Track.Source.ScreenShare) {
       return !pub.isMuted;
     }
   }
@@ -2168,8 +2280,10 @@ function isParticipantScreenShareEnabled(participant: Participant): boolean {
 
 function getParticipantScreenShareTrack(participant: Participant): Track | null {
   for (const pub of participant.getTrackPublications()) {
-    if (pub.track?.source === Track.Source.ScreenShare && !pub.isMuted) {
-      return pub.track;
+    if (pub.source === Track.Source.ScreenShare && !pub.isMuted) {
+      // Undefined once the publication is unsubscribed; the caller treats that as "no
+      // picture to show" while `is…Enabled` still reports that they are publishing.
+      return pub.track ?? null;
     }
   }
   return null;
@@ -2183,7 +2297,7 @@ function getParticipantScreenShareTrack(participant: Participant): Track | null 
  */
 function isParticipantScreenShareAudioPublished(participant: Participant): boolean {
   for (const pub of participant.getTrackPublications()) {
-    if (pub.track?.source === Track.Source.ScreenShareAudio && !pub.isMuted) {
+    if (pub.source === Track.Source.ScreenShareAudio && !pub.isMuted) {
       return true;
     }
   }

@@ -38,10 +38,13 @@
     "fullscreen_feed": "Plenekrana fluo",
     "pop_out_feed": "Bildo en bildo",
     "pop_out_failed": "Ne eblis montri ĉi tiun fluon kiel bildon en bildo.",
-    "pin_feed": "Alpingli kiel ĉefan fluon",
-    "unpin_feed": "Malpingli la ĉefan fluon",
-    "hide_other_feeds": "Kaŝi aliajn fluojn",
-    "show_other_feeds": "Montri aliajn fluojn",
+    "focus_feed": "Fokusi ĉi tiun fluon",
+    "unfocus_feed": "Ĉesi fokusi ĉi tiun fluon",
+    "view_options": "Vidaj agordoj",
+    "grid_view": "Krada vido",
+    "show_own_camera": "Montri mian propran fotilon",
+    "show_non_video_participants": "Montri partoprenantojn sen video",
+    "show_own_screen_share": "Montri mian ekrankunhavigon",
     "fullscreen_call": "Plenekrana voko",
     "exit_fullscreen_call": "Eliru plenekranan vokon",
     "locally_mute_participant": "Mutigu loke",
@@ -103,6 +106,15 @@
       "error": "Ne eblis komenci la mikrofonteston. Kontrolu la mikrofonpermesojn.",
       "headphones_hint": "Uzu kapaŭskultilojn por eviti eĥon.",
       "level": "Enira nivelo"
-    }
+    },
+    "all_feeds_hidden": "Ĉiuj fluoj estas kaŝitaj.",
+    "all_feeds_hidden_hint": "Ŝanĝu tion, kion vi vidas, en „Vidaj agordoj“.",
+    "feed_not_watched": "Ne spektata",
+    "hide_own_camera": "Kaŝi mian propran fotilon",
+    "hide_own_screen_share": "Kaŝi mian ekrankunhavigon",
+    "hide_participants": "Kaŝi partoprenantojn",
+    "show_participants": "Montri partoprenantojn",
+    "start_watching_feed": "Komenci spekti",
+    "stop_watching_feed": "Ĉesi spekti"
   }
 }
