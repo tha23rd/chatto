@@ -112,6 +112,32 @@ describe('callSounds', () => {
     await playback;
   });
 
+  it('uses distinct rising and falling stream cues', async () => {
+    vi.stubGlobal('AudioContext', FakeAudioContext);
+    const { playCallSound } = await import('./callSounds');
+
+    const started = playCallSound('stream-start');
+    let oscillators = FakeAudioNode.instances.filter(
+      (node): node is FakeOscillatorNode => node instanceof FakeOscillatorNode
+    );
+
+    expect(oscillators.map((osc) => osc.frequency.value)).toEqual([392, 523.25, 783.99]);
+
+    await vi.runAllTimersAsync();
+    await started;
+
+    FakeAudioNode.instances = [];
+    const stopped = playCallSound('stream-stop');
+    oscillators = FakeAudioNode.instances.filter(
+      (node): node is FakeOscillatorNode => node instanceof FakeOscillatorNode
+    );
+
+    expect(oscillators.map((osc) => osc.frequency.value)).toEqual([783.99, 523.25, 392]);
+
+    await vi.runAllTimersAsync();
+    await stopped;
+  });
+
   it('does not throw when Web Audio is unavailable', async () => {
     vi.stubGlobal('AudioContext', undefined);
     vi.stubGlobal('webkitAudioContext', undefined);
