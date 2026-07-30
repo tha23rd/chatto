@@ -208,6 +208,8 @@ vi.mock('livekit-client', () => {
       ParticipantAttributesChanged: 'ParticipantAttributesChanged',
       TrackMuted: 'TrackMuted',
       TrackUnmuted: 'TrackUnmuted',
+      Reconnecting: 'Reconnecting',
+      Reconnected: 'Reconnected',
       Disconnected: 'Disconnected',
       MediaDevicesChanged: 'MediaDevicesChanged',
       MediaDevicesError: 'MediaDevicesError',
@@ -1222,6 +1224,152 @@ describe('VoiceCallState', () => {
 
     expect(state.isScreenShareEnabled).toBe(false);
     expect(state.participants).toEqual([]);
+  });
+
+  it('plays stream start and stop cues for participants in the connected call', async () => {
+    const publications = [
+      { isMuted: false, track: { source: 'microphone' }, source: 'microphone' }
+    ];
+    mockRemoteParticipants.set('remote-user', {
+      identity: 'remote-user',
+      name: 'Remote User',
+      metadata: '',
+      attributes: {},
+      connectionQuality: 'good',
+      isSpeaking: false,
+      audioLevel: 0,
+      setVolume: vi.fn(),
+      trackPublications: new Map(),
+      audioTrackPublications: new Map(),
+      getTrackPublications: vi.fn(() => publications)
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+
+    publications.push({
+      isMuted: false,
+      track: { source: 'screen_share' },
+      source: 'screen_share'
+    });
+    roomEventHandlers.get('TrackPublished')?.();
+
+    expect(soundMocks.playCallSound).toHaveBeenCalledOnce();
+    expect(soundMocks.playCallSound).toHaveBeenLastCalledWith('stream-start');
+
+    publications.splice(
+      publications.findIndex((publication) => publication.source === 'screen_share'),
+      1
+    );
+    roomEventHandlers.get('TrackUnpublished')?.();
+
+    expect(soundMocks.playCallSound).toHaveBeenCalledTimes(2);
+    expect(soundMocks.playCallSound).toHaveBeenLastCalledWith('stream-stop');
+
+    await state.leave();
+    publications.push({
+      isMuted: false,
+      track: { source: 'screen_share' },
+      source: 'screen_share'
+    });
+    roomEventHandlers.get('TrackPublished')?.();
+
+    expect(soundMocks.playCallSound).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not announce streams already active when joining or restored during reconnect', async () => {
+    const publications = [
+      { isMuted: false, track: { source: 'microphone' }, source: 'microphone' },
+      { isMuted: false, track: { source: 'screen_share' }, source: 'screen_share' }
+    ];
+    mockRemoteParticipants.set('remote-user', {
+      identity: 'remote-user',
+      name: 'Remote User',
+      metadata: '',
+      attributes: {},
+      connectionQuality: 'good',
+      isSpeaking: false,
+      audioLevel: 0,
+      setVolume: vi.fn(),
+      trackPublications: new Map(),
+      audioTrackPublications: new Map(),
+      getTrackPublications: vi.fn(() => publications)
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+
+    expect(soundMocks.playCallSound).not.toHaveBeenCalled();
+
+    roomEventHandlers.get('Reconnecting')?.();
+    publications.splice(
+      publications.findIndex((publication) => publication.source === 'screen_share'),
+      1
+    );
+    roomEventHandlers.get('TrackUnpublished')?.();
+    publications.push({
+      isMuted: false,
+      track: { source: 'screen_share' },
+      source: 'screen_share'
+    });
+    roomEventHandlers.get('TrackPublished')?.();
+    roomEventHandlers.get('Reconnected')?.();
+
+    expect(soundMocks.playCallSound).not.toHaveBeenCalled();
+
+    publications.splice(
+      publications.findIndex((publication) => publication.source === 'screen_share'),
+      1
+    );
+    roomEventHandlers.get('TrackUnpublished')?.();
+
+    expect(soundMocks.playCallSound).toHaveBeenCalledOnce();
+    expect(soundMocks.playCallSound).toHaveBeenCalledWith('stream-stop');
+  });
+
+  it('does not treat screen-share audio publication as another stream transition', async () => {
+    const publications = [
+      { isMuted: false, track: { source: 'microphone' }, source: 'microphone' }
+    ];
+    mockRemoteParticipants.set('remote-user', {
+      identity: 'remote-user',
+      name: 'Remote User',
+      metadata: '',
+      attributes: {},
+      connectionQuality: 'good',
+      isSpeaking: false,
+      audioLevel: 0,
+      setVolume: vi.fn(),
+      trackPublications: new Map(),
+      audioTrackPublications: new Map(),
+      getTrackPublications: vi.fn(() => publications)
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+
+    publications.push({
+      isMuted: false,
+      track: { source: 'screen_share_audio' },
+      source: 'screen_share_audio'
+    });
+    roomEventHandlers.get('TrackPublished')?.();
+
+    expect(soundMocks.playCallSound).not.toHaveBeenCalled();
+  });
+
+  it('announces a local stream once even when LiveKit also reports its publication', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+
+    await state.toggleScreenShare();
+    roomEventHandlers.get('LocalTrackPublished')?.();
+
+    expect(soundMocks.playCallSound).toHaveBeenCalledOnce();
+    expect(soundMocks.playCallSound).toHaveBeenLastCalledWith('stream-start');
+
+    await state.toggleScreenShare();
+    roomEventHandlers.get('LocalTrackUnpublished')?.();
+
+    expect(soundMocks.playCallSound).toHaveBeenCalledTimes(2);
+    expect(soundMocks.playCallSound).toHaveBeenLastCalledWith('stream-stop');
   });
 
   it('updates screen-share state when LiveKit reports local unpublish', async () => {
