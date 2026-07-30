@@ -40,7 +40,8 @@ describe('Tauri NativeHost', () => {
       globalPushToTalk: true,
       tray: true,
       appBadge: true,
-      desktopUpdates: true
+      desktopUpdates: true,
+      managedVideoPopOut: true
     });
   });
 

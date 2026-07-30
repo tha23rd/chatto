@@ -111,9 +111,13 @@ and a dedicated atomic manifest origin are deferred until broader distribution.
 
 The production desktop window loads only bundled assets, receives a strict
 content-security policy, blocks top-level remote navigation and unrequested
-window creation, and opens approved HTTPS links in the system browser. Tauri
-capabilities apply only to the main window and grant no generic filesystem or
-shell access.
+window creation, and opens approved HTTPS links in the system browser. The one
+exception is an exact internal `about:blank#chatto-video-pop-out` request from
+the bundled renderer. The host creates it as a normal always-on-top WebView2
+window with minimise, maximise, resize, and close controls, while denying
+nested windows and navigation away from its blank document. Tauri capabilities
+apply only to the main window; the pop-out receives none, and neither window
+has generic filesystem or shell access.
 
 The native policy permits one feature-scoped script exception: `blob:` modules
 are allowed so the experimental DeepFilterNet3 processor can register the
@@ -183,6 +187,15 @@ compared with negotiated codec, bitrate, frames, encoder limits, packet loss,
 retransmissions, RTT, and jitter. While sharing, the stream-quality popover can
 copy a versioned JSON snapshot for the acceptance record.
 
+Video pop-out also keeps media ownership in the renderer. Browser builds use
+element Picture-in-Picture. The Windows host advertises a managed pop-out
+capability, but the shared frontend creates the blank window synchronously,
+places the selected video's existing `MediaStream` into a muted video element,
+and keeps call audio in the main window. It owns at most one pop-out, reuses it
+when the selected feed changes, and closes it on call cleanup or track end.
+The shared WebView2 environment preserves the opener relationship without
+creating another LiveKit connection or granting the child native authority.
+
 For this POC, screen-share audio means Windows system/loopback audio offered by
 the entire-screen capture path. It does not promise arbitrary selected-process
 or selected-window audio. Native LiveKit or Windows audio capture requires a
@@ -210,8 +223,7 @@ overlay dot and removes it on the shared clear intent. It does not create a
 second native unread count or derive attention from broker/storage details.
 
 Notifications after explicit process exit, launch-on-startup, deep links,
-inline notification replies, picture-in-picture, and a custom title bar are
-follow-up work.
+inline notification replies, and a custom title bar are follow-up work.
 
 ## Consequences
 
@@ -226,6 +238,9 @@ Chromium-based, so active-call and screen-share CPU, GPU, and memory may be
 similar to a browser tab. A tray-resident application also has a persistent
 idle cost that a closed web tab does not. Resource-efficiency claims require
 measurements of cold start, idle, tray, voice, and screen-share states.
+The transient video pop-out adds another WebView2 window and is measured
+separately; minimising it is a presentation action, not a promise that WebView2
+will discard its renderer or decoder working set.
 
 The desktop application adds a Rust toolchain, Windows packaging, Tauri plugin
 and networking-library updates, a native security boundary, and

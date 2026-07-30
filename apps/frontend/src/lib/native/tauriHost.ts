@@ -64,7 +64,8 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       globalPushToTalk: true,
       tray: true,
       appBadge: true,
-      desktopUpdates: true
+      desktopUpdates: true,
+      managedVideoPopOut: true
     },
 
     registerServerOrigin(value) {

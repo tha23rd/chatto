@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use serde::Deserialize;
 use tauri::{
@@ -12,6 +12,8 @@ use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
 const MAIN_WINDOW_LABEL: &str = "main";
+const VIDEO_POP_OUT_WINDOW_LABEL_PREFIX: &str = "video-pop-out-";
+const VIDEO_POP_OUT_FRAGMENT: &str = "chatto-video-pop-out";
 const SHOW_MENU_ID: &str = "show";
 const MUTE_MENU_ID: &str = "toggle-mute";
 const DEAFEN_MENU_ID: &str = "toggle-deafen";
@@ -20,6 +22,7 @@ const TRAY_ACTION_EVENT: &str = "native://tray-action";
 const TASKBAR_ATTENTION_ICON_SIZE: u32 = 32;
 const TASKBAR_ATTENTION_COLOR: [u8; 4] = [237, 66, 69, 255];
 const TASKBAR_ATTENTION_BORDER: [u8; 4] = [255, 255, 255, 255];
+static VIDEO_POP_OUT_WINDOW_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 fn taskbar_attention_rgba() -> Vec<u8> {
     let mut rgba =
@@ -94,6 +97,21 @@ fn allowed_navigation(url: &Url, development: bool) -> bool {
             && url.port_or_known_default() == Some(5173))
 }
 
+fn video_pop_out_url(url: &Url, fragment: Option<&str>) -> bool {
+    url.scheme() == "about"
+        && url.path() == "blank"
+        && url.query().is_none()
+        && url.fragment() == fragment
+}
+
+fn is_video_pop_out_request(url: &Url) -> bool {
+    video_pop_out_url(url, Some(VIDEO_POP_OUT_FRAGMENT))
+}
+
+fn allowed_video_pop_out_navigation(url: &Url) -> bool {
+    video_pop_out_url(url, None) || is_video_pop_out_request(url)
+}
+
 fn open_external_https<R: Runtime>(app: &AppHandle<R>, url: &Url) {
     if url.scheme() == "https" {
         let _ = app.opener().open_url(url.as_str(), None::<&str>);
@@ -118,7 +136,48 @@ fn create_main_window(app: &mut App) -> tauri::Result<()> {
                 false
             }
         })
-        .on_new_window(move |url, _features| {
+        .on_new_window(move |url, features| {
+            if is_video_pop_out_request(&url) {
+                // The frontend owns a single active pop-out. Closing any stale native
+                // window here also bounds memory if a previous frontend was torn down
+                // before it could run its normal cleanup.
+                for (label, window) in new_window_app.webview_windows() {
+                    if label.starts_with(VIDEO_POP_OUT_WINDOW_LABEL_PREFIX) {
+                        let _ = window.close();
+                    }
+                }
+
+                let label = format!(
+                    "{VIDEO_POP_OUT_WINDOW_LABEL_PREFIX}{}",
+                    VIDEO_POP_OUT_WINDOW_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+                );
+                let Ok(blank_url) = Url::parse("about:blank") else {
+                    return NewWindowResponse::Deny;
+                };
+                let builder = WebviewWindowBuilder::new(
+                    &new_window_app,
+                    label,
+                    WebviewUrl::External(blank_url),
+                )
+                // Reusing the opener's WebView2 environment is required for an
+                // opener-linked WindowProxy and avoids another browser environment.
+                .window_features(features)
+                .title("Chatto video pop-out")
+                .inner_size(640.0, 360.0)
+                .min_inner_size(320.0, 180.0)
+                .resizable(true)
+                .minimizable(true)
+                .maximizable(true)
+                .always_on_top(true)
+                .devtools(cfg!(debug_assertions))
+                .on_navigation(allowed_video_pop_out_navigation)
+                .on_new_window(|_, _| NewWindowResponse::Deny);
+
+                return match builder.build() {
+                    Ok(window) => NewWindowResponse::Create { window },
+                    Err(_) => NewWindowResponse::Deny,
+                };
+            }
             open_external_https(&new_window_app, &url);
             NewWindowResponse::Deny
         })
@@ -284,6 +343,38 @@ mod tests {
         assert!(!allowed_navigation(
             &Url::parse("javascript:alert(1)").unwrap(),
             true
+        ));
+    }
+
+    #[test]
+    fn video_pop_out_request_requires_the_exact_internal_sentinel() {
+        assert!(is_video_pop_out_request(
+            &Url::parse("about:blank#chatto-video-pop-out").unwrap()
+        ));
+        assert!(!is_video_pop_out_request(
+            &Url::parse("about:blank").unwrap()
+        ));
+        assert!(!is_video_pop_out_request(
+            &Url::parse("about:blank#other").unwrap()
+        ));
+        assert!(!is_video_pop_out_request(
+            &Url::parse("https://chatto.example/#chatto-video-pop-out").unwrap()
+        ));
+        assert!(!is_video_pop_out_request(
+            &Url::parse("about:blank?unexpected#chatto-video-pop-out").unwrap()
+        ));
+    }
+
+    #[test]
+    fn video_pop_out_cannot_navigate_away_from_its_blank_document() {
+        assert!(allowed_video_pop_out_navigation(
+            &Url::parse("about:blank").unwrap()
+        ));
+        assert!(allowed_video_pop_out_navigation(
+            &Url::parse("about:blank#chatto-video-pop-out").unwrap()
+        ));
+        assert!(!allowed_video_pop_out_navigation(
+            &Url::parse("https://chatto.example/").unwrap()
         ));
     }
 

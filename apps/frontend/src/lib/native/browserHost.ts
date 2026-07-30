@@ -14,7 +14,8 @@ export const browserNativeHost: NativeHost = {
     globalPushToTalk: false,
     tray: false,
     appBadge: false,
-    desktopUpdates: false
+    desktopUpdates: false,
+    managedVideoPopOut: false
   },
 
   registerServerOrigin() {

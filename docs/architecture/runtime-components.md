@@ -19,6 +19,8 @@ custom startup blocks.
 
 The core model inventory is a list of stable machine-readable keys such as `config_model`, `message_model`, and `my_events_model`. Per-process metrics expose these keys via `chatto_model_info`.
 
+## Server runtime
+
 | Model                            | Key files                                                                                                                                                   | Responsibility                                                                                                                                |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ChattoCore`                     | [`core.go`](../../cli/internal/core/core.go)                                                                                                                    | Application facade, resource initialization, lifecycle, API-facing operations, and intentional cross-package media/asset adapters              |
@@ -52,3 +54,13 @@ The core model inventory is a list of stable machine-readable keys such as `conf
 | `AssetUploadModel`               | [`asset_uploads.go`](../../cli/internal/core/asset_uploads.go)                                                                                                    | Eagerly wired chunked attachment upload sessions, temporary object assembly, pending-asset expiry, and process-local periodic cleanup           |
 | `projectionSnapshotWorker`       | [`projection_snapshot_worker.go`](../../cli/internal/core/projection_snapshot_worker.go)                                                                          | Optional per-pass elected post-boot and daily publication of encrypted generations; a separate cluster-wide cooldown limits bounded S3 age expiry when Chatto owns lifecycle cleanup |
 | `video.Service`                  | [`service.go`](../../cli/internal/video/service.go), [`processor.go`](../../cli/internal/video/processor.go)                                                   | Process-local video/animated-GIF transcoding, web-compatible stereo audio normalization, HLS segment packaging and upload, animated-GIF MP4 upload, and asset processing result events |
+
+## Client runtime
+
+Related decisions: [ADR-900](../adr/ADR-900-windows-desktop-client.md) and
+[FDR-016](../fdr/FDR-016-voice-calls.md).
+
+| Component | Key files | Responsibility |
+| --------- | --------- | -------------- |
+| Voice-call media and pop-out lifecycle | [`voiceCall.svelte.ts`](../../apps/frontend/src/lib/state/server/voiceCall.svelte.ts), [`pictureInPicture.ts`](../../apps/frontend/src/lib/voice/pictureInPicture.ts) | Owns each server-scoped LiveKit room and its viewer-local video pop-out; call cleanup closes only the pop-out owned by that call. Browser hosts use element Picture-in-Picture, while the native path assigns the existing video stream to one process-wide managed window. |
+| Windows desktop shell | [`shell.rs`](../../apps/desktop/src-tauri/src/shell.rs), [`types.ts`](../../apps/frontend/src/lib/native/types.ts) | Owns main/tray window lifecycle and advertises typed native capabilities. It admits the exact internal video-pop-out sentinel into a transient minimisable WebView2 window sharing the opener environment, denies child authority/navigation, and closes stale pop-out windows before replacement. |

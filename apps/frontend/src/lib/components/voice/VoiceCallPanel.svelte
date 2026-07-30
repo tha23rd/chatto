@@ -47,12 +47,11 @@ Room sidebar panel for voice/video calls.
   import { startDMWith } from '$lib/dm/startDM';
   import { toast } from '$lib/ui/toast';
   import { serializeScreenShareDiagnostics } from '$lib/voice/webrtcDiagnostics';
-  import {
-    isPictureInPictureAvailable,
-    togglePictureInPicture
-  } from '$lib/voice/pictureInPicture';
+  import { isVideoPopOutAvailable, toggleVideoPopOut } from '$lib/voice/pictureInPicture';
+  import { getNativeHost } from '$lib/native/host';
   import { roleColorToCSS } from '$lib/roleColors';
 
+  const nativeHost = getNativeHost();
   let {
     roomId,
     livekitUrl,
@@ -549,7 +548,8 @@ Room sidebar panel for voice/video calls.
   // webview has no video context menu of its own, so the pop-out control is the only way
   // there; WebKit-based webviews have no API to offer, so the control is hidden instead of
   // failing. Read once because a document does not gain the API at runtime.
-  const canPopOutFeeds = isPictureInPictureAvailable(
+  const canPopOutFeeds = isVideoPopOutAvailable(
+    nativeHost,
     typeof document === 'undefined' ? null : document
   );
 
@@ -557,13 +557,16 @@ Room sidebar panel for voice/video calls.
     return target.closest<HTMLElement>('[data-call-media-card]')?.querySelector('video') ?? null;
   }
 
-  // Nothing may be awaited before togglePictureInPicture: the request inside it needs the
-  // click's user activation, and Chromium rejects it after any async hop.
+  // Nothing may be awaited before toggleVideoPopOut: both window.open and element PiP need
+  // the click's user activation, and Chromium rejects either one after an async hop.
   async function popOutClosestMedia(event: MouseEvent): Promise<void> {
     event.stopPropagation();
-    const result = await togglePictureInPicture(
+    const result = await toggleVideoPopOut(
       mediaCardVideo(event.currentTarget as HTMLElement),
-      document
+      voiceCallState,
+      nativeHost,
+      document,
+      window
     );
     if (result === 'failed' || result === 'unsupported') {
       toast.error(m['voice.pop_out_failed']());
@@ -669,7 +672,7 @@ Room sidebar panel for voice/video calls.
     {#if tile && tile.kind !== 'voice'}
       {@render hideFeedButton(tile)}
     {/if}
-    {#if canPopOutFeeds}
+    {#if canPopOutFeeds && !tile?.hidden}
       <CallTileActionButton
         icon="mdi--picture-in-picture-bottom-right"
         label={m['voice.pop_out_feed']()}

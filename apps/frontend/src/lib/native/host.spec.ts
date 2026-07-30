@@ -41,7 +41,8 @@ function desktopHost(): NativeHost {
       globalPushToTalk: true,
       tray: true,
       appBadge: true,
-      desktopUpdates: true
+      desktopUpdates: true,
+      managedVideoPopOut: true
     }
   };
 }
@@ -56,9 +57,10 @@ afterEach(() => {
 describe('NativeHost selection', () => {
   it('uses the capability-free browser host by default', () => {
     expect(getNativeHost()).toBe(browserNativeHost);
-    expect(browserNativeHost.apiVersion).toBe(3);
+    expect(browserNativeHost.apiVersion).toBe(4);
     expect(browserNativeHost.kind).toBe('browser');
     expect(Object.values(browserNativeHost.capabilities)).toEqual([
+      false,
       false,
       false,
       false,

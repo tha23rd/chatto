@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VoiceCallAPI } from '$lib/api-client/voiceCalls';
 
-const { soundMocks, toastMocks } = vi.hoisted(() => ({
+const { popOutMocks, soundMocks, toastMocks } = vi.hoisted(() => ({
+  popOutMocks: {
+    closeActiveVideoPopOut: vi.fn()
+  },
   soundMocks: {
     playCallSound: vi.fn(() => Promise.resolve())
   },
@@ -16,6 +19,10 @@ vi.mock('$lib/audio/callSounds', () => ({
 
 vi.mock('$lib/ui/toast', () => ({
   toast: toastMocks
+}));
+
+vi.mock('$lib/voice/pictureInPicture', () => ({
+  closeActiveVideoPopOut: popOutMocks.closeActiveVideoPopOut
 }));
 
 import {
@@ -376,6 +383,7 @@ describe('VoiceCallState', () => {
     vi.stubGlobal('crypto', { subtle: {} });
     soundMocks.playCallSound.mockClear();
     toastMocks.error.mockClear();
+    popOutMocks.closeActiveVideoPopOut.mockClear();
     vi.mocked(Room.getLocalDevices).mockClear();
   });
 
@@ -597,6 +605,7 @@ describe('VoiceCallState', () => {
     expect(client.joinCall).toHaveBeenCalledTimes(1);
     expect(client.leaveCall).toHaveBeenCalledTimes(1);
     expect(lastRoom?.disconnect).toHaveBeenCalledOnce();
+    expect(popOutMocks.closeActiveVideoPopOut).toHaveBeenCalledWith(state);
     expect(state.isInAnyCall).toBe(false);
     expect(soundMocks.playCallSound).not.toHaveBeenCalled();
   });
@@ -737,6 +746,7 @@ describe('VoiceCallState', () => {
     expect(lastRoom?.disconnect).toHaveBeenCalledOnce();
     expect(client.joinCall).toHaveBeenCalledTimes(1);
     expect(client.leaveCall).not.toHaveBeenCalled();
+    expect(popOutMocks.closeActiveVideoPopOut).toHaveBeenCalledWith(state);
     expect(state.isInAnyCall).toBe(false);
     expect(soundMocks.playCallSound).not.toHaveBeenCalled();
   });
