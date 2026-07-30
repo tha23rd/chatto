@@ -29,6 +29,12 @@ const remoteServer: RegisteredServer = {
   addedAt: 1
 };
 
+const originServer: RegisteredServer = {
+  ...remoteServer,
+  id: 'origin',
+  url: origin
+};
+
 function resolveServerSegment(segment: string): string | null {
   if (segment === '-') return 'origin';
   if (segment === 'remote.example.test') return 'remote';
@@ -67,6 +73,7 @@ describe('buildMessageLinkURL', () => {
   });
 
   it('uses the SPA origin and home segment for an origin-server message', () => {
+    vi.spyOn(serverRegistry, 'originServer', 'get').mockReturnValue(originServer);
     vi.spyOn(serverRegistry, 'isOriginServer').mockReturnValue(true);
 
     expect(buildMessageLinkURL('origin', 'room-1', 'message-1')).toBe(
@@ -75,6 +82,7 @@ describe('buildMessageLinkURL', () => {
   });
 
   it('uses the SPA origin and remote hostname for a remote-server message', () => {
+    vi.spyOn(serverRegistry, 'originServer', 'get').mockReturnValue(originServer);
     vi.spyOn(serverRegistry, 'isOriginServer').mockReturnValue(false);
     vi.spyOn(serverRegistry, 'getServer').mockReturnValue(remoteServer);
 
@@ -84,11 +92,35 @@ describe('buildMessageLinkURL', () => {
   });
 
   it('preserves the thread root in a remote-server message link', () => {
+    vi.spyOn(serverRegistry, 'originServer', 'get').mockReturnValue(originServer);
     vi.spyOn(serverRegistry, 'isOriginServer').mockReturnValue(false);
     vi.spyOn(serverRegistry, 'getServer').mockReturnValue(remoteServer);
 
     expect(buildMessageLinkURL('remote', 'room-1', 'message-1', 'thread-root-1')).toBe(
       `${origin}/chat/remote.example.test/room-1/thread-root-1/m/message-1`
+    );
+  });
+
+  it('uses the target server origin when the SPA has no shareable origin', () => {
+    vi.stubGlobal('window', { location: { origin: 'http://tauri.localhost' } });
+    vi.spyOn(serverRegistry, 'originServer', 'get').mockReturnValue(undefined);
+    vi.spyOn(serverRegistry, 'getServer').mockReturnValue({
+      ...remoteServer,
+      url: 'https://chatto.bluhm.io'
+    });
+
+    expect(buildMessageLinkURL('remote', 'room-1', 'message-1')).toBe(
+      'https://chatto.bluhm.io/chat/-/room-1/m/message-1'
+    );
+  });
+
+  it('preserves the thread root when linking directly to the target server', () => {
+    vi.stubGlobal('window', { location: { origin: 'http://tauri.localhost' } });
+    vi.spyOn(serverRegistry, 'originServer', 'get').mockReturnValue(undefined);
+    vi.spyOn(serverRegistry, 'getServer').mockReturnValue(remoteServer);
+
+    expect(buildMessageLinkURL('remote', 'room-1', 'message-1', 'thread-root-1')).toBe(
+      'https://remote.example.test/chat/-/room-1/thread-root-1/m/message-1'
     );
   });
 });
