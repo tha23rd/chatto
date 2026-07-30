@@ -18,8 +18,10 @@
 
 import {
   createCustomEmojiAPI,
-  type CustomEmoji,
+  mapCustomEmoji,
+  type CustomEmoji
 } from '$lib/api-client/customEmojis';
+import type { CustomEmoji as CustomEmojiProto } from '@chatto/api-types/api/v1/custom_emojis_pb';
 import type { ConnectAPIConfig } from '$lib/api-client/connect';
 import { segmentToServerId } from '$lib/navigation';
 
@@ -30,6 +32,9 @@ export class CustomEmojisStore {
   /** True once a load has completed at least once. */
   loaded = $state(false);
   private loadPromise: Promise<void> | null = null;
+  // Bumped by authoritative realtime replacements so an older in-flight list
+  // response cannot restore a deleted or superseded catalog.
+  private catalogVersion = 0;
   /**
    * Lowercase-name index over {@link emojis}, so {@link find} does not rescan
    * the array per call. Rebuilt whenever the array identity changes; every
@@ -87,13 +92,29 @@ export class CustomEmojisStore {
   }
 
   /**
+   * Replace the complete catalog from authenticated realtime server state.
+   * Create and delete facts both emit a full replacement, so every renderer
+   * converges without a reload.
+   */
+  replace(emojis: CustomEmoji[]): void {
+    this.catalogVersion += 1;
+    this.emojis = [...emojis];
+    this.loaded = true;
+  }
+
+  /**
    * Fetch the server's custom emojis, replacing local state. Returns `true` on
    * success and `false` on failure; on failure existing state is left intact so
    * passive callers keep working, while the admin view can surface an error.
    */
   async load(config: ConnectAPIConfig): Promise<boolean> {
+    const version = this.catalogVersion;
     try {
-      this.emojis = await createCustomEmojiAPI(config).list();
+      const emojis = await createCustomEmojiAPI(config).list();
+      // A realtime replacement landed while this request was in flight and
+      // describes newer state, so the stale response must not overwrite it.
+      if (version !== this.catalogVersion) return true;
+      this.emojis = emojis;
       this.loaded = true;
       return true;
     } catch {
@@ -151,11 +172,16 @@ export function getCustomEmojis(serverId: string): CustomEmojisStore {
  * `undefined` if the name is not a known custom emoji (e.g. a gemoji name or
  * the store has not loaded yet).
  */
-export function getCustomEmoji(
-  serverId: string,
-  name: string
-): CustomEmoji | undefined {
+export function getCustomEmoji(serverId: string, name: string): CustomEmoji | undefined {
   return getCustomEmojis(serverId).find(name);
+}
+
+/**
+ * Apply the authoritative custom-emoji catalog carried by a server-state
+ * projection operation.
+ */
+export function notifyCustomEmojis(serverId: string, emojis: CustomEmojiProto[]): void {
+  getCustomEmojis(serverId).replace(emojis.map(mapCustomEmoji));
 }
 
 /** Test-only: clear the store cache so a fresh instance is built per test. */

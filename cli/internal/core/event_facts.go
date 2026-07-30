@@ -252,6 +252,23 @@ func isDeliverableLiveEVTSoundboardEvent(event *corev1.Event) bool {
 	return isDeliverableLiveEVTSoundboardEventType(events.EventTypeOf(event))
 }
 
+// isDeliverableLiveEVTCustomEmojiEventType reports whether a custom-emoji
+// aggregate event type is delivered live. The catalog is readable by every
+// authenticated member, so both lifecycle facts fan out server-wide.
+func isDeliverableLiveEVTCustomEmojiEventType(eventType string) bool {
+	switch eventType {
+	case events.EventCustomEmojiCreated,
+		events.EventCustomEmojiDeleted:
+		return true
+	default:
+		return false
+	}
+}
+
+func isDeliverableLiveEVTCustomEmojiEvent(event *corev1.Event) bool {
+	return isDeliverableLiveEVTCustomEmojiEventType(events.EventTypeOf(event))
+}
+
 // IsRBACEvent reports whether event changes roles or permission resolution.
 // Realtime protocol v2 uses this to invalidate an authorization-dependent
 // client projection without exposing the internal RBAC payload.

@@ -226,6 +226,57 @@ func TestStreamMyEvents_DeliversSoundboardCatalogChange(t *testing.T) {
 	}
 }
 
+// TestStreamMyEvents_DeliversCustomEmojiCatalogChange guards the live-delivery
+// prefilter in MyEventsHub.handleLiveEVT. Custom emoji events are server-wide,
+// so every authenticated member must receive them even without room
+// membership; otherwise a newly used emoji remains unresolved until reload.
+func TestStreamMyEvents_DeliversCustomEmojiCatalogChange(t *testing.T) {
+	core, _ := setupTestCore(t)
+	ctx := testContext(t)
+
+	admin, err := core.CreateUser(ctx, SystemActorID, "custom-emoji-admin", "Admin", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser admin: %v", err)
+	}
+	if err := core.AssignAdminRole(ctx, admin.Id); err != nil {
+		t.Fatalf("AssignAdminRole: %v", err)
+	}
+	viewer, err := core.CreateUser(ctx, SystemActorID, "custom-emoji-viewer", "Viewer", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser viewer: %v", err)
+	}
+
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	eventChan, err := core.StreamMyEvents(subCtx, viewer.Id)
+	if err != nil {
+		t.Fatalf("StreamMyEvents: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	emoji, err := core.CreateCustomEmoji(ctx, admin.Id, "partyparrot", createTestImage(2, 2))
+	if err != nil {
+		t.Fatalf("CreateCustomEmoji: %v", err)
+	}
+
+	timeout := time.After(2 * time.Second)
+	for {
+		select {
+		case ev := <-eventChan:
+			created := ev.EVTEvent().GetCustomEmojiCreated()
+			if created == nil {
+				continue
+			}
+			if created.GetId() != emoji.ID {
+				t.Errorf("delivered custom emoji id = %q, want %q", created.GetId(), emoji.ID)
+			}
+			return
+		case <-timeout:
+			t.Fatal("viewer never received CustomEmojiCreatedEvent from live.evt republish")
+		}
+	}
+}
+
 func TestStreamMyEvents_DeliversRBACChangeWithoutClosingLegacyStream(t *testing.T) {
 	core, _ := setupTestCore(t)
 	ctx := testContext(t)

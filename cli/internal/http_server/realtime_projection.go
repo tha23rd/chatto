@@ -762,10 +762,11 @@ func (s *HTTPServer) realtimeProjectionFrameForEventWithRooms(ctx context.Contex
 		appendOperation(&realtimev1.RealtimeProjectionOperation{Operation: &realtimev1.RealtimeProjectionOperation_UserRemove{
 			UserRemove: &realtimev1.RealtimeProjectionUserRemove{UserId: payload.UserAccountDeleted.GetUserId()},
 		}})
-	case *corev1.Event_SoundboardSoundCreated, *corev1.Event_SoundboardSoundDeleted:
-		// The soundboard catalog rides on authenticated server state, so a
-		// catalog change replaces it wholesale. Clients already in a voice call
-		// converge without rejoining.
+	case *corev1.Event_CustomEmojiCreated, *corev1.Event_CustomEmojiDeleted,
+		*corev1.Event_SoundboardSoundCreated, *corev1.Event_SoundboardSoundDeleted:
+		// Server-wide catalogs ride on authenticated server state, so each
+		// lifecycle change replaces them wholesale and connected clients
+		// converge without a reload.
 		serverState := s.connectAPI.BuildRealtimeProjectionServerState()
 		appendOperation(&realtimev1.RealtimeProjectionOperation{Operation: &realtimev1.RealtimeProjectionOperation_ServerStateUpsert{
 			ServerStateUpsert: realtimeProjectionServerState(serverState),
@@ -784,11 +785,13 @@ func realtimeProjectionServerState(state *connectapi.RealtimeProjectionServerSta
 	if state == nil {
 		return &realtimev1.RealtimeProjectionServerState{}
 	}
-	// Always present, so a client can distinguish an empty catalog from a server
-	// that does not implement the field and must not touch its own catalog.
+	// Catalog fields are always present, so clients can distinguish an empty
+	// catalog from an older server that does not implement the field and must
+	// not clear its list-loaded fallback.
 	out := &realtimev1.RealtimeProjectionServerState{
-		Runtime:    state.Runtime,
-		Soundboard: &realtimev1.RealtimeProjectionSoundboard{Sounds: state.Sounds},
+		Runtime:      state.Runtime,
+		CustomEmojis: &realtimev1.RealtimeProjectionCustomEmojis{Emojis: state.CustomEmojis},
+		Soundboard:   &realtimev1.RealtimeProjectionSoundboard{Sounds: state.Sounds},
 	}
 	if state.MOTD != "" {
 		out.Motd = &state.MOTD

@@ -434,6 +434,41 @@ func TestRealtimeProjectionMapsSoundboardCatalogChange(t *testing.T) {
 	}
 }
 
+// TestRealtimeProjectionMapsCustomEmojiCatalogChange keeps custom-emoji
+// lifecycle facts mapped to a projection operation. Without it, other clients
+// keep a stale catalog and render a newly used shortcode as an unresolved box
+// until they reload.
+func TestRealtimeProjectionMapsCustomEmojiCatalogChange(t *testing.T) {
+	env := setupWebSocketTestServer(t)
+	viewer, err := env.core.CreateUser(env.ctx, core.SystemActorID, "rt-emoji-projection", "RT Emoji Projection", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	events := map[string]*corev1.Event{
+		"created": {Id: "emoji-created-1", Event: &corev1.Event_CustomEmojiCreated{CustomEmojiCreated: &corev1.CustomEmojiCreatedEvent{
+			Id: "CE1", Name: "partyparrot",
+		}}},
+		"deleted": {Id: "emoji-deleted-1", Event: &corev1.Event_CustomEmojiDeleted{CustomEmojiDeleted: &corev1.CustomEmojiDeletedEvent{
+			Id: "CE1",
+		}}},
+	}
+	for name, event := range events {
+		t.Run(name, func(t *testing.T) {
+			frame, handled, err := env.httpServer.realtimeProjectionFrameForEvent(env.ctx, viewer.Id, core.NewEVTEventEnvelope(event))
+			if err != nil {
+				t.Fatalf("realtimeProjectionFrameForEvent: %v", err)
+			}
+			operations := frame.GetProjectionEvent().GetOperations()
+			if !handled || len(operations) != 1 {
+				t.Fatalf("custom emoji projection frame = %+v, handled=%v", frame, handled)
+			}
+			if operations[0].GetServerStateUpsert() == nil {
+				t.Fatalf("custom emoji projection operation = %T, want server_state_upsert", operations[0].GetOperation())
+			}
+		})
+	}
+}
+
 func TestRealtimeTransientMapperRejectsProjectionOwnedLiveEvents(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -772,7 +807,7 @@ func TestRealtimeProjectionSnapshotFramesBeginWithResetAndContainCanonicalResour
 		t.Fatalf("first snapshot frame = %+v, want reset", frames)
 	}
 
-	var hasServer, hasServerState, hasViewer, hasViewerUser, hasRoom bool
+	var hasServer, hasServerState, hasCustomEmojis, hasViewer, hasViewerUser, hasRoom bool
 	var hasGroups, hasNotifications, hasTimeline bool
 	for _, frame := range frames {
 		projection := frame.GetProjectionEvent()
@@ -781,7 +816,12 @@ func TestRealtimeProjectionSnapshotFramesBeginWithResetAndContainCanonicalResour
 		}
 		operation := projection.GetOperations()[0]
 		hasServer = hasServer || operation.GetServerUpsert() != nil
-		hasServerState = hasServerState || operation.GetServerStateUpsert() != nil
+		if serverState := operation.GetServerStateUpsert(); serverState != nil {
+			hasServerState = true
+			// Presence matters even when the catalog is empty: it tells new
+			// clients to clear stale state, while older servers omit the field.
+			hasCustomEmojis = hasCustomEmojis || serverState.GetCustomEmojis() != nil
+		}
 		hasViewer = hasViewer || operation.GetViewerUpsert() != nil
 		if user := operation.GetUserUpsert(); user.GetUser().GetId() == viewer.Id {
 			hasViewerUser = true
@@ -800,8 +840,8 @@ func TestRealtimeProjectionSnapshotFramesBeginWithResetAndContainCanonicalResour
 			hasTimeline = timeline.GetEventCursors()[message.Id] != ""
 		}
 	}
-	if !hasServer || !hasServerState || !hasViewer || !hasViewerUser || !hasRoom || !hasGroups || !hasNotifications || !hasTimeline {
-		t.Fatalf("snapshot coverage: server=%v server_state=%v viewer=%v user=%v room=%v groups=%v notifications=%v timeline=%v", hasServer, hasServerState, hasViewer, hasViewerUser, hasRoom, hasGroups, hasNotifications, hasTimeline)
+	if !hasServer || !hasServerState || !hasCustomEmojis || !hasViewer || !hasViewerUser || !hasRoom || !hasGroups || !hasNotifications || !hasTimeline {
+		t.Fatalf("snapshot coverage: server=%v server_state=%v custom_emojis=%v viewer=%v user=%v room=%v groups=%v notifications=%v timeline=%v", hasServer, hasServerState, hasCustomEmojis, hasViewer, hasViewerUser, hasRoom, hasGroups, hasNotifications, hasTimeline)
 	}
 }
 

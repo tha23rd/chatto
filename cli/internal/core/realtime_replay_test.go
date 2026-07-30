@@ -311,6 +311,44 @@ func TestPlanRealtimeReplayReplaysAuthorizedAssetLifecycleGap(t *testing.T) {
 	}
 }
 
+func TestPlanRealtimeReplayReplaysCustomEmojiCatalogGapToAnyMember(t *testing.T) {
+	chatto, _ := setupTestCore(t)
+	ctx := testContext(t)
+
+	admin, err := chatto.CreateUser(ctx, SystemActorID, "emoji-replay-admin", "Admin", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser admin: %v", err)
+	}
+	if err := chatto.AssignAdminRole(ctx, admin.Id); err != nil {
+		t.Fatalf("AssignAdminRole: %v", err)
+	}
+	viewer, err := chatto.CreateUser(ctx, SystemActorID, "emoji-replay-viewer", "Viewer", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser viewer: %v", err)
+	}
+
+	before, err := chatto.PlanRealtimeReplay(ctx, viewer.Id, "")
+	if err != nil {
+		t.Fatalf("initial PlanRealtimeReplay: %v", err)
+	}
+	created, err := chatto.CreateCustomEmoji(ctx, admin.Id, "replayparrot", createTestImage(2, 2))
+	if err != nil {
+		t.Fatalf("CreateCustomEmoji: %v", err)
+	}
+
+	replay, err := chatto.PlanRealtimeReplay(ctx, viewer.Id, before.BoundaryCursor)
+	if err != nil {
+		t.Fatalf("PlanRealtimeReplay: %v", err)
+	}
+	if replay.Reset || len(replay.Events) != 1 {
+		t.Fatalf("custom emoji replay plan = %+v, want one incremental event", replay)
+	}
+	event := replay.Events[0].EVTEvent().GetCustomEmojiCreated()
+	if event == nil || event.GetId() != created.ID {
+		t.Fatalf("custom emoji replay event = %+v, want created emoji %q", event, created.ID)
+	}
+}
+
 func TestPlanRealtimeReplayReplaysLegacyRoomScopedAssetLifecycleGap(t *testing.T) {
 	chatto, _ := setupTestCore(t)
 	ctx := testContext(t)

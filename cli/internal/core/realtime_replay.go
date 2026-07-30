@@ -210,6 +210,7 @@ func (c *ChattoCore) PlanRealtimeReplay(ctx context.Context, userID, resumeCurso
 		roomID, roomSubject := realtimeReplayRoomSubject(msg.Subject)
 		assetID, assetSubject := events.ParseAssetSubject(msg.Subject)
 		_, userSubject := events.ParseUserSubject(msg.Subject)
+		_, customEmojiSubject := events.ParseCustomEmojiSubject(msg.Subject)
 		_, soundboardSubject := events.ParseSoundboardSubject(msg.Subject)
 		switch {
 		case roomSubject:
@@ -280,6 +281,19 @@ func (c *ChattoCore) PlanRealtimeReplay(ctx context.Context, userID, resumeCurso
 			}
 			waitCtx, cancel := context.WithTimeout(ctx, liveEVTProjectionWaitTimeout)
 			err = c.waitForSoundboardProjection(waitCtx, events.SubjectPosition(msg.Subject, seq))
+			cancel()
+			if err != nil {
+				return RealtimeReplayPlan{}, fmt.Errorf("wait for replay sequence %d: %w", seq, err)
+			}
+		case customEmojiSubject:
+			// Like soundboard, custom emoji are server-wide and readable by
+			// every authenticated member. Wait until the catalog projection
+			// contains the fact before replaying it.
+			if !isDeliverableLiveEVTCustomEmojiEvent(&event) {
+				continue
+			}
+			waitCtx, cancel := context.WithTimeout(ctx, liveEVTProjectionWaitTimeout)
+			err = c.waitForCustomEmojiProjection(waitCtx, events.SubjectPosition(msg.Subject, seq))
 			cancel()
 			if err != nil {
 				return RealtimeReplayPlan{}, fmt.Errorf("wait for replay sequence %d: %w", seq, err)
