@@ -172,8 +172,11 @@ export function buildMessageLinkPath(
 }
 
 /**
- * Absolute URL for clipboard copy, anchored to the server hosting the SPA.
- * Remote servers are identified by their hostname in the generated path.
+ * Absolute URL for clipboard copy.
+ *
+ * Hosted clients anchor links to the server hosting the SPA and identify remote
+ * servers by hostname. Clients without a registered server at their own origin,
+ * such as the desktop WebView, link directly to the message's server instead.
  */
 export function buildMessageLinkURL(
   serverId: string,
@@ -181,6 +184,25 @@ export function buildMessageLinkURL(
   messageId: string,
   threadRootEventId?: string | null
 ): string {
+  if (typeof window !== 'undefined' && !serverRegistry.originServer) {
+    const server = serverRegistry.getServer(serverId);
+    if (server) {
+      try {
+        const directPath = messagePath(
+          serverId,
+          roomId,
+          messageId,
+          '',
+          { serverSegmentForId: () => '-' },
+          threadRootEventId
+        );
+        return new URL(directPath, server.url).toString();
+      } catch {
+        // Fall through to the current client origin when the saved server URL is invalid.
+      }
+    }
+  }
+
   const path = buildMessageLinkPath(serverId, roomId, messageId, threadRootEventId);
 
   if (typeof window !== 'undefined') {
