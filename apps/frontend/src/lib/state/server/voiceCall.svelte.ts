@@ -25,6 +25,7 @@ import { userPreferences } from '$lib/state/userPreferences.svelte';
 import * as m from '$lib/i18n/messages';
 import { NativeCallControlsController } from '$lib/native/callControls';
 import { getNativeHost } from '$lib/native/host';
+import { closeActiveVideoPopOut } from '$lib/voice/pictureInPicture';
 import type { VoiceCallAPI } from '$lib/api-client/voiceCalls';
 import { serverSlot, Codecs, type StorageSlot } from '$lib/storage/slot';
 import { NoiseSuppressionController } from '$lib/voice/noiseSuppression.svelte';
@@ -2103,6 +2104,7 @@ export class VoiceCallState {
   }
 
   private cleanup(): void {
+    closeActiveVideoPopOut(this);
     const disconnectedRoomId = this.roomId;
     const disconnectedCallId = this.activeCallId;
     const wasConnected = this.connected;

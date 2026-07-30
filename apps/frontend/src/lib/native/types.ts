@@ -1,6 +1,6 @@
 import type { AppBadgeIntent } from '$lib/notifications/appBadge';
 
-export const NATIVE_HOST_API_VERSION = 3 as const;
+export const NATIVE_HOST_API_VERSION = 4 as const;
 
 export type Unsubscribe = () => void | Promise<void>;
 
@@ -12,6 +12,8 @@ export interface NativeCapabilities {
   readonly tray: boolean;
   readonly appBadge: boolean;
   readonly desktopUpdates: boolean;
+  /** Host-managed, minimisable video pop-out windows are available. */
+  readonly managedVideoPopOut: boolean;
 }
 
 export type DesktopUpdateChannel = 'stable' | 'nightly';

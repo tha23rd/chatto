@@ -42,7 +42,7 @@ Related decisions: [ADR-033](../adr/ADR-033-event-sourced-state-with-projections
 
 | Category | Contents |
 | -------- | -------- |
-| [Runtime components](runtime-components.md) | Core models, facades, publishers, workers, and their responsibilities |
+| [Runtime components](runtime-components.md) | Core models, facades, publishers, workers, native client components, and their responsibilities |
 | [Projections](projections.md) | Registered projectors, logical subjects, read models, and snapshot support |
 | [NATS resources](nats-resources.md) | Streams, KV buckets, Object Stores, live roots, persistence, and backup status |
 | [Subjects and events](subjects-and-events.md) | Durable envelopes, subject namespace, event tokens, and transient subjects |
