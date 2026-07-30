@@ -392,6 +392,7 @@ func (h *MyEventsHub) handleLiveEVT(ctx context.Context, msg *nats.Msg) bool {
 		_, roomSubject := events.ParseRoomSubject(msg.Subject)
 		_, assetSubject := events.ParseAssetSubject(msg.Subject)
 		_, userSubject := events.ParseUserSubject(msg.Subject)
+		_, customEmojiSubject := events.ParseCustomEmojiSubject(msg.Subject)
 		_, soundboardSubject := events.ParseSoundboardSubject(msg.Subject)
 		if roomSubject && !isDeliverableLiveEVTRoomEventType(eventType) {
 			h.prefiltered.Add(1)
@@ -405,11 +406,15 @@ func (h *MyEventsHub) handleLiveEVT(ctx context.Context, msg *nats.Msg) bool {
 			h.prefiltered.Add(1)
 			return false
 		}
+		if customEmojiSubject && !isDeliverableLiveEVTCustomEmojiEventType(eventType) {
+			h.prefiltered.Add(1)
+			return false
+		}
 		if soundboardSubject && !isDeliverableLiveEVTSoundboardEventType(eventType) {
 			h.prefiltered.Add(1)
 			return false
 		}
-		if !roomSubject && !assetSubject && !userSubject && !soundboardSubject {
+		if !roomSubject && !assetSubject && !userSubject && !customEmojiSubject && !soundboardSubject {
 			h.prefiltered.Add(1)
 			return false
 		}
@@ -504,6 +509,22 @@ func (h *MyEventsHub) handleLiveEVT(ctx context.Context, msg *nats.Msg) bool {
 			return true
 		}
 		// The catalog is server-wide and readable by every authenticated member.
+		h.fanoutAll(NewEVTEventEnvelopeWithDeliverySeq(&event, seq), bytes)
+		return false
+	}
+
+	if _, customEmojiSubject := events.ParseCustomEmojiSubject(msg.Subject); customEmojiSubject {
+		if !isDeliverableLiveEVTCustomEmojiEvent(&event) {
+			return true
+		}
+		waitCtx, cancel := context.WithTimeout(ctx, liveEVTProjectionWaitTimeout)
+		defer cancel()
+		// Wait for the catalog projection so every recipient's full replacement
+		// already contains the committed create or delete fact.
+		if err := h.model.core.waitForCustomEmojiProjection(waitCtx, events.SubjectPosition(evtSubject, seq)); err != nil {
+			h.model.core.logger.Warn("Live EVT custom emoji projection readiness failed", "subject", msg.Subject, "sequence", seq, "error", err)
+			return true
+		}
 		h.fanoutAll(NewEVTEventEnvelopeWithDeliverySeq(&event, seq), bytes)
 		return false
 	}

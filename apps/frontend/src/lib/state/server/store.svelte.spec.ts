@@ -6,6 +6,8 @@ import type { RoomFileItem } from '$lib/api-client/attachments';
 import { ServerPublicProfile } from '@chatto/api-types/api/v1/server_pb';
 import { ScreenShareConfig, ServerRuntimeConfig } from '@chatto/api-types/api/v1/server_state_pb';
 import { ActiveCall, CallParticipant } from '@chatto/api-types/api/v1/voice_calls_pb';
+import { CustomEmoji } from '@chatto/api-types/api/v1/custom_emojis_pb';
+import { getCustomEmojis, __resetCustomEmojisForTests } from '$lib/state/customEmojis.svelte';
 import { Sound } from '@chatto/api-types/api/v1/soundboard_pb';
 import { getSoundboard, __resetSoundboardForTests } from '$lib/state/soundboard.svelte';
 import { User } from '@chatto/api-types/api/v1/users_pb';
@@ -28,6 +30,7 @@ import {
   RealtimeProjectionRoomTimelineEventRemove,
   RealtimeProjectionRoomTimelineEventUpsert,
   RealtimeProjectionRoomTimelineReplace,
+  RealtimeProjectionCustomEmojis,
   RealtimeProjectionServerState,
   RealtimeProjectionSoundboard,
   RealtimeProjectionReset,
@@ -941,6 +944,15 @@ describe('ServerStateStore live server updates', () => {
                     durationMs: 1_500n
                   })
                 ]
+              }),
+              customEmojis: new RealtimeProjectionCustomEmojis({
+                emojis: [
+                  new CustomEmoji({
+                    id: 'emoji-1',
+                    name: 'partyparrot',
+                    url: 'https://cdn/assets/emoji/e1'
+                  })
+                ]
               })
             })
           }
@@ -978,6 +990,87 @@ describe('ServerStateStore live server updates', () => {
         durationMs: 1_500
       }
     ]);
+    expect(getCustomEmojis(store.serverId).emojis).toEqual([
+      {
+        id: 'emoji-1',
+        name: 'partyparrot',
+        url: 'https://cdn/assets/emoji/e1'
+      }
+    ]);
+  });
+
+  it('keeps a listed custom-emoji catalog when server state omits the field', async () => {
+    __resetCustomEmojisForTests();
+    const fake = new FakeServerConnection([roomDirectoryResult(), adminRoomLayoutResult()]);
+    const store = makeStore(fake, registered);
+    await flushPromises();
+    getCustomEmojis(store.serverId).replace([
+      {
+        id: 'emoji-1',
+        name: 'partyparrot',
+        url: 'https://cdn/assets/emoji/e1'
+      }
+    ]);
+
+    eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
+    flushSync();
+    const bus = eventBusManager.getBus(registered.id);
+    if (!bus) throw new Error('event bus did not start');
+
+    for (const handler of bus.projectionHandlers) {
+      handler(
+        new RealtimeProjectionEvent({
+          operations: [
+            new RealtimeProjectionOperation({
+              operation: {
+                case: 'serverStateUpsert',
+                value: new RealtimeProjectionServerState({ motd: 'Old server' })
+              }
+            })
+          ]
+        })
+      );
+    }
+
+    expect(getCustomEmojis(store.serverId).emojis.map((emoji) => emoji.id)).toEqual(['emoji-1']);
+  });
+
+  it('clears custom emoji when server state sends a present empty catalog', async () => {
+    __resetCustomEmojisForTests();
+    const fake = new FakeServerConnection([roomDirectoryResult(), adminRoomLayoutResult()]);
+    const store = makeStore(fake, registered);
+    await flushPromises();
+    getCustomEmojis(store.serverId).replace([
+      {
+        id: 'emoji-1',
+        name: 'partyparrot',
+        url: 'https://cdn/assets/emoji/e1'
+      }
+    ]);
+
+    eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
+    flushSync();
+    const bus = eventBusManager.getBus(registered.id);
+    if (!bus) throw new Error('event bus did not start');
+
+    for (const handler of bus.projectionHandlers) {
+      handler(
+        new RealtimeProjectionEvent({
+          operations: [
+            new RealtimeProjectionOperation({
+              operation: {
+                case: 'serverStateUpsert',
+                value: new RealtimeProjectionServerState({
+                  customEmojis: new RealtimeProjectionCustomEmojis({ emojis: [] })
+                })
+              }
+            })
+          ]
+        })
+      );
+    }
+
+    expect(getCustomEmojis(store.serverId).emojis).toEqual([]);
   });
 
   it('keeps a ListSounds catalog when the server sends no soundboard in server state', async () => {

@@ -32,3 +32,9 @@ func CustomEmojiAggregate() Aggregate {
 // the custom-emoji aggregate.
 // Pattern: evt.custom_emoji.>
 func CustomEmojiSubjectFilter() string { return SubjectRoot + AggregateCustomEmoji + ".>" }
+
+// ParseCustomEmojiSubject extracts the singleton aggregate ID from a
+// custom-emoji event subject. Accepts durable and republished live forms.
+func ParseCustomEmojiSubject(subject string) (aggregateID string, ok bool) {
+	return parseAggregateSubject(subject, AggregateCustomEmoji)
+}

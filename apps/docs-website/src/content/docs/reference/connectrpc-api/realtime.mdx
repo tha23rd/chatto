@@ -216,6 +216,21 @@ Finite current active-call state visible to the caller.
 | --- | --- | --- |
 | `calls` | `repeated chatto.api.v1.ActiveCall` | No field description provided. |
 
+<a id="chatto-realtime-v1-RealtimeProjectionCustomEmojis"></a>
+
+### RealtimeProjectionCustomEmojis
+
+Complete server custom-emoji catalog for shortcode, message, and reaction
+rendering. Every authenticated member may read the catalog, so it is plain
+server state rather than viewer-scoped state.
+
+This is a full replacement on every server-state upsert, and a custom-emoji
+change emits one, so connected members converge without reloading.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `emojis` | `repeated chatto.api.v1.CustomEmoji` | Every custom emoji in the catalog, ordered exactly like `CustomEmojiService.ListCustomEmojis`. Empty means the server has no custom emoji. |
+
 <a id="chatto-realtime-v1-RealtimeProjectionEvent"></a>
 
 ### RealtimeProjectionEvent
@@ -431,6 +446,9 @@ Authenticated server state required by every signed-in client.
 | `soundboard` | optional [`RealtimeProjectionSoundboard`](#chatto-realtime-v1-RealtimeProjectionSoundboard) | Complete server soundboard catalog. Absent when the server does not implement it, which is deliberately distinguishable from a catalog that is present and empty: a client must leave its own catalog alone in the first case and clear it in the second.
 
 Carrying the catalog here instead of adding a new projection operation keeps older clients working, because an unknown operation is fatal for their subscription while an unknown field is not. |
+| `custom_emojis` | optional [`RealtimeProjectionCustomEmojis`](#chatto-realtime-v1-RealtimeProjectionCustomEmojis) | Complete server custom-emoji catalog. Absent when the server does not implement realtime custom-emoji convergence; present and empty means the client must clear its catalog.
+
+This is an optional field on an existing operation so older clients ignore it safely instead of treating a new projection operation as fatal. |
 
 <a id="chatto-realtime-v1-RealtimeProjectionSoundboard"></a>
 

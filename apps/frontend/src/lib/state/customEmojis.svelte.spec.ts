@@ -1,18 +1,32 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { flushSync } from 'svelte';
 import {
   CustomEmojisStore,
   getCustomEmojis,
+  notifyCustomEmojis,
   __resetCustomEmojisForTests
 } from './customEmojis.svelte';
 import type { CustomEmoji } from '$lib/api-client/customEmojis';
+import type { CustomEmoji as CustomEmojiProto } from '@chatto/api-types/api/v1/custom_emojis_pb';
+
+const { listCustomEmojis } = vi.hoisted(() => ({
+  listCustomEmojis: vi.fn<() => Promise<CustomEmoji[]>>()
+}));
+
+vi.mock('$lib/api-client/customEmojis', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$lib/api-client/customEmojis')>()),
+  createCustomEmojiAPI: () => ({ list: listCustomEmojis })
+}));
 
 function emoji(id: string, name: string): CustomEmoji {
   return { id, name, url: `https://example.test/assets/emoji/${id}` } as CustomEmoji;
 }
 
 describe('CustomEmojisStore', () => {
-  beforeEach(() => __resetCustomEmojisForTests());
+  beforeEach(() => {
+    __resetCustomEmojisForTests();
+    listCustomEmojis.mockReset();
+  });
 
   it('upsert adds newest-first and marks the store loaded', () => {
     const store = new CustomEmojisStore();
@@ -44,6 +58,52 @@ describe('CustomEmojisStore', () => {
 
     expect(store.emojis.map((e) => e.id)).toEqual(['2']);
     expect(store.find('alpha')).toBeUndefined();
+  });
+
+  it('replace swaps in an authoritative catalog and marks the store loaded', () => {
+    const store = new CustomEmojisStore();
+    store.upsert(emoji('1', 'alpha'));
+
+    store.replace([emoji('2', 'beta')]);
+
+    expect(store.emojis.map((item) => item.id)).toEqual(['2']);
+    expect(store.loaded).toBe(true);
+    expect(store.find('alpha')).toBeUndefined();
+  });
+
+  it('replace during an in-flight load wins so a deleted emoji cannot return', async () => {
+    const store = new CustomEmojisStore();
+    let releaseList: (emojis: CustomEmoji[]) => void = () => {};
+    const listed = new Promise<CustomEmoji[]>((resolve) => {
+      releaseList = resolve;
+    });
+    listCustomEmojis.mockReturnValue(listed);
+
+    const load = store.load({} as Parameters<CustomEmojisStore['load']>[0]);
+    store.replace([emoji('2', 'beta')]);
+    releaseList([emoji('1', 'alpha'), emoji('2', 'beta')]);
+
+    await expect(load).resolves.toBe(true);
+    expect(store.emojis.map((item) => item.id)).toEqual(['2']);
+  });
+
+  it('notifyCustomEmojis applies a projection catalog to the shared store', () => {
+    notifyCustomEmojis('server_abc', [
+      {
+        id: '1',
+        name: 'partyparrot',
+        url: 'https://example.test/assets/emoji/1'
+      } as unknown as CustomEmojiProto
+    ]);
+
+    expect(getCustomEmojis('server_abc').emojis).toEqual([
+      {
+        id: '1',
+        name: 'partyparrot',
+        url: 'https://example.test/assets/emoji/1'
+      }
+    ]);
+    expect(getCustomEmojis('server_abc').loaded).toBe(true);
   });
 
   it('shares one instance per server so an upsert is visible everywhere', () => {

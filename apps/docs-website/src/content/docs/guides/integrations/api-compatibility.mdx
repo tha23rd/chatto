@@ -74,6 +74,13 @@ projection state through the same operation stream. An integration that is
 offline for more than 24 hours recovers current state but cannot request every
 historical transition from that interval.
 
+Authenticated `server_state_upsert` operations can include optional full
+catalogs such as `custom_emojis` and `soundboard`. Treat an absent catalog as
+unsupported and preserve any separately loaded fallback. Treat a present empty
+catalog as authoritative empty state. This presence rule lets newer clients
+converge catalog changes while older clients safely ignore fields they do not
+recognise.
+
 `compatibility.minimumWebClientVersion`, when present, applies only to Chatto's
 bundled web client. Third-party clients must not use it as their compatibility
 range.
