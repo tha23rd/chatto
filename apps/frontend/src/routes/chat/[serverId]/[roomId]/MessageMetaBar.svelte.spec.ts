@@ -20,7 +20,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock('$lib/state/customEmojis.svelte', () => ({
   getCustomEmoji: (_server: string, name: string) =>
     name === 'custom' ? { name: 'custom', url: CUSTOM_EMOJI_URL } : undefined,
-  getCustomEmojis: () => ({ ensureLoaded: vi.fn() })
+  getCustomEmojis: () => ({ ensureLoaded: vi.fn() }),
+  notifyCustomEmojis: vi.fn()
 }));
 
 vi.mock('$lib/hooks', () => ({
@@ -335,7 +336,10 @@ describe('MessageMetaBar', () => {
     });
 
     const unicodeButton = q(container, 'button[aria-label="Add 👍 reaction (2)"]') as HTMLElement;
-    const customButton = q(container, 'button[aria-label="Add custom reaction (1)"]') as HTMLElement;
+    const customButton = q(
+      container,
+      'button[aria-label="Add custom reaction (1)"]'
+    ) as HTMLElement;
     expect(unicodeButton).not.toBeNull();
     expect(customButton).not.toBeNull();
 

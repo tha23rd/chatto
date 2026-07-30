@@ -1,7 +1,7 @@
 # FDR-900: Custom Emoji
 
 **Status:** Active
-**Last reviewed:** 2026-07-19
+**Last reviewed:** 2026-07-30
 
 ## Overview
 
@@ -25,6 +25,8 @@ or per-room emoji sets.
   rendering as that image once it is gone.
 - Any authenticated member sees the current custom emoji catalog in the emoji
   picker alongside built-in emoji and can use one in a message or reaction.
+- Connected members receive custom emoji additions and deletions immediately;
+  they do not need to reload before a newly uploaded emoji renders.
 - Known `:name:` shortcodes render as custom emoji images in normal message
   prose. Shortcodes in code, preformatted text, and links remain literal.
 - Reaction pills backed by a custom emoji render the emoji image; pills backed
@@ -127,6 +129,21 @@ custom role previously granted `server.manage` for emoji keep working without a
 re-grant.
 **Tradeoff:** Two permissions can now authorize the same action, so reasoning
 about "who can manage emoji" means checking both grants rather than one.
+
+### 8. Realtime carries authoritative full-catalog replacements
+
+**Decision:** Custom-emoji create and delete facts are delivered to every
+authenticated realtime projection. Each fact emits the existing
+`server_state_upsert` operation with an optional, complete custom-emoji catalog;
+fresh compacted projections include the same catalog.
+**Why:** Every member can read the server-wide catalog, and message/reaction
+rendering must resolve an emoji uploaded moments earlier. Using an optional
+field on an existing operation is additive for older clients, while a full
+replacement handles missed events, reconnects, and deletion of the last emoji
+without client-side delta ordering.
+**Tradeoff:** A catalog change retransmits the small server-wide catalog instead
+of one row. Custom emoji are low-cardinality and admin-curated, so the simpler
+recovery and version-skew behavior is worth that bounded payload.
 
 ## Permissions
 

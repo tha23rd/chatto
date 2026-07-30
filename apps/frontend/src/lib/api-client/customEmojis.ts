@@ -1,11 +1,11 @@
-import { CustomEmojiService } from "@chatto/api-types/api/v1/custom_emojis_connect";
-import { AdminCustomEmojiService } from "@chatto/api-types/admin/v1/custom_emojis_connect";
+import { CustomEmojiService } from '@chatto/api-types/api/v1/custom_emojis_connect';
+import { AdminCustomEmojiService } from '@chatto/api-types/admin/v1/custom_emojis_connect';
 import {
   authHeaders,
   createChattoClient,
   handleAuthError,
-  type ConnectAPIConfig,
-} from "./connect.js";
+  type ConnectAPIConfig
+} from './connect.js';
 
 /**
  * Lightweight render shape for a custom emoji. Carries only what the UI needs
@@ -35,15 +35,12 @@ export function createCustomEmojiAPI(config: ConnectAPIConfig) {
   return {
     async list(): Promise<CustomEmoji[]> {
       try {
-        const response = await client.listCustomEmojis(
-          {},
-          { headers: headers() },
-        );
+        const response = await client.listCustomEmojis({}, { headers: headers() });
         return response.emojis.map(mapCustomEmoji);
       } catch (err) {
         return handleAuthError(config, err);
       }
-    },
+    }
   };
 }
 
@@ -57,27 +54,18 @@ export function createAdminCustomEmojiAPI(config: ConnectAPIConfig) {
   return {
     async list(): Promise<CustomEmoji[]> {
       try {
-        const response = await client.listCustomEmojis(
-          {},
-          { headers: headers() },
-        );
+        const response = await client.listCustomEmojis({}, { headers: headers() });
         return response.emojis.map(mapCustomEmoji);
       } catch (err) {
         return handleAuthError(config, err);
       }
     },
 
-    async create(
-      name: string,
-      image: CustomEmojiImageUpload,
-    ): Promise<CustomEmoji> {
+    async create(name: string, image: CustomEmojiImageUpload): Promise<CustomEmoji> {
       try {
-        const response = await client.createCustomEmoji(
-          { name, image },
-          { headers: headers() },
-        );
+        const response = await client.createCustomEmoji({ name, image }, { headers: headers() });
         if (!response.emoji) {
-          throw new Error("createCustomEmoji returned no emoji");
+          throw new Error('createCustomEmoji returned no emoji');
         }
         return mapCustomEmoji(response.emoji);
       } catch (err) {
@@ -91,14 +79,11 @@ export function createAdminCustomEmojiAPI(config: ConnectAPIConfig) {
       } catch (err) {
         return handleAuthError(config, err);
       }
-    },
+    }
   };
 }
 
-function mapCustomEmoji(emoji: {
-  id: string;
-  name: string;
-  url: string;
-}): CustomEmoji {
+/** Map the canonical API resource into the lightweight render shape. */
+export function mapCustomEmoji(emoji: { id: string; name: string; url: string }): CustomEmoji {
   return { id: emoji.id, name: emoji.name, url: emoji.url };
 }
