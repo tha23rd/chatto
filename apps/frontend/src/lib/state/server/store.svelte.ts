@@ -44,6 +44,7 @@ import {
   clearUserSummaryCache,
   removeUserSummaryCacheEntry
 } from '$lib/state/userSummaries.svelte';
+import { notifyCustomEmojis } from '$lib/state/customEmojis.svelte';
 import { notifySoundboard } from '$lib/state/soundboard.svelte';
 import { avatarUserFromDirectoryMember } from './rooms.svelte';
 import { mapNotificationPage } from '$lib/api-client/notifications';
@@ -337,6 +338,12 @@ export class ServerStateStore {
           break;
         case 'serverStateUpsert':
           this.serverInfo.applyProjectionState(operation.operation.value);
+          // An absent field means an older server that does not provide live
+          // catalog convergence; preserve the normal ListCustomEmojis result.
+          // A present empty catalog is authoritative and clears local state.
+          if (operation.operation.value.customEmojis) {
+            notifyCustomEmojis(this.serverId, operation.operation.value.customEmojis.emojis);
+          }
           // Authenticated server state carries the complete soundboard catalog,
           // and a soundboard change emits this operation, so members already in
           // a voice call converge without rejoining. An absent catalog means the

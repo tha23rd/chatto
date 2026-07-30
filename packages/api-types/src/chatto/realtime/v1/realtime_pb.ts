@@ -10,6 +10,7 @@ import { GetViewerResponse } from "../../api/v1/viewer_pb.js";
 import { DirectoryMember } from "../../api/v1/member_directory_pb.js";
 import { ServerRuntimeConfig } from "../../api/v1/server_state_pb.js";
 import { Sound } from "../../api/v1/soundboard_pb.js";
+import { CustomEmoji } from "../../api/v1/custom_emojis_pb.js";
 import { RoomGroup, RoomViewerState, RoomWithViewerState } from "../../api/v1/room_directory_pb.js";
 import { PresenceStatus } from "../../api/v1/presence_pb.js";
 import { ThreadViewerState } from "../../api/v1/message_types_pb.js";
@@ -944,6 +945,18 @@ export class RealtimeProjectionServerState extends Message<RealtimeProjectionSer
    */
   soundboard?: RealtimeProjectionSoundboard;
 
+  /**
+   * Complete server custom-emoji catalog. Absent when the server does not
+   * implement realtime custom-emoji convergence; present and empty means the
+   * client must clear its catalog.
+   *
+   * This is an optional field on an existing operation so older clients ignore
+   * it safely instead of treating a new projection operation as fatal.
+   *
+   * @generated from field: optional chatto.realtime.v1.RealtimeProjectionCustomEmojis custom_emojis = 4;
+   */
+  customEmojis?: RealtimeProjectionCustomEmojis;
+
   constructor(data?: PartialMessage<RealtimeProjectionServerState>) {
     super();
     proto3.util.initPartial(data, this);
@@ -955,6 +968,7 @@ export class RealtimeProjectionServerState extends Message<RealtimeProjectionSer
     { no: 1, name: "motd", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 2, name: "runtime", kind: "message", T: ServerRuntimeConfig },
     { no: 3, name: "soundboard", kind: "message", T: RealtimeProjectionSoundboard, opt: true },
+    { no: 4, name: "custom_emojis", kind: "message", T: RealtimeProjectionCustomEmojis, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RealtimeProjectionServerState {
@@ -1019,6 +1033,54 @@ export class RealtimeProjectionSoundboard extends Message<RealtimeProjectionSoun
 
   static equals(a: RealtimeProjectionSoundboard | PlainMessage<RealtimeProjectionSoundboard> | undefined, b: RealtimeProjectionSoundboard | PlainMessage<RealtimeProjectionSoundboard> | undefined): boolean {
     return proto3.util.equals(RealtimeProjectionSoundboard, a, b);
+  }
+}
+
+/**
+ * Complete server custom-emoji catalog for shortcode, message, and reaction
+ * rendering. Every authenticated member may read the catalog, so it is plain
+ * server state rather than viewer-scoped state.
+ *
+ * This is a full replacement on every server-state upsert, and a custom-emoji
+ * change emits one, so connected members converge without reloading.
+ *
+ * @generated from message chatto.realtime.v1.RealtimeProjectionCustomEmojis
+ */
+export class RealtimeProjectionCustomEmojis extends Message<RealtimeProjectionCustomEmojis> {
+  /**
+   * Every custom emoji in the catalog, ordered exactly like
+   * `CustomEmojiService.ListCustomEmojis`. Empty means the server has no
+   * custom emoji.
+   *
+   * @generated from field: repeated chatto.api.v1.CustomEmoji emojis = 1;
+   */
+  emojis: CustomEmoji[] = [];
+
+  constructor(data?: PartialMessage<RealtimeProjectionCustomEmojis>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "chatto.realtime.v1.RealtimeProjectionCustomEmojis";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "emojis", kind: "message", T: CustomEmoji, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RealtimeProjectionCustomEmojis {
+    return new RealtimeProjectionCustomEmojis().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RealtimeProjectionCustomEmojis {
+    return new RealtimeProjectionCustomEmojis().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RealtimeProjectionCustomEmojis {
+    return new RealtimeProjectionCustomEmojis().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RealtimeProjectionCustomEmojis | PlainMessage<RealtimeProjectionCustomEmojis> | undefined, b: RealtimeProjectionCustomEmojis | PlainMessage<RealtimeProjectionCustomEmojis> | undefined): boolean {
+    return proto3.util.equals(RealtimeProjectionCustomEmojis, a, b);
   }
 }
 

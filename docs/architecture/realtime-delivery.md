@@ -66,8 +66,8 @@ idempotent operations:
 
 - `reset`;
 - current public server profile, authenticated server presentation/runtime
-  state including the complete server soundboard catalog, and authenticated
-  viewer state;
+  state including the complete custom-emoji and soundboard catalogs, and
+  authenticated viewer state;
 - every public server directory user;
 - lightweight state for every room visible to the viewer and the complete
   visible room-group layout; DM participant references remain eager;
@@ -94,12 +94,13 @@ fallback. This lets a `StartDM` response navigate immediately without exposing
 an unsolicited empty conversation to another participant.
 
 The frontend applies this prefix and every later event through the same
-`ServerProjectionStore` reducer. Server profile, MOTD, runtime capability, and
-soundboard catalog changes replace canonical projection state instead of causing
-a ConnectRPC refresh. The soundboard catalog is carried inside authenticated
-server state rather than by its own operation, so a soundboard change emits one
-full server-state replacement and clients that predate the field keep working
-instead of failing on an unknown operation. Canonical timeline pages evict rows beyond their newest 50. Heavier
+`ServerProjectionStore` reducer. Server profile, MOTD, runtime capability,
+custom-emoji catalog, and soundboard catalog changes replace canonical
+projection state instead of causing a ConnectRPC refresh. Both catalogs are
+optional fields inside authenticated server state rather than separate
+operations, so their changes emit one full server-state replacement and clients
+that predate either field keep working instead of failing on an unknown
+operation. Canonical timeline pages evict rows beyond their newest 50. Heavier
 message stores are created lazily, and selecting a cold room sends
 `hydrate_room`. The response atomically replaces its full room membership and
 current timeline through the normal projection reducer; it is not a ConnectRPC
@@ -303,12 +304,14 @@ delivery does not reassemble or retransmit complete channel membership. Echo
 tombstone upserts explicitly distinguish
 canonical-reply deletion from direct echo removal.
 
-Soundboard catalog facts are server-wide and readable by every authenticated
-member, so the hub waits for the soundboard projection and then fans them to
-every session without a visibility decision. Resume replay treats them the same
-way. Each fact maps to one authenticated server-state replacement carrying the
-current catalog, so members already connected — including members already in a
-voice call — converge without a reload.
+Custom-emoji and soundboard catalog facts are server-wide and readable by every
+authenticated member, so the hub waits for the owning catalog projection and
+then fans them to every session without a visibility decision. Resume replay
+treats them the same way. Each fact maps to one authenticated server-state
+replacement carrying both current catalogs. Connected members therefore resolve
+new custom emoji immediately, while members already in a call see soundboard
+changes without rejoining. Present empty catalogs clear client state; fields
+absent from older servers preserve the client's list-loaded fallback.
 
 Room-read signals emit a `RoomViewerStateReplace` for the affected room and a
 finite `NotificationsReplace`. This keeps the retained canonical room row,

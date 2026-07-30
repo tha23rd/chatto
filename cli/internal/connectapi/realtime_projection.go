@@ -37,6 +37,10 @@ type RealtimeProjectionSnapshot struct {
 type RealtimeProjectionServerState struct {
 	MOTD    string
 	Runtime *apiv1.ServerRuntimeConfig
+	// CustomEmojis is the complete server custom-emoji catalog, readable by
+	// every authenticated member. It rides along with server state so catalog
+	// changes converge on already-connected clients.
+	CustomEmojis []*apiv1.CustomEmoji
 	// Sounds is the complete server soundboard catalog, readable by every
 	// authenticated member. It rides along with server state so a catalog change
 	// converges on clients that are already in a voice call.
@@ -327,13 +331,13 @@ func (a *API) BuildRealtimeProjectionRoomTimeline(ctx context.Context, userID, r
 // BuildRealtimeProjectionServerState returns current authenticated server
 // presentation and runtime settings for snapshot and live convergence.
 func (a *API) BuildRealtimeProjectionServerState() *RealtimeProjectionServerState {
-	// Sounds rides along with server state so a soundboard catalog change
-	// converges on clients already in a voice call (fork addition on top of
-	// upstream's free-function MOTD/runtime derivation).
+	// Server-wide catalogs ride along with server state so their durable
+	// lifecycle facts converge on clients that are already connected.
 	return &RealtimeProjectionServerState{
-		MOTD:    serverMOTD(a),
-		Runtime: serverRuntimeConfig(a),
-		Sounds:  a.soundsToProto(a.core.ListSounds()),
+		MOTD:         serverMOTD(a),
+		Runtime:      serverRuntimeConfig(a),
+		CustomEmojis: a.customEmojisToProto(a.core.ListCustomEmojis()),
+		Sounds:       a.soundsToProto(a.core.ListSounds()),
 	}
 }
 
