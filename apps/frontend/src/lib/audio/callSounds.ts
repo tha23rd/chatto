@@ -1,18 +1,22 @@
 /**
- * Fixed voice-call join/leave cues using Web Audio.
+ * Fixed voice-call participant and stream transition cues using Web Audio.
  *
  * These are intentionally separate from configurable notification sounds:
  * call cues do not read notification sound IDs, filters, or envelopes.
  */
 
-export type CallSoundKind = 'join' | 'leave';
+export type CallSoundKind = 'join' | 'leave' | 'stream-start' | 'stream-stop';
 
-const CUE_DURATION_MS = 360;
+const CUE_DURATION_MS = 480;
 const NOTE_DURATION_SECONDS = 0.18;
 const NOTE_SPACING_SECONDS = 0.11;
 const OUTPUT_GAIN = 0.11;
-const JOIN_FREQUENCIES = [523.25, 659.25] as const;
-const LEAVE_FREQUENCIES = [659.25, 523.25] as const;
+const CUE_FREQUENCIES: Record<CallSoundKind, readonly number[]> = {
+  join: [523.25, 659.25],
+  leave: [659.25, 523.25],
+  'stream-start': [392, 523.25, 783.99],
+  'stream-stop': [783.99, 523.25, 392]
+};
 
 let audioCtx: AudioContext | null = null;
 
@@ -20,7 +24,7 @@ export function playCallSound(kind: CallSoundKind): Promise<void> {
   const ctx = getContext();
   if (!ctx) return Promise.resolve();
 
-  const frequencies = kind === 'join' ? JOIN_FREQUENCIES : LEAVE_FREQUENCIES;
+  const frequencies = CUE_FREQUENCIES[kind];
   const output = ctx.createGain();
   output.gain.value = OUTPUT_GAIN;
   output.connect(ctx.destination);

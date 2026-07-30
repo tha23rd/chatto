@@ -416,6 +416,11 @@ export class VoiceCallState {
     message: string;
     shownAt: number;
   } | null = null;
+  // LiveKit owns screen-share lifecycle rather than the durable call event stream.
+  // Snapshot the active sharers so publication/mute events become one audible
+  // transition without replaying cues during initial hydration or reconnect.
+  private streamSoundParticipantIds: readonly string[] = [];
+  private streamTransitionSoundsArmed = false;
 
   // Non-reactive audio level cache — updated at 60ms by the polling interval.
   // Deliberately NOT $state to avoid triggering Svelte reactivity at 60Hz.
@@ -883,6 +888,7 @@ export class VoiceCallState {
       this.connected = true;
       this.updateParticipants();
       this.nativeCallControls.start();
+      this.armStreamTransitionSounds();
       await this.refreshDevices();
       if (this.consumePendingOwnJoinSound()) {
         void playCallSound('join');
@@ -1362,7 +1368,7 @@ export class VoiceCallState {
       }
       this.isScreenShareEnabled = newEnabled ? false : this.isScreenShareEnabled;
     }
-    this.updateParticipants();
+    this.updateParticipantsAndStreamSounds();
     this.syncScreenShareDiagnostics(room);
   }
 
@@ -1685,19 +1691,27 @@ export class VoiceCallState {
     if (!this.room) return;
 
     this.room.on(RoomEvent.ParticipantConnected, () => {
-      this.updateParticipants();
+      this.updateParticipantsAndStreamSounds();
     });
 
     this.room.on(RoomEvent.ParticipantDisconnected, () => {
-      this.updateParticipants();
+      this.updateParticipantsAndStreamSounds();
     });
 
     this.room.on(RoomEvent.TrackMuted, () => {
-      this.updateParticipants();
+      this.updateParticipantsAndStreamSounds();
     });
 
     this.room.on(RoomEvent.TrackUnmuted, () => {
-      this.updateParticipants();
+      this.updateParticipantsAndStreamSounds();
+    });
+
+    this.room.on(RoomEvent.Reconnecting, () => {
+      this.streamTransitionSoundsArmed = false;
+    });
+
+    this.room.on(RoomEvent.Reconnected, () => {
+      this.armStreamTransitionSounds();
     });
 
     this.room.on(RoomEvent.Disconnected, () => {
@@ -1779,19 +1793,19 @@ export class VoiceCallState {
 
     // Track published/unpublished — catches camera enable/disable by remote participants
     this.room.on(RoomEvent.TrackPublished, () => {
-      this.updateParticipants();
+      this.updateParticipantsAndStreamSounds();
     });
 
     this.room.on(RoomEvent.TrackUnpublished, () => {
-      this.updateParticipants();
+      this.updateParticipantsAndStreamSounds();
     });
 
     this.room.on(RoomEvent.LocalTrackPublished, () => {
-      this.updateParticipants();
+      this.updateParticipantsAndStreamSounds();
     });
 
     this.room.on(RoomEvent.LocalTrackUnpublished, () => {
-      this.updateParticipants();
+      this.updateParticipantsAndStreamSounds();
     });
 
     // Keep audio level snapshots fresh for call UI consumers without pushing
@@ -1848,6 +1862,59 @@ export class VoiceCallState {
         isScreenShareWatched: isLocal || this.isFeedWatched(p.identity, 'screen')
       };
     });
+  }
+
+  private updateParticipantsAndStreamSounds(): void {
+    this.updateParticipants();
+    this.syncStreamTransitionSounds();
+  }
+
+  /** Arm stream cues from the room's current state without announcing that snapshot. */
+  private armStreamTransitionSounds(): void {
+    this.streamSoundParticipantIds = this.currentScreenSharingParticipantIds();
+    this.streamTransitionSoundsArmed = this.connected;
+  }
+
+  /**
+   * Announce each LiveKit screen-video publication transition once.
+   *
+   * Screen-share audio is a companion publication and deliberately does not
+   * count as another stream. While disconnected or reconnecting, changes only
+   * refresh the baseline so existing streams are never announced as new.
+   */
+  private syncStreamTransitionSounds(): void {
+    const nextParticipantIds = this.currentScreenSharingParticipantIds();
+    if (!this.connected || !this.streamTransitionSoundsArmed) {
+      this.streamSoundParticipantIds = nextParticipantIds;
+      return;
+    }
+
+    const streamStarted = nextParticipantIds.some(
+      (identity) => !this.streamSoundParticipantIds.includes(identity)
+    );
+    const streamStopped = this.streamSoundParticipantIds.some(
+      (identity) => !nextParticipantIds.includes(identity)
+    );
+    this.streamSoundParticipantIds = nextParticipantIds;
+
+    if (streamStarted) void playCallSound('stream-start');
+    if (streamStopped) void playCallSound('stream-stop');
+  }
+
+  private currentScreenSharingParticipantIds(): readonly string[] {
+    if (!this.room) return [];
+
+    const participantIds: string[] = [];
+    const participants: Participant[] = [
+      this.room.localParticipant,
+      ...Array.from(this.room.remoteParticipants.values())
+    ];
+    for (const participant of participants) {
+      if (isParticipantScreenShareEnabled(participant)) {
+        participantIds.push(participant.identity);
+      }
+    }
+    return participantIds;
   }
 
   /**
@@ -2149,6 +2216,8 @@ export class VoiceCallState {
     this.pushToTalkOwnsMicrophone = false;
     this.pushToTalkReconcileInFlight = null;
     this.suppressDisconnectToast = false;
+    this.streamSoundParticipantIds = [];
+    this.streamTransitionSoundsArmed = false;
     this.connected = false;
     this.connecting = false;
     this.roomId = null;
