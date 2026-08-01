@@ -10,7 +10,10 @@
       "time_now": "Just nu",
       "time_minutes": "{count}m sedan",
       "time_hours": "{count}h sedan",
-      "time_days": "{count}d sedan"
+      "time_days": "{count}d sedan",
+      "reaction": "{name} reagerade med {emoji} på ditt meddelande",
+      "reaction_collapsed": "{name} reagerade med {emoji} på ditt meddelande ({count} reaktioner)",
+      "reaction_unknown": "Någon reagerade på ditt meddelande"
     },
     "sign_out": {
       "title": "Logga ut",

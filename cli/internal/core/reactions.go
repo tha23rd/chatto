@@ -85,6 +85,11 @@ func (s *ReactionModel) addReaction(ctx context.Context, kind RoomKind, roomID, 
 		"user_id", userID,
 	)
 
+	// Best-effort: tell the message author their message was reacted to. Only a
+	// genuinely new reaction notifies, so re-adding a removed reaction after a
+	// dismissal is the only way to notify twice for the same reactor and emoji.
+	s.core.notifyMessageReaction(ctx, kind, roomID, messageEventID, emojiName, userID)
+
 	return true, nil
 }
 

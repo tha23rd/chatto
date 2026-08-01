@@ -17,6 +17,7 @@ Chatto creates persistent notifications for attention-worthy events:
 | Direct `@username` mentions | Notify the mentioned user. |
 | Role, `@all`, and `@here` mentions | Notify matching recipients, with confirmation for broad sends. |
 | Replies to your message | Notify you. |
+| Reactions to your message | Notify you. All reactions on one message collapse into a single notification. |
 | Followed thread replies | Notify followers. |
 | Rooms set to all messages | Notify for every root message in that room. |
 
@@ -30,8 +31,8 @@ Members can choose notification levels per room:
 | ----- | ------ |
 | Default | Inherit the parent/default behavior. |
 | Muted | Suppress notifications and unread sidebar state for that room. |
-| Normal | Notify for mentions, DMs, and thread replies. |
-| All messages | Notify for mentions, DMs, thread replies, and every root message. |
+| Normal | Notify for mentions, DMs, thread replies, and reactions to your own messages. |
+| All messages | Notify for mentions, DMs, thread replies, reactions to your own messages, and every root message. |
 
 Muted rooms suppress mentions too. Treat mute as "leave this room out of my attention surface."
 

@@ -572,6 +572,13 @@ const msg_chat_notifications_time_hours = (
 const msg_chat_notifications_time_days = (
   inputs: Parameters<LocaleMessages['chat_notifications_time_days']>[0]
 ): LocalizedString => messages().chat_notifications_time_days(inputs);
+const msg_chat_notifications_reaction = (
+  inputs: Parameters<LocaleMessages['chat_notifications_reaction']>[0]
+): LocalizedString => messages().chat_notifications_reaction(inputs);
+const msg_chat_notifications_reaction_collapsed = (
+  inputs: Parameters<LocaleMessages['chat_notifications_reaction_collapsed']>[0]
+): LocalizedString => messages().chat_notifications_reaction_collapsed(inputs);
+const msg_chat_notifications_reaction_unknown = (): LocalizedString => messages().chat_notifications_reaction_unknown(empty());
 const msg_chat_sign_out_title = (): LocalizedString => messages().chat_sign_out_title(empty());
 const msg_chat_sign_out_current_server = (): LocalizedString => messages().chat_sign_out_current_server(empty());
 const msg_chat_sign_out_all_servers = (): LocalizedString => messages().chat_sign_out_all_servers(empty());
@@ -2406,6 +2413,9 @@ export { msg_chat_notifications_time_now as 'chat.notifications.time_now' };
 export { msg_chat_notifications_time_minutes as 'chat.notifications.time_minutes' };
 export { msg_chat_notifications_time_hours as 'chat.notifications.time_hours' };
 export { msg_chat_notifications_time_days as 'chat.notifications.time_days' };
+export { msg_chat_notifications_reaction as 'chat.notifications.reaction' };
+export { msg_chat_notifications_reaction_collapsed as 'chat.notifications.reaction_collapsed' };
+export { msg_chat_notifications_reaction_unknown as 'chat.notifications.reaction_unknown' };
 export { msg_chat_sign_out_title as 'chat.sign_out.title' };
 export { msg_chat_sign_out_current_server as 'chat.sign_out.current_server' };
 export { msg_chat_sign_out_all_servers as 'chat.sign_out.all_servers' };

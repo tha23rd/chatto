@@ -50,6 +50,24 @@ message RoomMessageNotification {
   string event_id = 2;
 }
 
+// Reaction notification payload.
+//
+// Reactions on the same message collapse into one pending notification: the
+// actor, emoji, and creation time describe the most recent reaction, and
+// `reaction_count` reports how many have been folded in.
+message ReactionNotification {
+  // Room containing the reacted-to message.
+  RoomSummary room = 1;
+  // Canonical event ID of the reacted-to message.
+  string event_id = 2;
+  // Emoji shortcode of the most recent reaction, for example "thumbsup".
+  string emoji = 3;
+  // Thread root event ID when the reacted-to message is inside a thread.
+  optional string thread_root_event_id = 4;
+  // How many reactions have been collapsed into this notification. At least 1.
+  int32 reaction_count = 5;
+}
+
 // Notification that a new voice call started in a room.
 message VoiceCallStartedNotification {
   // Room where the call started.
@@ -81,6 +99,8 @@ message NotificationItem {
     RoomMessageNotification room_message = 13;
     // New voice call notification.
     VoiceCallStartedNotification voice_call_started = 14;
+    // Reaction-to-your-message notification.
+    ReactionNotification reaction = 15;
   }
 }
 

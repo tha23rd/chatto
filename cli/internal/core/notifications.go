@@ -104,6 +104,119 @@ func (c *ChattoCore) suppressesNotificationAlertsForPresence(ctx context.Context
 	return status == PresenceStatusDoNotDisturb
 }
 
+// errNotificationRevisionConflict reports that a notification changed between
+// the read a caller based its rewrite on and the write itself. Callers should
+// re-read and decide again rather than retrying the same payload.
+var errNotificationRevisionConflict = errors.New("notification revision conflict")
+
+// pendingNotificationEntry pairs a stored notification with the KV revision it
+// was read at, so a caller can rewrite it without clobbering a concurrent write
+// from another replica.
+type pendingNotificationEntry struct {
+	Notification *corev1.Notification
+	Revision     uint64
+}
+
+// findPendingNotification returns the first pending notification for userID that
+// match accepts, together with the revision it was read at. It returns a nil
+// entry when the user has no matching notification.
+//
+// Authorization: internal use only - callers must already have resolved userID.
+func (c *ChattoCore) findPendingNotification(
+	ctx context.Context,
+	userID string,
+	match func(*corev1.Notification) bool,
+) (*pendingNotificationEntry, error) {
+	prefix := notificationKeyFilter(userID)
+	lister, err := c.storage.runtimeStateKV.ListKeysFiltered(ctx, prefix)
+	if err != nil {
+		if errors.Is(err, jetstream.ErrNoKeysFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to list notification keys: %w", err)
+	}
+
+	for key := range lister.Keys() {
+		entry, err := c.storage.runtimeStateKV.Get(ctx, key)
+		if err != nil {
+			if errors.Is(err, jetstream.ErrKeyNotFound) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to get notification: %w", err)
+		}
+
+		var notification corev1.Notification
+		if err := proto.Unmarshal(entry.Value(), &notification); err != nil {
+			c.logger.Warn("Failed to unmarshal notification", "key", key, "error", err)
+			continue
+		}
+		if match(&notification) {
+			return &pendingNotificationEntry{
+				Notification: &notification,
+				Revision:     entry.Revision(),
+			}, nil
+		}
+	}
+	return nil, nil
+}
+
+// ReplacePendingNotification rewrites an existing notification record in place,
+// keeping its ID and refreshing the 90-day TTL, then re-publishes the creation
+// event so every connected session re-renders the row and any push notification
+// sharing its tag is replaced.
+//
+// The record is deleted and re-created rather than updated because JetStream KV
+// cannot set a value and its per-key TTL in one write: a plain Update silently
+// drops the notification's expiry. The gap between the two writes is why this is
+// best-effort — a concurrent write returns errNotificationRevisionConflict and
+// the caller must re-read before deciding again.
+//
+// Authorization: internal use only - called by notification fanout logic.
+func (c *ChattoCore) ReplacePendingNotification(
+	ctx context.Context,
+	notification *corev1.Notification,
+	revision uint64,
+) error {
+	recipientID := notification.GetRecipientId()
+	notificationID := notification.GetId()
+	if recipientID == "" || notificationID == "" {
+		return fmt.Errorf("notification is missing recipient or ID")
+	}
+
+	silent := c.suppressesNotificationAlertsForPresence(ctx, recipientID)
+	notification.CreatedAt = timestamppb.New(time.Now())
+
+	data, err := proto.Marshal(notification)
+	if err != nil {
+		return fmt.Errorf("failed to marshal notification: %w", err)
+	}
+
+	key := notificationKey(recipientID, notificationID)
+	if err := c.storage.runtimeStateKV.Delete(ctx, key, jetstream.LastRevision(revision)); err != nil {
+		if jetstreamutil.IsSequenceConflict(err) || errors.Is(err, jetstream.ErrKeyNotFound) {
+			return errNotificationRevisionConflict
+		}
+		return fmt.Errorf("failed to clear notification for replacement: %w", err)
+	}
+	if _, err := c.storage.runtimeStateKV.Create(ctx, key, data, jetstream.KeyTTL(notificationTTL)); err != nil {
+		return fmt.Errorf("failed to store replaced notification: %w", err)
+	}
+
+	c.publishNotificationCreatedEvent(ctx, notification, silent)
+
+	if c.OnNotificationCreated != nil && !silent {
+		go c.OnNotificationCreated(context.WithoutCancel(ctx), notification)
+	}
+
+	c.logger.Debug("Notification replaced",
+		"notification_id", notificationID,
+		"recipient_id", recipientID,
+		"type", notificationTypeName(notification),
+		"silent", silent)
+
+	return nil
+}
+
 // GetNotifications returns all notifications for a user, ordered by creation time (newest first).
 // Authorization: Caller must verify userID matches authenticated user.
 func (c *ChattoCore) GetNotifications(ctx context.Context, userID string) ([]*corev1.Notification, error) {
@@ -370,6 +483,12 @@ func (c *ChattoCore) DismissRoomReadNotifications(ctx context.Context, kind Room
 		case *corev1.Notification_RoomMessage:
 			return payload.RoomMessage.GetRoomId() == roomID &&
 				c.notificationEventAtOrBefore(ctx, kind, roomID, payload.RoomMessage.GetEventId(), readThrough)
+		case *corev1.Notification_Reaction:
+			// The reacted-to message is older than the reaction, so a room read
+			// marker that covers the message covers the reaction to it too.
+			return payload.Reaction.GetRoomId() == roomID &&
+				payload.Reaction.GetInThread() == "" &&
+				c.notificationEventAtOrBefore(ctx, kind, roomID, payload.Reaction.GetEventId(), readThrough)
 		default:
 			return false
 		}
@@ -400,6 +519,10 @@ func (c *ChattoCore) DismissThreadReadNotifications(ctx context.Context, kind Ro
 			return payload.Reply.GetRoomId() == roomID &&
 				payload.Reply.GetInThread() == threadRootEventID &&
 				c.notificationEventAtOrBefore(ctx, kind, roomID, payload.Reply.GetEventId(), readThrough)
+		case *corev1.Notification_Reaction:
+			return payload.Reaction.GetRoomId() == roomID &&
+				payload.Reaction.GetInThread() == threadRootEventID &&
+				c.notificationEventAtOrBefore(ctx, kind, roomID, payload.Reaction.GetEventId(), readThrough)
 		default:
 			return false
 		}
@@ -496,6 +619,11 @@ func (c *ChattoCore) publishNotificationCreatedEvent(ctx context.Context, notif 
 		case *corev1.Notification_RoomMessage:
 			roomID = n.RoomMessage.RoomId
 			eventID = n.RoomMessage.EventId
+		case *corev1.Notification_Reaction:
+			// Navigate to the reacted-to message itself; there is no separate
+			// event for the reaction.
+			roomID = n.Reaction.RoomId
+			eventID = n.Reaction.EventId
 		}
 	}
 
@@ -556,6 +684,8 @@ func notificationTypeName(notif *corev1.Notification) string {
 		return "reply"
 	case *corev1.Notification_RoomMessage:
 		return "room_message"
+	case *corev1.Notification_Reaction:
+		return "reaction"
 	default:
 		return "unknown"
 	}
@@ -577,6 +707,8 @@ func notificationTargetRoomID(notification *corev1.Notification) string {
 		return payload.Reply.GetRoomId()
 	case *corev1.Notification_RoomMessage:
 		return payload.RoomMessage.GetRoomId()
+	case *corev1.Notification_Reaction:
+		return payload.Reaction.GetRoomId()
 	default:
 		return ""
 	}

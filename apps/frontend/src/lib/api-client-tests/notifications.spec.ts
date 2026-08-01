@@ -202,4 +202,85 @@ describe('createNotificationAPI', () => {
       ]
     });
   });
+
+  const reactionNotification = (
+    emoji: string,
+    reactionCount: number,
+    threadRootEventId?: string
+  ) => ({
+    page: { totalCount: 1n, hasMore: false },
+    notifications: [
+      {
+        id: 'reaction-notification',
+        createdAt: Timestamp.fromDate(new Date('2026-07-31T12:00:00Z')),
+        actor: {
+          id: 'reactor',
+          login: 'alice',
+          displayName: 'Alice',
+          deleted: false,
+          presenceStatus: APIPresenceStatus.ONLINE
+        },
+        kind: {
+          case: 'reaction',
+          value: {
+            room: { id: 'room-1', name: 'general', kind: APIRoomKind.CHANNEL },
+            eventId: 'event-1',
+            emoji,
+            reactionCount,
+            threadRootEventId
+          }
+        }
+      }
+    ]
+  });
+
+  it('maps a single reaction notification to its emoji glyph', async () => {
+    mocks.listNotifications.mockResolvedValue(reactionNotification('thumbsup', 1));
+
+    const api = createNotificationAPI({ baseUrl: '/api/connect', bearerToken: null });
+
+    await expect(api.listNotifications()).resolves.toEqual({
+      totalCount: 1,
+      hasMore: false,
+      items: [
+        expect.objectContaining({
+          kind: NotificationItemKind.Reaction,
+          id: 'reaction-notification',
+          summary: 'Alice reacted 👍 to your message',
+          reactionRoom: { id: 'room-1', name: 'general', isDM: false },
+          reactionEventId: 'event-1',
+          reactionEmoji: 'thumbsup',
+          reactionInThread: null,
+          reactionCount: 1
+        })
+      ]
+    });
+  });
+
+  it('summarises a collapsed reaction notification with its total count', async () => {
+    mocks.listNotifications.mockResolvedValue(reactionNotification('heart', 3, 'thread-1'));
+
+    const api = createNotificationAPI({ baseUrl: '/api/connect', bearerToken: null });
+
+    const page = await api.listNotifications();
+
+    expect(page.items[0]).toMatchObject({
+      kind: NotificationItemKind.Reaction,
+      summary: 'Alice reacted ❤️ to your message (3 reactions)',
+      reactionInThread: 'thread-1',
+      reactionCount: 3
+    });
+  });
+
+  it('renders a custom emoji reaction by shortcode', async () => {
+    mocks.listNotifications.mockResolvedValue(reactionNotification('partyparrot', 1));
+
+    const api = createNotificationAPI({ baseUrl: '/api/connect', bearerToken: null });
+
+    const page = await api.listNotifications();
+
+    expect(page.items[0]).toMatchObject({
+      summary: 'Alice reacted :partyparrot: to your message'
+    });
+  });
 });

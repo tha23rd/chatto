@@ -10,7 +10,10 @@
       "time_now": "Gerade eben",
       "time_minutes": "vor {count} Min.",
       "time_hours": "vor {count} Std.",
-      "time_days": "vor {count} Tg."
+      "time_days": "vor {count} Tg.",
+      "reaction": "{name} hat mit {emoji} auf deine Nachricht reagiert",
+      "reaction_collapsed": "{name} hat mit {emoji} auf deine Nachricht reagiert ({count} Reaktionen)",
+      "reaction_unknown": "Jemand hat auf deine Nachricht reagiert"
     },
     "sign_out": {
       "title": "Abmelden",

@@ -10,7 +10,10 @@
       "time_now": "Justo ahora",
       "time_minutes": "Hace {count}m",
       "time_hours": "Hace {count}h",
-      "time_days": "Hace {count}d"
+      "time_days": "Hace {count}d",
+      "reaction": "{name} reaccionó con {emoji} a tu mensaje",
+      "reaction_collapsed": "{name} reaccionó con {emoji} a tu mensaje ({count} reacciones)",
+      "reaction_unknown": "Alguien reaccionó a tu mensaje"
     },
     "sign_out": {
       "title": "Cerrar sesión",

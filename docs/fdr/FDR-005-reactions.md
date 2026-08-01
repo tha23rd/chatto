@@ -14,6 +14,7 @@ Users can react to a message with emoji. Reactions are aggregated into pills sho
 - Clicking a pill toggles the current user's reaction.
 - On desktop, hovering a message reveals a quick-reaction bar with the user's most recently used emojis (falling back to a default set if none have been used yet).
 - Recent emoji selections persist in localStorage so the quick-bar stays personal across sessions.
+- Reacting to someone else's message notifies its author unless they have muted the room. All reactions on one message collapse into a single pending notification; see FDR-012 for the collapse and count semantics.
 
 ## Design Decisions
 
@@ -70,4 +71,4 @@ sync without requiring clients to infer echo linkage from a reaction signal.
 ## Related
 
 - **ADRs:** ADR-026 (event identity via NanoID), ADR-033 (event-sourced state with projections), ADR-034 (single event stream), ADR-035 (per-aggregate migration), ADR-042 (protobuf-first public API), ADR-044 (ConnectRPC service conventions), ADR-048 (frontend optimistic UI), ADR-051 (server-scoped resumable client projection)
-- **FDRs:** FDR-003 (Thread Reply Echo)
+- **FDRs:** FDR-003 (Thread Reply Echo), FDR-012 (Notifications)
