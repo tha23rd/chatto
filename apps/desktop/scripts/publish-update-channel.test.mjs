@@ -7,7 +7,11 @@ import test from "node:test";
 import { buildUpdateManifest } from "./update-manifest.mjs";
 import * as channelPublisher from "./publish-update-channel.mjs";
 
-const { compareChannelVersions, publishUpdateChannel } = channelPublisher;
+const {
+  compareChannelVersions,
+  PUBLICATION_VERIFICATION_DELAYS_MS,
+  publishUpdateChannel,
+} = channelPublisher;
 const repository = "tha23rd/chatto";
 const sourceSha = "28d085ced6b97af1d774b5bbaf1bd637eda80abf";
 const version = "0.1.0-nightly.20260719183045.812";
@@ -63,6 +67,17 @@ test("derives allowlisted rolling GitHub channel releases", () => {
   assert.throws(
     () => channelPublisher.channelRelease("nightly", "../evil"),
     /repository/,
+  );
+});
+
+test("allows GitHub's public download CDN four minutes to converge", () => {
+  assert.equal(PUBLICATION_VERIFICATION_DELAYS_MS[0], 0);
+  assert.equal(
+    PUBLICATION_VERIFICATION_DELAYS_MS.reduce(
+      (total, delayMs) => total + delayMs,
+      0,
+    ),
+    240_000,
   );
 });
 

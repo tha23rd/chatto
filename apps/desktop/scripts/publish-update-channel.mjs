@@ -14,8 +14,8 @@ const SOURCE_SHA = /^[0-9a-f]{40}$/;
 const STABLE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const NIGHTLY_VERSION =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-nightly\.(\d{14})\.(0|[1-9]\d*)$/;
-const PUBLICATION_VERIFICATION_DELAYS_MS = Object.freeze([
-  0, 1_000, 2_000, 4_000, 8_000, 15_000, 30_000,
+export const PUBLICATION_VERIFICATION_DELAYS_MS = Object.freeze([
+  0, 1_000, 2_000, 4_000, 8_000, 15_000, 30_000, 60_000, 60_000, 60_000,
 ]);
 
 function versionIdentifiers(channel, version) {
@@ -232,9 +232,10 @@ export async function publishUpdateChannel(
     "--clobber",
   ]);
 
-  // GitHub's download CDN can briefly serve the replaced asset's prior bytes.
-  // Poll the exact client-visible URL so publication succeeds only after the
-  // canonical channel has converged, without relying on a cache-busting URL.
+  // GitHub's download CDN can serve a replaced asset's prior bytes for several
+  // minutes. Poll the exact client-visible URL for up to four minutes so
+  // publication succeeds only after the canonical channel has converged,
+  // without relying on a cache-busting URL.
   await waitForPublicManifest(
     release,
     localBytes,
