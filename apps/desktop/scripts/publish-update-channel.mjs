@@ -9,12 +9,14 @@ import { validateUpdateManifest } from "./update-manifest.mjs";
 
 const execFileAsync = promisify(execFile);
 const CHANNEL_ASSET_NAME = "windows-x86_64.json";
-const REPOSITORY =
-  /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9_.-]{1,100}$/;
+const REPOSITORY = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9_.-]{1,100}$/;
 const SOURCE_SHA = /^[0-9a-f]{40}$/;
 const STABLE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const NIGHTLY_VERSION =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-nightly\.(\d{14})\.(0|[1-9]\d*)$/;
+const PUBLICATION_VERIFICATION_DELAYS_MS = Object.freeze([
+  0, 1_000, 2_000, 4_000, 8_000, 15_000, 30_000,
+]);
 
 function versionIdentifiers(channel, version) {
   const pattern = channel === "stable" ? STABLE_VERSION : NIGHTLY_VERSION;
@@ -71,14 +73,44 @@ function missingRelease(error) {
   );
 }
 
-function equalBytes(left, right, description) {
-  if (!left.equals(right)) {
-    throw new Error(`${description} did not match local manifest`);
-  }
-}
-
 async function responseBytes(response) {
   return Buffer.from(await response.arrayBuffer());
+}
+
+async function defaultSleep(delayMs) {
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+async function waitForPublicManifest(
+  release,
+  localBytes,
+  fetchImpl,
+  sleep,
+  verificationDelaysMs,
+) {
+  let lastFailure = "was not checked";
+  for (const delayMs of verificationDelaysMs) {
+    if (delayMs > 0) await sleep(delayMs);
+
+    try {
+      const response = await fetchImpl(release.publicUrl, {
+        cache: "no-store",
+        redirect: "follow",
+      });
+      if (!response.ok) {
+        lastFailure = `was unavailable (${response.status})`;
+        continue;
+      }
+      if (localBytes.equals(await responseBytes(response))) return;
+      lastFailure = "did not match the local manifest";
+    } catch (error) {
+      lastFailure = `request failed: ${error.message}`;
+    }
+  }
+
+  throw new Error(
+    `public update channel did not converge after ${verificationDelaysMs.length} attempts: ${lastFailure}`,
+  );
 }
 
 async function ensureRollingRelease(options, release, runner) {
@@ -97,8 +129,7 @@ async function ensureRollingRelease(options, release, runner) {
     if (!missingRelease(error)) throw error;
   }
 
-  const displayChannel =
-    options.channel === "stable" ? "Stable" : "Nightly";
+  const displayChannel = options.channel === "stable" ? "Stable" : "Nightly";
   await runner("gh", [
     "release",
     "create",
@@ -117,7 +148,12 @@ async function ensureRollingRelease(options, release, runner) {
 
 export async function publishUpdateChannel(
   options,
-  { runner = defaultRunner, fetchImpl = fetch } = {},
+  {
+    runner = defaultRunner,
+    fetchImpl = fetch,
+    sleep = defaultSleep,
+    publicationVerificationDelaysMs = PUBLICATION_VERIFICATION_DELAYS_MS,
+  } = {},
 ) {
   const release = validateOptions(options);
   const localBytes = await readFile(options.manifestPath);
@@ -196,19 +232,15 @@ export async function publishUpdateChannel(
     "--clobber",
   ]);
 
-  const publicResponse = await fetchImpl(release.publicUrl, {
-    cache: "no-store",
-    redirect: "follow",
-  });
-  if (!publicResponse.ok) {
-    throw new Error(
-      `public update channel is unavailable (${publicResponse.status})`,
-    );
-  }
-  equalBytes(
+  // GitHub's download CDN can briefly serve the replaced asset's prior bytes.
+  // Poll the exact client-visible URL so publication succeeds only after the
+  // canonical channel has converged, without relying on a cache-busting URL.
+  await waitForPublicManifest(
+    release,
     localBytes,
-    await responseBytes(publicResponse),
-    "public update channel",
+    fetchImpl,
+    sleep,
+    publicationVerificationDelaysMs,
   );
 }
 
