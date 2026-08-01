@@ -127,7 +127,8 @@ describe('resolveScreenShareOptions', () => {
     expect(capture.audio).toEqual({
       echoCancellation: false,
       noiseSuppression: false,
-      autoGainControl: false
+      autoGainControl: false,
+      restrictOwnAudio: true
     });
     expect(capture.audio).toBe(SHARED_AUDIO_CAPTURE_CONSTRAINTS);
   });

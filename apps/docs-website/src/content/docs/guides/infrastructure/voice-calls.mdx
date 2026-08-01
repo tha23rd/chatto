@@ -18,7 +18,7 @@ LiveKit runs as a **separate service** alongside Chatto. Chatto handles authenti
 
 The first person to select **Start call** and join creates the call and a fresh E2EE key. Chatto sends one notification to every other current room member unless they have muted the room; later joins do not send more call-start notifications. Do Not Disturb keeps the notification in the notification centre but suppresses its sound and Web Push. When the last person leaves, the call ends and Chatto shreds that key.
 
-Screen sharing can include audio from a browser tab when the browser supports it. In Chrome, select a browser tab and enable **Share tab audio** in the browser picker. Chatto does not request whole-system audio because that could capture remote call playback and feed it back into the room.
+Screen sharing can include audio when the capture engine supports the selected surface. In Chrome, select a browser tab and enable **Share tab audio** in the browser picker. In the Windows desktop client, enable **Share audio** to pair an entire display or selected window with Windows system audio. Selecting a window limits the picture, not the sound: other applications may be audible too. Chatto asks WebView2 to remove its own call playback from that capture to prevent feedback, but older WebView2 runtimes may not support the window-audio or filtering controls.
 
 Chatto records call start/join/leave/end facts durably and reconciles active participants against LiveKit webhooks, so call indicators recover after server restarts. These call facts update the active call UI without appearing as room timeline messages. LiveKit media is end-to-end encrypted by current Chatto clients; older clients that do not support this call encryption cannot decode encrypted media.
 

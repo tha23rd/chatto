@@ -12,6 +12,7 @@ const idleUpdate: DesktopUpdateSnapshot = {
 function bindings() {
   return {
     fetch: vi.fn(async () => new Response(null, { status: 204 })),
+    getDisplayMedia: vi.fn(async () => ({}) as MediaStream),
     openUrl: vi.fn(async () => {}),
     createRealtimeSocket: vi.fn(),
     startServerOAuth: vi.fn(),
@@ -41,7 +42,8 @@ describe('Tauri NativeHost', () => {
       tray: true,
       appBadge: true,
       desktopUpdates: true,
-      managedVideoPopOut: true
+      managedVideoPopOut: true,
+      windowSystemAudio: true
     });
   });
 
@@ -54,6 +56,34 @@ describe('Tauri NativeHost', () => {
     await host.setAppBadge({ kind: 'clear' });
 
     expect(native.setTaskbarAttention.mock.calls).toEqual([[true], [true], [false]]);
+  });
+
+  it('requests system audio when an audio-enabled desktop capture selects a window', async () => {
+    const native = bindings();
+    const host = createTauriNativeHost(native);
+    const audio = {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false
+    };
+    const video = {
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+      frameRate: 60
+    };
+
+    await host.captureDisplayMedia({
+      audio,
+      video,
+      systemAudio: 'include'
+    });
+
+    expect(native.getDisplayMedia).toHaveBeenCalledWith({
+      audio,
+      video,
+      systemAudio: 'include',
+      windowAudio: 'system'
+    });
   });
 
   it('routes desktop updates through typed native bindings', async () => {

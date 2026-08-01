@@ -1,6 +1,6 @@
 import type { AppBadgeIntent } from '$lib/notifications/appBadge';
 
-export const NATIVE_HOST_API_VERSION = 4 as const;
+export const NATIVE_HOST_API_VERSION = 5 as const;
 
 export type Unsubscribe = () => void | Promise<void>;
 
@@ -14,6 +14,19 @@ export interface NativeCapabilities {
   readonly desktopUpdates: boolean;
   /** Host-managed, minimisable video pop-out windows are available. */
   readonly managedVideoPopOut: boolean;
+  /** Selected-window video can be paired with Windows system audio during display capture. */
+  readonly windowSystemAudio: boolean;
+}
+
+/**
+ * Browser display-capture options plus Chromium's experimental audio-source hints.
+ *
+ * TypeScript's DOM library can lag Chromium for these dictionary members, so the
+ * native boundary owns the narrow extension until they are available everywhere.
+ */
+export interface NativeDisplayMediaOptions extends DisplayMediaStreamOptions {
+  readonly systemAudio?: 'include' | 'exclude';
+  readonly windowAudio?: 'exclude' | 'system' | 'window';
 }
 
 export type DesktopUpdateChannel = 'stable' | 'nightly';
@@ -94,6 +107,13 @@ export interface NativeHost {
   registerServerOrigin(url: string): Unsubscribe;
   fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
   createRealtimeSocket(url: string): RealtimeSocketLike;
+  /**
+   * Ask the renderer's browser engine for a display capture.
+   *
+   * Desktop hosts may add capability-specific capture hints, but media remains
+   * in the renderer and never crosses native IPC.
+   */
+  captureDisplayMedia(options: NativeDisplayMediaOptions): Promise<MediaStream>;
   startServerOAuth(request: NativeOAuthRequest): Promise<NativeOAuthResult>;
   openExternal(url: string): Promise<void>;
   registerPushToTalk(

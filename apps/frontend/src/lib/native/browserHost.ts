@@ -15,7 +15,8 @@ export const browserNativeHost: NativeHost = {
     tray: false,
     appBadge: false,
     desktopUpdates: false,
-    managedVideoPopOut: false
+    managedVideoPopOut: false,
+    windowSystemAudio: false
   },
 
   registerServerOrigin() {
@@ -28,6 +29,10 @@ export const browserNativeHost: NativeHost = {
 
   createRealtimeSocket(url) {
     return new WebSocket(url) as RealtimeSocketLike;
+  },
+
+  captureDisplayMedia(options) {
+    return navigator.mediaDevices.getDisplayMedia(options);
   },
 
   async startServerOAuth() {
