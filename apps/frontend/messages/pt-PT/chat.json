@@ -10,7 +10,10 @@
       "time_now": "Neste momento",
       "time_minutes": "{count}m atrás",
       "time_hours": "{count}h atrás",
-      "time_days": "{count}d atrás"
+      "time_days": "{count}d atrás",
+      "reaction": "{name} reagiu com {emoji} à sua mensagem",
+      "reaction_collapsed": "{name} reagiu com {emoji} à sua mensagem ({count} reações)",
+      "reaction_unknown": "Alguém reagiu à sua mensagem"
     },
     "sign_out": {
       "title": "Sair",

@@ -5,12 +5,13 @@
 
 ## Overview
 
-Chatto has a persistent notification system surfaced through a bell icon and notification center. Notifications represent things the user should pay attention to: DMs, @mentions of users/roles/virtual groups, replies to their own messages, new posts in threads they follow, voice calls started by another room member, and (optionally) all messages in rooms they've subscribed to. Notification levels are configurable per space and per room.
+Chatto has a persistent notification system surfaced through a bell icon and notification center. Notifications represent things the user should pay attention to: DMs, @mentions of users/roles/virtual groups, replies to their own messages, reactions to their own messages, new posts in threads they follow, voice calls started by another room member, and (optionally) all messages in rooms they've subscribed to. Notification levels are configurable per space and per room.
 
 ## Behavior
 
 - A bell icon shows an unread count and opens the notification center listing recent notifications.
-- A notification appears for: a DM message, a mention that resolves to the user, a reply to one of the user's messages, a new reply in a thread the user follows, a voice call started by another member, or any root message in a room set to ALL_MESSAGES.
+- A notification appears for: a DM message, a mention that resolves to the user, a reply to one of the user's messages, an emoji reaction on one of the user's messages, a new reply in a thread the user follows, a voice call started by another member, or any root message in a room set to ALL_MESSAGES.
+- All reactions on one message collapse into a single pending notification per author. It names the most recent reactor and emoji and counts how many reactions have been folded in; it does not name every reactor. Reacting to your own message never notifies you.
 - The first member to join a new call session notifies every other current room member whose effective notification level is not MUTED. Later participants joining the same call do not create another call-start notification, and the starter is not notified about their own action.
 - Mention notifications may come from direct `@username`, role `@role`, `@all`, or `@here` mentions. The bundled composer asks for confirmation before sending role, `@all`, or `@here` mentions, while API callers can post authorized messages directly.
 - Notifications auto-expire after 90 days.
@@ -27,7 +28,7 @@ Per space and per room, the user picks one of four levels:
 
 - **DEFAULT** — inherit from the parent (room → space → system default of NORMAL).
 - **MUTED** — suppress everything for this scope, including @mentions. The room doesn't even show as unread in the sidebar.
-- **NORMAL** — notifications for mentions, DMs, thread replies, and voice calls started in the room. Default behavior.
+- **NORMAL** — notifications for mentions, DMs, thread replies, reactions to your own messages, and voice calls started in the room. Default behavior.
 - **ALL_MESSAGES** — like NORMAL plus every root message in the room.
 
 ## Thread Follow
@@ -115,6 +116,14 @@ from API callers.
 **Why:** A call starting is a room-wide invitation worth surfacing at the normal notification level, while every participant join would create noisy duplicates. Tying fanout to the same successful transition that records `CallStartedEvent` makes the call session the idempotency boundary.
 **Tradeoff:** Every non-muted room member is notified even if they rarely participate in calls. Members who do not want call-start attention from a room must mute that room, which also suppresses its other notifications. An older server/client pair degrades the new row to generic room activity until upgraded, while upgraded clients receive the precise call-start presentation.
 
+### 13. Reaction notifications collapse per message
+
+**Decision:** Adding a reaction to someone else's message notifies its author, gated only by room mute and by the author still being a room member. All reactions on one message collapse into a single pending notification: the first reaction creates the row, and each later reaction rewrites it in place with the newest reactor as actor, the newest emoji, and an incremented `reaction_count`. The rewrite deletes and re-creates the same key so the 90-day per-key TTL survives, then republishes the creation event; a concurrent write is detected by revision and retried from a fresh read. Push notifications for one message share a tag so the collapsed row replaces the earlier push instead of stacking.
+
+**Why:** Reactions are the cheapest thing to send in the product, so one bell row per reactor would drown the notification centre on any popular message — but a reaction to your own message is still worth surfacing. Collapsing keeps the signal without the volume, and reusing the existing create/replace live-event path means every connected session re-renders through the normal authoritative notification replacement.
+
+**Tradeoff:** The row names only the most recent reactor, so earlier reactors are visible only by opening the message. `reaction_count` counts notification-worthy activity rather than current reaction state: removing a reaction does not decrement it, and dismissing the notification restarts the count. Because collapse is a delete followed by a create rather than one atomic write, a concurrent reaction on another replica can lose a count increment; the notification itself still appears, which is what matters. There is no per-user opt-out, so a member who finds reaction notifications noisy must mute the room, which also suppresses its other notifications.
+
 ## Permissions
 
 Notification preferences are user-scoped and don't require special permissions to manage. There's no permission gating the ability to mute or change levels.
@@ -122,4 +131,4 @@ Notification preferences are user-scoped and don't require special permissions t
 ## Related
 
 - **ADRs:** ADR-012 (two-tier real-time events), ADR-028 (event-ID-keyed read state), ADR-036 (runtime state in `RUNTIME_STATE`), ADR-038 (room-owned thread state)
-- **FDRs:** FDR-006 (@Mentions), FDR-007 (Direct Messages), FDR-013 (Web Push Notifications), FDR-016 (Voice Calls)
+- **FDRs:** FDR-005 (Reactions), FDR-006 (@Mentions), FDR-007 (Direct Messages), FDR-013 (Web Push Notifications), FDR-016 (Voice Calls)

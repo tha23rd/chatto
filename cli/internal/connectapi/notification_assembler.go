@@ -121,6 +121,17 @@ func (a *notificationAssembler) itemWithPresence(ctx context.Context, notificati
 				EventId: payload.RoomMessage.GetEventId(),
 			},
 		}
+	case *corev1.Notification_Reaction:
+		reaction := &apiv1.ReactionNotification{
+			Room:          room,
+			EventId:       payload.Reaction.GetEventId(),
+			Emoji:         payload.Reaction.GetEmoji(),
+			ReactionCount: max(payload.Reaction.GetReactionCount(), 1),
+		}
+		if threadID := payload.Reaction.GetInThread(); threadID != "" {
+			reaction.ThreadRootEventId = &threadID
+		}
+		item.Kind = &apiv1.NotificationItem_Reaction{Reaction: reaction}
 	default:
 		return nil, fmt.Errorf("unknown notification type %T", notification.GetNotification())
 	}

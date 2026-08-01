@@ -609,6 +609,11 @@ func fetchPayloadContext(ctx context.Context, chattoCore *core.ChattoCore, notif
 		case *corev1.Notification_RoomMessage:
 			roomID = n.RoomMessage.RoomId
 			eventID = n.RoomMessage.EventId
+		case *corev1.Notification_Reaction:
+			// The preview is the recipient's own reacted-to message, which is
+			// what the push should quote back to them.
+			roomID = n.Reaction.RoomId
+			eventID = n.Reaction.EventId
 		default:
 			return nil
 		}
@@ -656,7 +661,8 @@ func fetchPayloadContext(ctx context.Context, chattoCore *core.ChattoCore, notif
 
 	// For notifications shown as channel activity, also fetch the room name.
 	switch notification.Notification.(type) {
-	case *corev1.Notification_Mention, *corev1.Notification_Reply, *corev1.Notification_RoomMessage:
+	case *corev1.Notification_Mention, *corev1.Notification_Reply, *corev1.Notification_RoomMessage,
+		*corev1.Notification_Reaction:
 		room, err := chattoCore.GetRoom(ctx, kind, roomID)
 		if err != nil {
 			logger.Debug("Failed to fetch room for push notification",

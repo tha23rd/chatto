@@ -10,7 +10,10 @@
       "time_now": "Just now",
       "time_minutes": "{count}m ago",
       "time_hours": "{count}h ago",
-      "time_days": "{count}d ago"
+      "time_days": "{count}d ago",
+      "reaction": "{name} reacted {emoji} to your message",
+      "reaction_collapsed": "{name} reacted {emoji} to your message ({count} reactions)",
+      "reaction_unknown": "Someone reacted to your message"
     },
     "sign_out": {
       "title": "Sign Out",

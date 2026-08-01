@@ -230,6 +230,83 @@ export class RoomMessageNotification extends Message<RoomMessageNotification> {
 }
 
 /**
+ * Reaction notification payload.
+ *
+ * Reactions on the same message collapse into one pending notification: the
+ * actor, emoji, and creation time describe the most recent reaction, and
+ * `reaction_count` reports how many have been folded in.
+ *
+ * @generated from message chatto.api.v1.ReactionNotification
+ */
+export class ReactionNotification extends Message<ReactionNotification> {
+  /**
+   * Room containing the reacted-to message.
+   *
+   * @generated from field: chatto.api.v1.RoomSummary room = 1;
+   */
+  room?: RoomSummary;
+
+  /**
+   * Canonical event ID of the reacted-to message.
+   *
+   * @generated from field: string event_id = 2;
+   */
+  eventId = "";
+
+  /**
+   * Emoji shortcode of the most recent reaction, for example "thumbsup".
+   *
+   * @generated from field: string emoji = 3;
+   */
+  emoji = "";
+
+  /**
+   * Thread root event ID when the reacted-to message is inside a thread.
+   *
+   * @generated from field: optional string thread_root_event_id = 4;
+   */
+  threadRootEventId?: string;
+
+  /**
+   * How many reactions have been collapsed into this notification. At least 1.
+   *
+   * @generated from field: int32 reaction_count = 5;
+   */
+  reactionCount = 0;
+
+  constructor(data?: PartialMessage<ReactionNotification>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "chatto.api.v1.ReactionNotification";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "room", kind: "message", T: RoomSummary },
+    { no: 2, name: "event_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "emoji", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "thread_root_event_id", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 5, name: "reaction_count", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ReactionNotification {
+    return new ReactionNotification().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ReactionNotification {
+    return new ReactionNotification().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ReactionNotification {
+    return new ReactionNotification().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ReactionNotification | PlainMessage<ReactionNotification> | undefined, b: ReactionNotification | PlainMessage<ReactionNotification> | undefined): boolean {
+    return proto3.util.equals(ReactionNotification, a, b);
+  }
+}
+
+/**
  * Notification that a new voice call started in a room.
  *
  * @generated from message chatto.api.v1.VoiceCallStartedNotification
@@ -348,6 +425,14 @@ export class NotificationItem extends Message<NotificationItem> {
      */
     value: VoiceCallStartedNotification;
     case: "voiceCallStarted";
+  } | {
+    /**
+     * Reaction-to-your-message notification.
+     *
+     * @generated from field: chatto.api.v1.ReactionNotification reaction = 15;
+     */
+    value: ReactionNotification;
+    case: "reaction";
   } | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<NotificationItem>) {
@@ -366,6 +451,7 @@ export class NotificationItem extends Message<NotificationItem> {
     { no: 12, name: "reply", kind: "message", T: ReplyNotification, oneof: "kind" },
     { no: 13, name: "room_message", kind: "message", T: RoomMessageNotification, oneof: "kind" },
     { no: 14, name: "voice_call_started", kind: "message", T: VoiceCallStartedNotification, oneof: "kind" },
+    { no: 15, name: "reaction", kind: "message", T: ReactionNotification, oneof: "kind" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): NotificationItem {
