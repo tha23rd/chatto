@@ -17,7 +17,8 @@ import {
   type RemoteTrack,
   type RemoteTrackPublication,
   type RemoteParticipant,
-  type RemoteAudioTrack
+  type RemoteAudioTrack,
+  type TrackPublishOptions
 } from 'livekit-client';
 import { toast } from '$lib/ui/toast';
 import { playCallSound } from '$lib/audio/callSounds';
@@ -25,6 +26,7 @@ import { userPreferences } from '$lib/state/userPreferences.svelte';
 import * as m from '$lib/i18n/messages';
 import { NativeCallControlsController } from '$lib/native/callControls';
 import { getNativeHost } from '$lib/native/host';
+import type { NativeDisplayMediaOptions, NativeHost } from '$lib/native/types';
 import { closeActiveVideoPopOut } from '$lib/voice/pictureInPicture';
 import type { VoiceCallAPI } from '$lib/api-client/voiceCalls';
 import { serverSlot, Codecs, type StorageSlot } from '$lib/storage/slot';
@@ -41,7 +43,8 @@ import {
   isScreenShareQualityPrefs,
   resolveScreenShareOptions,
   type ScreenShareCeiling,
-  type ScreenShareQualityPrefs
+  type ScreenShareQualityPrefs,
+  type ResolvedScreenShareOptions
 } from './screenShareQuality';
 
 export type CallParticipantInfo = {
@@ -407,6 +410,7 @@ export class VoiceCallState {
   private pushToTalkOwnsMicrophone = false;
   private pushToTalkReconcileInFlight: Promise<void> | null = null;
   private readonly nativeCallControls: NativeCallControlsController;
+  private readonly nativeHost: NativeHost;
   private readonly screenShareDiagnosticsCollector: ScreenShareDiagnosticsCollector;
   private e2eeWorker: Worker | null = null;
   private audioLevelInterval: ReturnType<typeof setInterval> | null = null;
@@ -491,7 +495,8 @@ export class VoiceCallState {
   ) {
     this.#api = api;
     this.#screenShareConfigProvider = screenShareConfigProvider;
-    this.nativeCallControls = new NativeCallControlsController(getNativeHost(), {
+    this.nativeHost = getNativeHost();
+    this.nativeCallControls = new NativeCallControlsController(this.nativeHost, {
       snapshot: () => ({
         connected: this.connected,
         muted: this.isMuted,
@@ -1311,9 +1316,7 @@ export class VoiceCallState {
     this.updateParticipants();
   }
 
-  /**
-   * Toggle video-only screen/window/tab sharing.
-   */
+  /** Toggle screen/window/tab sharing with the current quality and shared-audio preferences. */
   async toggleScreenShare(): Promise<void> {
     if (this.screenShareToggleInFlight) return this.screenShareToggleInFlight;
 
@@ -1342,21 +1345,28 @@ export class VoiceCallState {
       this.screenShareCeiling
     );
     try {
-      await this.runExplicitMediaDeviceOperation(() =>
-        room.localParticipant.setScreenShareEnabled(
+      const enablePublishOptions: TrackPublishOptions = {
+        ...screenSharePublish,
+        audioPreset: AudioPresets.musicStereo,
+        forceStereo: true,
+        dtx: false,
+        red: false
+      };
+      await this.runExplicitMediaDeviceOperation(async () => {
+        if (
+          newEnabled &&
+          screenShareCapture.audio !== false &&
+          this.nativeHost.capabilities.windowSystemAudio
+        ) {
+          await this.publishNativeScreenShare(room, screenShareCapture, enablePublishOptions);
+          return;
+        }
+        await room.localParticipant.setScreenShareEnabled(
           newEnabled,
           newEnabled ? screenShareCapture : undefined,
-          newEnabled
-            ? {
-                ...screenSharePublish,
-                audioPreset: AudioPresets.musicStereo,
-                forceStereo: true,
-                dtx: false,
-                red: false
-              }
-            : undefined
-        )
-      );
+          newEnabled ? enablePublishOptions : undefined
+        );
+      });
       if (this.room !== room) return;
 
       this.isScreenShareEnabled = newEnabled;
@@ -1370,6 +1380,67 @@ export class VoiceCallState {
     }
     this.updateParticipantsAndStreamSounds();
     this.syncScreenShareDiagnostics(room);
+  }
+
+  /**
+   * Capture an audio-enabled desktop share outside LiveKit's capture helper.
+   *
+   * livekit-client currently omits Chromium's `windowAudio` dictionary member
+   * while converting its screen-share options to `getDisplayMedia()`. The
+   * desktop host owns that browser-specific hint, then these raw tracks return
+   * to LiveKit's ordinary publication path so E2EE, sender configuration,
+   * reconnects, and unpublishing keep their existing ownership.
+   */
+  private async publishNativeScreenShare(
+    room: Room,
+    capture: ResolvedScreenShareOptions['capture'],
+    publish: TrackPublishOptions
+  ): Promise<void> {
+    const displayOptions: NativeDisplayMediaOptions = {
+      audio: capture.audio,
+      video: {
+        width: { ideal: capture.resolution.width },
+        height: { ideal: capture.resolution.height },
+        frameRate: capture.resolution.frameRate
+      },
+      systemAudio: capture.systemAudio
+    };
+    const stream = await this.nativeHost.captureDisplayMedia(displayOptions);
+    const videoTrack = stream.getVideoTracks()[0];
+    const audioTrack = stream.getAudioTracks()[0];
+    if (!videoTrack) {
+      stream.getTracks().forEach((track) => track.stop());
+      throw new Error('display capture did not return a video track');
+    }
+
+    videoTrack.contentHint = capture.contentHint;
+    if (audioTrack && 'contentHint' in audioTrack) {
+      audioTrack.contentHint = 'music';
+    }
+
+    const publishedTracks: MediaStreamTrack[] = [];
+    try {
+      await room.localParticipant.publishTrack(videoTrack, {
+        ...publish,
+        source: Track.Source.ScreenShare
+      });
+      publishedTracks.push(videoTrack);
+      if (audioTrack) {
+        await room.localParticipant.publishTrack(audioTrack, {
+          ...publish,
+          source: Track.Source.ScreenShareAudio
+        });
+        publishedTracks.push(audioTrack);
+      }
+    } catch (error) {
+      await Promise.all(
+        publishedTracks.map((track) =>
+          room.localParticipant.unpublishTrack(track).catch(() => undefined)
+        )
+      );
+      stream.getTracks().forEach((track) => track.stop());
+      throw error;
+    }
   }
 
   private syncScreenShareDiagnostics(room: Room): void {

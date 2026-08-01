@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VoiceCallAPI } from '$lib/api-client/voiceCalls';
+import { browserNativeHost } from '$lib/native/browserHost';
+import { installNativeHost, resetNativeHostForTests } from '$lib/native/host';
 
 const { popOutMocks, soundMocks, toastMocks } = vi.hoisted(() => ({
   popOutMocks: {
@@ -122,7 +124,8 @@ vi.mock('livekit-client', () => {
         if (enabled) {
           localTrackPublications.push({
             isMuted: false,
-            track: { source: 'camera' }, source: 'camera'
+            track: { source: 'camera' },
+            source: 'camera'
           });
         }
       }),
@@ -139,7 +142,8 @@ vi.mock('livekit-client', () => {
         if (enabled) {
           localTrackPublications.push({
             isMuted: false,
-            track: { source: 'screen_share' }, source: 'screen_share'
+            track: { source: 'screen_share' },
+            source: 'screen_share'
           });
         }
       }),
@@ -390,6 +394,7 @@ describe('VoiceCallState', () => {
   });
 
   afterEach(() => {
+    resetNativeHostForTests();
     vi.unstubAllGlobals();
   });
 
@@ -842,6 +847,79 @@ describe('VoiceCallState', () => {
     );
     expect(state.isScreenShareEnabled).toBe(false);
     expect(state.participants[0].screenShareTrack).toBeNull();
+  });
+
+  it('publishes native display tracks through LiveKit when window system audio is available', async () => {
+    const videoTrack = {
+      id: 'native-screen-video',
+      kind: 'video',
+      contentHint: '',
+      stop: vi.fn()
+    } as unknown as MediaStreamTrack;
+    const audioTrack = {
+      id: 'native-screen-audio',
+      kind: 'audio',
+      contentHint: '',
+      stop: vi.fn()
+    } as unknown as MediaStreamTrack;
+    const captureDisplayMedia = vi.fn(async () => {
+      return {
+        getVideoTracks: () => [videoTrack],
+        getAudioTracks: () => [audioTrack],
+        getTracks: () => [videoTrack, audioTrack]
+      } as unknown as MediaStream;
+    });
+    installNativeHost({
+      ...browserNativeHost,
+      kind: 'tauri',
+      capabilities: {
+        ...browserNativeHost.capabilities,
+        windowSystemAudio: true
+      },
+      captureDisplayMedia
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.setScreenShareQuality({
+      ...DEFAULT_SCREEN_SHARE_QUALITY,
+      shareAudio: true
+    });
+    await state.join('wss://livekit.example.test', 'R1');
+
+    await state.toggleScreenShare();
+
+    expect(captureDisplayMedia).toHaveBeenCalledWith({
+      audio: {
+        autoGainControl: false,
+        echoCancellation: false,
+        noiseSuppression: false,
+        restrictOwnAudio: true
+      },
+      systemAudio: 'include',
+      video: {
+        frameRate: 60,
+        height: { ideal: 1080 },
+        width: { ideal: 1920 }
+      }
+    });
+    expect(lastRoom?.localParticipant.setScreenShareEnabled).not.toHaveBeenCalled();
+    expect(lastRoom?.localParticipant.publishTrack).toHaveBeenNthCalledWith(
+      1,
+      videoTrack,
+      expect.objectContaining({ source: 'screen_share' })
+    );
+    expect(lastRoom?.localParticipant.publishTrack).toHaveBeenNthCalledWith(
+      2,
+      audioTrack,
+      expect.objectContaining({
+        audioPreset: { maxBitrate: 64_000 },
+        dtx: false,
+        forceStereo: true,
+        red: false,
+        source: 'screen_share_audio'
+      })
+    );
+    expect(videoTrack.contentHint).toBe('motion');
+    expect(audioTrack.contentHint).toBe('music');
   });
 
   it('collects diagnostics from the published local screen-share track', async () => {
@@ -1398,7 +1476,9 @@ describe('VoiceCallState', () => {
       setVolume,
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
+      getTrackPublications: vi.fn(() => [
+        { isMuted: false, track: { source: 'microphone' }, source: 'microphone' }
+      ])
     });
     const client = createVoiceCallClient();
     const state = new VoiceCallState(client);
@@ -1435,7 +1515,9 @@ describe('VoiceCallState', () => {
       setVolume,
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
+      getTrackPublications: vi.fn(() => [
+        { isMuted: false, track: { source: 'microphone' }, source: 'microphone' }
+      ])
     });
     const client = createVoiceCallClient();
     const state = new VoiceCallState(client);
@@ -1482,7 +1564,9 @@ describe('VoiceCallState', () => {
       setVolume,
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
+      getTrackPublications: vi.fn(() => [
+        { isMuted: false, track: { source: 'microphone' }, source: 'microphone' }
+      ])
     });
     const state = new VoiceCallState(createVoiceCallClient());
     await state.join('wss://livekit.example.test', 'R1');
@@ -1682,7 +1766,9 @@ describe('VoiceCallState', () => {
       setVolume: vi.fn(),
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
+      getTrackPublications: vi.fn(() => [
+        { isMuted: false, track: { source: 'microphone' }, source: 'microphone' }
+      ])
     });
     localStorage.removeItem('chatto:i:server-1:callScreenShareVolumes');
     localStorage.removeItem('chatto:i:server-2:callScreenShareVolumes');
@@ -1722,7 +1808,12 @@ describe('VoiceCallState', () => {
     // Speech processing is what makes game and music audio sound like a broken radio.
     const capture = vi.mocked(lastRoom!.localParticipant.setScreenShareEnabled).mock.calls[0][1];
     expect(capture).toMatchObject({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        restrictOwnAudio: true
+      },
       systemAudio: 'include'
     });
     // The mic keeps its own DSP; only shared audio opts out.
@@ -1741,9 +1832,9 @@ describe('VoiceCallState', () => {
 
     await state.toggleScreenShare();
 
-    expect(vi.mocked(lastRoom!.localParticipant.setScreenShareEnabled).mock.calls[0][1]).toMatchObject(
-      { audio: false, systemAudio: 'exclude' }
-    );
+    expect(
+      vi.mocked(lastRoom!.localParticipant.setScreenShareEnabled).mock.calls[0][1]
+    ).toMatchObject({ audio: false, systemAudio: 'exclude' });
   });
 
   it('ignores setParticipantVolume for the local participant', async () => {
@@ -1764,7 +1855,9 @@ describe('VoiceCallState', () => {
       setVolume: vi.fn(),
       trackPublications: new Map(),
       audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
+      getTrackPublications: vi.fn(() => [
+        { isMuted: false, track: { source: 'microphone' }, source: 'microphone' }
+      ])
     });
     localStorage.removeItem('chatto:i:server-1:callParticipantVolumes');
     localStorage.removeItem('chatto:i:server-2:callParticipantVolumes');
@@ -1797,7 +1890,9 @@ describe('VoiceCallState', () => {
         setVolume,
         trackPublications: new Map(),
         audioTrackPublications: new Map(),
-        getTrackPublications: vi.fn(() => [{ isMuted: false, track: { source: 'microphone' }, source: 'microphone' }])
+        getTrackPublications: vi.fn(() => [
+          { isMuted: false, track: { source: 'microphone' }, source: 'microphone' }
+        ])
       });
     }
 

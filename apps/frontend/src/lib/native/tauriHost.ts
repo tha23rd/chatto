@@ -11,7 +11,12 @@ import {
   assertAllowedServerUrl
 } from './urlPolicy';
 import { createTauriRealtimeSocket } from './tauriRealtimeSocket';
-import { NATIVE_HOST_API_VERSION, type DesktopUpdateSnapshot, type NativeHost } from './types';
+import {
+  NATIVE_HOST_API_VERSION,
+  type DesktopUpdateSnapshot,
+  type NativeDisplayMediaOptions,
+  type NativeHost
+} from './types';
 
 type NativeFetchOptions = RequestInit & { maxRedirections?: number };
 
@@ -19,6 +24,9 @@ export interface TauriHostBindings {
   readonly fetch: (input: RequestInfo | URL, init?: NativeFetchOptions) => Promise<Response>;
   readonly openUrl: (url: string) => Promise<void>;
   readonly createRealtimeSocket: NativeHost['createRealtimeSocket'];
+  readonly getDisplayMedia: (
+    options: NativeDisplayMediaOptions
+  ) => ReturnType<NativeHost['captureDisplayMedia']>;
   readonly startServerOAuth: NativeHost['startServerOAuth'];
   readonly registerPushToTalk: NativeHost['registerPushToTalk'];
   readonly onTrayAction: NativeHost['onTrayAction'];
@@ -65,7 +73,8 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       tray: true,
       appBadge: true,
       desktopUpdates: true,
-      managedVideoPopOut: true
+      managedVideoPopOut: true,
+      windowSystemAudio: true
     },
 
     registerServerOrigin(value) {
@@ -103,6 +112,16 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       const endpoint = assertAllowedRealtimeUrl(url);
       requireRegisteredOrigin(realtimeServerOrigin(endpoint));
       return bindings.createRealtimeSocket(endpoint);
+    },
+
+    captureDisplayMedia(options) {
+      return bindings.getDisplayMedia({
+        ...options,
+        // Chromium 141+ can pair a selected window's video with system audio.
+        // It does not yet isolate one window's audio, so this deliberately
+        // captures all Windows output while keeping the shared picture scoped.
+        windowAudio: options.audio ? 'system' : 'exclude'
+      });
     },
 
     async startServerOAuth(request) {
@@ -161,6 +180,7 @@ export const tauriNativeHost = createTauriNativeHost({
   fetch: tauriFetch,
   openUrl,
   createRealtimeSocket: createTauriRealtimeSocket,
+  getDisplayMedia: (options) => navigator.mediaDevices.getDisplayMedia(options),
   startServerOAuth: (request) => invoke('start_server_oauth', { request }),
   registerPushToTalk: async (accelerator, listener) => {
     if (accelerator !== PUSH_TO_TALK_ACCELERATOR) {

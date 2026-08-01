@@ -178,7 +178,9 @@ desktop-specific server API.
 
 The LiveKit JavaScript SDK, room, participant state, E2EE worker, and track
 publishing remain in the renderer. Screen sharing continues through
-`getDisplayMedia` and LiveKit; media tracks do not cross Tauri IPC.
+`getDisplayMedia` and LiveKit. The desktop host boundary may add WebView2
+capture hints before the renderer publishes the returned tracks, but media
+tracks do not cross Tauri IPC.
 
 The client retains its existing resolution, frame-rate, bitrate, content-hint,
 degradation-preference, simulcast, dynacast, and adaptive-stream controls. The
@@ -196,11 +198,13 @@ when the selected feed changes, and closes it on call cleanup or track end.
 The shared WebView2 environment preserves the opener relationship without
 creating another LiveKit connection or granting the child native authority.
 
-For this POC, screen-share audio means Windows system/loopback audio offered by
-the entire-screen capture path. It does not promise arbitrary selected-process
-or selected-window audio. Native LiveKit or Windows audio capture requires a
-separate ADR supported by measurements showing that the WebView2 media path is
-the bottleneck.
+For this POC, screen-share audio means Windows system/loopback audio offered
+with an entire display or a selected window. Selecting a window scopes the
+picture but does not isolate its sound: current Chromium pairs that window with
+all system output and Chatto asks it to filter Chatto's own playback to avoid a
+call-audio loop. Native LiveKit or Windows per-process audio capture requires a
+separate ADR supported by measurements showing that this WebView2 media path is
+insufficient.
 
 ### Use tray-resident lifecycle for the POC
 
