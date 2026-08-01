@@ -10,7 +10,10 @@
       "time_now": "Ĝuste nun",
       "time_minutes": "{count}m antaŭ",
       "time_hours": "{count}h antaŭ",
-      "time_days": "{count}d antaŭ"
+      "time_days": "{count}d antaŭ",
+      "reaction": "{name} reagis per {emoji} al via mesaĝo",
+      "reaction_collapsed": "{name} reagis per {emoji} al via mesaĝo ({count} reagoj)",
+      "reaction_unknown": "Iu reagis al via mesaĝo"
     },
     "sign_out": {
       "title": "Eliru",

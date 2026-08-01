@@ -589,6 +589,68 @@ func TestBuildPayloadFromNotification(t *testing.T) {
 		}
 	})
 
+	t.Run("builds reaction payload", func(t *testing.T) {
+		notif := &corev1.Notification{
+			Id: "notif-reaction",
+			Notification: &corev1.Notification_Reaction{
+				Reaction: &corev1.ReactionNotification{
+					RoomId:        "room-general",
+					EventId:       "event-42",
+					Emoji:         "thumbsup",
+					ReactionCount: 1,
+				},
+			},
+		}
+		ctx := &PayloadContext{RoomName: "general", MessagePreview: "Hello world"}
+
+		payload := BuildPayloadFromNotification(notif, "Alice", baseURL, ctx)
+
+		if payload.Title != "@Alice reacted :thumbsup: to your message in #general" {
+			t.Errorf("unexpected title %q", payload.Title)
+		}
+		if payload.Body != "Hello world" {
+			t.Errorf("unexpected body %q", payload.Body)
+		}
+		if payload.Tag != "reaction-event-42" {
+			t.Errorf("unexpected tag %q", payload.Tag)
+		}
+		if payload.URL != "https://chatto.example.com/chat/-/room-general?highlight=event-42" {
+			t.Errorf("unexpected URL %q", payload.URL)
+		}
+		if got := NotificationTag(notif); got != payload.Tag {
+			t.Errorf("NotificationTag() = %q, want %q", got, payload.Tag)
+		}
+	})
+
+	t.Run("collapsed reaction payload reports the count and reuses the tag", func(t *testing.T) {
+		notif := &corev1.Notification{
+			Id: "notif-reaction-collapsed",
+			Notification: &corev1.Notification_Reaction{
+				Reaction: &corev1.ReactionNotification{
+					RoomId:        "room-general",
+					EventId:       "event-42",
+					Emoji:         "heart",
+					InThread:      "thread-7",
+					ReactionCount: 3,
+				},
+			},
+		}
+
+		payload := BuildPayloadFromNotification(notif, "Bob", baseURL, nil)
+
+		if payload.Title != "@Bob reacted :heart: to your message (3 reactions)" {
+			t.Errorf("unexpected title %q", payload.Title)
+		}
+		// Same tag as the un-collapsed push above, so the OS replaces it
+		// instead of stacking a second notification for the same message.
+		if payload.Tag != "reaction-event-42" {
+			t.Errorf("unexpected tag %q", payload.Tag)
+		}
+		if payload.URL != "https://chatto.example.com/chat/-/room-general/thread-7?highlight=event-42" {
+			t.Errorf("unexpected URL %q", payload.URL)
+		}
+	})
+
 	t.Run("escapes notification URL path segments and highlight query", func(t *testing.T) {
 		notif := &corev1.Notification{
 			Id: "notif-escaped",

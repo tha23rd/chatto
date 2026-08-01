@@ -418,6 +418,75 @@ test.describe('Notification Page Display', () => {
   });
 });
 
+test.describe('Reaction Notifications', () => {
+  test('reacting to a message notifies its author, and further reactions collapse into one row', async ({
+    page,
+    chatPage,
+    roomPage,
+    notificationsPage,
+    browser,
+    serverURL
+  }) => {
+    // User A: post a message, then leave the room so the notification is not
+    // auto-dismissed by the room read marker.
+    await createAndLoginTestUser(page);
+    await chatPage.goto();
+    const serverName = await chatPage.getServerName();
+    await chatPage.enterRoom('general');
+    const rootMessage = `Reaction notification test ${Date.now()}`;
+    await roomPage.sendMessage(rootMessage);
+    await page.goto(routes.settings);
+
+    // User B: react to User A's message.
+    await withServerUser(browser!, serverURL, async ({ chatPage: chatPage2, roomPage: roomPage2 }) => {
+      await chatPage2.enterRoom('general');
+      const message = roomPage2.getMessage(rootMessage);
+      await message.react('👍');
+      await message.expectReaction('👍', 1);
+    });
+
+    // User A: the reaction shows up as its own notification.
+    await notificationsPage.goto();
+    const notification = notificationsPage.getNotificationBySummary('reacted 👍 to your message');
+    await expect(notification).toBeVisible({ timeout: TIMEOUTS.REALTIME_EVENT });
+    await notificationsPage.expectNotificationWithLocation(notification, 'general', serverName);
+
+    // User C: react to the same message with a different emoji.
+    await withServerUser(browser!, serverURL, async ({ chatPage: chatPage3, roomPage: roomPage3 }) => {
+      await chatPage3.enterRoom('general');
+      const message = roomPage3.getMessage(rootMessage);
+      await message.react('❤️');
+      await message.expectReaction('❤️', 1);
+    });
+
+    // User A: still exactly one row, now phrased as a collapsed count.
+    await expect(
+      notificationsPage.getNotificationBySummary('reacted ❤️ to your message (2 reactions)')
+    ).toBeVisible({ timeout: TIMEOUTS.REALTIME_EVENT });
+    await notificationsPage.expectNotificationCount(1, TIMEOUTS.COMPLEX_OPERATION);
+  });
+
+  test('reacting to your own message creates no notification', async ({
+    page,
+    chatPage,
+    roomPage,
+    notificationsPage
+  }) => {
+    await createAndLoginTestUser(page);
+    await chatPage.goto();
+    await chatPage.enterRoom('general');
+    const ownMessage = `Self reaction test ${Date.now()}`;
+    await roomPage.sendMessage(ownMessage);
+
+    const message = roomPage.getMessage(ownMessage);
+    await message.react('👍');
+    await message.expectReaction('👍', 1);
+
+    await notificationsPage.goto();
+    await expect(notificationsPage.emptyState).toBeVisible({ timeout: TIMEOUTS.REALTIME_EVENT });
+  });
+});
+
 test.describe('Notification Dismissal', () => {
   test('dismiss single notification via X button', async ({
     page,

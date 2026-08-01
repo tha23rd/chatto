@@ -786,6 +786,25 @@ One pending notification for the authenticated viewer.
 | `kind.reply` | [`ReplyNotification`](#chatto-api-v1-ReplyNotification) | Reply notification. |
 | `kind.room_message` | [`RoomMessageNotification`](#chatto-api-v1-RoomMessageNotification) | All-messages room notification. |
 | `kind.voice_call_started` | [`VoiceCallStartedNotification`](#chatto-api-v1-VoiceCallStartedNotification) | New voice call notification. |
+| `kind.reaction` | [`ReactionNotification`](#chatto-api-v1-ReactionNotification) | Reaction-to-your-message notification. |
+
+<a id="chatto-api-v1-ReactionNotification"></a>
+
+### ReactionNotification
+
+Reaction notification payload.
+
+Reactions on the same message collapse into one pending notification: the
+actor, emoji, and creation time describe the most recent reaction, and
+`reaction_count` reports how many have been folded in.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `room` | [`RoomSummary`](#chatto-api-v1-RoomSummary) | Room containing the reacted-to message. |
+| `event_id` | `string` | Canonical event ID of the reacted-to message. |
+| `emoji` | `string` | Emoji shortcode of the most recent reaction, for example "thumbsup". |
+| `thread_root_event_id` | `optional string` | Thread root event ID when the reacted-to message is inside a thread. |
+| `reaction_count` | `int32` | How many reactions have been collapsed into this notification. At least 1. |
 
 <a id="chatto-api-v1-ReplyNotification"></a>
 

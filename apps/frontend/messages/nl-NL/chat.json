@@ -10,7 +10,10 @@
       "time_now": "Zojuist",
       "time_minutes": "{count}m geleden",
       "time_hours": "{count}h geleden",
-      "time_days": "{count}d geleden"
+      "time_days": "{count}d geleden",
+      "reaction": "{name} reageerde met {emoji} op je bericht",
+      "reaction_collapsed": "{name} reageerde met {emoji} op je bericht ({count} reacties)",
+      "reaction_unknown": "Iemand reageerde op je bericht"
     },
     "sign_out": {
       "title": "Uitloggen",
