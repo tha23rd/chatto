@@ -276,6 +276,62 @@ test("advances Nightly only when the candidate is strictly newer", async () => {
   );
 });
 
+test("waits for the public channel CDN to serve the uploaded manifest", async () => {
+  const current = await fixture({
+    releaseVersion: "0.1.0-nightly.20260719183045.812",
+  });
+  const candidate = await fixture({
+    releaseVersion: "0.1.0-nightly.20260719183045.813",
+  });
+  const currentBytes = await readFile(current.manifestPath);
+  const candidateBytes = await readFile(candidate.manifestPath);
+  const sleeps = [];
+  let canonicalReads = 0;
+
+  await publishUpdateChannel(
+    options(candidate.directory, candidate.manifestPath),
+    {
+      runner: async () => {},
+      fetchImpl: async (_url, request = {}) => {
+        if (request.method === "HEAD") return { ok: true, status: 200 };
+        canonicalReads += 1;
+        return response(canonicalReads < 4 ? currentBytes : candidateBytes);
+      },
+      sleep: async (delayMs) => sleeps.push(delayMs),
+      publicationVerificationDelaysMs: [0, 5, 10],
+    },
+  );
+
+  assert.equal(canonicalReads, 4);
+  assert.deepEqual(sleeps, [5, 10]);
+});
+
+test("fails after bounded retries when the public channel does not converge", async () => {
+  const current = await fixture({
+    releaseVersion: "0.1.0-nightly.20260719183045.812",
+  });
+  const candidate = await fixture({
+    releaseVersion: "0.1.0-nightly.20260719183045.813",
+  });
+  const currentBytes = await readFile(current.manifestPath);
+  const sleeps = [];
+
+  await assert.rejects(
+    publishUpdateChannel(options(candidate.directory, candidate.manifestPath), {
+      runner: async () => {},
+      fetchImpl: async (_url, request = {}) =>
+        request.method === "HEAD"
+          ? { ok: true, status: 200 }
+          : response(currentBytes),
+      sleep: async (delayMs) => sleeps.push(delayMs),
+      publicationVerificationDelaysMs: [0, 5, 10],
+    }),
+    /public update channel did not converge after 3 attempts.*did not match/i,
+  );
+
+  assert.deepEqual(sleeps, [5, 10]);
+});
+
 test("rejects arbitrary repositories and source SHAs before invoking GitHub", async () => {
   const { directory, manifestPath } = await fixture();
   let ran = false;
@@ -305,19 +361,16 @@ test("propagates unexpected rolling release lookup failures", async () => {
   failure.stderr = "HTTP 503";
 
   await assert.rejects(
-    publishUpdateChannel(
-      options(candidate.directory, candidate.manifestPath),
-      {
-        runner: async (command, args) => {
-          calls.push([command, ...args]);
-          throw failure;
-        },
-        fetchImpl: async (_url, request = {}) =>
-          request.method === "HEAD"
-            ? { ok: true, status: 200 }
-            : response(Buffer.alloc(0), 404),
+    publishUpdateChannel(options(candidate.directory, candidate.manifestPath), {
+      runner: async (command, args) => {
+        calls.push([command, ...args]);
+        throw failure;
       },
-    ),
+      fetchImpl: async (_url, request = {}) =>
+        request.method === "HEAD"
+          ? { ok: true, status: 200 }
+          : response(Buffer.alloc(0), 404),
+    }),
     /GitHub API unavailable/,
   );
   assert.equal(calls.length, 1);
