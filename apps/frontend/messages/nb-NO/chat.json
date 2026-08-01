@@ -10,7 +10,10 @@
       "time_now": "Akkurat nå",
       "time_minutes": "{count}m siden",
       "time_hours": "{count}h siden",
-      "time_days": "{count}d siden"
+      "time_days": "{count}d siden",
+      "reaction": "{name} reagerte med {emoji} på meldingen din",
+      "reaction_collapsed": "{name} reagerte med {emoji} på meldingen din ({count} reaksjoner)",
+      "reaction_unknown": "Noen reagerte på meldingen din"
     },
     "sign_out": {
       "title": "Logg av",

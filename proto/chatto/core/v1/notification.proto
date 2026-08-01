@@ -34,6 +34,7 @@ message Notification {
     MentionNotification mention = 101;
     ReplyNotification reply = 102;
     RoomMessageNotification room_message = 103;
+    ReactionNotification reaction = 104;
   }
 
   // Call-start details stored alongside a legacy-compatible room_message
@@ -105,6 +106,34 @@ message RoomMessageNotification {
 
   // Event ID of the message
   string event_id = 3;
+}
+
+// ReactionNotification is created when someone adds an emoji reaction to one of
+// the user's messages. The recipient is the reacted-to message's author.
+//
+// Reactions on the same message collapse into a single pending notification per
+// recipient: subsequent reactions update the existing record in place rather
+// than adding another row. The record therefore describes the most recent
+// reaction plus how many have been folded into it.
+message ReactionNotification {
+  // Room containing the reacted-to message.
+  string room_id = 1;
+
+  // Canonical event ID of the reacted-to message.
+  string event_id = 2;
+
+  // Emoji shortcode of the most recent reaction, for example "thumbsup".
+  // Custom emoji are stored by shortcode too.
+  string emoji = 3;
+
+  // Thread root event ID when the reacted-to message lives inside a thread.
+  // Empty for room-level messages.
+  string in_thread = 4;
+
+  // How many reaction additions have been collapsed into this notification.
+  // Always at least 1. Removing a reaction does not decrement it: the count
+  // describes notification-worthy activity, not current reaction state.
+  int32 reaction_count = 5;
 }
 
 // VoiceCallStartedNotification is created when the first participant starts a

@@ -8,6 +8,7 @@ import {
   type MentionNotificationItem,
   type NotificationAPI,
   type NotificationItem,
+  type ReactionNotificationItem,
   type ReplyNotificationItem,
   type RoomMessageNotificationItem,
   type VoiceCallStartedNotificationItem
@@ -70,6 +71,12 @@ function isVoiceCallStartedNotification(
   return notification.kind === NotificationItemKind.VoiceCallStarted;
 }
 
+function isReactionNotification(
+  notification: NotificationItem
+): notification is ReactionNotificationItem {
+  return notification.kind === NotificationItemKind.Reaction;
+}
+
 /**
  * Extract the target a notification points to. Adding a new notification type
  * means updating this single function instead of every read site.
@@ -123,6 +130,18 @@ export function notificationTarget(n: NotificationItem): NotificationTarget {
       roomName: n.callRoom?.name ?? null,
       eventId: null,
       threadRootId: null
+    };
+  }
+  if (isReactionNotification(n)) {
+    // Reactions have no event of their own, so the target is the viewer's own
+    // message that was reacted to.
+    return {
+      isDM: n.reactionRoom?.isDM ?? false,
+      spaceName: null,
+      roomId: n.reactionRoom?.id ?? null,
+      roomName: n.reactionRoom?.name ?? null,
+      eventId: n.reactionEventId ?? null,
+      threadRootId: n.reactionInThread ?? null
     };
   }
   return {
@@ -623,6 +642,7 @@ function redactedNotificationSummary(kind: NotificationItemKind): string {
     case NotificationItemKind.RoomMessage:
       return 'New message';
     case NotificationItemKind.VoiceCallStarted:
+    case NotificationItemKind.Reaction:
       return notificationSummary(null, kind);
   }
 }

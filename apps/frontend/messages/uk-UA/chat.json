@@ -10,7 +10,10 @@
       "time_now": "Щойно",
       "time_minutes": "{count}м тому",
       "time_hours": "{count}h тому",
-      "time_days": "{count}d тому"
+      "time_days": "{count}d тому",
+      "reaction": "{name} відреагував(ла) {emoji} на ваше повідомлення",
+      "reaction_collapsed": "{name} відреагував(ла) {emoji} на ваше повідомлення ({count} реакцій)",
+      "reaction_unknown": "Хтось відреагував на ваше повідомлення"
     },
     "sign_out": {
       "title": "Вийти",

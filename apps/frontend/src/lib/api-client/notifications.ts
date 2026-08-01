@@ -9,6 +9,7 @@ import type { User as APIUser } from '@chatto/api-types/api/v1/users_pb';
 import { PresenceStatus as APIPresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
 import { RoomKind as APIRoomKind } from '@chatto/api-types/api/v1/rooms_pb';
 import { PresenceStatus } from './renderTypes.js';
+import { getEmojiByName } from '$lib/emoji';
 import * as m from '$lib/i18n/messages';
 
 export type NotificationAPIConfig = {
@@ -36,7 +37,8 @@ export const NotificationItemKind = {
   Mention: 'mention',
   Reply: 'reply',
   RoomMessage: 'roomMessage',
-  VoiceCallStarted: 'voiceCallStarted'
+  VoiceCallStarted: 'voiceCallStarted',
+  Reaction: 'reaction'
 } as const;
 
 export type NotificationItemKind = (typeof NotificationItemKind)[keyof typeof NotificationItemKind];
@@ -93,12 +95,35 @@ export type VoiceCallStartedNotificationItem = {
   callId: string;
 };
 
+/**
+ * Someone reacted to one of the viewer's messages. Reactions on the same
+ * message collapse server-side into one item: `actor` and `reactionEmoji`
+ * describe the most recent reaction, and `reactionCount` says how many have
+ * been folded in.
+ */
+export type ReactionNotificationItem = {
+  kind: typeof NotificationItemKind.Reaction;
+  id: string;
+  createdAt: string;
+  actor?: NotificationActor | null;
+  summary: string;
+  reactionRoom: { id: string; name: string; isDM: boolean } | null;
+  /** The viewer's own message that was reacted to. */
+  reactionEventId: string;
+  /** Shortcode of the most recent reaction, e.g. `thumbsup` or a custom name. */
+  reactionEmoji: string;
+  reactionInThread?: string | null;
+  /** Reactions collapsed into this item. At least 1. */
+  reactionCount: number;
+};
+
 export type NotificationItem =
   | DirectMessageNotificationItem
   | MentionNotificationItem
   | ReplyNotificationItem
   | RoomMessageNotificationItem
-  | VoiceCallStartedNotificationItem;
+  | VoiceCallStartedNotificationItem
+  | ReactionNotificationItem;
 
 export type NotificationPage = {
   items: NotificationItem[];
@@ -233,14 +258,48 @@ function notificationItem(item: APINotificationItem): NotificationItem | null {
           : null,
         callId: item.kind.value.callId
       };
+    case 'reaction': {
+      const reactionCount = Math.max(item.kind.value.reactionCount, 1);
+      return {
+        kind: NotificationItemKind.Reaction,
+        ...base,
+        summary: notificationSummary(actor, NotificationItemKind.Reaction, {
+          emoji: item.kind.value.emoji,
+          reactionCount
+        }),
+        reactionRoom: item.kind.value.room
+          ? {
+              id: item.kind.value.room.id,
+              name: item.kind.value.room.name,
+              isDM: item.kind.value.room.kind === APIRoomKind.DM
+            }
+          : null,
+        reactionEventId: item.kind.value.eventId,
+        reactionEmoji: item.kind.value.emoji,
+        reactionInThread: item.kind.value.threadRootEventId ?? null,
+        reactionCount
+      };
+    }
     default:
       return null;
   }
 }
 
+/**
+ * Extra fields some notification kinds need to phrase their summary. Kinds that
+ * do not read a field ignore it.
+ */
+export type NotificationSummaryDetails = {
+  /** Reaction shortcode, e.g. `thumbsup`. */
+  emoji?: string;
+  /** Reactions collapsed into one notification. */
+  reactionCount?: number;
+};
+
 export function notificationSummary(
   actor: NotificationActor | null,
-  kind: NotificationItemKind
+  kind: NotificationItemKind,
+  details?: NotificationSummaryDetails
 ): string {
   const actorName = actor?.displayName || null;
   switch (kind) {
@@ -254,6 +313,19 @@ export function notificationSummary(
       return actorName ? `${actorName} posted a message` : 'New message';
     case NotificationItemKind.VoiceCallStarted:
       return m['voice.notification_started_by']({ name: actorName ?? m['common.deleted_user']() });
+    case NotificationItemKind.Reaction: {
+      // Custom emoji have no glyph, so fall back to the readable `:name:` form.
+      const emoji = details?.emoji
+        ? (getEmojiByName(details.emoji) ?? `:${details.emoji}:`)
+        : null;
+      if (!actorName || !emoji) return m['chat.notifications.reaction_unknown']();
+      const count = details?.reactionCount ?? 1;
+      // The actor and emoji describe the most recent reaction; the count only
+      // appears once reactions have collapsed, so it is never singular there.
+      return count > 1
+        ? m['chat.notifications.reaction_collapsed']({ name: actorName, emoji, count })
+        : m['chat.notifications.reaction']({ name: actorName, emoji });
+    }
   }
 }
 

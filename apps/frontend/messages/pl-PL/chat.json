@@ -10,7 +10,10 @@
       "time_now": "Właśnie teraz",
       "time_minutes": "{count}m temu",
       "time_hours": "{count}h temu",
-      "time_days": "{count}d temu"
+      "time_days": "{count}d temu",
+      "reaction": "{name} zareagował(a) {emoji} na Twoją wiadomość",
+      "reaction_collapsed": "{name} zareagował(a) {emoji} na Twoją wiadomość ({count} reakcji)",
+      "reaction_unknown": "Ktoś zareagował na Twoją wiadomość"
     },
     "sign_out": {
       "title": "Wyloguj się",

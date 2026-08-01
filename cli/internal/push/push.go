@@ -403,6 +403,14 @@ func BuildPayloadFromNotification(notif *corev1.Notification, actorDisplayName, 
 		payload.Tag = "room-message-" + n.RoomMessage.EventId
 		payload.URL = buildNotificationURL(baseURL, n.RoomMessage.RoomId, "", n.RoomMessage.EventId)
 
+	case *corev1.Notification_Reaction:
+		// Reactions on one message share a tag so a collapsed notification
+		// replaces the previous push instead of stacking another one.
+		payload.Title = reactionPushTitle(actorDisplayName, roomName, n.Reaction.GetEmoji(), n.Reaction.GetReactionCount())
+		payload.Body = preview
+		payload.Tag = "reaction-" + n.Reaction.EventId
+		payload.URL = buildNotificationURL(baseURL, n.Reaction.RoomId, n.Reaction.InThread, n.Reaction.EventId)
+
 	default:
 		payload.Title = "New notification"
 		payload.Body = "You have a new notification"
@@ -427,7 +435,25 @@ func NotificationTag(notif *corev1.Notification) string {
 		return "reply-" + n.Reply.EventId
 	case *corev1.Notification_RoomMessage:
 		return "room-message-" + n.RoomMessage.EventId
+	case *corev1.Notification_Reaction:
+		return "reaction-" + n.Reaction.EventId
 	default:
 		return ""
 	}
+}
+
+// reactionPushTitle describes a reaction notification, folding the collapsed
+// count into the sentence once more than one person has reacted.
+func reactionPushTitle(actorDisplayName, roomName, emoji string, reactionCount int32) string {
+	reaction := "reacted to your message"
+	if emoji != "" {
+		reaction = fmt.Sprintf("reacted :%s: to your message", emoji)
+	}
+	if reactionCount > 1 {
+		reaction = fmt.Sprintf("%s (%d reactions)", reaction, reactionCount)
+	}
+	if roomName != "" {
+		return fmt.Sprintf("@%s %s in #%s", actorDisplayName, reaction, roomName)
+	}
+	return fmt.Sprintf("@%s %s", actorDisplayName, reaction)
 }
