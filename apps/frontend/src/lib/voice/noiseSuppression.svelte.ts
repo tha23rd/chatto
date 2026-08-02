@@ -78,10 +78,18 @@ const modeSlot = globalSlot<NoiseSuppressionMode>('voiceNoiseSuppressionMode', '
 /**
  * DeepFilterNet3 suppression strength, shared with the benchmark harness
  * (`.context/noise-suppression-bench/bench.js` hardcodes the same value —
- * keep them in sync). 80 is the package's own processor default; the core
+ * keep them in sync). The value is the model's attenuation limit in dB: it
+ * caps how far noise is reduced while the raw signal is mixed back in
+ * proportionally, masking processing artifacts.
+ *
+ * 30 was chosen from the 2026-08-01 level sweep: steady-noise separation is
+ * flat across 20–100 (SI-SDR ≈ 19 dB white / 14.5 dB fan), while clean-speech
+ * and transient fidelity strictly improve as the limit drops (clean 3.3 →
+ * 4.0 dB, clicks 2.9 → 3.4 dB at 30) and a −30 dB residual floor avoids the
+ * gated-to-silence pumping users hear at the package default of 80. The core
  * class defaults to 50, so always pass this explicitly.
  */
-export const NOISE_REDUCTION_LEVEL = 80;
+export const NOISE_REDUCTION_LEVEL = 30;
 
 export const MIN_STRENGTH = 0;
 export const MAX_STRENGTH = 100;
@@ -211,9 +219,9 @@ export type MicProcessorFactory = (options: MicProcessorOptions) => AudioTrackPr
  * variants that resolve cross-origin or to a different fetch target than the
  * browser requests. The build script (`scripts/fetch-noise-models.mjs`)
  * writes the checksum-pinned files to the matching `static/` path on every
- * build, so the assets are always present here. The package's vendor CDN
- * fallback is never used: it does not send CORS headers to third-party
- * origins, and same-origin keeps users' browsers off third-party hosts.
+ * build, so the assets are always present here. The fork-owned loader
+ * (`DfnWorkletCore`) only ever fetches from this path, so users' browsers
+ * never touch third-party hosts.
  */
 export const NOISE_SUPPRESSION_ASSETS_PATH = '/models/deepfilternet3';
 
@@ -234,6 +242,24 @@ function supportsVoiceIsolationConstraint(): boolean {
  */
 export function isVoiceIsolationSupported(): boolean {
   return supportsVoiceIsolationConstraint();
+}
+
+/**
+ * Whether the reported capture settings already satisfy the requested
+ * baseline. Voice isolation compares strictly (`undefined` reads as "not
+ * isolated", which is correct for the unsupported-browser case). Browser
+ * noise suppression is only verified where the browser reports the setting
+ * as a boolean: absence is not evidence the constraint was ignored, and
+ * treating it as failure would flag healthy baselines `unavailable` on
+ * engines that do not surface it (e.g. WebKit-based views).
+ */
+function baselineApplied(
+  settings: Record<string, unknown>,
+  want: { noiseSuppression: boolean; voiceIsolation: boolean }
+): boolean {
+  if ((settings.voiceIsolation === true) !== want.voiceIsolation) return false;
+  const ns = settings.noiseSuppression;
+  return typeof ns !== 'boolean' || ns === want.noiseSuppression;
 }
 
 function getLocalMicrophoneTrack(room: Room): LocalAudioTrack | null {
@@ -313,9 +339,56 @@ export class NoiseSuppressionController {
    * for every mode — returning `{}` for `off` would silently inherit
    * LiveKit's voice isolation, and the user-selected mode is the single
    * source of truth for it.
+   *
+   * Browser noise suppression is disabled while the DeepFilterNet3 stage is
+   * selected: two suppressors stacked degrade good input (the browser stage
+   * spectrally distorts the signal, and the model was trained on unprocessed
+   * noisy speech), so `enhanced` captures with the browser suppressor off.
+   * Echo cancellation and auto gain stay on in every mode.
    */
-  captureConstraints(): { voiceIsolation?: boolean } {
-    return { voiceIsolation: this.mode === 'voice-isolation' };
+  captureConstraints(): {
+    voiceIsolation?: boolean;
+    noiseSuppression?: boolean;
+    autoGainControl?: boolean;
+  } {
+    return {
+      voiceIsolation: this.mode === 'voice-isolation',
+      noiseSuppression: this.mode !== 'enhanced',
+      autoGainControl: true
+    };
+  }
+
+  /**
+   * The full baseline constraint set for every `restartTrack` issued by this
+   * controller. `restartTrack` replaces the stored constraints wholesale, so
+   * every restart must restate AGC/echo plus the mode-derived suppression
+   * pair from `captureConstraints`.
+   */
+  private baselineConstraints(
+    voiceIsolation: boolean,
+    track?: LocalAudioTrack
+  ): {
+    autoGainControl: boolean;
+    echoCancellation: boolean;
+    noiseSuppression: boolean;
+    voiceIsolation: boolean;
+    deviceId?: ConstrainDOMString;
+  } {
+    // `restartTrack` replaces the stored constraints wholesale; without the
+    // current deviceId a restart would silently fall back to the default
+    // microphone for users on an explicitly selected device. Known narrow
+    // race (accepted): a user device switch issued while this restart is in
+    // flight can be reverted to the pre-switch device, because both writers
+    // replace LiveKit's stored constraints; the user's next device selection
+    // corrects it.
+    const deviceId = track ? (track.constraints as MediaTrackConstraints).deviceId : undefined;
+    return {
+      autoGainControl: true,
+      echoCancellation: true,
+      noiseSuppression: this.mode !== 'enhanced',
+      voiceIsolation,
+      ...(deviceId !== undefined ? { deviceId } : {})
+    };
   }
 
   /** Called by `VoiceCallState` once the microphone is live in a call. */
@@ -452,14 +525,16 @@ export class NoiseSuppressionController {
         this.status = 'unavailable';
         return;
       }
-      const applied = await this.setVoiceIsolation(room, true);
+      const applied = await this.applyCaptureBaseline(room, true);
       if (generation !== this.generation) return;
       this.status = detached && applied ? 'active' : 'unavailable';
       return;
     }
 
     // off / enhanced: never browser-isolated; may run the composite processor.
-    const disabled = await this.setVoiceIsolation(room, false);
+    // For enhanced this also turns the browser's own noise suppression off so
+    // the DeepFilterNet3 stage receives an unsuppressed capture.
+    const disabled = await this.applyCaptureBaseline(room, false);
     if (generation !== this.generation) return;
 
     const wantDfn = this.mode === 'enhanced';
@@ -470,10 +545,19 @@ export class NoiseSuppressionController {
       return;
     }
 
-    // Enhanced must not stack on browser voice isolation; a processor in `off`
-    // mode likewise wants a verified clean baseline. If the disable is not
-    // confirmed, do not claim active.
+    // Enhanced must not stack on browser voice isolation or browser noise
+    // suppression; a processor in `off` mode likewise wants a verified clean
+    // baseline. If the baseline is not confirmed, do not claim active — and
+    // never leave a live DFN3 stage behind a non-active status: it would keep
+    // processing while the UI claims baseline audio, and a later overload
+    // verdict would be latched away while the stage still runs.
     if (!disabled) {
+      try {
+        await this.processor?.setNoiseSuppressionEnabled?.(false);
+      } catch {
+        // Stage state unknown; unavailable remains the honest status.
+      }
+      if (generation !== this.generation) return;
       this.status = 'unavailable';
       return;
     }
@@ -486,41 +570,48 @@ export class NoiseSuppressionController {
   }
 
   /**
-   * Requests or clears the experimental `voiceIsolation` constraint on the
-   * microphone track, disabling it when unsupported. Returns whether the
-   * browser reports the requested state applied — for enable AND disable,
-   * since a browser may accept the constraint without honoring it either way.
+   * Applies the mode-derived capture baseline (voice isolation plus browser
+   * noise suppression) to the microphone track, restarting it only when the
+   * reported settings differ. Returns whether the browser reports the
+   * requested state applied — for enable AND disable, since a browser may
+   * accept a constraint without honoring it either way.
    *
    * Uses LiveKit's `restartTrack` with the FULL baseline constraint set (not
    * a bare `applyConstraints`). `restartTrack` updates LiveKit's stored
    * `_constraints`, which is what a later device switch / processor stop
    * restarts from — a bare `applyConstraints` would leave the stored copy
    * stale and silently revert this setting on the next track replacement.
-   * Passing the baseline constraints keeps AGC/echo/noise intact, which
+   * Passing the baseline constraints keeps AGC/echo intact, which
    * `restartTrack` would otherwise drop.
    *
-   * Only ever called with no processor attached (off/voice-isolation detach
-   * first; enhanced disables before attaching), so restarting the raw capture
-   * track is safe here.
+   * Usually called with no processor attached (off/voice-isolation detach
+   * first; enhanced applies the baseline before attaching). The one exception
+   * is a capture-knob processor already attached in `off` mode when the mode
+   * flips to `enhanced`: LiveKit's `setMediaStreamTrack` then restarts the
+   * attached processor with the new capture track and keeps the sender on the
+   * processed track, so restarting under it is safe.
    */
-  private async setVoiceIsolation(room: Room, enable: boolean): Promise<boolean> {
-    const enabled = enable && supportsVoiceIsolationConstraint();
+  private async applyCaptureBaseline(room: Room, enableIsolation: boolean): Promise<boolean> {
+    const isolate = enableIsolation && supportsVoiceIsolationConstraint();
     const track = getLocalMicrophoneTrack(room);
     if (!track) return false;
 
+    const want = this.baselineConstraints(isolate, track);
     const settings = track.getSourceTrackSettings() as Record<string, unknown>;
-    if ((settings.voiceIsolation === true) === enabled) return true;
+    // Restart only when needed: the stored request must already state the
+    // desired browser-suppression value (LiveKit restarts tracks from its
+    // stored constraints, and engines that do not report the setting would
+    // otherwise never get the restart), and the reported settings must not
+    // contradict the baseline.
+    const requested = track.constraints as Record<string, unknown>;
+    const nsRequested = requested.noiseSuppression === want.noiseSuppression;
+    if (nsRequested && baselineApplied(settings, want)) return true;
     // If we cannot request voice isolation at all, we can only honor a disable
     // request; treat an impossible enable as not-applied.
-    if (enable && !supportsVoiceIsolationConstraint()) return false;
+    if (enableIsolation && !supportsVoiceIsolationConstraint()) return false;
 
     try {
-      await track.restartTrack({
-        autoGainControl: true,
-        echoCancellation: true,
-        noiseSuppression: true,
-        voiceIsolation: enabled
-      });
+      await track.restartTrack(want);
     } catch {
       return false;
     }
@@ -528,7 +619,7 @@ export class NoiseSuppressionController {
     // speaking-indicator analyser to the restarted capture track.
     this.onProcessedTrackChanged();
     const applied = track.getSourceTrackSettings() as Record<string, unknown>;
-    return (applied.voiceIsolation === true) === enabled;
+    return baselineApplied(applied, want);
   }
 
   /**
@@ -570,7 +661,8 @@ export class NoiseSuppressionController {
         gateThreshold: this.sensitivity / 100,
         noiseSuppressionEnabled: wantDfn,
         suppressionLevel: this.strength,
-        assetPath: NOISE_SUPPRESSION_ASSETS_PATH
+        assetPath: NOISE_SUPPRESSION_ASSETS_PATH,
+        onSuppressionOverload: () => this.handleSuppressionOverload()
       });
       try {
         await track.setProcessor(processor);
@@ -607,6 +699,27 @@ export class NoiseSuppressionController {
   }
 
   /**
+   * The device sustained realtime underruns while the DeepFilterNet3 stage
+   * was active (see `MicProcessor`'s overload watchdog): keep the call and
+   * the gate/gain stages, but turn the suppression stage off in place and
+   * say why. The persisted preference stays `enhanced`, so re-selecting the
+   * mode — or the next call — retries with a fresh watchdog.
+   */
+  private handleSuppressionOverload(): void {
+    const processor = this.processor;
+    // Deliberately no status guard: an overload verdict only fires while the
+    // stage was enabled, and gating on `active` could swallow the one-shot
+    // verdict if a transient status change raced it — leaving the stage
+    // running with a disarmed watchdog.
+    if (!processor || this.mode !== 'enhanced') return;
+    void Promise.resolve(processor.setNoiseSuppressionEnabled?.(false)).catch(() => {});
+    if (this.status !== 'unavailable') {
+      this.status = 'unavailable';
+      toast.error(m['voice.noise_suppression_overloaded']());
+    }
+  }
+
+  /**
    * Stops the composite processor. Returns whether the outbound track is known
    * to be healthy afterward.
    *
@@ -628,14 +741,12 @@ export class NoiseSuppressionController {
       this.onProcessedTrackChanged();
       return true;
     } catch {
-      // Recover the raw sender before advancing status.
+      // Recover the raw sender before advancing status. Uses the mode-derived
+      // baseline: detach happens when leaving `enhanced`, so this restores
+      // browser noise suppression along with the rest of the baseline.
       let recovered = false;
       try {
-        await track.restartTrack({
-          autoGainControl: true,
-          echoCancellation: true,
-          noiseSuppression: true
-        });
+        await track.restartTrack(this.baselineConstraints(false, track));
         recovered = true;
       } catch {
         recovered = false;

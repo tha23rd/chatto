@@ -60,23 +60,37 @@ selected mode (live level meter on the sensitivity slider).
   // below the threshold (silenced), plain level when the gate is off.
   const levelFillClass = $derived(!gateActive ? 'bg-action' : gateOpen ? 'bg-success' : 'bg-muted');
 
+  // The preview reflects what would actually be sent for the selected mode,
+  // including the mode-derived browser capture baseline the call path uses.
+  function testConfig() {
+    const capture = controller.captureConstraints();
+    return {
+      strength: controller.strength,
+      inputGain: controller.inputGain,
+      sensitivity: controller.sensitivity,
+      noiseSuppressionEnabled: controller.mode === 'enhanced',
+      browserNoiseSuppression: capture.noiseSuppression,
+      autoGainControl: capture.autoGainControl
+    };
+  }
+
   function selectMode(mode: NoiseSuppressionMode) {
     void controller.setMode(mode);
     // Keep a running preview in sync with the selected mode: switching modes is
-    // the A/B comparison, so the loopback must follow the choice live.
-    test.setNoiseSuppressionEnabled(mode === 'enhanced');
+    // the A/B comparison, so the loopback must follow the choice live. The
+    // browser capture baseline is fixed at getUserMedia time, so a running
+    // test restarts with the new mode's constraints instead of retuning.
+    if (isRunning) {
+      test.stop();
+      void test.start(testConfig());
+    } else {
+      test.setNoiseSuppressionEnabled(mode === 'enhanced');
+    }
   }
 
   function toggleTest() {
     if (isRunning) test.stop();
-    else if (!isLoading)
-      void test.start({
-        strength: controller.strength,
-        inputGain: controller.inputGain,
-        sensitivity: controller.sensitivity,
-        // The preview reflects what would actually be sent for the selected mode.
-        noiseSuppressionEnabled: controller.mode === 'enhanced'
-      });
+    else if (!isLoading) void test.start(testConfig());
   }
 
   function onStrengthInput(e: Event) {

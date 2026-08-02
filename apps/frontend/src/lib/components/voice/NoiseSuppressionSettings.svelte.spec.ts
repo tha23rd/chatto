@@ -51,6 +51,43 @@ describe('NoiseSuppressionSettings', () => {
     setStrengthSpy.mockRestore();
   });
 
+  it('restarts a running mic test on mode change so capture matches the call', async () => {
+    // Capture constraints are fixed at getUserMedia time, so a mode change
+    // must restart the preview rather than retune it in place.
+    const startSpy = vi
+      .spyOn(MicTest.prototype, 'start')
+      .mockImplementation(async function (this: MicTest) {
+        (this as unknown as { status: string }).status = 'running';
+      });
+    const stopSpy = vi.spyOn(MicTest.prototype, 'stop').mockImplementation(function (
+      this: MicTest
+    ) {
+      (this as unknown as { status: string }).status = 'idle';
+    });
+    const c = controller();
+    await c.setMode('off');
+    const { container, getByRole } = render(NoiseSuppressionSettings, {
+      props: { controller: c }
+    });
+    void container;
+
+    await getByRole('button', { name: /test my mic/i }).click();
+    expect(startSpy).toHaveBeenCalledTimes(1);
+
+    await getByRole('radio', { name: /Enhanced/ }).click();
+    expect(stopSpy).toHaveBeenCalled();
+    expect(startSpy).toHaveBeenCalledTimes(2);
+    expect(startSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        noiseSuppressionEnabled: true,
+        browserNoiseSuppression: false,
+        autoGainControl: true
+      })
+    );
+    startSpy.mockRestore();
+    stopSpy.mockRestore();
+  });
+
   it('stops the mic test on unmount so the microphone is released', async () => {
     const stopSpy = vi.spyOn(MicTest.prototype, 'stop');
     const c = controller();
