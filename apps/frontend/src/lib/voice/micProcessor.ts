@@ -10,16 +10,20 @@
  * is an optional final stage. The DeepFilterNet3 WASM/model is lazy-loaded only
  * the first time suppression is enabled, so gate-only users never pay for it.
  *
- * This replaces the vendor `DeepFilterNoiseFilterProcessor` in the outbound
- * path (it reuses the same vendor `DeepFilterNet3Core` for the DFN3 stage, so
- * the proven worklet is unchanged) and mirrors that class's graph lifecycle:
- * `init`/`restart` (re)build the graph on the current capture track, `destroy`
- * tears it down. Kept dependency-free of Svelte runes — the reactive
- * preference lives in the controller; this class only owns the audio graph.
+ * The DFN3 stage runs in the fork-owned same-origin worklet
+ * (`static/worklets/dfn3-processor.js`, loaded through `DfnWorkletCore`),
+ * which reports periodic underrun stats; this class turns sustained underruns
+ * into an `onSuppressionOverload` callback so the owner can fall back to
+ * browser processing instead of letting the user sit through crackling audio.
+ * `init`/`restart` (re)build the graph on the current capture track,
+ * `destroy` tears it down. Kept dependency-free of Svelte runes — the
+ * reactive preference lives in the controller; this class only owns the
+ * audio graph.
  */
 import { Track, type TrackProcessor } from 'livekit-client';
+import type { DfnStats } from './dfnWorkletCore';
 
-/** Vendor core surface this processor depends on (see noiseSuppression.svelte). */
+/** DFN3 core surface this processor depends on; fakeable in tests. */
 export type DfnCore = {
   initialize(): Promise<void>;
   createAudioWorkletNode(ctx: AudioContext): Promise<AudioWorkletNode>;
@@ -32,6 +36,7 @@ export type DfnCore = {
 export type DfnCoreFactory = (opts: {
   noiseReductionLevel: number;
   assetPath: string;
+  onStats?: (stats: DfnStats) => void;
 }) => Promise<DfnCore>;
 
 export type MicProcessorOptions = {
@@ -56,17 +61,31 @@ export type MicProcessorOptions = {
    * an `<audio>` element.
    */
   monitor?: boolean;
-  /** Vendor-core loader; defaults to the real DeepFilterNet3Core. */
+  /**
+   * Called once when the DeepFilterNet3 stage sustains realtime underruns
+   * (see the overload constants below): the device cannot keep up, and the
+   * owner should disable the stage and surface the fallback. Re-enabling the
+   * stage re-arms the watchdog.
+   */
+  onSuppressionOverload?: () => void;
+  /** DFN3 core loader; defaults to the fork's `DfnWorkletCore`. */
   loadCore?: DfnCoreFactory;
 };
 
-const defaultLoadCore: DfnCoreFactory = async ({ noiseReductionLevel, assetPath }) => {
-  const { DeepFilterNet3Core } = await import('deepfilternet3-noise-filter');
-  return new DeepFilterNet3Core({
-    noiseReductionLevel,
-    assetConfig: { cdnUrl: assetPath }
-  });
+const defaultLoadCore: DfnCoreFactory = async ({ noiseReductionLevel, assetPath, onStats }) => {
+  const { DfnWorkletCore } = await import('./dfnWorkletCore');
+  return new DfnWorkletCore({ noiseReductionLevel, assetPath, onStats });
 };
+
+/**
+ * Overload watchdog: with stats every ~2 s, an interval counts as overloaded
+ * when it concealed at least `OVERLOAD_MIN_UNDERRUNS` output gaps (8 × 2.7 ms
+ * ≈ 21 ms of audio lost per 2 s — clearly audible crackle), and sustained
+ * overload means `OVERLOAD_INTERVALS` such intervals in a row. Brief one-off
+ * spikes (GC, tab switches) don't trip it.
+ */
+export const OVERLOAD_MIN_UNDERRUNS = 8;
+export const OVERLOAD_INTERVALS = 2;
 
 const clampGain = (n: number): number => (Number.isFinite(n) && n >= 0 ? n : 1);
 const clampThreshold = (n: number): number =>
@@ -90,11 +109,16 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
 
   private readonly loadCore: DfnCoreFactory;
   private readonly monitor: boolean;
+  private readonly onSuppressionOverload?: () => void;
   private assetPath: string;
   private inputGain: number;
   private gateThreshold: number;
   private dfnEnabled: boolean;
   private suppressionLevel: number;
+  /** Consecutive overloaded stats intervals; see OVERLOAD_* constants. */
+  private overloadedIntervals = 0;
+  /** One-shot latch so a single overload fires a single callback. */
+  private overloadFired = false;
 
   private originalTrack: MediaStreamTrack | null = null;
   private ctx: AudioContext | null = null;
@@ -113,6 +137,7 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
   constructor(options: MicProcessorOptions) {
     this.loadCore = options.loadCore ?? defaultLoadCore;
     this.monitor = options.monitor ?? false;
+    this.onSuppressionOverload = options.onSuppressionOverload;
     this.assetPath = options.assetPath;
     this.inputGain = clampGain(options.inputGain);
     this.gateThreshold = clampThreshold(options.gateThreshold);
@@ -209,11 +234,18 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
    */
   async setNoiseSuppressionEnabled(enabled: boolean): Promise<void> {
     this.dfnEnabled = enabled;
+    if (enabled) {
+      // Re-enabling re-arms the overload watchdog for a fresh verdict.
+      this.overloadedIntervals = 0;
+      this.overloadFired = false;
+    }
     if (!this.ctx || !this.gateNode || !this.destination) return;
     if (enabled) {
       await this.ensureWorklet();
+      this.core?.setNoiseSuppressionEnabled(true);
       this.rewireDfn();
     } else if (this.worklet) {
+      this.core?.setNoiseSuppressionEnabled(false);
       this.rewireDfn();
     }
   }
@@ -221,7 +253,11 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
   private async ensureGraph(): Promise<void> {
     if (!this.originalTrack) throw new Error('MicProcessor: no source track');
     this.ctx ??= new AudioContext({ sampleRate: 48000 });
-    if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
+    // Resume without awaiting: on a suspended context (no user gesture yet,
+    // or environments without an audio backend) resume() can stay pending
+    // indefinitely, which would wedge the attach chain in `loading`. The
+    // graph builds fine on a suspended context; audio flows once it starts.
+    if (this.ctx.state === 'suspended') void this.ctx.resume().catch(() => {});
 
     this.gainNode ??= this.ctx.createGain();
     this.gateNode ??= this.ctx.createGain();
@@ -253,12 +289,31 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
     if (this.worklet || !this.ctx) return;
     this.core ??= await this.loadCore({
       noiseReductionLevel: this.suppressionLevel,
-      assetPath: this.assetPath
+      assetPath: this.assetPath,
+      onStats: (stats) => this.handleSuppressionStats(stats)
     });
     await this.core.initialize();
     this.worklet = await this.core.createAudioWorkletNode(this.ctx);
     this.core.setNoiseSuppressionEnabled(true);
     this.core.setSuppressionLevel(this.suppressionLevel);
+  }
+
+  /**
+   * Watchdog over the worklet's periodic underrun stats: sustained missed
+   * deadlines mean the device cannot run DFN3 in realtime, and continuing
+   * produces exactly the crackling the feature is meant to remove.
+   */
+  private handleSuppressionStats(stats: DfnStats): void {
+    if (!this.dfnEnabled || this.overloadFired) return;
+    if (stats.underruns >= OVERLOAD_MIN_UNDERRUNS) {
+      this.overloadedIntervals++;
+      if (this.overloadedIntervals >= OVERLOAD_INTERVALS) {
+        this.overloadFired = true;
+        this.onSuppressionOverload?.();
+      }
+    } else {
+      this.overloadedIntervals = 0;
+    }
   }
 
   /** Route the gate either through the DFN3 worklet or straight to output. */

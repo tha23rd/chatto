@@ -35,6 +35,7 @@
     "noise_suppression_enhanced": "Forbedret (DeepFilterNet3)",
     "noise_suppression_loading": "Laster modell…",
     "noise_suppression_unavailable": "Ikke tilgjengelig i denne nettleseren",
+    "noise_suppression_overloaded": "Forbedret støyreduksjon ble slått av fordi denne enheten ikke klarer å holde følge",
     "fullscreen_feed": "Fullskjerm-feed",
     "pop_out_feed": "Vis feeden i bilde-i-bilde",
     "pop_out_failed": "Kunne ikke vise feeden i bilde-i-bilde.",

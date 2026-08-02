@@ -35,6 +35,7 @@
     "noise_suppression_enhanced": "Розширене (DeepFilterNet3)",
     "noise_suppression_loading": "Завантаження моделі…",
     "noise_suppression_unavailable": "Недоступно в цьому браузері",
+    "noise_suppression_overloaded": "Розширене пригнічення шуму вимкнено, оскільки цей пристрій не встигає його обробляти",
     "fullscreen_feed": "Повноекранний канал",
     "pop_out_feed": "Картинка в картинці",
     "pop_out_failed": "Не вдалося відкрити цей потік у режимі «картинка в картинці».",

@@ -57,6 +57,16 @@ export type MicTestConfig = {
    * switching modes is the A/B comparison. Defaults off.
    */
   noiseSuppressionEnabled?: boolean;
+  /**
+   * Browser capture-processing constraints, mirroring the call path's
+   * mode-derived baseline (`NoiseSuppressionController.captureConstraints`).
+   * Without these the preview would capture with the browser's defaults —
+   * notably browser noise suppression stacked under DFN3, the exact
+   * configuration the enhanced call path no longer uses — and the A/B would
+   * misrepresent what remote participants hear. Both default to true.
+   */
+  browserNoiseSuppression?: boolean;
+  autoGainControl?: boolean;
 };
 
 const clamp = (n: number, lo: number, hi: number, fallback: number) =>
@@ -125,7 +135,20 @@ export class MicTest {
     let stream: MediaStream | null = null;
     let processor: MicTestProcessor | null = null;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Capture like the call path captures for the selected mode, so the
+      // loopback previews the audio remote participants would actually hear —
+      // with one deliberate exception: echo cancellation stays OFF. A
+      // loopback has no far end; with it on, the browser's AEC takes the
+      // monitor playout (the user's own delayed voice) as its echo reference
+      // and its double-talk suppressor gates the live microphone in bursts,
+      // making the preview audible only in chunks.
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          autoGainControl: config.autoGainControl ?? true,
+          echoCancellation: false,
+          noiseSuppression: config.browserNoiseSuppression ?? true
+        }
+      });
       if (gen !== this.generation) throw new Error('cancelled');
       const track = stream.getAudioTracks()[0];
       if (!track) throw new Error('no microphone track');

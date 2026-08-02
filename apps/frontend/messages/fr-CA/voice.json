@@ -35,6 +35,7 @@
     "noise_suppression_enhanced": "Améliorée (DeepFilterNet3)",
     "noise_suppression_loading": "Chargement du modèle…",
     "noise_suppression_unavailable": "Indisponible dans ce navigateur",
+    "noise_suppression_overloaded": "La suppression du bruit améliorée a été désactivée, car cet appareil ne peut pas suivre",
     "fullscreen_feed": "Flux plein écran",
     "pop_out_feed": "Flux en image dans l'image",
     "pop_out_failed": "Impossible d'afficher ce flux en image dans l'image.",
