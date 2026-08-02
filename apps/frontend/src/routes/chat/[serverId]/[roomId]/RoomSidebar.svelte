@@ -7,11 +7,11 @@ calls, and similar room-specific panels can plug into the same shell. See the
 "UI" section of `docs/GLOSSARY.md`.
 -->
 <script module lang="ts">
-  export type RoomSidebarPanel = 'members' | 'files' | 'call';
+  import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
+  export type RoomSidebarPanel = 'members' | 'search' | 'files' | 'call';
 </script>
 
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import * as m from '$lib/i18n/messages';
   import { roleColorToCSS } from '$lib/roleColors';
   import { startDMWith } from '$lib/dm/startDM';
@@ -19,31 +19,31 @@ calls, and similar room-specific panels can plug into the same shell. See the
   import DeletedUserLabel from '$lib/components/DeletedUserLabel.svelte';
   import UserCustomStatusBadge from '$lib/components/UserCustomStatusBadge.svelte';
   import UserContextMenu from '$lib/components/menus/UserContextMenu.svelte';
-  import type { PresenceStatus } from '$lib/render/types';
+
   import type { RoomFilesStore, RoomMember, RoomMembersStore } from '$lib/state/room';
+  import type { MessageSearchStore } from '$lib/state/server/messageSearch.svelte';
   import { getPresenceCache } from '$lib/state/presenceCache.svelte';
   import {
     getLiveCustomStatus,
     getLiveDisplayName,
     getLiveLogin
   } from '$lib/state/userProfiles.svelte';
-  import { getServerPermissions } from '$lib/state/server/permissions.svelte';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import CollapsibleGroup from '$lib/ui/CollapsibleGroup.svelte';
   import PaneHeader from '$lib/ui/PaneHeader.svelte';
   import CallViewOptionsMenu from '$lib/components/voice/CallViewOptionsMenu.svelte';
   import ResizeHandle from '$lib/components/ResizeHandle.svelte';
   import { roomSidebarWidth } from '$lib/state/roomSidebarWidth.svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
   import { ROOM_SIDEBAR_MAX_WIDTH, ROOM_SIDEBAR_MIN_WIDTH } from '$lib/storage/roomSidebarWidth';
   import { serverStorageKey } from '$lib/storage/serverStorage';
   import { toast } from '$lib/ui/toast';
   import HeaderIconButton from '$lib/ui/HeaderIconButton.svelte';
   import BanRoomMemberModal from '$lib/components/moderation/BanRoomMemberModal.svelte';
   import { createRoomCommandAPI } from '$lib/api-client/rooms';
+  import { useDebounce } from '$lib/hooks/useDebounce.svelte';
   import VoiceCallPanel from '$lib/components/voice/VoiceCallPanel.svelte';
   import RoomFilesPanel from './RoomFilesPanel.svelte';
+  import RoomSearchPanel from './RoomSearchPanel.svelte';
 
   let {
     loading = false,
@@ -55,10 +55,12 @@ calls, and similar room-specific panels can plug into the same shell. See the
     canBanRoomMembers = false,
     currentUserId = null,
     membersStore,
+    searchStore,
     filesStore,
     livekitUrl,
     fileGroupingNow,
     onOpenFile,
+    onOpenSearchResult,
     onToggleMaximized,
     onClose
   }: {
@@ -71,24 +73,28 @@ calls, and similar room-specific panels can plug into the same shell. See the
     canBanRoomMembers?: boolean;
     currentUserId?: string | null;
     membersStore: RoomMembersStore;
+    searchStore?: MessageSearchStore;
     filesStore?: RoomFilesStore;
     livekitUrl?: string;
     fileGroupingNow?: Date;
     onOpenFile?: (messageEventId: string, threadRootEventId: string | null) => void;
+    onOpenSearchResult?: (messageEventId: string, threadRootEventId: string | null) => void;
     onToggleMaximized?: () => void;
     onClose?: () => void;
   } = $props();
 
-  const connection = useConnection();
+  const serverScope = useServerScope();
+  const connection = () => serverScope.connection;
   const presenceCache = getPresenceCache();
-  const activeServerId = $derived(getActiveServer());
-  const activeCallRooms = serverRegistry.getStore(getActiveServer()).activeCallRooms;
+  const activeServerId = $derived(serverScope.serverId);
+  const activeCallRooms = $derived(serverScope.store.activeCallRooms);
 
   const members = $derived(membersStore.filteredMembers);
   const allMembers = $derived(membersStore.members);
   const memberCount = $derived(membersStore.totalCount);
   const title = $derived.by(() => {
     if (activePanel === 'members') return m['room.sidebar.members_title']({ count: memberCount });
+    if (activePanel === 'search') return m['search.in_room']();
     if (activePanel === 'files') return m['room.sidebar.files']();
     return m['room.sidebar.call']();
   });
@@ -114,9 +120,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
     callViewOptionsAnchor = { top: rect.top, bottom: rect.bottom, left: rect.left };
   }
 
-  // Check if user can start DMs (from centralized server permissions)
-  const serverPerms = getServerPermissions();
-  let canStartDMs = $derived(serverPerms.current.canStartDMs);
+  const canStartDMs = $derived(serverScope.store.permissions.canStartDMs);
   let sidebarElement = $state<HTMLElement | null>(null);
   let fullscreenElement = $state<Element | null>(null);
 
@@ -126,12 +130,8 @@ calls, and similar room-specific panels can plug into the same shell. See the
   let banningMemberId = $state<string | null>(null);
   let banDialogMember = $state<RoomMember | null>(null);
   let banError = $state<string | null>(null);
-  let memberSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  const memberSearchDebounce = useDebounce();
   let memberSearchInput = $state<HTMLInputElement | null>(null);
-
-  onDestroy(() => {
-    if (memberSearchTimer) clearTimeout(memberSearchTimer);
-  });
 
   function togglePopover(memberId: string, e: MouseEvent) {
     if (popoverMemberId === memberId) {
@@ -159,7 +159,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
 
   // Check if a presence status counts as "online" (connected to the system)
   function isOnlineStatus(status: PresenceStatus): boolean {
-    return status !== 'OFFLINE';
+    return status !== PresenceStatus.OFFLINE && status !== PresenceStatus.UNSPECIFIED;
   }
 
   // Sort names once when membership/search/profile data changes. Presence updates only repartition
@@ -213,20 +213,17 @@ calls, and similar room-specific panels can plug into the same shell. See the
     banError = null;
     const displayName = member.displayName || member.login;
     try {
-      const conn = connection();
-      const api = createRoomCommandAPI({
-        serverId: conn.serverId ?? getActiveServer(),
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      });
+      const api = connection().getAPI(createRoomCommandAPI);
       await api.banMember({ roomId, userId: member.id, reason, expiresAt });
     } catch (error) {
+      if (!serverScope.isCurrent()) return;
       banningMemberId = null;
       banError = m['room.sidebar.ban_failed']();
       toast.error(banError);
       console.error('Failed to ban member from room:', error);
       return;
     }
+    if (!serverScope.isCurrent()) return;
     banningMemberId = null;
 
     toast.success(m['room.sidebar.ban_success']({ name: displayName }));
@@ -236,18 +233,13 @@ calls, and similar room-specific panels can plug into the same shell. See the
   function scheduleMemberSearch(event: Event) {
     const value = event.currentTarget instanceof HTMLInputElement ? event.currentTarget.value : '';
     membersStore.searchInput = value;
-    if (memberSearchTimer) clearTimeout(memberSearchTimer);
-    memberSearchTimer = setTimeout(() => {
-      memberSearchTimer = null;
+    memberSearchDebounce.run(() => {
       void membersStore.setSearch(value);
     }, 250);
   }
 
   function clearMemberSearch() {
-    if (memberSearchTimer) {
-      clearTimeout(memberSearchTimer);
-      memberSearchTimer = null;
-    }
+    memberSearchDebounce.cancel();
     void membersStore.setSearch('');
     memberSearchInput?.focus();
   }
@@ -384,7 +376,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
             label={m['room.sidebar.online']({ count: onlineMembers.length })}
             items={onlineMembers}
             item={memberRow}
-            persistKey={serverStorageKey(getActiveServer(), 'collapsible:room-members:online')}
+            persistKey={serverStorageKey(activeServerId, 'collapsible:room-members:online')}
           />
         {/if}
 
@@ -393,7 +385,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
             label={m['room.sidebar.offline']({ count: offlineMembers.length })}
             items={offlineMembers}
             item={memberRow}
-            persistKey={serverStorageKey(getActiveServer(), 'collapsible:room-members:offline')}
+            persistKey={serverStorageKey(activeServerId, 'collapsible:room-members:offline')}
             defaultCollapsed
             class="mt-4"
           />
@@ -407,20 +399,19 @@ calls, and similar room-specific panels can plug into the same shell. See the
           canSendMessage={canStartDMs}
           canBanFromRoom={canRemovePopoverMember}
           banningFromRoom={banningMemberId === popoverMember.id}
-          onSendMessage={() => startDMWith(getActiveServer(), popoverMember!.id)}
+          onSendMessage={() => startDMWith(activeServerId, popoverMember!.id)}
           onBanFromRoom={() => openBanDialog(popoverMember!)}
           onClose={closePopover}
         />
       {/if}
     </nav>
+  {:else if activePanel === 'search'}
+    {#if searchStore}
+      <RoomSearchPanel store={searchStore} {roomId} onOpenResult={onOpenSearchResult} />
+    {/if}
   {:else if activePanel === 'files'}
     {#if filesStore}
-      <RoomFilesPanel
-        store={filesStore}
-        serverId={getActiveServer()}
-        {fileGroupingNow}
-        {onOpenFile}
-      />
+      <RoomFilesPanel store={filesStore} serverId={activeServerId} {fileGroupingNow} {onOpenFile} />
     {:else}
       <div class="flex min-h-0 flex-1 items-center justify-center p-4 text-sm text-muted">
         {m['room.sidebar.no_files']()}
@@ -489,7 +480,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
       ? m['common.deleted_user']()
       : m['room.sidebar.view_profile']({ name: getLiveDisplayName(member.id, member.displayName) })}
   >
-    <UserAvatar user={member} size="sm" showPresence />
+    <UserAvatar user={member} serverId={serverScope.serverId} size="sm" showPresence />
     <div class="min-w-0 flex-1">
       <div class="flex min-w-0 items-center gap-1.5">
         <span class="min-w-0 truncate" style:color={roleColorToCSS(member.roleColor)}>

@@ -29,14 +29,14 @@ const state = vi.hoisted(() => ({
   }
 }));
 
-vi.mock('$lib/state/activeServer.svelte', () => ({
-  getActiveServer: () => 'origin'
-}));
-
-vi.mock('$lib/state/server/registry.svelte', () => ({
-  serverRegistry: {
-    getStore: () => ({ voiceCall: state.voiceCall })
-  }
+// The menu reads its voice store through the route's server scope.
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({
+    serverId: 'origin',
+    connection: {},
+    store: { voiceCall: state.voiceCall },
+    isCurrent: () => true
+  })
 }));
 
 function renderMenu() {

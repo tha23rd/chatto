@@ -1,12 +1,6 @@
-<script lang="ts" module>
-  import { UserAvatarUserViewDocument } from '$lib/render/types';
-
-  export const UserAvatarViewData = UserAvatarUserViewDocument;
-</script>
-
 <script lang="ts">
-  import { PresenceStatus, type UserAvatarUserView } from '$lib/render/types';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
+  import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
+  import type { UserAvatarUserView } from '$lib/render/users';
   import { getLiveAvatarUrl, getLiveCustomStatus } from '$lib/state/userProfiles.svelte';
   import { getPresenceCache } from '$lib/state/presenceCache.svelte';
   import { getAvatarInitials } from '$lib/utils/initials';
@@ -35,10 +29,11 @@
   };
 
   const presenceDotColorClasses: Record<PresenceStatus, string> = {
-    [PresenceStatus.Online]: 'bg-presence-online',
-    [PresenceStatus.Away]: 'bg-presence-away',
-    [PresenceStatus.DoNotDisturb]: 'bg-presence-do-not-disturb',
-    [PresenceStatus.Offline]: 'bg-presence-offline'
+    [PresenceStatus.UNSPECIFIED]: 'bg-presence-offline',
+    [PresenceStatus.ONLINE]: 'bg-presence-online',
+    [PresenceStatus.AWAY]: 'bg-presence-away',
+    [PresenceStatus.DO_NOT_DISTURB]: 'bg-presence-do-not-disturb',
+    [PresenceStatus.OFFLINE]: 'bg-presence-offline'
   };
 
   const presenceDotSizeClasses: Record<Size, string> = {
@@ -69,12 +64,15 @@
   };
   let {
     user,
+    serverId,
     size = 'md',
     showPresence = false,
     showStatus = false,
     class: className = ''
   }: {
     user: AvatarUser;
+    /** Server identity for live presence. Omit when only static avatar data is rendered. */
+    serverId?: string;
     size?: Size;
     showPresence?: boolean;
     showStatus?: boolean;
@@ -82,8 +80,6 @@
   } = $props();
 
   const presenceCache = getPresenceCache();
-  const serverId = $derived(getActiveServer());
-
   // Guard all derived computations against null user — during tab resume/reconnect,
   // fragment data can be transiently null. An unguarded crash here poisons Svelte 5's
   // reactive graph and deadlocks the entire UI.
@@ -94,11 +90,13 @@
   );
 
   // Use live presence from global cache if available, otherwise fall back to the initial value.
-  // The global cache is populated by ServerEventProvider, so all UserAvatar instances — including
+  // The global cache is populated by ServerPresenceSync, so all UserAvatar instances — including
   // newly-mounted ones like popovers — see the latest presence immediately.
   const presence = $derived.by(() => {
     if (!user || user.deleted) return undefined;
-    return presenceCache.get({ serverId, userId: user.id }, user.presenceStatus);
+    return serverId
+      ? presenceCache.get({ serverId, userId: user.id }, user.presenceStatus)
+      : user.presenceStatus;
   });
 
   const customStatus = $derived(
@@ -124,11 +122,11 @@
   );
 
   const presenceLabel = $derived(
-    presence === 'ONLINE'
+    presence === PresenceStatus.ONLINE
       ? 'Online'
-      : presence === 'AWAY'
+      : presence === PresenceStatus.AWAY
         ? 'Away'
-        : presence === 'DO_NOT_DISTURB'
+        : presence === PresenceStatus.DO_NOT_DISTURB
           ? 'Do not disturb'
           : 'Offline'
   );

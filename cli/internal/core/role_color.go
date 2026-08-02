@@ -54,7 +54,7 @@ func (p *RBACProjection) UserRoleColor(userID string) uint32 {
 
 // UserRoleColor returns the effective public member-name colour for a user.
 func (c *ChattoCore) UserRoleColor(userID string) uint32 {
-	return c.RBAC.UserRoleColor(userID)
+	return c.rbacModel.userRoleColor(userID)
 }
 
 // UpdateServerRoleColor changes a role's optional 24-bit RGB colour. Built-in
@@ -68,7 +68,7 @@ func (c *ChattoCore) UpdateServerRoleColor(ctx context.Context, actorID, name st
 		RbacRoleColorChanged: &corev1.RbacRoleColorChangedEvent{RoleName: name, Color: color},
 	}})
 	if _, err := c.appendRBACEvent(ctx, event, func() error {
-		existing, ok := c.RBAC.GetRole(name)
+		existing, ok := c.rbacModel.role(name)
 		if !ok {
 			return ErrRoleNotFound
 		}

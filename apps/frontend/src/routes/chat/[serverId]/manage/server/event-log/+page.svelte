@@ -1,11 +1,10 @@
 <script lang="ts">
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { SvelteURLSearchParams } from 'svelte/reactivity';
   import { serverIdToSegment } from '$lib/navigation';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
   import type {
     AdminEventLogEntry,
     AdminEventLogFilter
@@ -16,16 +15,23 @@
   import PaneHeader from '$lib/ui/PaneHeader.svelte';
   import PageTitle from '$lib/ui/PageTitle.svelte';
   import { Button, Combobox } from '$lib/ui/form';
-  import { getUserSettings } from '$lib/state/userSettings.svelte';
-  import { formatDateTime as formatDateTimeUtil, formatDayLabel } from '$lib/utils/formatTime';
+  import {
+    formatDateTime as formatDateTimeUtil,
+    formatDayLabel,
+    timeFormatSettingsFor
+  } from '$lib/utils/formatTime';
   import { getLocale } from '$lib/i18n/runtime';
   import * as m from '$lib/i18n/messages';
 
-  const userSettings = getUserSettings();
+  const serverScope = useServerScope();
+
+  const userSettings = $derived(
+    timeFormatSettingsFor(serverScope.store.currentUser.user?.settings)
+  );
   const activeLocale = $derived(getLocale());
 
-  const activeServerId = $derived(getActiveServer());
-  const stores = $derived(serverRegistry.getStore(activeServerId));
+  const activeServerId = $derived(serverScope.serverId);
+  const stores = $derived(serverScope.store);
   const eventLog = $derived(stores.adminEventLog);
 
   let scrollContainer = $state<HTMLDivElement>();

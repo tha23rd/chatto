@@ -1,4 +1,7 @@
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
+import { ImageFitMode } from '@chatto/api-types/api/v1/common_pb';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { tick } from 'svelte';
 import { q } from '$lib/test-utils';
@@ -7,7 +10,13 @@ import { setReactiveLocale } from '$lib/i18n/state.svelte';
 import { ROOM_MEMBERS_PAGE_SIZE, type RoomMember } from '$lib/state/room/members.svelte';
 import type { PresenceCache } from '$lib/state/presenceCache.svelte';
 import type { RoomData } from '$lib/hooks/useRoomData.svelte';
-import { PresenceStatus } from '$lib/render/types';
+import { RoomKind as SearchRoomKind } from '$lib/api-client/roomDirectory';
+import {
+  MessageSearchOrder,
+  MessageSearchState,
+  MessageSearchStore
+} from '$lib/state/server/messageSearch.svelte';
+
 import { RoomKind } from '@chatto/api-types/api/v1/rooms_pb';
 import RoomSidebarTestHarness from './RoomSidebarTestHarness.svelte';
 import { userPreferences } from '$lib/state/userPreferences.svelte';
@@ -21,6 +30,13 @@ const attachmentMocks = vi.hoisted(() => ({
   refreshAssetUrls: vi.fn()
 }));
 const callStore = vi.hoisted(() => ({
+  permissions: {
+    loaded: true,
+    canStartDMs: false
+  },
+  currentUser: {
+    user: { id: 'viewer', login: 'viewer' }
+  },
   voiceCall: {
     roomId: null as string | null,
     connecting: false,
@@ -90,9 +106,7 @@ const callStore = vi.hoisted(() => ({
     }>,
     has: vi.fn(() => callStore.activeCallRooms.active),
     getParticipants: vi.fn(() => callStore.activeCallRooms.participants),
-    getParticipantCallPresenceInAnyRoom: vi.fn(
-      (_userId: string): 'voice' | 'video' | null => null
-    )
+    getParticipantCallPresenceInAnyRoom: vi.fn((_userId: string): 'voice' | 'video' | null => null)
   },
   rooms: {
     currentUserId: 'viewer'
@@ -132,25 +146,36 @@ class MockIntersectionObserver {
   }
 }
 
-vi.mock('$lib/state/server/connection.svelte', () => ({
-  useConnection: () => () => ({
-    serverId: 'test-server',
-    connectBaseUrl: 'https://chat.example.test/api/connect',
-    bearerToken: 'test-token',
-    isConnected: true,
-    showConnectionLostBanner: false,
-    client: {
-      query: (...args: unknown[]) => {
-        const result = queryMock(...args);
-        return Object.assign(result, {
-          toPromise: () => result
-        });
+vi.mock('$lib/state/server/scope.svelte', async () => {
+  const { serverRegistry } = await import('$lib/state/server/registry.svelte');
+  return {
+    useServerScope: () => ({
+      serverId: 'test-server',
+      connection: {
+        serverId: 'test-server',
+        connectBaseUrl: 'https://chat.example.test/api/connect',
+        bearerToken: 'test-token',
+        isConnected: true,
+        showConnectionLostBanner: false,
+        getAPI: (factory: (config: never) => unknown) => factory({} as never),
+        client: {
+          query: (...args: unknown[]) => {
+            const result = queryMock(...args);
+            return Object.assign(result, {
+              toPromise: () => result
+            });
+          },
+          mutation: vi.fn(),
+          subscription: vi.fn()
+        }
       },
-      mutation: vi.fn(),
-      subscription: vi.fn()
-    }
-  })
-}));
+      get store() {
+        return serverRegistry.getStore('test-server');
+      },
+      isCurrent: () => true
+    })
+  };
+});
 
 vi.mock('$lib/api-client/attachments', async (importActual) => ({
   ...(await importActual<typeof import('$lib/api-client/attachments')>()),
@@ -174,16 +199,9 @@ vi.mock('$lib/state/activeServer.svelte', () => ({
 vi.mock('$lib/state/server/registry.svelte', () => ({
   serverRegistry: {
     getStore: () => callStore,
+    tryGetStore: () => callStore,
     getServer: () => ({ id: 'test-server', url: 'https://chat.example.test' })
   }
-}));
-
-vi.mock('$lib/state/server/permissions.svelte', () => ({
-  getServerPermissions: () => ({
-    current: {
-      canStartDMs: false
-    }
-  })
 }));
 
 vi.mock('$lib/state/userProfiles.svelte', () => ({
@@ -199,7 +217,7 @@ function member(index: number): RoomMember {
     login: `user${index}`,
     displayName: `User ${index}`,
     avatarUrl: null,
-    presenceStatus: PresenceStatus.Online
+    presenceStatus: PresenceStatus.ONLINE
   };
 }
 
@@ -241,6 +259,11 @@ async function flushRoomFilesPanel(): Promise<void> {
 
 async function waitForMemberSearchDebounce(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 300));
+  await tick();
+}
+
+async function waitForRoomSearchDebounce(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 350));
   await tick();
 }
 
@@ -391,7 +414,10 @@ describe('RoomSidebar', () => {
     callStore.voiceCall.toggleParticipantLocalMute.mockClear();
     callStore.voiceCall.refreshDevices.mockClear();
     callStore.voiceCall.getAudioLevel.mockClear();
-    callStore.voiceCall.getAudioLevel.mockImplementation(() => ({ isSpeaking: false, audioLevel: 0 }));
+    callStore.voiceCall.getAudioLevel.mockImplementation(() => ({
+      isSpeaking: false,
+      audioLevel: 0
+    }));
     callStore.activeCallRooms.active = false;
     callStore.activeCallRooms.participants = [];
     callStore.activeCallRooms.has.mockClear();
@@ -399,6 +425,108 @@ describe('RoomSidebar', () => {
     callStore.activeCallRooms.getParticipantCallPresenceInAnyRoom.mockClear();
     callStore.activeCallRooms.getParticipantCallPresenceInAnyRoom.mockReturnValue(null);
     callStore.handleVoiceCallJoinFailed.mockClear();
+    callStore.permissions.canStartDMs = false;
+  });
+
+  it('automatically searches only the current room and clamps long matching messages', async () => {
+    const searchMessages = vi.fn().mockResolvedValue({
+      results: [
+        {
+          id: 'message-1',
+          roomId: 'room-1',
+          roomName: 'general',
+          roomKind: SearchRoomKind.CHANNEL,
+          actorId: 'user-1',
+          actor: {
+            id: 'user-1',
+            login: 'alice',
+            displayName: 'Alice',
+            deleted: false,
+            avatarUrl: null
+          },
+          body: 'A result from this room',
+          createdAt: '2026-07-31T12:00:00.000Z',
+          threadRootEventId: 'thread-root',
+          attachmentCount: 0
+        },
+        {
+          id: 'message-long',
+          roomId: 'room-1',
+          roomName: 'general',
+          roomKind: SearchRoomKind.CHANNEL,
+          actorId: 'user-1',
+          actor: {
+            id: 'user-1',
+            login: 'alice',
+            displayName: 'Alice',
+            deleted: false,
+            avatarUrl: null
+          },
+          body: 'A very long result from this room. '.repeat(80),
+          createdAt: '2026-07-31T12:01:00.000Z',
+          threadRootEventId: null,
+          attachmentCount: 0
+        }
+      ],
+      nextCursor: null
+    });
+    const searchStore = new MessageSearchStore({
+      getStatus: vi.fn().mockResolvedValue({ state: MessageSearchState.READY, retryAfterMs: null }),
+      searchMessages
+    });
+    await searchStore.ensureStatus();
+    const onOpenSearchResult = vi.fn();
+    const { container } = render(RoomSidebarTestHarness, {
+      props: {
+        activePanel: 'search',
+        roomData: roomData([member(1)], 1, false),
+        searchStore,
+        onOpenSearchResult
+      }
+    });
+
+    const input = container.querySelector('input') as HTMLInputElement;
+    await vi.waitFor(() => expect(document.activeElement).toBe(input));
+    await userEvent.fill(input, 'roadmap');
+    expect(
+      [...container.querySelectorAll('button')].some(
+        (button) => button.textContent?.trim() === 'Search'
+      )
+    ).toBe(false);
+    await waitForRoomSearchDebounce();
+
+    await vi.waitFor(() => expect(searchMessages).toHaveBeenCalledOnce());
+    expect(searchMessages).toHaveBeenCalledWith({
+      query: 'roadmap',
+      roomId: 'room-1',
+      order: MessageSearchOrder.RELEVANCE
+    });
+    await vi.waitFor(() =>
+      expect(container.querySelector('[data-room-search-result-id="message-1"]')).toBeTruthy()
+    );
+    const shortResult = container.querySelector('[data-room-search-result-id="message-1"]')!;
+    const longResult = container.querySelector('[data-room-search-result-id="message-long"]')!;
+    expect(
+      shortResult.querySelector('[data-room-search-result-preview]')?.hasAttribute('inert')
+    ).toBe(true);
+    expect(longResult.querySelector('.max-h-40')?.classList).toContain('overflow-hidden');
+
+    await userEvent.click(shortResult);
+    expect(onOpenSearchResult).toHaveBeenCalledWith('message-1', 'thread-root');
+
+    await userEvent.fill(input, 'roadmap ');
+    await waitForRoomSearchDebounce();
+    expect(searchMessages).toHaveBeenCalledOnce();
+    expect(searchMessages).toHaveBeenLastCalledWith({
+      query: 'roadmap',
+      roomId: 'room-1',
+      order: MessageSearchOrder.RELEVANCE
+    });
+    expect(input.value).toBe('roadmap ');
+
+    await userEvent.clear(input);
+    expect(searchStore.hasSearched).toBe(false);
+    expect(searchStore.results).toEqual([]);
   });
 
   it('does not load room files for the Members panel', async () => {
@@ -465,6 +593,40 @@ describe('RoomSidebar', () => {
     expect(container.querySelector('em')?.textContent).toBe('[deleted user]');
   });
 
+  it('hides the direct-message action when the scoped server denies it', async () => {
+    const { container } = render(RoomSidebarTestHarness, {
+      props: { roomData: roomData([], 0, false) }
+    });
+
+    let memberButton: HTMLButtonElement | null = null;
+    await vi.waitFor(() => {
+      memberButton = q(container, '[title="View profile of User 1"]') as HTMLButtonElement | null;
+      expect(memberButton).toBeTruthy();
+    });
+    memberButton!.click();
+    await tick();
+
+    expect(buttonByText(document.body, 'Send Message')).toBeUndefined();
+  });
+
+  it('shows the direct-message action when the scoped server grants it', async () => {
+    callStore.permissions.canStartDMs = true;
+    const { container } = render(RoomSidebarTestHarness, {
+      props: { roomData: roomData([], 0, false) }
+    });
+
+    let memberButton: HTMLButtonElement | null = null;
+    await vi.waitFor(() => {
+      memberButton = q(container, '[title="View profile of User 1"]') as HTMLButtonElement | null;
+      expect(memberButton).toBeTruthy();
+    });
+    memberButton!.click();
+
+    await vi.waitFor(() => {
+      expect(buttonByText(document.body, 'Send Message')).toBeTruthy();
+    });
+  });
+
   it('shows call presence for members active in any room call on the server', async () => {
     mockRoomMembers([member(1), member(2)]);
     callStore.activeCallRooms.getParticipantCallPresenceInAnyRoom.mockImplementation(
@@ -480,7 +642,9 @@ describe('RoomSidebar', () => {
     await vi.waitFor(() => {
       expect(q(container, '[data-testid="member-call-presence-voice"]')).toBeTruthy();
     });
-    expect(callStore.activeCallRooms.getParticipantCallPresenceInAnyRoom).toHaveBeenCalledWith('user-2');
+    expect(callStore.activeCallRooms.getParticipantCallPresenceInAnyRoom).toHaveBeenCalledWith(
+      'user-2'
+    );
   });
 
   it('renders the call tab empty state and starts a call', async () => {
@@ -703,12 +867,8 @@ describe('RoomSidebar', () => {
       }
     });
 
-    expect(q(container, '[data-testid="call-mute-toggle"]')!.className).toContain(
-      'btn-secondary'
-    );
-    expect(q(container, '[data-testid="call-camera-toggle"]')!.className).toContain(
-      'btn-success'
-    );
+    expect(q(container, '[data-testid="call-mute-toggle"]')!.className).toContain('btn-secondary');
+    expect(q(container, '[data-testid="call-camera-toggle"]')!.className).toContain('btn-success');
     expect(q(container, '[data-testid="call-screen-share-toggle"]')!.className).toContain(
       'btn-success'
     );
@@ -752,7 +912,9 @@ describe('RoomSidebar', () => {
     await vi.waitFor(() => {
       expect(callStore.voiceCall.getAudioLevel).toHaveBeenCalledWith('viewer');
       expect(card.dataset.callSpeaking).toBe('true');
-      expect(Number(card.style.getPropertyValue('--call-speaking-ring-opacity'))).toBeGreaterThan(0);
+      expect(Number(card.style.getPropertyValue('--call-speaking-ring-opacity'))).toBeGreaterThan(
+        0
+      );
     });
     expect(card.className).toContain('call-speaking-card');
     expect(q(card, '[data-testid="call-speaking-indicator"]')).toBeFalsy();
@@ -1024,8 +1186,14 @@ describe('RoomSidebar', () => {
 
     const featured = q(container, '[data-testid="call-featured-stage-card"]')!;
     const mediaActions = q(featured, '[data-testid="call-media-actions"]')!;
-    const fullscreenButton = q(featured, '[data-testid="call-feed-fullscreen-button"]') as HTMLButtonElement;
-    const localMuteButton = q(featured, '[data-testid="call-feed-local-mute-button"]') as HTMLButtonElement;
+    const fullscreenButton = q(
+      featured,
+      '[data-testid="call-feed-fullscreen-button"]'
+    ) as HTMLButtonElement;
+    const localMuteButton = q(
+      featured,
+      '[data-testid="call-feed-local-mute-button"]'
+    ) as HTMLButtonElement;
 
     expect(mediaActions.className).toContain('border-text/10');
     expect(mediaActions.className).toContain('bg-surface');
@@ -1356,9 +1524,9 @@ describe('RoomSidebar', () => {
     await vi.waitFor(() => {
       expect(callStore.voiceCall.getAudioLevel).toHaveBeenCalledWith('viewer');
       expect(featured!.dataset.callSpeaking).toBe('true');
-      expect(Number(featured!.style.getPropertyValue('--call-speaking-ring-opacity'))).toBeGreaterThan(
-        0
-      );
+      expect(
+        Number(featured!.style.getPropertyValue('--call-speaking-ring-opacity'))
+      ).toBeGreaterThan(0);
     });
     expect(featured!.hasAttribute('data-speaking-ring')).toBe(true);
     expect(q(featured!, '[aria-label="Poor connection"]')).toBeTruthy();
@@ -1599,13 +1767,13 @@ describe('RoomSidebar', () => {
     await vi.waitFor(() => {
       expect(presenceCache).toBeTruthy();
     });
-    presenceCache!.update({ serverId: 'test-server', userId: user.id }, PresenceStatus.Away);
+    presenceCache!.update({ serverId: 'test-server', userId: user.id }, PresenceStatus.AWAY);
     await tick();
 
     expect(presenceBadge(container, 'Away')).toBeTruthy();
     expect(buttonByText(container, 'Online (1)')).toBeTruthy();
 
-    presenceCache!.update({ serverId: 'test-server', userId: user.id }, PresenceStatus.Online);
+    presenceCache!.update({ serverId: 'test-server', userId: user.id }, PresenceStatus.ONLINE);
     await tick();
 
     expect(presenceBadge(container, 'Online')).toBeTruthy();
@@ -1681,7 +1849,9 @@ describe('RoomSidebar', () => {
     ) as HTMLButtonElement | null;
     expect(minimizeButton).toBeTruthy();
     expect(minimizeButton!.querySelector('.mdi--arrow-collapse-right')).toBeTruthy();
-    const fullscreenButton = container.querySelector('[aria-label="Fullscreen call"]') as HTMLButtonElement | null;
+    const fullscreenButton = container.querySelector(
+      '[aria-label="Fullscreen call"]'
+    ) as HTMLButtonElement | null;
     expect(fullscreenButton).toBeTruthy();
     expect(fullscreenButton!.querySelector('.mdi--monitor-share')).toBeTruthy();
 
@@ -1842,7 +2012,7 @@ describe('RoomSidebar', () => {
         thumbnail: {
           width: 120,
           height: 120,
-          fit: 'COVER'
+          fit: ImageFitMode.COVER
         }
       });
       expect(container.textContent).toContain('thread.txt');
@@ -1945,12 +2115,11 @@ describe('RoomSidebar', () => {
   });
 
   it('falls back to a file icon when a video thumbnail fails to load', async () => {
-    attachmentMocks.listRoomAttachments
-      .mockResolvedValueOnce({
-        items: [roomVideoFile('clip.mp4')],
-        totalCount: 1,
-        hasMore: false
-      });
+    attachmentMocks.listRoomAttachments.mockResolvedValueOnce({
+      items: [roomVideoFile('clip.mp4')],
+      totalCount: 1,
+      hasMore: false
+    });
     attachmentMocks.refreshAssetUrls.mockResolvedValueOnce(new Map());
 
     const { container } = render(RoomSidebarTestHarness, {

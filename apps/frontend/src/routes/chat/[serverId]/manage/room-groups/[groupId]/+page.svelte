@@ -2,15 +2,8 @@
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import { serverIdToSegment } from '$lib/navigation';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import {
-    createAdminRoomLayoutAPI,
-    type AdminManagedRoomGroup,
-    type AdminRoomGroup
-  } from '$lib/api-client/adminRoomLayout';
-  import { Code, ConnectError } from '@connectrpc/connect';
-  import { useConnection } from '$lib/state/server/connection.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
+  import { createAdminRoomLayoutAPI, type AdminRoomGroup } from '$lib/api-client/adminRoomLayout';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { Panel } from '$lib/components/admin';
   import { Button, TextArea, TextInput } from '$lib/ui/form';
   import AccessDenied from '$lib/ui/AccessDenied.svelte';
@@ -25,10 +18,10 @@
   import { buildRoomGroupSettingsUpdate } from './roomGroupSettings';
   import * as m from '$lib/i18n/messages';
 
+  const serverScope = useServerScope();
   const groupId = $derived(page.params.groupId!);
-  const activeServerId = $derived(getActiveServer());
+  const activeServerId = $derived(serverScope.serverId);
   const serverSegment = $derived(serverIdToSegment(activeServerId));
-  const connection = useConnection();
   const backHref = $derived(resolve('/chat/[serverId]/manage/rooms', { serverId: serverSegment }));
 
   let group = $state<AdminRoomGroup | null>(null);
@@ -55,7 +48,10 @@
     originalDescription = nextGroup.description ?? '';
   }
 
-  async function loadGroup(targetGroupId: string) {
+  async function loadGroup(targetServerId: string, targetGroupId: string) {
+    if (targetServerId !== serverScope.serverId) return;
+    const targetStore = serverScope.store;
+    const targetConnection = serverScope.connection;
     const thisId = ++loadId;
     loading = true;
     saving = false;
@@ -65,24 +61,16 @@
     canManageGroup = false;
     canManagePermissions = false;
     try {
-      const conn = connection();
-      const api = createAdminRoomLayoutAPI({
-        serverId: conn.serverId,
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      });
-      let details: AdminManagedRoomGroup | null;
-      try {
-        details = await api.getRoomGroup(targetGroupId);
-      } catch (error) {
-        if (ConnectError.from(error).code !== Code.Unimplemented) throw error;
-        const groups = await api.listRoomGroups();
-        const legacyGroup = groups.find((candidate) => candidate.id === targetGroupId) ?? null;
-        details = legacyGroup
-          ? { group: legacyGroup, canManageGroup: true, canManagePermissions: true }
-          : null;
+      const info = targetStore.serverInfo;
+      if (!info?.supportsFeature('adminApi')) {
+        accessDenied = true;
+        return;
       }
-      if (thisId !== loadId) return;
+      const details = await targetConnection
+        .getAPI(createAdminRoomLayoutAPI)
+        .getRoomGroup(targetGroupId);
+      if (!serverScope.isCurrent() || thisId !== loadId || targetServerId !== activeServerId)
+        return;
       if (details) {
         canManageGroup = details.canManageGroup;
         canManagePermissions = details.canManagePermissions;
@@ -91,7 +79,8 @@
         accessDenied = true;
       }
     } catch (error) {
-      if (thisId !== loadId) return;
+      if (!serverScope.isCurrent() || thisId !== loadId || targetServerId !== activeServerId)
+        return;
       const classified = classifyManagementLoadError(error);
       if (classified.kind === 'access-denied') {
         accessDenied = true;
@@ -99,12 +88,14 @@
         loadFailure = classified.message;
       }
     } finally {
-      if (thisId === loadId) loading = false;
+      if (serverScope.isCurrent() && thisId === loadId && targetServerId === activeServerId) {
+        loading = false;
+      }
     }
   }
 
   $effect(() => {
-    void loadGroup(groupId);
+    void loadGroup(activeServerId, groupId);
   });
 
   async function saveGeneralSettings(event: SubmitEvent): Promise<void> {
@@ -112,6 +103,8 @@
     if (!canManageGroup || saving || !name.trim() || !changed) return;
 
     const target = { resourceId: groupId, generation: loadId };
+    const targetConnection = serverScope.connection;
+    const targetRoomLayout = serverScope.store.adminRoomLayout;
     const update = buildRoomGroupSettingsUpdate(
       target.resourceId,
       { name, description },
@@ -119,28 +112,25 @@
     );
     saving = true;
     try {
-      const conn = connection();
-      const api = createAdminRoomLayoutAPI({
-        serverId: conn.serverId,
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      });
+      const api = targetConnection.getAPI(createAdminRoomLayoutAPI);
       const updated = await api.updateRoomGroup(update);
-      if (!isCurrentResourceOperation(target, groupId, loadId)) return;
+      if (!serverScope.isCurrent() || !isCurrentResourceOperation(target, groupId, loadId)) return;
       if (!updated) throw new Error('Room group update returned no group');
 
       applyGroup(updated);
-      void serverRegistry.getStore(activeServerId).adminRoomLayout.refresh();
+      void targetRoomLayout.refresh();
       toast.success(m['admin.rooms_admin.group_renamed']());
     } catch (error) {
-      if (!isCurrentResourceOperation(target, groupId, loadId)) return;
+      if (!serverScope.isCurrent() || !isCurrentResourceOperation(target, groupId, loadId)) return;
       toast.error(
         m['admin.rooms_admin.rename_group_failed']({
           error: error instanceof Error ? error.message : String(error)
         })
       );
     } finally {
-      if (isCurrentResourceOperation(target, groupId, loadId)) saving = false;
+      if (serverScope.isCurrent() && isCurrentResourceOperation(target, groupId, loadId)) {
+        saving = false;
+      }
     }
   }
 
@@ -159,7 +149,7 @@
   <EmptyState icon="uil--exclamation-triangle" title={m['common.error.generic']()}>
     <div class="flex flex-col items-center gap-4">
       <p>{loadFailure}</p>
-      <Button variant="secondary" onclick={() => void loadGroup(groupId)}>
+      <Button variant="secondary" onclick={() => void loadGroup(activeServerId, groupId)}>
         {m['common.retry']()}
       </Button>
     </div>

@@ -2,8 +2,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { serverIdToSegment } from '$lib/navigation';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { createRoleAPI } from '$lib/api-client/roles';
   import { Panel } from '$lib/components/admin';
   import { PaneContent } from '$lib/ui';
@@ -13,9 +12,8 @@
   import { RoleForm } from '$lib/components/rbac';
   import * as m from '$lib/i18n/messages';
   import { ROLE_COLORS_CAPABILITY } from '$lib/roleColors';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
 
-  const connection = useConnection();
+  const serverScope = useServerScope();
 
   let name = $state('');
   let displayName = $state('');
@@ -27,9 +25,7 @@
   let canManageRoles = $state(false);
   let loading = $state(true);
   const supportsRoleColors = $derived(
-    serverRegistry
-      .tryGetStore(getActiveServer())
-      ?.serverInfo.supportsProtocolCapability(ROLE_COLORS_CAPABILITY) === true
+    serverScope.store.serverInfo.supportsProtocolCapability(ROLE_COLORS_CAPABILITY) === true
   );
 
   async function loadPermissions() {
@@ -37,8 +33,10 @@
 
     try {
       const resp = await roleAPI().listAdminRoles();
+      if (!serverScope.isCurrent()) return;
       canManageRoles = resp.viewerCanManageRoles;
     } catch {
+      if (!serverScope.isCurrent()) return;
       error = m['admin.permissions.load_instance_failed']();
       loading = false;
       return;
@@ -52,38 +50,39 @@
   });
 
   async function createRole() {
+    const targetServerId = serverScope.serverId;
+    const targetName = name.trim();
+    const api = roleAPI();
     creating = true;
     error = null;
 
     try {
-      await roleAPI().createRole({
-        name: name.trim(),
+      await api.createRole({
+        name: targetName,
         displayName: displayName.trim(),
         description: description.trim(),
         pingable,
         ...(supportsRoleColors ? { color } : {})
       });
     } catch (err) {
+      if (!serverScope.isCurrent()) return;
       error = err instanceof Error ? err.message : m['admin.permissions.load_instance_failed']();
       creating = false;
       return;
     }
+    if (!serverScope.isCurrent()) return;
 
     // Navigate to the new role's detail page
     goto(
       resolve('/chat/[serverId]/manage/server/permissions/[name]', {
-        serverId: serverIdToSegment(getActiveServer()),
-        name: name.trim()
+        serverId: serverIdToSegment(targetServerId),
+        name: targetName
       })
     );
   }
 
   function roleAPI() {
-    const conn = connection();
-    return createRoleAPI({
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
-    });
+    return serverScope.connection.getAPI(createRoleAPI);
   }
 </script>
 
@@ -98,7 +97,7 @@
     title={m['admin.permissions.create_role_title']()}
     subtitle={m['admin.permissions.create_role_subtitle']()}
     backHref={resolve('/chat/[serverId]/manage/server/permissions', {
-      serverId: serverIdToSegment(getActiveServer())
+      serverId: serverIdToSegment(serverScope.serverId)
     })}
     backLabel={m['admin.permissions.back_to_permissions']()}
     showMobileNav

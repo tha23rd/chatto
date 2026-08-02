@@ -2,47 +2,57 @@
   import * as m from '$lib/i18n/messages';
   import { localeDisplayName, selectableLocales } from '$lib/i18n/locales';
   import { getLocale, setLocale, type Locale } from '$lib/i18n/runtime';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { createAccountAPI } from '$lib/api-client/account';
-  import { TimeFormat } from '$lib/render/types';
-  import { getUserSettings, hour12ForTimeFormat } from '$lib/state/userSettings.svelte';
+  import { TimeFormat } from '@chatto/api-types/api/v1/viewer_pb';
   import { userPreferences, type DisplayTheme } from '$lib/state/userPreferences.svelte';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { ChoiceRow, PaneHeader, FormSection } from '$lib/ui';
   import { Button, Combobox, FormError, RangeField, Checkbox } from '$lib/ui/form';
   import { toast } from '$lib/ui/toast';
-  import { formatMessageTime } from '$lib/utils/formatTime';
+  import {
+    formatMessageTime,
+    hour12ForTimeFormat,
+    timeFormatSettingsFor
+  } from '$lib/utils/formatTime';
   import DesktopUpdateSettings from '$lib/components/settings/DesktopUpdateSettings.svelte';
   import NoiseSuppressionSettings from '$lib/components/voice/NoiseSuppressionSettings.svelte';
   import { NoiseSuppressionController } from '$lib/voice/noiseSuppression.svelte';
 
-  const userSettings = getUserSettings();
   // Standalone controller for this settings view: no call to attach to, but
   // the mode/strength preference it reads and writes is client-wide, so it
   // stays in sync with (and applies to) any in-progress call on any server.
   const noiseSuppressionController = new NoiseSuppressionController(() => {});
-  const currentUser = $derived(serverRegistry.getStore(getActiveServer()).currentUser);
-  const connection = useConnection();
+  const serverScope = useServerScope();
+  const currentUser = $derived(serverScope.store.currentUser);
+  const savedSettings = $derived(currentUser.user?.settings);
+  const timeSettings = $derived(timeFormatSettingsFor(savedSettings));
   const activeLocale = $derived(getLocale());
 
   function accountAPI() {
-    const conn = connection();
-    return createAccountAPI({
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
-    });
+    return serverScope.connection.getAPI(createAccountAPI);
   }
 
   // All available IANA timezone names
   const allTimezones = Intl.supportedValuesOf('timeZone');
 
-  // Form state - initialize from current settings
-  let timezoneSearch = $state(userSettings.timezone ?? '');
-  let selectedTimezone = $state(userSettings.timezone ?? '');
-  let selectedTimeFormat = $state<TimeFormat>(userSettings.timeFormat);
+  // These are edit buffers rather than mirrors. Initialize them once the
+  // scoped viewer has resolved, then preserve any edits made on this mount.
+  let settingsInitialized = $state(false);
+  let timezoneSearch = $state('');
+  let selectedTimezone = $state('');
+  let selectedTimeFormat = $state<TimeFormat>(TimeFormat.TIME_FORMAT_AUTO);
   let isSaving = $state(false);
   let error = $state('');
+
+  $effect(() => {
+    if (settingsInitialized || currentUser.loading) return;
+
+    const timezone = savedSettings?.timezone ?? '';
+    timezoneSearch = timezone;
+    selectedTimezone = timezone;
+    selectedTimeFormat = savedSettings?.timeFormat ?? TimeFormat.TIME_FORMAT_AUTO;
+    settingsInitialized = true;
+  });
 
   // Filter timezone list based on search input
   let filteredTimezones = $derived(
@@ -56,8 +66,9 @@
 
   // Track if the form has been modified
   const isModified = $derived(
-    (selectedTimezone || null) !== userSettings.timezone ||
-      selectedTimeFormat !== userSettings.timeFormat
+    settingsInitialized &&
+      ((selectedTimezone || null) !== (savedSettings?.timezone ?? null) ||
+        selectedTimeFormat !== (savedSettings?.timeFormat ?? TimeFormat.TIME_FORMAT_AUTO))
   );
 
   // Timezone validation
@@ -100,12 +111,11 @@
     error = '';
 
     try {
-      // Update the local settings state so formatting changes take effect immediately
       const settings = await accountAPI().updateSettings({
         timezone: selectedTimezone || null,
         timeFormat: selectedTimeFormat
       });
-      userSettings.updateFromData(settings);
+      if (!serverScope.isCurrent()) return;
       if (currentUser.user) {
         currentUser.user = {
           ...currentUser.user,
@@ -115,9 +125,10 @@
 
       toast.success(m['settings.preferences.saved']());
     } catch (err) {
+      if (!serverScope.isCurrent()) return;
       error = err instanceof Error ? err.message : m['settings.preferences.save_failed']();
     } finally {
-      isSaving = false;
+      if (serverScope.isCurrent()) isSaving = false;
     }
   }
 
@@ -152,17 +163,17 @@
 
   const timeFormatOptions = $derived([
     {
-      value: TimeFormat.Auto,
+      value: TimeFormat.TIME_FORMAT_AUTO,
       label: m['settings.preferences.time_format.browser_default.label'](),
       description: m['settings.preferences.time_format.browser_default.description']()
     },
     {
-      value: TimeFormat.TwelveHour,
+      value: TimeFormat.TIME_FORMAT_12_HOUR,
       label: m['settings.preferences.time_format.12h.label'](),
       description: m['settings.preferences.time_format.12h.description']()
     },
     {
-      value: TimeFormat.TwentyFourHour,
+      value: TimeFormat.TIME_FORMAT_24_HOUR,
       label: m['settings.preferences.time_format.24h.label'](),
       description: m['settings.preferences.time_format.24h.description']()
     }
@@ -199,7 +210,7 @@
     </div>
   </FormSection>
 
-  <DesktopUpdateSettings />
+  <DesktopUpdateSettings timeSettings={timeSettings} />
 
   <!-- Language -->
   <FormSection title={m['settings.preferences.language.title']()} maxWidth="max-w-md" bordered>
@@ -236,6 +247,7 @@
       placeholder={m['settings.preferences.timezone.browser_default']()}
       clearLabel={m['settings.preferences.timezone.clear']()}
       allowFreeform={false}
+      disabled={!settingsInitialized}
       bind:value={selectedTimezone}
       bind:text={timezoneSearch}
       ontextchange={handleTimezoneTextChange}
@@ -261,6 +273,7 @@
           label={option.label}
           description={option.description}
           selected={isSelected}
+          disabled={!settingsInitialized}
           onclick={() => (selectedTimeFormat = option.value)}
         />
       {/each}

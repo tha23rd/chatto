@@ -3,7 +3,6 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { serverIdToSegment } from '$lib/navigation';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
   import {
     createAdminUserManagementAPI,
     type AdminMember,
@@ -14,14 +13,16 @@
   import PaneHeader from '$lib/ui/PaneHeader.svelte';
   import PageTitle from '$lib/ui/PageTitle.svelte';
   import { TextInput } from '$lib/ui/form';
-  import { getUserSettings } from '$lib/state/userSettings.svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
-  import { formatDate as formatDateUtil } from '$lib/utils/formatTime';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
+  import { formatDate as formatDateUtil, timeFormatSettingsFor } from '$lib/utils/formatTime';
   import { getLocale } from '$lib/i18n/runtime';
+  import { useDebounce } from '$lib/hooks/useDebounce.svelte';
   import * as m from '$lib/i18n/messages';
 
-  const userSettings = getUserSettings();
-  const connection = useConnection();
+  const serverScope = useServerScope();
+  const userSettings = $derived(
+    timeFormatSettingsFor(serverScope.store.currentUser.user?.settings)
+  );
   const activeLocale = $derived(getLocale());
   const PAGE_SIZE = 20;
 
@@ -35,26 +36,17 @@
   let loadingMore = $state(false);
   let error = $state<string | null>(null);
   let requestId = 0;
-  let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  const searchDebounce = useDebounce();
   let scrollContainer = $state<HTMLDivElement>();
 
   onMount(() => {
     void loadFirstPage('');
-    return () => clearSearchTimer();
   });
-
-  function clearSearchTimer() {
-    if (searchTimer) {
-      clearTimeout(searchTimer);
-      searchTimer = null;
-    }
-  }
 
   function scheduleSearch(event: Event) {
     const value = event.currentTarget instanceof HTMLInputElement ? event.currentTarget.value : '';
     searchInput = value;
-    clearSearchTimer();
-    searchTimer = setTimeout(() => {
+    searchDebounce.run(() => {
       const nextSearch = value.trim();
       if (nextSearch === activeSearch) return;
       void loadFirstPage(nextSearch);
@@ -62,11 +54,7 @@
   }
 
   async function queryMembers(search: string, offset: number) {
-    const conn = connection();
-    return createAdminUserManagementAPI({
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
-    }).listMembers({
+    return serverScope.connection.getAPI(createAdminUserManagementAPI).listMembers({
       search: search || null,
       limit: PAGE_SIZE,
       offset
@@ -187,7 +175,7 @@
             onRowClick={(user) =>
               goto(
                 resolve('/chat/[serverId]/manage/server/members/[userId]', {
-                  serverId: serverIdToSegment(getActiveServer()),
+                  serverId: serverIdToSegment(serverScope.serverId),
                   userId: user.id
                 })
               )}

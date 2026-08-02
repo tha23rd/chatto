@@ -2,7 +2,7 @@ import { flushSync } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { CurrentUserState } from '$lib/auth/currentUser.svelte';
-import { PresenceStatus } from '$lib/render/types';
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
 import { PresenceCache } from '$lib/state/presenceCache.svelte';
 import AnonymousOriginPresenceProvider from './AnonymousOriginPresenceProvider.svelte';
 
@@ -58,7 +58,7 @@ describe('AnonymousOriginPresenceProvider', () => {
     mocks.synchronizeAuthenticatedServers.mockReset();
     mocks.stopPresenceTracking.mockReset();
     mocks.initPresenceTracking.mockImplementation((_getReporters, onStatusChange) => {
-      onStatusChange?.(PresenceStatus.Online);
+      onStatusChange?.(PresenceStatus.ONLINE);
       return mocks.stopPresenceTracking;
     });
   });
@@ -91,15 +91,15 @@ describe('AnonymousOriginPresenceProvider', () => {
     );
 
     expect(
-      presenceCache.get({ serverId: 'remote', userId: 'remote-user' }, PresenceStatus.Offline)
-    ).toBe(PresenceStatus.Offline);
+      presenceCache.get({ serverId: 'remote', userId: 'remote-user' }, PresenceStatus.OFFLINE)
+    ).toBe(PresenceStatus.OFFLINE);
 
     if (!mocks.store.currentUser) throw new Error('current user state was not initialized');
     mocks.store.currentUser.user = {
       id: 'remote-user',
       login: 'remote-user',
       displayName: 'Remote User',
-      presenceStatus: PresenceStatus.Offline,
+      presenceStatus: PresenceStatus.OFFLINE,
       hasVerifiedEmail: true,
       hasPassword: true,
       viewerCanDeleteAccount: true
@@ -108,7 +108,7 @@ describe('AnonymousOriginPresenceProvider', () => {
     flushSync();
 
     expect(
-      presenceCache.get({ serverId: 'remote', userId: 'remote-user' }, PresenceStatus.Offline)
-    ).toBe(PresenceStatus.Online);
+      presenceCache.get({ serverId: 'remote', userId: 'remote-user' }, PresenceStatus.OFFLINE)
+    ).toBe(PresenceStatus.ONLINE);
   });
 });

@@ -3,12 +3,10 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { serverIdToSegment } from '$lib/navigation';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import * as m from '$lib/i18n/messages';
 
-  import { useRenderData } from '$lib/render/data';
-  import { RoomEventViewDocument, type RoomEventView } from '$lib/render/types';
+  import type { TimelineEventView } from '$lib/render/timelineEvents';
   import {
     createThreadAPI,
     type FollowedThread as APIFollowedThread
@@ -17,11 +15,9 @@
   import PageTitle from '$lib/ui/PageTitle.svelte';
   import { Button } from '$lib/ui/form';
   import RoomEvent from '../[roomId]/RoomEvent.svelte';
-  import { getUserSettings } from '$lib/state/userSettings.svelte';
-  import { formatDate } from '$lib/utils/formatTime';
+  import { formatDate, timeFormatSettingsFor } from '$lib/utils/formatTime';
   import { getLocale } from '$lib/i18n/runtime';
-  import { onProjectionEvent } from '$lib/eventBus.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
+  import { useProjectionEvent } from '$lib/hooks/useEvent.svelte';
   import {
     createRoomPermissions,
     DEFAULT_ROOM_PERMISSIONS,
@@ -30,38 +26,43 @@
     createMentionRoles
   } from '$lib/state/room';
 
-  // Provide stub room contexts so MessageEvent can render in read-only mode.
+  const serverScope = useServerScope();
+  const serverStore = $derived(serverScope.store);
+
+  // Provide room contexts so MessageEvent can render in read-only mode.
   // All permissions are false (no editing, deleting, reacting from this view),
-  // members list is empty (no mention highlighting), composer context is a no-op.
+  // and the members list is empty; role highlighting uses server reference data.
   createRoomPermissions(() => DEFAULT_ROOM_PERMISSIONS);
   createRoomMembers();
   createComposerContext();
-  createMentionRoles();
+  createMentionRoles(() => serverStore.mentionRoles.roles);
 
-  const connection = useConnection();
-  const serverStore = serverRegistry.getStore(getActiveServer());
-  const userSettings = getUserSettings();
+  const userSettings = $derived(
+    timeFormatSettingsFor(serverStore.currentUser.user?.settings)
+  );
   const activeLocale = $derived(getLocale());
   const PAGE_SIZE = 20;
+
+  $effect(() => {
+    void serverStore.mentionRoles.refresh();
+  });
 
   type FollowedThreadItem = {
     roomId: string;
     roomName: string;
     threadRootEventId: string;
-    rootMessage: RoomEventView | null;
+    rootMessage: TimelineEventView | null;
     replyCount: number;
     lastReplyAt: string | null;
     hasUnread: boolean;
   };
 
   function mapThread(t: APIFollowedThread): FollowedThreadItem {
-    const rootMessage = t.rootMessage ? useRenderData(RoomEventViewDocument, t.rootMessage) : null;
-
     return {
       roomId: t.roomId,
       roomName: t.roomName,
       threadRootEventId: t.threadRootEventId,
-      rootMessage,
+      rootMessage: t.rootMessage ?? null,
       replyCount: t.replyCount,
       lastReplyAt: t.lastReplyAt,
       hasUnread: t.hasUnread
@@ -100,12 +101,7 @@
     error = null;
 
     try {
-      const conn = connection();
-      const result = await createThreadAPI({
-        serverId: conn.serverId,
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      }).listFollowedThreads({
+      const result = await serverScope.connection.getAPI(createThreadAPI).listFollowedThreads({
         limit: PAGE_SIZE,
         offset: append ? threads.length : 0
       });
@@ -178,7 +174,9 @@
   function reconcileThreadViewerStates(
     states: ReadonlyMap<string, { hasUnread?: boolean }>
   ): boolean {
-    const knownKeys = new Set(threads.map((thread) => `${thread.roomId}\u0000${thread.threadRootEventId}`));
+    const knownKeys = new Set(
+      threads.map((thread) => `${thread.roomId}\u0000${thread.threadRootEventId}`)
+    );
     let changed = false;
     const next = threads.flatMap((thread) => {
       const key = `${thread.roomId}\u0000${thread.threadRootEventId}`;
@@ -202,37 +200,35 @@
   // Apply live root-message summaries directly from projection operations.
   // The canonical store reconciliation below also covers summaries that
   // arrived before this page mounted.
-  $effect(() =>
-    onProjectionEvent((event) => {
-      for (const operation of event.operations) {
-        if (operation.operation.case === 'threadViewerStatesReplace') {
-          const states = new Map(
-            operation.operation.value.states.map((state) => [
-              `${state.roomId}\u0000${state.threadRootEventId}`,
-              state.viewerState ?? {}
-            ])
-          );
-          if (reconcileThreadViewerStates(states)) void loadThreads();
-          continue;
-        }
-        if (operation.operation.case !== 'roomTimelineEventUpsert') continue;
-        const update = operation.operation.value;
-        const timelineEvent = update.event;
-        if (timelineEvent?.event.case !== 'messagePosted') continue;
-        const message = timelineEvent.event.value.message;
-        const summary = message?.thread;
-        if (!message || message.threadRootEventId || !summary) continue;
-
-        applyThreadSummary(
-          update.roomId,
-          timelineEvent.id,
-          summary.replyCount,
-          summary.lastReplyAt?.toDate().toISOString() ?? null,
-          summary.viewerState?.hasUnread
+  useProjectionEvent((event) => {
+    for (const operation of event.operations) {
+      if (operation.operation.case === 'threadViewerStatesReplace') {
+        const states = new Map(
+          operation.operation.value.states.map((state) => [
+            `${state.roomId}\u0000${state.threadRootEventId}`,
+            state.viewerState ?? {}
+          ])
         );
+        if (reconcileThreadViewerStates(states)) void loadThreads();
+        continue;
       }
-    })
-  );
+      if (operation.operation.case !== 'roomTimelineEventUpsert') continue;
+      const update = operation.operation.value;
+      const timelineEvent = update.event;
+      if (timelineEvent?.event.case !== 'messagePosted') continue;
+      const message = timelineEvent.event.value.message;
+      const summary = message?.thread;
+      if (!message || message.threadRootEventId || !summary) continue;
+
+      applyThreadSummary(
+        update.roomId,
+        timelineEvent.id,
+        summary.replyCount,
+        summary.lastReplyAt?.toDate().toISOString() ?? null,
+        summary.viewerState?.hasUnread
+      );
+    }
+  });
 
   // Reconcile followed-thread summaries from the same canonical room
   // projection that feeds every room timeline.
@@ -262,7 +258,7 @@
   function navigateToThread(thread: FollowedThreadItem) {
     goto(
       resolve('/chat/[serverId]/[roomId]/[threadId]', {
-        serverId: serverIdToSegment(getActiveServer()),
+        serverId: serverIdToSegment(serverScope.serverId),
         roomId: thread.roomId,
         threadId: thread.threadRootEventId
       })

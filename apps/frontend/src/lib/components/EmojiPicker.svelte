@@ -3,7 +3,7 @@
 
 Full emoji picker with search and categories.
 Pure content component — rendered inside a ContextMenu by the parent.
-Uses the same section styling as MessageContextMenu (rounded-md bg-background sections).
+Uses the same section styling as MessageActionMenu (rounded-md bg-background sections).
 
 **Props:**
 - `serverId` - The active server. Used to scope the per-server "Recently Used" list.
@@ -19,7 +19,7 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
   import { supportsHoverActions } from '$lib/utils/inputCapabilities';
   import { getRecentEmojis, MAX_RECENT_EMOJIS } from '$lib/state/recentEmojis.svelte';
   import { getCustomEmojis } from '$lib/state/customEmojis.svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import EmojiToken from '$lib/components/EmojiToken.svelte';
 
   let {
@@ -42,15 +42,16 @@ Uses the same section styling as MessageContextMenu (rounded-md bg-background se
   // a deleted custom emoji leaves no dead entry behind.
   const recent = $derived(recentStore.renderable.slice(0, MAX_RECENT_EMOJIS));
 
-  // The picker renders in a few surfaces; most sit inside a server connection,
-  // but some (e.g. the custom-status editor) do not. Guard so those still work;
-  // custom emojis are simply unavailable without a connection.
-  let connection: ReturnType<typeof useConnection> | null = null;
+  // The picker renders in a few surfaces; most sit inside a server scope, but
+  // some (e.g. the custom-status editor) do not. Guard so those still work;
+  // custom emojis are simply unavailable without a scope.
+  let serverScope: ReturnType<typeof useServerScope> | null = null;
   try {
-    connection = useConnection();
+    serverScope = useServerScope();
   } catch {
-    connection = null;
+    serverScope = null;
   }
+  const connection = () => serverScope?.connection ?? null;
 
   const customStore = $derived(getCustomEmojis(serverId));
 

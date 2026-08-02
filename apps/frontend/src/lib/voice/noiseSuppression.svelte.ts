@@ -43,7 +43,8 @@
  * touch a minimal diff there.
  */
 
-import { Track, type LocalAudioTrack, type Room, type TrackProcessor } from 'livekit-client';
+import type { Track, LocalAudioTrack, Room, TrackProcessor } from 'livekit-client';
+import { getLoadedLiveKit } from './livekitModule';
 import { SvelteSet } from 'svelte/reactivity';
 import { globalSlot, type Codec } from '$lib/storage/slot';
 import { toast } from '$lib/ui/toast';
@@ -263,6 +264,8 @@ function baselineApplied(
 }
 
 function getLocalMicrophoneTrack(room: Room): LocalAudioTrack | null {
+  // Only reachable with a live room, so the SDK is already loaded.
+  const { Track } = getLoadedLiveKit();
   const pub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
   const track = pub?.track;
   if (!track || track.kind !== Track.Kind.Audio) return null;

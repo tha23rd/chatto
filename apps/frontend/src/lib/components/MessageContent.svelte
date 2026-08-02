@@ -1,12 +1,10 @@
 <script lang="ts" module>
   // Re-export for tests
-  export { rendererReady, renderMarkdown } from '$lib/markdown';
+  export { renderMarkdown } from '$lib/markdown';
 </script>
 
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { renderMarkdown as renderMd } from '$lib/markdown';
   import MarkdownHtml from '$lib/ui/MarkdownHtml.svelte';
   import ContextMenu from '$lib/ui/ContextMenu.svelte';
@@ -14,7 +12,7 @@
   import { wrapValidMentions, type RoomMember } from '$lib/mentions';
   import { wrapCustomEmojis } from '$lib/customEmojiRender';
   import { getCustomEmojis } from '$lib/state/customEmojis.svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import type { CustomEmojiLike } from '$lib/emoji';
   import { formatRelativeMessageTimestamp, wrapMessageTimestamps } from '$lib/messageTimestamps';
   import { parseTrustedMarkdownHtml } from '$lib/security/trustedHtml';
@@ -42,6 +40,7 @@
     members = [],
     roleHandles = [],
     edited = false,
+    viewerLogin,
     timestampSettings = fallbackTimestampSettings,
     timestampLocale,
     onMentionClick
@@ -50,6 +49,7 @@
     members?: RoomMember[];
     roleHandles?: string[];
     edited?: boolean;
+    viewerLogin?: string;
     timestampSettings?: TimeFormatSettings;
     timestampLocale?: string;
     onMentionClick?: (userId: string, anchorRect: DOMRect) => void;
@@ -81,37 +81,29 @@
     };
   });
 
-  // The viewer's login on the active server, used by `wrapValidMentions` to
-  // mark self-mentions. Same reactive registry-lookup pattern every other
-  // chat-tree component uses — `tryGetStore` and the `?.` chain mean an
-  // unregistered or pre-auth server leaves `viewerLogin` undefined, which
-  // `wrapValidMentions` already treats as "no self-mention."
-  const viewerLogin = $derived(
-    serverRegistry.tryGetStore(getActiveServer())?.currentUser.user?.login
-  );
-
-  // Custom emojis for the active server, so `:shortcode:` references in message
-  // bodies render as images. Reading the store's array keeps `render` reactive:
-  // when the catalog finishes loading, messages re-render with the images. Some
-  // surfaces render messages without a server connection (previews); guard so
-  // those still work — custom emoji simply stay as text there.
-  let connection: ReturnType<typeof useConnection> | null = null;
+  // Custom emojis for this route's server, so `:shortcode:` references in
+  // message bodies render as images. Reading the store's array keeps `render`
+  // reactive: when the catalog finishes loading, messages re-render with the
+  // images. Some surfaces render messages outside a server scope (previews,
+  // stories); guard so those still work — custom emoji stay as text there.
+  let scope: ReturnType<typeof useServerScope> | null = null;
   try {
-    connection = useConnection();
+    scope = useServerScope();
   } catch {
-    connection = null;
+    scope = null;
   }
-  const customEmojiStore = $derived(getCustomEmojis(getActiveServer()));
+  const customEmojiStore = $derived(scope ? getCustomEmojis(scope.serverId) : null);
   $effect(() => {
-    const conn = connection?.();
-    if (!conn) return;
+    const connection = scope?.connection;
+    if (!connection || !customEmojiStore) return;
     customEmojiStore.ensureLoaded({
-      serverId: conn.serverId,
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
+      serverId: connection.serverId,
+      baseUrl: connection.connectBaseUrl,
+      bearerToken: connection.bearerToken
     });
   });
-  const customEmojis = $derived(customEmojiStore.emojis);
+  const customEmojis = $derived(customEmojiStore?.emojis ?? []);
+
 
   function injectEditedMarker(html: string): string {
     const doc = parseTrustedMarkdownHtml(`<div>${html}</div>`);
