@@ -9,6 +9,7 @@ import {
   DEFAULT_SENSITIVITY,
   MIN_INPUT_GAIN,
   MAX_INPUT_GAIN,
+  NOISE_REDUCTION_LEVEL,
   type MicProcessorFactory
 } from './noiseSuppression.svelte';
 
@@ -28,6 +29,7 @@ type FakeProcessor = TrackProcessor<Track.Kind.Audio> & {
 type FakeMicTrack = {
   kind: Track.Kind;
   sourceSettings: Record<string, unknown>;
+  constraints: Record<string, unknown>;
   getSourceTrackSettings: ReturnType<typeof vi.fn>;
   restartTrack: ReturnType<typeof vi.fn>;
   setProcessor: ReturnType<typeof vi.fn>;
@@ -37,19 +39,32 @@ type FakeMicTrack = {
 };
 
 /**
- * Fake LocalAudioTrack. `restartTrack` records the requested constraints and,
- * by default, reflects the voiceIsolation request into the source settings —
- * modeling a browser that honors the constraint. Tests override this to model
- * a browser that ignores it.
+ * Fake LocalAudioTrack. `restartTrack` records the requested constraints
+ * (mirroring LiveKit's wholesale replacement of the stored constraints) and,
+ * by default, reflects the voiceIsolation and noiseSuppression requests into
+ * the source settings — modeling a browser that honors the constraints.
+ * Tests override this to model a browser that ignores them.
  */
 function makeFakeMicTrack(): FakeMicTrack {
   const track: FakeMicTrack = {
     kind: Track.Kind.Audio,
     sourceSettings: {},
+    // Real capture tracks always carry the room's audio capture defaults;
+    // an empty object would make every initial apply look restart-worthy.
+    constraints: {
+      autoGainControl: true,
+      echoCancellation: true,
+      noiseSuppression: true,
+      voiceIsolation: false
+    },
     getSourceTrackSettings: vi.fn(() => track.sourceSettings),
     restartTrack: vi.fn(async (opts: Record<string, unknown>) => {
+      track.constraints = { ...opts };
       if ('voiceIsolation' in opts) {
         track.sourceSettings = { ...track.sourceSettings, voiceIsolation: opts.voiceIsolation };
+      }
+      if ('noiseSuppression' in opts) {
+        track.sourceSettings = { ...track.sourceSettings, noiseSuppression: opts.noiseSuppression };
       }
     }),
     setProcessor: vi.fn(async (processor: FakeProcessor) => {
@@ -125,7 +140,7 @@ describe('NoiseSuppressionController', () => {
   async function resetPreference() {
     const reset = new NoiseSuppressionController(() => {});
     await reset.setMode('off');
-    await reset.setStrength(80);
+    await reset.setStrength(NOISE_REDUCTION_LEVEL);
     await reset.setInputGain(DEFAULT_INPUT_GAIN);
     await reset.setSensitivity(DEFAULT_SENSITIVITY);
   }
@@ -162,7 +177,11 @@ describe('NoiseSuppressionController', () => {
 
     await a.setMode('enhanced');
     expect(b.mode).toBe('enhanced');
-    expect(b.captureConstraints()).toEqual({ voiceIsolation: false });
+    expect(b.captureConstraints()).toEqual({
+      voiceIsolation: false,
+      noiseSuppression: false,
+      autoGainControl: true
+    });
 
     await b.setMode('voice-isolation');
     expect(a.mode).toBe('voice-isolation');
@@ -191,13 +210,27 @@ describe('NoiseSuppressionController', () => {
     expect(b.status).toBe('off');
   });
 
-  it('always states voiceIsolation explicitly while the feature is enabled', async () => {
+  it('states voiceIsolation and noiseSuppression explicitly for every mode', async () => {
     const controller = makeController();
-    expect(controller.captureConstraints()).toEqual({ voiceIsolation: false });
+    expect(controller.captureConstraints()).toEqual({
+      voiceIsolation: false,
+      noiseSuppression: true,
+      autoGainControl: true
+    });
     await controller.setMode('voice-isolation');
-    expect(controller.captureConstraints()).toEqual({ voiceIsolation: true });
+    expect(controller.captureConstraints()).toEqual({
+      voiceIsolation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    });
+    // Enhanced must not stack on the browser's own suppressor: DFN3 wants an
+    // unsuppressed capture.
     await controller.setMode('enhanced');
-    expect(controller.captureConstraints()).toEqual({ voiceIsolation: false });
+    expect(controller.captureConstraints()).toEqual({
+      voiceIsolation: false,
+      noiseSuppression: false,
+      autoGainControl: true
+    });
   });
 
   it('attaches the composite processor with DFN3 on and reports active', async () => {
@@ -396,6 +429,146 @@ describe('NoiseSuppressionController', () => {
     expect(controller.status).toBe('unavailable');
   });
 
+  it('disables browser noise suppression before attaching the enhanced processor', async () => {
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
+    const track = makeFakeMicTrack();
+    // Model a capture that started on the browser-suppressed baseline.
+    track.constraints = { noiseSuppression: true };
+    track.sourceSettings = { noiseSuppression: true };
+    await controller.applyToCall(makeFakeRoom(track));
+
+    await controller.setMode('enhanced');
+    expect(track.restartTrack).toHaveBeenCalledWith(
+      expect.objectContaining({ noiseSuppression: false, voiceIsolation: false })
+    );
+    // The restart happened before the processor attach, so DFN3 never sees a
+    // browser-suppressed capture.
+    expect(track.restartTrack.mock.invocationCallOrder[0]).toBeLessThan(
+      track.setProcessor.mock.invocationCallOrder[0]
+    );
+    expect(controller.status).toBe('active');
+  });
+
+  it('restores browser noise suppression when leaving enhanced', async () => {
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
+    const track = makeFakeMicTrack();
+    track.constraints = { noiseSuppression: true };
+    track.sourceSettings = { noiseSuppression: true };
+    await controller.applyToCall(makeFakeRoom(track));
+    await controller.setMode('enhanced');
+    expect(track.sourceSettings.noiseSuppression).toBe(false);
+
+    await controller.setMode('off');
+    expect(track.restartTrack).toHaveBeenLastCalledWith(
+      expect.objectContaining({ noiseSuppression: true })
+    );
+    expect(controller.status).toBe('off');
+  });
+
+  it('does not attach the enhanced processor when browser suppression cannot be disabled', async () => {
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
+    const track = makeFakeMicTrack();
+    track.constraints = { noiseSuppression: true };
+    track.sourceSettings = { noiseSuppression: true };
+    // Browser accepts the restart but keeps reporting suppression on.
+    track.restartTrack.mockImplementation(async () => {});
+    await controller.applyToCall(makeFakeRoom(track));
+
+    await controller.setMode('enhanced');
+    expect(track.setProcessor).not.toHaveBeenCalled();
+    expect(controller.status).toBe('unavailable');
+  });
+
+  it('treats an unreported noiseSuppression setting as best-effort applied', async () => {
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
+    const track = makeFakeMicTrack();
+    // Engine that never reports the setting (e.g. WebKit views): the restart
+    // updates the stored constraints but settings stay silent.
+    track.restartTrack.mockImplementation(async (opts: Record<string, unknown>) => {
+      track.constraints = { ...opts };
+    });
+    await controller.applyToCall(makeFakeRoom(track));
+
+    await controller.setMode('enhanced');
+    expect(track.restartTrack).toHaveBeenCalledWith(
+      expect.objectContaining({ noiseSuppression: false })
+    );
+    expect(track.setProcessor).toHaveBeenCalledWith(bundle.processor);
+    expect(controller.status).toBe('active');
+  });
+
+  it('preserves the selected microphone deviceId across baseline restarts', async () => {
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
+    const track = makeFakeMicTrack();
+    track.constraints = { deviceId: { exact: 'usb-mic' }, noiseSuppression: true };
+    track.sourceSettings = { noiseSuppression: true };
+    await controller.applyToCall(makeFakeRoom(track));
+
+    await controller.setMode('enhanced');
+    expect(track.restartTrack).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceId: { exact: 'usb-mic' }, noiseSuppression: false })
+    );
+  });
+
+  it('disables the DFN3 stage when a baseline re-apply fails while attached', async () => {
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
+    const track = makeFakeMicTrack();
+    await controller.applyToCall(makeFakeRoom(track));
+    await controller.setMode('enhanced');
+    expect(controller.status).toBe('active');
+
+    // The browser reverts to its own suppression (e.g. after an OS-level
+    // device event) and the corrective restart fails: the live stage must
+    // not keep running behind a non-active status — that would also latch
+    // away a later overload verdict.
+    track.sourceSettings = { ...track.sourceSettings, noiseSuppression: true };
+    track.restartTrack.mockRejectedValue(new Error('device busy'));
+    await controller.setMode('enhanced');
+    expect(controller.status).toBe('unavailable');
+    expect(bundle.processor.setNoiseSuppressionEnabled).toHaveBeenLastCalledWith(false);
+  });
+
+  it('falls back to browser processing on sustained suppression overload', async () => {
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
+    const track = makeFakeMicTrack();
+    await controller.applyToCall(makeFakeRoom(track));
+    await controller.setMode('enhanced');
+    expect(controller.status).toBe('active');
+
+    const options = bundle.create.mock.calls[0][0] as {
+      onSuppressionOverload?: () => void;
+    };
+    options.onSuppressionOverload?.();
+    // The DFN3 stage is disabled in place; gate/gain (and the call) survive.
+    expect(bundle.processor.setNoiseSuppressionEnabled).toHaveBeenLastCalledWith(false);
+    expect(controller.status).toBe('unavailable');
+    expect(track.stopProcessor).not.toHaveBeenCalled();
+  });
+
+  it('ignores a late overload signal after leaving enhanced', async () => {
+    const bundle = makeProcessorFactory();
+    const controller = makeController(() => {}, bundle);
+    const track = makeFakeMicTrack();
+    await controller.applyToCall(makeFakeRoom(track));
+    await controller.setMode('enhanced');
+    const options = bundle.create.mock.calls[0][0] as {
+      onSuppressionOverload?: () => void;
+    };
+
+    await controller.setMode('off');
+    const callsBefore = bundle.processor.setNoiseSuppressionEnabled.mock.calls.length;
+    options.onSuppressionOverload?.();
+    expect(controller.status).toBe('off');
+    expect(bundle.processor.setNoiseSuppressionEnabled.mock.calls.length).toBe(callsBefore);
+  });
+
   it('reapplies the mode after a device switch (applyToCall while active)', async () => {
     const controller = makeController();
     const track = makeFakeMicTrack();
@@ -449,7 +622,7 @@ describe('noise suppression strength', () => {
     stubVoiceIsolationSupport(true);
     const reset = new NoiseSuppressionController(() => {});
     await reset.setMode('off');
-    await reset.setStrength(80);
+    await reset.setStrength(NOISE_REDUCTION_LEVEL);
     await reset.setInputGain(DEFAULT_INPUT_GAIN);
     await reset.setSensitivity(DEFAULT_SENSITIVITY);
   });
@@ -460,10 +633,10 @@ describe('noise suppression strength', () => {
     vi.unstubAllGlobals();
   });
 
-  it('defaults strength to 80', () => {
+  it('defaults strength to the benchmark-chosen attenuation limit', () => {
     const c = new NoiseSuppressionController(() => {});
     made.push(c);
-    expect(c.strength).toBe(80);
+    expect(c.strength).toBe(NOISE_REDUCTION_LEVEL);
   });
 
   it('persists and clamps strength to 0..100', async () => {
@@ -508,7 +681,7 @@ describe('input gain and noise gate', () => {
     stubVoiceIsolationSupport(true);
     const reset = new NoiseSuppressionController(() => {});
     await reset.setMode('off');
-    await reset.setStrength(80);
+    await reset.setStrength(NOISE_REDUCTION_LEVEL);
     await reset.setInputGain(DEFAULT_INPUT_GAIN);
     await reset.setSensitivity(DEFAULT_SENSITIVITY);
   });

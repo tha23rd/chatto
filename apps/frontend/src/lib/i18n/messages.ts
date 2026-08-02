@@ -1188,6 +1188,7 @@ const msg_voice_noise_suppression_voice_isolation = (): LocalizedString => messa
 const msg_voice_noise_suppression_enhanced = (): LocalizedString => messages().voice_noise_suppression_enhanced(empty());
 const msg_voice_noise_suppression_loading = (): LocalizedString => messages().voice_noise_suppression_loading(empty());
 const msg_voice_noise_suppression_unavailable = (): LocalizedString => messages().voice_noise_suppression_unavailable(empty());
+const msg_voice_noise_suppression_overloaded = (): LocalizedString => messages().voice_noise_suppression_overloaded(empty());
 const msg_voice_fullscreen_feed = (): LocalizedString => messages().voice_fullscreen_feed(empty());
 const msg_voice_pop_out_feed = (): LocalizedString => messages().voice_pop_out_feed(empty());
 const msg_voice_pop_out_failed = (): LocalizedString => messages().voice_pop_out_failed(empty());
@@ -2905,6 +2906,7 @@ export { msg_voice_noise_suppression_voice_isolation as 'voice.noise_suppression
 export { msg_voice_noise_suppression_enhanced as 'voice.noise_suppression_enhanced' };
 export { msg_voice_noise_suppression_loading as 'voice.noise_suppression_loading' };
 export { msg_voice_noise_suppression_unavailable as 'voice.noise_suppression_unavailable' };
+export { msg_voice_noise_suppression_overloaded as 'voice.noise_suppression_overloaded' };
 export { msg_voice_fullscreen_feed as 'voice.fullscreen_feed' };
 export { msg_voice_pop_out_feed as 'voice.pop_out_feed' };
 export { msg_voice_pop_out_failed as 'voice.pop_out_failed' };

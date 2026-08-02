@@ -35,6 +35,7 @@
     "noise_suppression_enhanced": "Verbeterd (DeepFilterNet3)",
     "noise_suppression_loading": "Model laden…",
     "noise_suppression_unavailable": "Niet beschikbaar in deze browser",
+    "noise_suppression_overloaded": "Verbeterde ruisonderdrukking is uitgeschakeld omdat dit apparaat het niet kan bijhouden",
     "fullscreen_feed": "Feed op volledig scherm",
     "pop_out_feed": "Feed in beeld-in-beeld",
     "pop_out_failed": "Kan deze feed niet in beeld-in-beeld openen.",

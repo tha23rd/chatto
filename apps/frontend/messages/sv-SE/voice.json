@@ -35,6 +35,7 @@
     "noise_suppression_enhanced": "Förbättrad (DeepFilterNet3)",
     "noise_suppression_loading": "Laddar modell…",
     "noise_suppression_unavailable": "Inte tillgänglig i den här webbläsaren",
+    "noise_suppression_overloaded": "Förbättrad brusreducering stängdes av eftersom den här enheten inte hinner med",
     "fullscreen_feed": "Helskärmsflöde",
     "pop_out_feed": "Visa flödet i bild-i-bild",
     "pop_out_failed": "Kunde inte visa flödet i bild-i-bild.",
