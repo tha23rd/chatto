@@ -35,6 +35,7 @@
     "noise_suppression_enhanced": "Enhanced (DeepFilterNet3)",
     "noise_suppression_loading": "Loading model…",
     "noise_suppression_unavailable": "Unavailable in this browser",
+    "noise_suppression_overloaded": "Enhanced noise suppression has been turned off because this device cannot keep up",
     "fullscreen_feed": "Fullscreen feed",
     "pop_out_feed": "Pop out feed",
     "pop_out_failed": "Could not pop out this feed.",

@@ -1,7 +1,10 @@
 # Windows DeepFilterNet3 Support Design
 
 **Date:** 2026-07-19
-**Status:** Approved
+**Status:** Superseded (2026-08-01) — the fork-owned same-origin AudioWorklet
+(`apps/frontend/static/worklets/dfn3-processor.js`) replaced the vendor's
+blob-URL worklet, so the `script-src blob:` exception below was reverted; the
+renderer policy is back to `'self' 'wasm-unsafe-eval'`.
 
 ## Purpose
 

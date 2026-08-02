@@ -35,6 +35,7 @@
     "noise_suppression_enhanced": "Rozszerzona (DeepFilterNet3)",
     "noise_suppression_loading": "Ładowanie modelu…",
     "noise_suppression_unavailable": "Niedostępne w tej przeglądarce",
+    "noise_suppression_overloaded": "Rozszerzona redukcja szumów została wyłączona, ponieważ to urządzenie nie nadąża",
     "fullscreen_feed": "Kanał pełnoekranowy",
     "pop_out_feed": "Obraz w obrazie",
     "pop_out_failed": "Nie udało się otworzyć tego obrazu w obrazie.",

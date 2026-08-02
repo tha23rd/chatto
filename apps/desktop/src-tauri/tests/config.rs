@@ -40,9 +40,14 @@ fn production_config_has_no_remotely_configured_window() {
 fn production_csp_blocks_remote_code_and_frames() {
     let config = json("tauri.conf.json");
     let csp = config["app"]["security"]["csp"].as_str().unwrap();
+    // No blob: in script-src: the DeepFilterNet3 AudioWorklet loads from a
+    // same-origin static module since the fork-owned worklet replaced the
+    // vendor's blob-URL loader (see
+    // docs/plans/2026-07-19-windows-deepfilternet3-support-design.md, whose
+    // exception this reverts).
     assert_eq!(
         csp_sources(csp, "script-src"),
-        vec!["'self'", "'wasm-unsafe-eval'", "blob:"]
+        vec!["'self'", "'wasm-unsafe-eval'"]
     );
     assert_eq!(csp_sources(csp, "worker-src"), vec!["'self'", "blob:"]);
     assert_eq!(csp_sources(csp, "frame-src"), vec!["'none'"]);
