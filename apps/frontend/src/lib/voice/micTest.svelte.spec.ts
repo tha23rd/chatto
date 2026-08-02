@@ -44,6 +44,33 @@ describe('MicTest', () => {
     expect(t.status).toBe('running');
   });
 
+  it('captures like the call baseline but never with echo cancellation', async () => {
+    const t = new MicTest(factory);
+    // Enhanced-mode preview: browser noise suppression off (no stacking under
+    // DFN3), and echo cancellation ALWAYS off — a loopback has no far end,
+    // and the AEC's double-talk suppressor would gate the user's own
+    // monitored voice into chunks (the historic "mic test barely works" bug).
+    await t.start({ browserNoiseSuppression: false, autoGainControl: true });
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({
+      audio: {
+        autoGainControl: true,
+        echoCancellation: false,
+        noiseSuppression: false
+      }
+    });
+    t.stop();
+
+    // Defaults mirror the non-enhanced baseline (still no echo cancellation).
+    await t.start();
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenLastCalledWith({
+      audio: {
+        autoGainControl: true,
+        echoCancellation: false,
+        noiseSuppression: true
+      }
+    });
+  });
+
   it('passes the current config to the processor factory', async () => {
     const t = new MicTest(factory);
     await t.start({ strength: 40, inputGain: 150, sensitivity: 30, noiseSuppressionEnabled: true });
