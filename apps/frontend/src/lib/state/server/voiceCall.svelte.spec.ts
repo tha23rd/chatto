@@ -757,6 +757,73 @@ describe('VoiceCallState', () => {
     });
   });
 
+  describe('push-to-mute', () => {
+    async function joinUnmuted(): Promise<VoiceCallState> {
+      const state = new VoiceCallState(createVoiceCallClient());
+      await state.join('wss://livekit.example.test', 'R1');
+      lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+      return state;
+    }
+
+    it('temporarily mutes on press and restores the microphone on release', async () => {
+      const state = await joinUnmuted();
+
+      await state.setPushToMutePressed(true);
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(false);
+
+      await state.setPushToMutePressed(false);
+      expect(state.isMuted).toBe(false);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(true);
+    });
+
+    it('does not take ownership of a microphone that was already muted', async () => {
+      const state = await joinUnmuted();
+      await state.toggleMute();
+      lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+
+      await state.setPushToMutePressed(true);
+      await state.setPushToMutePressed(false);
+
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).not.toHaveBeenCalled();
+    });
+
+    it('does not unmute on release after the call was deafened', async () => {
+      const state = await joinUnmuted();
+      await state.setPushToMutePressed(true);
+      await state.toggleDeafen();
+      lastRoom?.localParticipant.setMicrophoneEnabled.mockClear();
+
+      await state.setPushToMutePressed(false);
+
+      expect(state.isDeafened).toBe(true);
+      expect(state.isMuted).toBe(true);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled).not.toHaveBeenCalled();
+    });
+
+    it('restores the microphone when release arrives while mute is pending', async () => {
+      const state = await joinUnmuted();
+      microphoneGate = deferredVoid();
+
+      const press = state.setPushToMutePressed(true);
+      await flushPromises();
+      const release = state.setPushToMutePressed(false);
+
+      expect(state.isMuted).toBe(false);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled.mock.calls).toEqual([[false]]);
+
+      microphoneGate.resolve();
+      await Promise.all([press, release]);
+
+      expect(state.isMuted).toBe(false);
+      expect(lastRoom?.localParticipant.setMicrophoneEnabled.mock.calls).toEqual([
+        [false],
+        [true]
+      ]);
+    });
+  });
+
   it('records a compensating leave when LiveKit connect fails after join intent', async () => {
     connectFailure = new Error('connect failed');
     const client = createVoiceCallClient();
@@ -1458,6 +1525,61 @@ describe('VoiceCallState', () => {
 
     expect(state.isScreenSharePending).toBe(false);
     expect(state.isScreenShareEnabled).toBe(true);
+  });
+
+  it('applies explicit media state after an opposite toggle is already in flight', async () => {
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.join('wss://livekit.example.test', 'R1');
+
+    microphoneGate = deferredVoid();
+    const mute = state.toggleMute();
+    await flushPromises();
+    const unmute = state.setMuted(false);
+    microphoneGate.resolve();
+    await Promise.all([mute, unmute]);
+    expect(state.isMuted).toBe(false);
+    expect(lastRoom?.localParticipant.setMicrophoneEnabled.mock.calls.slice(-2)).toEqual([
+      [false],
+      [true]
+    ]);
+
+    cameraGate = deferredVoid();
+    const cameraOn = state.toggleCamera();
+    await flushPromises();
+    const cameraOff = state.setCameraEnabled(false);
+    cameraGate.resolve();
+    await Promise.all([cameraOn, cameraOff]);
+    expect(state.isCameraEnabled).toBe(false);
+    expect(lastRoom?.localParticipant.setCameraEnabled.mock.calls.slice(-2)).toEqual([
+      [true],
+      [false]
+    ]);
+
+    screenShareGate = deferredVoid();
+    const shareOn = state.toggleScreenShare();
+    await flushPromises();
+    const shareOff = state.setScreenShareEnabled(false);
+    screenShareGate.resolve();
+    await Promise.all([shareOn, shareOff]);
+    expect(state.isScreenShareEnabled).toBe(false);
+    expect(
+      lastRoom?.localParticipant.setScreenShareEnabled.mock.calls.slice(-2).map(([enabled]) => [
+        enabled
+      ])
+    ).toEqual([[true], [false]]);
+
+    microphoneGate = deferredVoid();
+    const deafen = state.toggleDeafen();
+    await flushPromises();
+    const undeafen = state.setDeafened(false);
+    microphoneGate.resolve();
+    await Promise.all([deafen, undeafen]);
+    expect(state.isDeafened).toBe(false);
+    expect(state.isMuted).toBe(false);
+    expect(lastRoom?.localParticipant.setMicrophoneEnabled.mock.calls.slice(-2)).toEqual([
+      [false],
+      [true]
+    ]);
   });
 
   it('keeps the call connected when screen capture fails', async () => {

@@ -8,7 +8,7 @@ export interface NativeCapabilities {
   readonly nativeOAuth: boolean;
   readonly nativeHttp: boolean;
   readonly nativeRealtime: boolean;
-  readonly globalPushToTalk: boolean;
+  readonly globalCallKeybindings: boolean;
   readonly tray: boolean;
   readonly appBadge: boolean;
   readonly desktopUpdates: boolean;
@@ -70,7 +70,7 @@ export interface NativeOAuthResult {
   readonly user?: NativeOAuthUser | null;
 }
 
-export type NativePushToTalkState = 'pressed' | 'released';
+export type NativeShortcutState = 'pressed' | 'released';
 export type NativeTrayAction = 'show' | 'toggle-mute' | 'toggle-deafen';
 
 export interface NativeCallControls {
@@ -116,9 +116,9 @@ export interface NativeHost {
   captureDisplayMedia(options: NativeDisplayMediaOptions): Promise<MediaStream>;
   startServerOAuth(request: NativeOAuthRequest): Promise<NativeOAuthResult>;
   openExternal(url: string): Promise<void>;
-  registerPushToTalk(
+  registerGlobalShortcut(
     accelerator: string,
-    listener: (state: NativePushToTalkState) => void
+    listener: (state: NativeShortcutState) => void
   ): Promise<Unsubscribe>;
   onTrayAction(listener: (action: NativeTrayAction) => void): Promise<Unsubscribe>;
   setCallControls(controls: NativeCallControls): Promise<void>;

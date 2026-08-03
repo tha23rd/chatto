@@ -6,6 +6,7 @@
       "back_to_server": "Zurück zum Server",
       "profile": "Profil",
       "display": "Darstellung",
+      "keybinds": "Tastenkürzel",
       "notifications": "Benachrichtigungen",
       "account": "Konto"
     },
@@ -199,6 +200,42 @@
           "label": "Soundboard stummschalten",
           "description": "Alle Soundboard-Klänge anderer Mitglieder stummschalten."
         }
+      }
+    },
+    "keybinds": {
+      "title": "Tastenkürzel",
+      "subtitle": "Steuere Anrufe, ohne zur Maus zu greifen",
+      "instructions": "Wähle eine Belegung und drücke dann die gewünschte Tastenkombination. Drücke Escape, um abzubrechen.",
+      "browser_note": "Browser-Tastenkürzel funktionieren, solange dieser Chatto-Tab aktiv ist. Beim Tippen in einem Feld oder einer Nachricht sind sie pausiert.",
+      "desktop_note": "Desktop-Tastenkürzel funktionieren systemweit, solange du mit einem Anruf verbunden bist, auch wenn Chatto nicht fokussiert ist.",
+      "unassigned": "Nicht belegt",
+      "recording": "Tasten drücken…",
+      "record_for": "Tastenkürzel für {action} aufzeichnen",
+      "clear_for": "Tastenkürzel für {action} löschen",
+      "reset": "Auf Standard zurücksetzen",
+      "reset_success": "Tastenkürzel zurückgesetzt",
+      "reassigned": "{keybind} wurde von {action} verschoben.",
+      "groups": {
+        "voice": "Sprache",
+        "video_streaming": "Video und Streaming",
+        "call": "Anruf"
+      },
+      "actions": {
+        "push_to_talk": "Sprechtaste",
+        "push_to_mute": "Stummschalttaste",
+        "toggle_mute": "Stummschaltung umschalten",
+        "mute": "Stummschalten",
+        "unmute": "Stummschaltung aufheben",
+        "toggle_deafen": "Ton aus/ein",
+        "deafen": "Ton ausschalten",
+        "undeafen": "Ton einschalten",
+        "toggle_camera": "Kamera umschalten",
+        "camera_on": "Kamera einschalten",
+        "camera_off": "Kamera ausschalten",
+        "toggle_screen_share": "Bildschirmfreigabe umschalten",
+        "start_screen_share": "Bildschirmfreigabe starten",
+        "stop_screen_share": "Bildschirmfreigabe beenden",
+        "leave_call": "Anruf verlassen"
       }
     },
     "notifications": {

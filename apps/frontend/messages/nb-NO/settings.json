@@ -6,6 +6,7 @@
       "back_to_server": "Tilbake til server",
       "profile": "Profil",
       "display": "Skjerm",
+      "keybinds": "Hurtigtaster",
       "notifications": "Varsler",
       "account": "Konto"
     },
@@ -199,6 +200,42 @@
           "label": "Demp soundboardet",
           "description": "Demp alle soundboard-lyder fra andre medlemmer."
         }
+      }
+    },
+    "keybinds": {
+      "title": "Hurtigtaster",
+      "subtitle": "Styr samtaler uten å bruke musen",
+      "instructions": "Velg en binding, og trykk deretter tastekombinasjonen du vil bruke. Trykk Escape for å avbryte.",
+      "browser_note": "Hurtigtaster i nettleseren fungerer mens denne Chatto-fanen er aktiv. De settes på pause når du skriver i et felt eller en melding.",
+      "desktop_note": "Hurtigtaster i skrivebordsappen fungerer i hele systemet mens du er koblet til en samtale, selv når Chatto ikke er i fokus.",
+      "unassigned": "Ikke angitt",
+      "recording": "Trykk på taster…",
+      "record_for": "Ta opp hurtigtast for {action}",
+      "clear_for": "Fjern hurtigtast for {action}",
+      "reset": "Tilbakestill til standard",
+      "reset_success": "Hurtigtaster tilbakestilt",
+      "reassigned": "{keybind} ble flyttet fra {action}.",
+      "groups": {
+        "voice": "Tale",
+        "video_streaming": "Video og strømming",
+        "call": "Samtale"
+      },
+      "actions": {
+        "push_to_talk": "Hold inne for å snakke",
+        "push_to_mute": "Hold inne for å dempe",
+        "toggle_mute": "Slå demping av/på",
+        "mute": "Demp",
+        "unmute": "Opphev demping",
+        "toggle_deafen": "Slå lyd av/på",
+        "deafen": "Slå av lyd",
+        "undeafen": "Slå på lyd",
+        "toggle_camera": "Slå kamera av/på",
+        "camera_on": "Slå på kamera",
+        "camera_off": "Slå av kamera",
+        "toggle_screen_share": "Slå skjermdeling av/på",
+        "start_screen_share": "Start skjermdeling",
+        "stop_screen_share": "Stopp skjermdeling",
+        "leave_call": "Forlat samtalen"
       }
     },
     "notifications": {

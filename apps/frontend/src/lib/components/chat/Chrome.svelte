@@ -54,6 +54,11 @@
       icon: 'iconify uil--clock'
     },
     {
+      href: resolve('/chat/[serverId]/settings/keybinds', { serverId: serverSegment }),
+      label: m['settings.nav.keybinds'](),
+      icon: 'iconify uil--keyboard'
+    },
+    {
       href: resolve('/chat/[serverId]/settings/notifications', { serverId: serverSegment }),
       label: m['settings.nav.notifications'](),
       icon: 'iconify uil--bell'
