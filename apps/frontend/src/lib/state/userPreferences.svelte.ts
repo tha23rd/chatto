@@ -12,6 +12,14 @@ import {
   defaultSoundId,
   notificationSounds
 } from '$lib/audio/notificationSounds';
+import {
+  type CallKeybindingAction,
+  type CallKeybindings,
+  DEFAULT_CALL_KEYBINDINGS,
+  normalizeCallKeybindingAccelerator,
+  normalizeCallKeybindings,
+  notifyCallKeybindingsChanged
+} from '$lib/callKeybindings';
 import type { DesktopUpdateChannel } from '$lib/native/types';
 import { Codecs, globalSlot } from '$lib/storage/slot';
 
@@ -72,6 +80,7 @@ interface Preferences {
   notificationSoundFilters: NotificationSoundFilters;
   soundboardPlayback: SoundboardPlaybackPreferences;
   callView: CallViewPreferences;
+  callKeybindings: CallKeybindings;
 }
 
 const defaultPreferences: Preferences = {
@@ -80,7 +89,8 @@ const defaultPreferences: Preferences = {
   notificationSound: defaultSoundId,
   notificationSoundFilters: defaultNotificationSoundFilters,
   soundboardPlayback: defaultSoundboardPlayback,
-  callView: defaultCallView
+  callView: defaultCallView,
+  callKeybindings: DEFAULT_CALL_KEYBINDINGS
 };
 
 const slot = globalSlot('preferences', defaultPreferences, Codecs.json<Preferences>());
@@ -194,7 +204,8 @@ function loadPreferences(): Preferences {
     notificationSound: isValidSound ? stored.notificationSound : defaultSoundId,
     notificationSoundFilters: normalizeNotificationSoundFilters(stored.notificationSoundFilters),
     soundboardPlayback: normalizeSoundboardPlayback(stored.soundboardPlayback),
-    callView: normalizeCallView(stored.callView)
+    callView: normalizeCallView(stored.callView),
+    callKeybindings: normalizeCallKeybindings(stored.callKeybindings)
   };
 }
 
@@ -309,6 +320,41 @@ export class UserPreferencesState {
 
   toggleCallViewPreference(key: CallViewPreferenceKey): void {
     this.setCallViewPreference(key, !this.#prefs.callView[key]);
+  }
+
+  /**
+   * Per-device call shortcuts. Browser clients use them while Chatto has
+   * focus; desktop clients register them as system-wide shortcuts.
+   */
+  get callKeybindings(): CallKeybindings {
+    return this.#prefs.callKeybindings;
+  }
+
+  setCallKeybinding(action: CallKeybindingAction, value: string | null): void {
+    const next = { ...this.#prefs.callKeybindings };
+    delete next[action];
+
+    const accelerator = normalizeCallKeybindingAccelerator(value);
+    if (accelerator) {
+      // One physical chord must have one deterministic meaning. Reassigning it
+      // moves the chord from the old action to the new one.
+      for (const [boundAction, boundAccelerator] of Object.entries(next)) {
+        if (boundAccelerator === accelerator) {
+          delete next[boundAction as CallKeybindingAction];
+        }
+      }
+      next[action] = accelerator;
+    }
+
+    this.#prefs.callKeybindings = normalizeCallKeybindings(next);
+    slot.set(this.#prefs);
+    notifyCallKeybindingsChanged();
+  }
+
+  resetCallKeybindings(): void {
+    this.#prefs.callKeybindings = { ...DEFAULT_CALL_KEYBINDINGS };
+    slot.set(this.#prefs);
+    notifyCallKeybindingsChanged();
   }
 }
 

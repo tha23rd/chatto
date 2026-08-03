@@ -6,6 +6,7 @@
       "back_to_server": "Terug naar server",
       "profile": "Profiel",
       "display": "Weergave",
+      "keybinds": "Sneltoetsen",
       "notifications": "Meldingen",
       "account": "Account"
     },
@@ -199,6 +200,42 @@
           "label": "Soundboard dempen",
           "description": "Demp alle soundboard-geluiden van andere leden."
         }
+      }
+    },
+    "keybinds": {
+      "title": "Sneltoetsen",
+      "subtitle": "Bedien gesprekken zonder naar de muis te grijpen",
+      "instructions": "Kies een sneltoets en druk daarna op de gewenste toetsencombinatie. Druk op Escape om te annuleren.",
+      "browser_note": "Browsersneltoetsen werken zolang dit Chatto-tabblad actief is. Tijdens het typen in een veld of bericht worden ze gepauzeerd.",
+      "desktop_note": "Desktopsneltoetsen werken systeembreed zolang je met een gesprek verbonden bent, ook als Chatto niet actief is.",
+      "unassigned": "Niet ingesteld",
+      "recording": "Druk op toetsen…",
+      "record_for": "Sneltoets voor {action} opnemen",
+      "clear_for": "Sneltoets voor {action} wissen",
+      "reset": "Standaardinstellingen herstellen",
+      "reset_success": "Sneltoetsen hersteld",
+      "reassigned": "{keybind} is verplaatst van {action}.",
+      "groups": {
+        "voice": "Spraak",
+        "video_streaming": "Video en streamen",
+        "call": "Gesprek"
+      },
+      "actions": {
+        "push_to_talk": "Ingedrukt houden om te praten",
+        "push_to_mute": "Ingedrukt houden om te dempen",
+        "toggle_mute": "Dempen omschakelen",
+        "mute": "Dempen",
+        "unmute": "Dempen opheffen",
+        "toggle_deafen": "Geluid omschakelen",
+        "deafen": "Geluid uitschakelen",
+        "undeafen": "Geluid inschakelen",
+        "toggle_camera": "Camera omschakelen",
+        "camera_on": "Camera inschakelen",
+        "camera_off": "Camera uitschakelen",
+        "toggle_screen_share": "Scherm delen omschakelen",
+        "start_screen_share": "Scherm delen starten",
+        "stop_screen_share": "Scherm delen stoppen",
+        "leave_call": "Gesprek verlaten"
       }
     },
     "notifications": {

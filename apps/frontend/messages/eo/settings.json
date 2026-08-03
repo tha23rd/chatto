@@ -6,6 +6,7 @@
       "back_to_server": "Reen al Servilo",
       "profile": "Profilo",
       "display": "Montru",
+      "keybinds": "Klavkombinoj",
       "notifications": "Sciigoj",
       "account": "Konto"
     },
@@ -199,6 +200,42 @@
           "label": "Mute the soundboard",
           "description": "Silence all soundboard sounds from other members."
         }
+      }
+    },
+    "keybinds": {
+      "title": "Klavkombinoj",
+      "subtitle": "Regu vokojn sen uzi la muson",
+      "instructions": "Elektu agon, poste premu la klavkombinon kiun vi volas uzi. Premu Escape por nuligi.",
+      "browser_note": "Retumilaj klavkombinoj funkcias dum ĉi tiu Chatto-langeto estas aktiva. Ili paŭzas kiam vi tajpas en kampo aŭ mesaĝo.",
+      "desktop_note": "Labortablaj klavkombinoj funkcias tra la tuta sistemo dum vi estas konektita al voko, eĉ kiam Chatto ne estas fokusita.",
+      "unassigned": "Ne agordita",
+      "recording": "Premu klavojn…",
+      "record_for": "Registri klavkombinon por {action}",
+      "clear_for": "Forigi klavkombinon por {action}",
+      "reset": "Restarigi defaŭltojn",
+      "reset_success": "Klavkombinoj restarigitaj",
+      "reassigned": "{keybind} estis movita de {action}.",
+      "groups": {
+        "voice": "Voĉo",
+        "video_streaming": "Video kaj elsendado",
+        "call": "Voko"
+      },
+      "actions": {
+        "push_to_talk": "Tenu por paroli",
+        "push_to_mute": "Tenu por silentigi",
+        "toggle_mute": "Ŝalti silentigon",
+        "mute": "Silentigi",
+        "unmute": "Malsilentigi",
+        "toggle_deafen": "Ŝalti sonon",
+        "deafen": "Malŝalti sonon",
+        "undeafen": "Ŝalti sonon",
+        "toggle_camera": "Ŝalti fotilon",
+        "camera_on": "Enŝalti fotilon",
+        "camera_off": "Malŝalti fotilon",
+        "toggle_screen_share": "Ŝalti ekrankundividon",
+        "start_screen_share": "Komenci ekrankundividon",
+        "stop_screen_share": "Ĉesigi ekrankundividon",
+        "leave_call": "Forlasi vokon"
       }
     },
     "notifications": {

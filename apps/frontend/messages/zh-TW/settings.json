@@ -3,11 +3,12 @@
   "settings": {
     "nav": {
       "title": "設定",
-      "back_to_server": "返回伺服器",
-      "profile": "個人檔案",
-      "display": "顯示",
-      "notifications": "通知",
-      "account": "帳號"
+    "back_to_server": "返回伺服器",
+    "profile": "個人檔案",
+    "display": "顯示",
+    "keybinds": "按鍵綁定",
+    "notifications": "通知",
+    "account": "帳號"
     },
     "profile": {
       "title": "個人檔案",
@@ -198,10 +199,46 @@
         "mute": {
           "label": "靜音音效板",
           "description": "靜音其他成員的所有音效板音效。"
-        }
       }
+    }
+  },
+  "keybinds": {
+    "title": "按鍵綁定",
+    "subtitle": "無需移動滑鼠即可控制通話",
+    "instructions": "選擇一個動作，然後按下要使用的按鍵組合。按 Escape 取消。",
+    "browser_note": "瀏覽器按鍵綁定只會在此 Chatto 分頁作用中時運作。當您在欄位或訊息中輸入文字時會暫停。",
+    "desktop_note": "只要您已連線至通話，桌面版按鍵綁定就能在整個系統中運作，即使 Chatto 未取得焦點也一樣。",
+    "unassigned": "未設定",
+    "recording": "請按下按鍵…",
+    "record_for": "錄製「{action}」的按鍵綁定",
+    "clear_for": "清除「{action}」的按鍵綁定",
+    "reset": "重設為預設值",
+    "reset_success": "按鍵綁定已重設",
+    "reassigned": "{keybind} 已從「{action}」移至此動作。",
+    "groups": {
+      "voice": "語音",
+      "video_streaming": "視訊與直播",
+      "call": "通話"
     },
-    "notifications": {
+    "actions": {
+      "push_to_talk": "按住說話",
+      "push_to_mute": "按住靜音",
+      "toggle_mute": "切換靜音",
+      "mute": "靜音",
+      "unmute": "取消靜音",
+      "toggle_deafen": "切換聲音開關",
+      "deafen": "關閉聲音",
+      "undeafen": "開啟聲音",
+      "toggle_camera": "切換攝影機",
+      "camera_on": "開啟攝影機",
+      "camera_off": "關閉攝影機",
+      "toggle_screen_share": "切換螢幕分享",
+      "start_screen_share": "開始螢幕分享",
+      "stop_screen_share": "停止螢幕分享",
+      "leave_call": "離開通話"
+    }
+  },
+  "notifications": {
       "title": "通知",
       "subtitle": "設定通知接收方式",
       "push": {

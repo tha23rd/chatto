@@ -38,7 +38,7 @@ function desktopHost(): NativeHost {
       nativeOAuth: true,
       nativeHttp: true,
       nativeRealtime: true,
-      globalPushToTalk: true,
+      globalCallKeybindings: true,
       tray: true,
       appBadge: true,
       desktopUpdates: true,
