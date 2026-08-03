@@ -67,8 +67,8 @@ func (c *ChattoCore) resolveCustomStatusEmoji(emoji string) (string, error) {
 	if IsValidUnicodeEmoji(emoji) {
 		return emoji, nil
 	}
-	if c.CustomEmojis != nil {
-		if customEmoji, ok := c.CustomEmojis.ByName(emoji); ok {
+	if customEmojis := c.customEmojis.Projection(); customEmojis != nil {
+		if customEmoji, ok := customEmojis.ByName(emoji); ok {
 			return customEmoji.Name, nil
 		}
 	}
