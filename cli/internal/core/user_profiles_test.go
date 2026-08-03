@@ -814,6 +814,13 @@ func TestChattoCore_SetAndClearUserCustomStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
 	}
+	if err := core.AssignServerRole(ctx, SystemActorID, user.Id, RoleAdmin); err != nil {
+		t.Fatalf("AssignServerRole admin: %v", err)
+	}
+	customEmojiName := strings.Repeat("a", 64)
+	if _, err := core.CreateCustomEmoji(ctx, user.Id, customEmojiName, createTestImage(2, 2)); err != nil {
+		t.Fatalf("CreateCustomEmoji: %v", err)
+	}
 	expiresAt := time.Now().Add(time.Hour).UTC()
 
 	updated, err := core.SetUserCustomStatus(ctx, user.Id, "🌿", "In focus mode", &expiresAt)
@@ -827,8 +834,25 @@ func TestChattoCore_SetAndClearUserCustomStatus(t *testing.T) {
 		t.Fatalf("custom status text = %q, want In focus mode", got)
 	}
 
+	customUpdated, err := core.SetUserCustomStatus(
+		ctx,
+		user.Id,
+		strings.ToUpper(customEmojiName),
+		"Parrot mode",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("SetUserCustomStatus custom emoji: %v", err)
+	}
+	if got := customUpdated.GetCustomStatus().GetEmoji(); got != customEmojiName {
+		t.Fatalf("custom status emoji = %q, want canonical %q", got, customEmojiName)
+	}
+
 	if _, err := core.SetUserCustomStatus(ctx, user.Id, "🌿", "   ", nil); !errors.Is(err, ErrCustomStatusTextRequired) {
 		t.Fatalf("SetUserCustomStatus blank text error = %v, want ErrCustomStatusTextRequired", err)
+	}
+	if _, err := core.SetUserCustomStatus(ctx, user.Id, strings.Repeat("a", 65), "Too long", nil); !errors.Is(err, ErrCustomStatusEmojiTooLong) {
+		t.Fatalf("SetUserCustomStatus long emoji error = %v, want ErrCustomStatusEmojiTooLong", err)
 	}
 	if _, err := core.SetUserCustomStatus(ctx, user.Id, "e", "Invalid emoji", nil); !errors.Is(err, ErrCustomStatusEmojiInvalid) {
 		t.Fatalf("SetUserCustomStatus invalid emoji error = %v, want ErrCustomStatusEmojiInvalid", err)
@@ -841,8 +865,8 @@ func TestChattoCore_SetAndClearUserCustomStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SubjectEvents custom status set failed: %v", err)
 	}
-	if len(statusEvents) != 1 {
-		t.Fatalf("custom status set events = %d, want 1", len(statusEvents))
+	if len(statusEvents) != 2 {
+		t.Fatalf("custom status set events = %d, want 2", len(statusEvents))
 	}
 
 	cleared, err := core.ClearUserCustomStatus(ctx, user.Id)
