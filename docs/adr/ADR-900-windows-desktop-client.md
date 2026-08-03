@@ -1,7 +1,7 @@
 # ADR-900: Windows Desktop Client Reuses the Web Frontend
 
 **Date:** 2026-07-18
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 

@@ -107,6 +107,9 @@ permission to reorganize unrelated product code.
   components, projections, NATS resources, subjects, runtime state, effects,
   interfaces, and realtime delivery.
 - `docs/GLOSSARY.md` — canonical Chatto terminology.
+- `docs/FORK-MAINTENANCE.md` — how this distribution diverges from upstream
+  `chattocorp/chatto`, which files to regenerate rather than hand-merge, and the
+  traps that have bitten previous catch-up merges.
 
 ## Chatto Project Status
 

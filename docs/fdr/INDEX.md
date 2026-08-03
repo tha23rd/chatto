@@ -44,3 +44,17 @@ See [`.agents/skills/fdr/SKILL.md`](../../.agents/skills/fdr/SKILL.md) for the F
 | [FDR-032](FDR-032-message-formatting.md) | Message Formatting | Active | 2026-07-19 |
 | [FDR-033](FDR-033-message-search.md) | Message Search | Experimental | 2026-07-31 |
 | [FDR-034](FDR-034-chatto-desktop.md) | Chatto Desktop | Experimental | 2026-08-02 |
+
+## Distribution-Specific Features
+
+These features are specific to this distribution and are not part of upstream
+`chattocorp/chatto`. They are numbered from 900 so upstream can keep appending
+to the table above without renumbering.
+
+| # | Feature | Status | Last reviewed |
+|---|---------|--------|---------------|
+| [FDR-900](FDR-900-custom-emoji.md) | Custom Emoji | Active | 2026-07-30 |
+| [FDR-901](FDR-901-microphone-noise-suppression.md) | Microphone Noise Suppression | Experimental | 2026-07-21 |
+| [FDR-902](FDR-902-channel-webhooks.md) | Channel Webhooks | Active | 2026-07-16 |
+| [FDR-903](FDR-903-soundboard.md) | Soundboard | Active | 2026-07-21 |
+| [FDR-904](FDR-904-anonymous-origin-clients.md) | Anonymous-Origin Clients | Active | 2026-08-03 |

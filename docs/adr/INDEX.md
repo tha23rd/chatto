@@ -76,3 +76,13 @@ replace part of their original design.
 | [ADR-062](ADR-062-tanstack-query-for-snapshot-reads.md) | TanStack Query for Snapshot-Style Frontend Reads | Accepted | 2026-07-31 |
 | [ADR-063](ADR-063-deno-desktop-cef-client.md) | Package Chatto Desktop with Deno Desktop and CEF | Accepted | 2026-08-02 |
 | [ADR-064](ADR-064-separate-server-catalog-and-sessions.md) | Separate the Frontend Server Catalogue from Device Sessions | Accepted | 2026-08-02 |
+
+## Distribution-Specific Decisions
+
+These decisions are specific to this distribution and are not part of upstream
+`chattocorp/chatto`. They are numbered from 900 so upstream can keep appending
+to the table above without renumbering.
+
+| # | Decision | Status | Date |
+|---|----------|--------|------|
+| [ADR-900](ADR-900-windows-desktop-client.md) | Windows Desktop Client Reuses the Web Frontend | Accepted | 2026-07-18 |
