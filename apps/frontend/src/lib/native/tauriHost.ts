@@ -20,6 +20,8 @@ import {
 
 type NativeFetchOptions = RequestInit & { maxRedirections?: number };
 
+const APPLICATION_AUDIO_TRACK_LABEL = 'Application Audio';
+
 export interface TauriHostBindings {
   readonly fetch: (input: RequestInfo | URL, init?: NativeFetchOptions) => Promise<Response>;
   readonly openUrl: (url: string) => Promise<void>;
@@ -52,6 +54,17 @@ function realtimeServerOrigin(endpoint: string): string {
   return url.origin;
 }
 
+function removeUnverifiedWindowAudio(stream: MediaStream): void {
+  const displaySurface = stream.getVideoTracks()[0]?.getSettings().displaySurface;
+  if (displaySurface === 'monitor' || displaySurface === 'browser') return;
+
+  for (const audioTrack of stream.getAudioTracks()) {
+    if (audioTrack.label === APPLICATION_AUDIO_TRACK_LABEL) continue;
+    audioTrack.stop();
+    stream.removeTrack(audioTrack);
+  }
+}
+
 /** Build the desktop adapter from narrow Tauri plugin bindings. */
 export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
   const allowedOrigins = new Map<string, number>();
@@ -74,7 +87,7 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       appBadge: true,
       desktopUpdates: true,
       managedVideoPopOut: true,
-      windowSystemAudio: true
+      windowApplicationAudio: true
     },
 
     registerServerOrigin(value) {
@@ -114,14 +127,18 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       return bindings.createRealtimeSocket(endpoint);
     },
 
-    captureDisplayMedia(options) {
-      return bindings.getDisplayMedia({
+    async captureDisplayMedia(options) {
+      const stream = await bindings.getDisplayMedia({
         ...options,
-        // Chromium 141+ can pair a selected window's video with system audio.
-        // It does not yet isolate one window's audio, so this deliberately
-        // captures all Windows output while keeping the shared picture scoped.
-        windowAudio: options.audio ? 'system' : 'exclude'
+        // Pair a selected window's video with audio from its application process tree.
+        // Do not silently broaden window capture to all Windows output.
+        windowAudio: options.audio ? 'window' : 'exclude'
       });
+      // Chromium can fall back from requested application audio to all system output.
+      // Known monitor and browser surfaces own their system/tab audio. A window or
+      // missing/unknown surface must positively identify application audio.
+      removeUnverifiedWindowAudio(stream);
+      return stream;
     },
 
     async startServerOAuth(request) {

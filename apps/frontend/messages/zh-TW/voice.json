@@ -72,6 +72,7 @@
     "camera_failed": "無法開啟攝影機。",
     "screen_share_blocked": "螢幕分享已取消或遭封鎖。",
     "screen_share_failed": "無法開始分享螢幕。",
+    "screen_share_audio_unavailable": "未分享應用程式音訊。視窗仍會繼續分享，但不包含聲音。",
     "speaker_switch_failed": "無法切換揚聲器。此瀏覽器或裝置可能不支援選擇揚聲器。",
     "device_switch_failed": "無法切換至該裝置。",
     "stream_quality": "畫面品質",

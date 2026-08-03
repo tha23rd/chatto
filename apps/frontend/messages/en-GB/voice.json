@@ -72,6 +72,7 @@
     "camera_failed": "Could not turn on your camera.",
     "screen_share_blocked": "Screen sharing was cancelled or blocked.",
     "screen_share_failed": "Could not start screen sharing.",
+    "screen_share_audio_unavailable": "Application audio was not shared. The window is still being shared without sound.",
     "speaker_switch_failed": "Could not switch speakers. This browser or device may not support speaker selection.",
     "device_switch_failed": "Could not switch to that device.",
     "stream_quality": "Stream quality",

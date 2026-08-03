@@ -43,7 +43,7 @@ function desktopHost(): NativeHost {
       appBadge: true,
       desktopUpdates: true,
       managedVideoPopOut: true,
-      windowSystemAudio: true
+      windowApplicationAudio: true
     }
   };
 }
@@ -58,7 +58,7 @@ afterEach(() => {
 describe('NativeHost selection', () => {
   it('uses the capability-free browser host by default', () => {
     expect(getNativeHost()).toBe(browserNativeHost);
-    expect(browserNativeHost.apiVersion).toBe(5);
+    expect(browserNativeHost.apiVersion).toBe(6);
     expect(browserNativeHost.kind).toBe('browser');
     expect(Object.values(browserNativeHost.capabilities)).toEqual([
       false,

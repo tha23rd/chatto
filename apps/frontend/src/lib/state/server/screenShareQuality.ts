@@ -200,10 +200,10 @@ export function clampQualityPrefs(
  * game and music audio sound like a broken radio: sustained tones get treated as noise, and
  * AGC pumps the level on every loud moment.
  *
- * `restrictOwnAudio` asks Chromium to remove audio produced by Chatto itself from a system-audio
- * capture. This prevents remote call audio from being sent back to the room when the Windows
- * desktop client pairs a selected window's picture with all system output. Older hosts ignore
- * the non-exact hint.
+ * `restrictOwnAudio` asks Chromium to remove audio produced by Chatto itself from capture
+ * surfaces that include system audio, notably an entire-display share. The desktop window path
+ * separately requests and validates application-scoped audio before publication. Older hosts
+ * ignore the non-exact hint.
  *
  * The mic path deliberately keeps all three on (see `audioCaptureDefaults` in
  * ./voiceCall.svelte.ts); only shared audio opts out.

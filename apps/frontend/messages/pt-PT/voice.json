@@ -72,6 +72,7 @@
     "camera_failed": "Não foi possível ligar a sua câmara.",
     "screen_share_blocked": "A partilha de ecrã foi cancelada ou bloqueada.",
     "screen_share_failed": "Não foi possível iniciar a partilha de ecrã.",
+    "screen_share_audio_unavailable": "O áudio da aplicação não foi partilhado. A janela continua a ser partilhada sem som.",
     "speaker_switch_failed": "Não foi possível trocar os altifalantes. Este navegador ou dispositivo pode não suportar a seleção de colunas.",
     "device_switch_failed": "Não foi possível mudar para este dispositivo.",
     "stream_quality": "Qualidade da transmissão",

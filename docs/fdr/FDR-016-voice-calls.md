@@ -1,7 +1,7 @@
 # FDR-016: Voice Calls
 
 **Status:** Active
-**Last reviewed:** 2026-08-01
+**Last reviewed:** 2026-08-03
 
 ## Overview
 
@@ -36,7 +36,7 @@ Rooms support real-time voice conversations with optional camera video and scree
 - When the first member explicitly starts a call, every other current room member whose effective notification level is not MUTED receives one persistent call-start notification. Later joins and LiveKit reconciliation do not create duplicates. DND recipients retain the notification without sound or Web Push.
 - Hanging up disconnects from LiveKit and clears the participant from everyone else's view.
 - New clients always enable LiveKit E2EE before connecting. Chatto distributes a KMS-backed per-call shared key with the LiveKit join token; the raw key is never written to EVT and is shredded when the call ends.
-- Screen sharing can request capture audio when the user enables **Share audio**. In supported browsers such as Chrome, presenters can select a browser tab and enable **Share tab audio** in the browser picker. On the Windows desktop client, a supported WebView2 runtime can pair either an entire display or a selected window's picture with Windows system audio. A selected-window share therefore keeps the video scoped to that window but can include sounds from other applications; it does not isolate the selected application's audio.
+- Screen sharing can request capture audio when the user enables **Share audio**. In supported browsers such as Chrome, presenters can select a browser tab and enable **Share tab audio** in the browser picker. On the Windows desktop client, an entire-display share can include Windows system audio, while a selected-window share requests audio from the application that owns that window and its process tree. Chatto never silently broadens a selected-window share to all system output. If application audio is unavailable, the window's video stays shared and the presenter sees a warning that it has no sound.
 - Shared audio is captured and published as media, not as speech: echo cancellation, noise suppression, and automatic gain control are explicitly off for it, and the published track is hinted as music. The microphone keeps its speech processing, with one refinement: while the optional DeepFilterNet3 suppressor (which only ever attaches to the microphone track) is active, the browser's own noise suppression is disabled so the two suppressors never stack; echo cancellation and automatic gain control stay on.
 - While a screen share is live, its quality popover can copy a versioned, bounded diagnostics snapshot containing non-content WebRTC sender statistics such as negotiated codec, dimensions, frame rate, bitrate, encoder limits, packet loss, retransmissions, RTT, and jitter. Missing browser fields remain unavailable rather than becoming healthy-looking zeroes.
 - Screen-share state is LiveKit track state only. Users who have not joined the call still see who is in the active call, but they do not see whether a participant is sharing a screen.
@@ -65,7 +65,7 @@ Rooms support real-time voice conversations with optional camera video and scree
 ### 4. Audio tracks must be explicitly attached
 
 **Decision:** The frontend listens for `RoomEvent.TrackSubscribed` and calls `track.attach()` to wire LiveKit audio into a hidden `<audio>` element. On leave or `TrackUnsubscribed`, it calls `track.detach()`.
-**Why:** LiveKit delivers audio data over WebRTC, but the browser doesn't autoplay it without an attached element. Without explicit attach, the UI looks like everything works — participant rings even animate — but nobody hears anything. The pattern lives in `apps/frontend/src/lib/state/voiceCall.svelte.ts`; any refactor that touches LiveKit subscription handling needs to keep the `track.attach()` / `track.detach()` calls intact.
+**Why:** LiveKit delivers audio data over WebRTC, but the browser doesn't autoplay it without an attached element. Without explicit attach, the UI looks like everything works — participant rings even animate — but nobody hears anything. Any refactor that touches LiveKit subscription handling needs to keep the `track.attach()` / `track.detach()` calls intact.
 **Tradeoff:** A subtle requirement that's easy to miss when refactoring; the skill warns explicitly.
 
 ### 5. Speaking indicators use neutral inline glyphs
@@ -76,9 +76,9 @@ Rooms support real-time voice conversations with optional camera video and scree
 
 ### 6. Screen sharing is joined-client LiveKit track state
 
-**Decision:** Screen/window/tab sharing is represented by screen-share video plus optional capture audio on joined clients. Chatto requests audio when the viewer enables **Share audio** and publishes it with media-oriented stereo settings; the browser, operating system, selected capture surface, and client host determine whether that is tab audio, Windows system audio, or unavailable. Chatto does not persist separate screen-share events, add public API fields, or expose screen-share state to call observers before they join.
+**Decision:** Screen/window/tab sharing is represented by screen-share video plus optional capture audio on joined clients. Chatto requests audio when the viewer enables **Share audio** and publishes it with media-oriented stereo settings. Browser tabs retain browser-scoped audio where supported. On the Windows desktop client, an entire display retains system audio, while a selected window requests the owning application's process-tree audio and rejects broader system-audio fallback. Chatto does not persist separate screen-share events, add public API fields, or expose screen-share state to call observers before they join.
 **Why:** Screen sharing is media-session state, and the existing durable room facts already answer the server-owned question of who is in the call. Keeping screen-share state inside LiveKit avoids adding durable state that can become stale when browser capture ends.
-**Tradeoff:** Non-joined observers know a call is active and who is in it, but not whether someone is sharing. Capture-audio availability and granularity vary by browser, operating system, and selected surface. Presenters must opt into tab audio in browser pickers that expose that choice. The Windows desktop client can preserve a selected window's video boundary while sharing system audio, but current Chromium cannot isolate only that window's audio, so unrelated system sounds may also be transmitted.
+**Tradeoff:** Non-joined observers know a call is active and who is in it, but not whether someone is sharing. Capture-audio availability and granularity vary by browser, operating system, selected surface, and WebView2 runtime. Presenters must opt into audio in pickers that expose that choice. Current Chromium can fall back to system audio when application loopback is unavailable; Chatto removes that broader track and warns while preserving video, so a selected-window share may be silent instead of leaking unrelated output.
 
 ### 7. Big-call mode is a desktop pane state, not a separate route
 
@@ -122,11 +122,11 @@ Rooms support real-time voice conversations with optional camera video and scree
 **Why:** The durable call start and the invitation should share one session boundary. This prevents retries, media-server confirmations, and later participants from producing duplicate alerts while preserving the existing best-effort notification delivery model.
 **Tradeoff:** Notification records are derived immediately after the durable call transition rather than replayed from EVT, so a crash between those steps can lose the call-start notification even though the call remains active.
 
-### 14. Shared audio is media; the microphone is speech
+### 14. Shared audio is media, and selected-window audio fails closed
 
-**Decision:** Screen-share audio is captured with echo cancellation, noise suppression, and automatic gain control explicitly disabled, published with the music stereo preset and DTX off, and hinted as music. When sharing Windows system audio, Chatto also asks the capture engine to remove Chatto's own playback. Microphone capture keeps its speech processing plus the optional DeepFilterNet3 processor, which is attached only to the microphone; while that processor's suppression stage is active, the browser's own noise suppression is disabled so the two suppressors never stack. Viewers get a screen-share-audio volume that is independent of that participant's voice volume, stored per server alongside it.
-**Why:** Speech processing exists to make one voice intelligible: it treats sustained tones as noise and pumps levels on every loud moment, which is exactly wrong for game and music audio. Removing Chatto's own playback avoids feeding remote participants back into the room when selected-window capture includes system output. Level is a separate problem from processing — shared audio is routinely far louder than the voice mixed alongside it, and one fader for both makes "turn the game down" impossible without also turning the person down.
-**Tradeoff:** Two faders is more UI than one, so the stream fader is only offered when that participant actually publishes stream audio. Capture controls are requests rather than guarantees: an older host can ignore the processing or own-audio filter, and audio quality and feedback prevention must ultimately be confirmed by listening.
+**Decision:** Screen-share audio is captured with echo cancellation, noise suppression, and automatic gain control explicitly disabled, published with the music stereo preset and DTX off, and hinted as music. For Windows window capture, Chatto keeps audio only when Chromium identifies it as `Application Audio`; it stops and removes `System Audio` or an unrecognised track before publication. An entire-display share keeps system audio and requests removal of Chatto's own playback, while a browser-tab share keeps browser-scoped audio. Microphone capture retains speech processing plus the optional DeepFilterNet3 processor, which attaches only to the microphone; while that processor's suppression stage is active, browser noise suppression is disabled so the two suppressors never stack, while echo cancellation and automatic gain control remain on. Viewers get a screen-share-audio volume independent of that participant's voice volume, stored per server alongside it.
+**Why:** Speech processing exists to make one voice intelligible: it treats sustained tones as noise and pumps levels on every loud moment, which is exactly wrong for game and music audio. Selecting a window also establishes a privacy boundary. Chromium's fallback from requested application loopback to all system output must not transmit unrelated applications or Chatto call playback; a silent video share with a clear warning is safer than silently widening capture. For entire-display system audio, removing Chatto playback reduces call feedback without changing the selected system-wide scope.
+**Tradeoff:** Two faders is more UI than one, so the stream fader appears only when that participant publishes stream audio. The native safeguard depends on Chromium's capture-surface metadata and exact audio-device label. A missing or unknown surface therefore fails closed unless the audio label is exactly `Application Audio`; unsupported runtimes keep sharing video but omit audio and warn the presenter.
 
 ### 15. Screen share publishes VP9 with temporal-only SVC
 
@@ -151,7 +151,7 @@ Voice calling doesn't have a dedicated permission today; room membership is the 
 
 ## Related
 
-- **ADRs:** ADR-009 (webhook-driven voice call state), ADR-012 (two-tier real-time events), ADR-020 (build-tag gated test endpoints), ADR-051 (server-scoped resumable client projection), ADR-900 (Windows desktop client)
+- **ADRs:** ADR-009 (durable LiveKit call state), ADR-012 (two-tier real-time events), ADR-020 (build-tag gated test endpoints), ADR-051 (server-scoped resumable client projection), ADR-900 (Windows desktop client)
 - **FDRs:** FDR-001 (Roles & Permissions), FDR-012 (Notifications), FDR-013 (Web Push Notifications), FDR-019 (Room Lifecycle)
 
 ## Open Questions

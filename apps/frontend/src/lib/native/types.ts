@@ -1,6 +1,6 @@
 import type { AppBadgeIntent } from '$lib/notifications/appBadge';
 
-export const NATIVE_HOST_API_VERSION = 5 as const;
+export const NATIVE_HOST_API_VERSION = 6 as const;
 
 export type Unsubscribe = () => void | Promise<void>;
 
@@ -14,8 +14,8 @@ export interface NativeCapabilities {
   readonly desktopUpdates: boolean;
   /** Host-managed, minimisable video pop-out windows are available. */
   readonly managedVideoPopOut: boolean;
-  /** Selected-window video can be paired with Windows system audio during display capture. */
-  readonly windowSystemAudio: boolean;
+  /** Selected-window video can be paired with its application's audio during display capture. */
+  readonly windowApplicationAudio: boolean;
 }
 
 /**

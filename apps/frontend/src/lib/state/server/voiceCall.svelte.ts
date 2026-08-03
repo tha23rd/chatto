@@ -138,6 +138,9 @@ const DEAFENED_ATTRIBUTE = 'deafened';
 
 type VoiceCallMediaDeviceTarget = 'microphone' | 'camera' | 'screen' | 'speaker' | 'device';
 type VoiceCallMediaDeviceContext = 'join' | 'enable' | 'switch' | 'event';
+type NativeScreenSharePublishResult = {
+  readonly applicationAudioUnavailable: boolean;
+};
 type MediaDeviceFailureKind =
   'permission-denied' | 'not-found' | 'in-use' | 'constraint' | 'aborted' | 'unknown';
 
@@ -1339,6 +1342,7 @@ export class VoiceCallState {
       this.screenShareQuality,
       this.screenShareCeiling
     );
+    let nativeScreenShareResult: NativeScreenSharePublishResult | undefined;
     const { AudioPresets } = getLoadedLiveKit();
     try {
       const enablePublishOptions: TrackPublishOptions = {
@@ -1352,9 +1356,13 @@ export class VoiceCallState {
         if (
           newEnabled &&
           screenShareCapture.audio !== false &&
-          this.nativeHost.capabilities.windowSystemAudio
+          this.nativeHost.capabilities.windowApplicationAudio
         ) {
-          await this.publishNativeScreenShare(room, screenShareCapture, enablePublishOptions);
+          nativeScreenShareResult = await this.publishNativeScreenShare(
+            room,
+            screenShareCapture,
+            enablePublishOptions
+          );
           return;
         }
         await room.localParticipant.setScreenShareEnabled(
@@ -1366,7 +1374,12 @@ export class VoiceCallState {
       if (this.room !== room) return;
 
       this.isScreenShareEnabled = newEnabled;
-      if (newEnabled) this.markSharedAudioAsMusic(room);
+      if (newEnabled) {
+        this.markSharedAudioAsMusic(room);
+        if (nativeScreenShareResult?.applicationAudioUnavailable) {
+          toast.warning(m['voice.screen_share_audio_unavailable']());
+        }
+      }
     } catch (err) {
       if (this.room !== room) return;
       if (newEnabled) {
@@ -1379,7 +1392,7 @@ export class VoiceCallState {
   }
 
   /**
-   * Capture an audio-enabled desktop share outside LiveKit's capture helper.
+   * Capture an application-audio-enabled desktop share outside LiveKit's capture helper.
    *
    * livekit-client currently omits Chromium's `windowAudio` dictionary member
    * while converting its screen-share options to `getDisplayMedia()`. The
@@ -1391,7 +1404,7 @@ export class VoiceCallState {
     room: Room,
     capture: ResolvedScreenShareOptions['capture'],
     publish: TrackPublishOptions
-  ): Promise<void> {
+  ): Promise<NativeScreenSharePublishResult> {
     const { Track } = getLoadedLiveKit();
     const displayOptions: NativeDisplayMediaOptions = {
       audio: capture.audio,
@@ -1403,39 +1416,64 @@ export class VoiceCallState {
       systemAudio: capture.systemAudio
     };
     const stream = await this.nativeHost.captureDisplayMedia(displayOptions);
-    const videoTrack = stream.getVideoTracks()[0];
-    const audioTrack = stream.getAudioTracks()[0];
-    if (!videoTrack) {
-      stream.getTracks().forEach((track) => track.stop());
-      throw new Error('display capture did not return a video track');
-    }
-
-    videoTrack.contentHint = capture.contentHint;
-    if (audioTrack && 'contentHint' in audioTrack) {
-      audioTrack.contentHint = 'music';
-    }
-
+    const streamTracks = stream.getTracks();
     const publishedTracks: MediaStreamTrack[] = [];
+    let streamTracksStopped = false;
+    const stopStreamTracks = (): void => {
+      if (streamTracksStopped) return;
+      streamTracksStopped = true;
+      streamTracks.forEach((track) => track.stop());
+    };
+    const requireCurrentRoom = (): void => {
+      if (this.room !== room) {
+        throw new Error('voice room changed during native screen-share publication');
+      }
+    };
+    const rollbackPublishedTracks = async (): Promise<void> => {
+      await Promise.all(
+        publishedTracks.map((track) =>
+          // Keep raw-track stopping centralised below so every captured track is stopped once.
+          room.localParticipant.unpublishTrack(track, false).catch(() => undefined)
+        )
+      );
+      stopStreamTracks();
+    };
+
     try {
+      requireCurrentRoom();
+      const videoTrack = stream.getVideoTracks()[0];
+      const audioTrack = stream.getAudioTracks()[0];
+      if (!videoTrack) {
+        throw new Error('display capture did not return a video track');
+      }
+      const displaySurface = videoTrack.getSettings?.().displaySurface;
+      const applicationAudioUnavailable =
+        audioTrack === undefined && displaySurface !== 'monitor' && displaySurface !== 'browser';
+
+      videoTrack.contentHint = capture.contentHint;
+      if (audioTrack && 'contentHint' in audioTrack) {
+        audioTrack.contentHint = 'music';
+      }
+
+      requireCurrentRoom();
       await room.localParticipant.publishTrack(videoTrack, {
         ...publish,
         source: Track.Source.ScreenShare
       });
       publishedTracks.push(videoTrack);
+      requireCurrentRoom();
       if (audioTrack) {
+        requireCurrentRoom();
         await room.localParticipant.publishTrack(audioTrack, {
           ...publish,
           source: Track.Source.ScreenShareAudio
         });
         publishedTracks.push(audioTrack);
+        requireCurrentRoom();
       }
+      return { applicationAudioUnavailable };
     } catch (error) {
-      await Promise.all(
-        publishedTracks.map((track) =>
-          room.localParticipant.unpublishTrack(track).catch(() => undefined)
-        )
-      );
-      stream.getTracks().forEach((track) => track.stop());
+      await rollbackPublishedTracks();
       throw error;
     }
   }

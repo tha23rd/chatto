@@ -1227,6 +1227,7 @@ const msg_voice_camera_in_use = (): LocalizedString => messages().voice_camera_i
 const msg_voice_camera_failed = (): LocalizedString => messages().voice_camera_failed(empty());
 const msg_voice_screen_share_blocked = (): LocalizedString => messages().voice_screen_share_blocked(empty());
 const msg_voice_screen_share_failed = (): LocalizedString => messages().voice_screen_share_failed(empty());
+const msg_voice_screen_share_audio_unavailable = (): LocalizedString => messages().voice_screen_share_audio_unavailable(empty());
 const msg_voice_speaker_switch_failed = (): LocalizedString => messages().voice_speaker_switch_failed(empty());
 const msg_voice_device_switch_failed = (): LocalizedString => messages().voice_device_switch_failed(empty());
 const msg_voice_stream_quality = (): LocalizedString => messages().voice_stream_quality(empty());
@@ -2945,6 +2946,7 @@ export { msg_voice_camera_in_use as 'voice.camera_in_use' };
 export { msg_voice_camera_failed as 'voice.camera_failed' };
 export { msg_voice_screen_share_blocked as 'voice.screen_share_blocked' };
 export { msg_voice_screen_share_failed as 'voice.screen_share_failed' };
+export { msg_voice_screen_share_audio_unavailable as 'voice.screen_share_audio_unavailable' };
 export { msg_voice_speaker_switch_failed as 'voice.speaker_switch_failed' };
 export { msg_voice_device_switch_failed as 'voice.device_switch_failed' };
 export { msg_voice_stream_quality as 'voice.stream_quality' };

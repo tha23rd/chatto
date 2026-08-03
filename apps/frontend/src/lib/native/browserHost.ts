@@ -16,7 +16,7 @@ export const browserNativeHost: NativeHost = {
     appBadge: false,
     desktopUpdates: false,
     managedVideoPopOut: false,
-    windowSystemAudio: false
+    windowApplicationAudio: false
   },
 
   registerServerOrigin() {
