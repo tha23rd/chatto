@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Track, type Room, type TrackProcessor } from 'livekit-client';
+import { loadLiveKit } from './livekitModule';
 import {
   NoiseSuppressionController,
   modeCodec,
@@ -17,6 +18,12 @@ const MODE_STORAGE_KEY = 'chatto:voiceNoiseSuppressionMode';
 const STRENGTH_STORAGE_KEY = 'chatto:voiceNoiseSuppressionStrength';
 const INPUT_GAIN_STORAGE_KEY = 'chatto:voiceInputGain';
 const SENSITIVITY_STORAGE_KEY = 'chatto:voiceGateSensitivity';
+
+// The module reads LiveKit enums through the lazy loader, which production
+// primes when joining a call. Tests drive it with fake rooms, so prime it here.
+beforeAll(async () => {
+  await loadLiveKit();
+});
 
 type FakeProcessor = TrackProcessor<Track.Kind.Audio> & {
   destroy: ReturnType<typeof vi.fn>;

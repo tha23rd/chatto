@@ -23,6 +23,7 @@ let observers: MockIntersectionObserver[] = [];
 class MockIntersectionObserver implements IntersectionObserver {
   readonly root: Element | Document | null;
   readonly rootMargin: string;
+  readonly scrollMargin: string;
   readonly thresholds: ReadonlyArray<number> = [];
   private elements: Element[] = [];
 
@@ -32,6 +33,7 @@ class MockIntersectionObserver implements IntersectionObserver {
   ) {
     this.root = options?.root ?? null;
     this.rootMargin = options?.rootMargin ?? '0px';
+    this.scrollMargin = options?.scrollMargin ?? '0px';
     observers.push(this);
   }
 
@@ -81,19 +83,17 @@ vi.mock('$lib/state/activeServer.svelte', () => ({
   getActiveServer: () => 'origin'
 }));
 
-vi.mock('$lib/state/userSettings.svelte', () => ({
-  getUserSettings: () => ({
-    effectiveTimezone: undefined,
-    effectiveHour12: undefined
-  })
-}));
-
-vi.mock('$lib/state/server/connection.svelte', () => ({
-  useConnection: () => () => ({
-    isConnected: true,
-    showConnectionLostBanner: false,
-    connectBaseUrl: 'http://localhost/api/connect',
-    bearerToken: null
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({
+    serverId: 'origin',
+    store: { currentUser: { user: { settings: null } } },
+    connection: {
+      isConnected: true,
+      showConnectionLostBanner: false,
+      connectBaseUrl: 'http://localhost/api/connect',
+      bearerToken: null,
+      getAPI: (factory: (config: never) => unknown) => factory({} as never)
+    }
   })
 }));
 

@@ -6,8 +6,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"hmans.de/chatto/internal/events"
+	"hmans.de/chatto/internal/evtstream"
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
+	"hmans.de/chatto/pkg/events"
 )
 
 // Sound is the projected current-state view of one soundboard sound. The
@@ -51,7 +52,7 @@ func NewSoundboardProjection() *SoundboardProjection {
 
 // Subjects returns the subject filter this projection consumes.
 func (p *SoundboardProjection) Subjects() []string {
-	return []string{events.SoundboardSubjectFilter()}
+	return []string{evtstream.SoundboardSubjectFilter()}
 }
 
 // Apply folds one soundboard event into the catalog.

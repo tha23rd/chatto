@@ -23,21 +23,19 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { on } from 'svelte/events';
-  import type { RoomEventView } from '$lib/render/types';
-  import UserAvatar, { UserAvatarViewData } from '$lib/components/UserAvatar.svelte';
+  import type { MessagePostedPayload } from '$lib/render/timelineEvents';
+  import UserAvatar from '$lib/components/UserAvatar.svelte';
   import UnreadDot from '$lib/ui/UnreadDot.svelte';
   import { useReactionActions, type MessageActionParams } from '$lib/hooks';
-  import { useRenderData } from '$lib/render/data';
   import type { MessagesStore } from '$lib/state/room';
   import FloatingPopover from '$lib/ui/FloatingPopover.svelte';
   import { getEmojiByName, getEmojiDisplayName } from '$lib/emoji';
   import { getCustomEmoji, getCustomEmojis } from '$lib/state/customEmojis.svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import * as m from '$lib/i18n/messages';
 
   // Extract the MessagePostedEvent type from the union
-  type MessagePostedEvent = Extract<RoomEventView['event'], { kind: 'messagePosted' }>;
-  type ReactionSummary = MessagePostedEvent['reactions'][number];
+  type ReactionSummary = MessagePostedPayload['reactions'][number];
 
   // Shared base style for all meta bar buttons. Uses the `meta-badge` utility
   // for shape and background states. Border color is set per-button to avoid
@@ -68,7 +66,7 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
     threadRootEventId?: string | null;
     reactions: ReactionSummary[];
     replyCount?: number;
-    threadParticipants?: MessagePostedEvent['threadParticipants'];
+    threadParticipants?: MessagePostedPayload['threadParticipants'];
     hasThreadNotification?: boolean;
     canReact?: boolean;
     messageStore?: MessagesStore | null;
@@ -84,10 +82,14 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
 
   // Ensure this server's custom emojis are loaded so custom reactions render as
   // images even before the emoji picker is opened. Idempotent per server.
-  const connection = useConnection();
+  const serverScope = useServerScope();
+  const connection = () => serverScope.connection;
+  // `serverSegment` is the URL form and addresses routes only. Custom emojis are
+  // keyed by raw registry id, which the scope already carries.
+  const emojiServerId = $derived(serverScope.serverId);
   $effect(() => {
     const conn = connection();
-    getCustomEmojis(serverSegment).ensureLoaded({
+    getCustomEmojis(emojiServerId).ensureLoaded({
       serverId: conn.serverId,
       baseUrl: conn.connectBaseUrl,
       bearerToken: conn.bearerToken
@@ -209,7 +211,7 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
       {#if threadParticipants && threadParticipants.length > 0}
         <div class="flex -space-x-1.5">
           {#each threadParticipants.slice(0, 3) as participant, i (i)}
-            {@const p = useRenderData(UserAvatarViewData, participant)}
+            {@const p = participant}
             {#if p}
               <UserAvatar user={p} size="xs" />
             {/if}
@@ -244,7 +246,7 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
 
   <!-- Reaction pills -->
   {#each reactions as reaction (reaction.emoji)}
-    {@const customEmoji = getCustomEmoji(serverSegment, reaction.emoji)}
+    {@const customEmoji = getCustomEmoji(emojiServerId, reaction.emoji)}
     <!-- inline-flex so this wrapper sizes to the button. As a plain inline span
          it would establish a text line box, and the inline-flex button's
          baseline differs between text (unicode) and image (custom) content,
@@ -318,7 +320,7 @@ Contains the thread reply button, reaction pills, and an add-reaction button.
     {@const tooltipUsers = reactionTooltipUsers(tooltipReaction)}
     <div class="flex min-w-0 flex-col gap-1 menu-section px-3 py-2 text-xs">
       <strong class="font-semibold"
-        >{getCustomEmoji(serverSegment, tooltipReaction.emoji)?.name ??
+        >{getCustomEmoji(emojiServerId, tooltipReaction.emoji)?.name ??
           getEmojiDisplayName(tooltipReaction.emoji)}</strong
       >
       <span class="flex min-w-0 flex-col gap-0.5 text-muted">

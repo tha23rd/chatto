@@ -72,6 +72,7 @@
     "camera_failed": "カメラをオンにできませんでした。",
     "screen_share_blocked": "画面共有がキャンセルまたはブロックされました。",
     "screen_share_failed": "画面共有を開始できませんでした。",
+    "screen_share_audio_unavailable": "アプリケーションの音声は共有されませんでした。ウィンドウは音声なしで引き続き共有されています。",
     "speaker_switch_failed": "スピーカーを切り替えられませんでした。このブラウザまたはデバイスはスピーカーの選択をサポートしていない可能性があります。",
     "device_switch_failed": "そのデバイスに切り替えることができませんでした。",
     "stream_quality": "配信品質",

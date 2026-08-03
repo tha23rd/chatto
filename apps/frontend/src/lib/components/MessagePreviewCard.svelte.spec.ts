@@ -1,18 +1,17 @@
+import { ImageFitMode } from '@chatto/api-types/api/v1/common_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import MessagePreviewCard from './MessagePreviewCard.svelte';
 import type { MessageLink } from '$lib/messageLinks';
-import { FitMode } from '$lib/render/types';
-import { RoomEventKind } from '$lib/render/eventKinds';
+
+import { TimelineEventKind } from '$lib/render/timelineEvents';
 import type { RefreshedAttachmentUrls } from '$lib/attachments/attachmentUrls';
 
-const { getRoomEventsAroundMock, timelineResults, refreshAssetUrlsMock } = vi.hoisted(
-  () => ({
-    getRoomEventsAroundMock: vi.fn(),
-    timelineResults: [] as unknown[],
-    refreshAssetUrlsMock: vi.fn()
-  })
-);
+const { getRoomEventsAroundMock, timelineResults, refreshAssetUrlsMock } = vi.hoisted(() => ({
+  getRoomEventsAroundMock: vi.fn(),
+  timelineResults: [] as unknown[],
+  refreshAssetUrlsMock: vi.fn()
+}));
 
 function testImageUrl(label: string): string {
   return `/icons/favicon.png?label=${label}`;
@@ -37,7 +36,7 @@ vi.mock('$lib/state/server/registry.svelte', () => ({
       currentUser: {
         user: { login: 'viewer' }
       },
-      rooms: {
+      navigation: {
         rooms: [{ id: 'room_1', name: 'general' }]
       }
     }),
@@ -55,6 +54,14 @@ vi.mock('$lib/state/server/registry.svelte', () => ({
 
 vi.mock('$lib/state/activeServer.svelte', () => ({
   getActiveServer: () => 'server_1'
+}));
+
+vi.mock('$lib/state/server/serverConnection.svelte', () => ({
+  serverConnectionManager: {
+    getClient: () => ({
+      getAPI: (factory: (config: never) => unknown) => factory({} as never)
+    })
+  }
 }));
 
 function link(): MessageLink {
@@ -85,7 +92,7 @@ function previewPage(event: unknown) {
 
 function previewResult(thumbnailUrl: string) {
   return previewPage({
-    kind: RoomEventKind.MessagePosted,
+    kind: TimelineEventKind.MessagePosted,
     body: null,
     attachments: [
       {
@@ -104,7 +111,7 @@ function previewResult(thumbnailUrl: string) {
 
 function bodyPreviewResult(body: string) {
   return previewPage({
-    kind: RoomEventKind.MessagePosted,
+    kind: TimelineEventKind.MessagePosted,
     body,
     attachments: []
   });
@@ -112,7 +119,7 @@ function bodyPreviewResult(body: string) {
 
 function videoPreviewResult(videoThumbnailUrl: string | null) {
   return previewPage({
-    kind: RoomEventKind.MessagePosted,
+    kind: TimelineEventKind.MessagePosted,
     body: null,
     attachments: [
       {
@@ -260,7 +267,7 @@ describe('MessagePreviewCard', () => {
     expect(refreshAssetUrlsMock).toHaveBeenCalledWith('room_1', ['att_1'], {
       width: 120,
       height: 120,
-      fit: FitMode.Cover
+      fit: ImageFitMode.COVER
     });
   });
 

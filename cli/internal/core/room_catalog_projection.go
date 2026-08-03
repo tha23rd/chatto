@@ -1,12 +1,11 @@
 package core
 
 import (
-	"strings"
-
 	"google.golang.org/protobuf/proto"
 
-	"hmans.de/chatto/internal/events"
+	"hmans.de/chatto/internal/evtstream"
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
+	"hmans.de/chatto/pkg/events"
 )
 
 // RoomCatalogProjection holds per-room metadata derived from
@@ -48,14 +47,14 @@ func NewRoomCatalogProjection() *RoomCatalogProjection {
 	}
 }
 
-// Subjects implements events.Projection. The catalog is a room-derived read
+// Subjects implements evtstream.Projection. The catalog is a room-derived read
 // model, so it subscribes to the room aggregate namespace and ignores room
 // events it does not handle.
 func (p *RoomCatalogProjection) Subjects() []string {
-	return []string{events.RoomSubjectFilter()}
+	return []string{evtstream.RoomSubjectFilter()}
 }
 
-// Apply implements events.Projection.
+// Apply implements evtstream.Projection.
 //
 // Recognised events: RoomCreated, RoomUpdated (rename + description),
 // RoomArchived, RoomUnarchived, RoomDeleted. Membership events
@@ -160,7 +159,7 @@ func (p *RoomCatalogProjection) FindByName(name string) string {
 }
 
 func (p *RoomCatalogProjection) NameClaimSnapshot(name string) RoomNameClaimSnapshot {
-	target := strings.ToLower(strings.TrimSpace(name))
+	target := canonicalRoomName(name)
 	if target == "" {
 		return RoomNameClaimSnapshot{}
 	}
@@ -171,7 +170,7 @@ func (p *RoomCatalogProjection) NameClaimSnapshot(name string) RoomNameClaimSnap
 		if entry.kind != corev1.RoomKind_ROOM_KIND_CHANNEL {
 			continue
 		}
-		if strings.ToLower(entry.name) == target {
+		if canonicalRoomName(entry.name) == target {
 			snapshot.OwnerRoomID = id
 			return snapshot
 		}

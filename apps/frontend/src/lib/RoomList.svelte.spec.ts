@@ -1,13 +1,9 @@
+import { RoomKind } from '@chatto/api-types/api/v1/rooms_pb';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { q } from '$lib/test-utils';
-import { RoomType } from '$lib/render/types';
+
 import { NotificationItemKind } from '$lib/api-client/notifications';
-import { serverStorageKey } from '$lib/storage/serverStorage';
-import {
-  consumePendingRoomSidebarPanel,
-  roomSidebarPanelStorageSuffix
-} from '$lib/storage/roomSidebarPanel';
 import type { RoomsListGroup } from '$lib/state/server/rooms.svelte';
 
 const { mocks } = vi.hoisted(() => ({
@@ -19,7 +15,8 @@ const { mocks } = vi.hoisted(() => ({
     pushState: vi.fn(),
     goto: vi.fn(),
     appUi: {
-      disableRoomCallWideFor: vi.fn()
+      disableRoomCallWideFor: vi.fn(),
+      requestRoomSidebarPanel: vi.fn()
     },
     store: {
       currentUser: { user: { id: 'me' } },
@@ -65,16 +62,11 @@ const { mocks } = vi.hoisted(() => ({
       serverInfo: {
         livekitUrl: null
       },
-      rooms: {
+      navigation: {
         rooms: [],
-        roomGroups: null as RoomsListGroup[] | null,
+        roomGroups: [] as RoomsListGroup[],
         isInitialLoading: false,
-        currentUserId: 'me',
-        bumpRoom: vi.fn(),
-        clearUnreadNotifications: vi.fn(),
-        decrementUnreadNotification: vi.fn(),
-        incrementUnreadNotification: vi.fn(),
-        refreshNotificationCounts: vi.fn().mockResolvedValue(undefined)
+        currentUserId: 'me'
       },
       roomDirectory: {
         joinRoom: vi.fn()
@@ -114,13 +106,16 @@ vi.mock('$lib/navigation', () => ({
   segmentToServerId: () => 'origin'
 }));
 
-vi.mock('$lib/state/activeServer.svelte', () => ({
-  getActiveServer: () => 'origin'
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({
+    serverId: 'origin',
+    store: mocks.store,
+    isCurrent: () => true
+  })
 }));
 
 vi.mock('$lib/state/server/registry.svelte', () => ({
   serverRegistry: {
-    getStore: vi.fn(() => mocks.store),
     isOriginServer: vi.fn(() => true),
     getServer: vi.fn(() => ({ id: 'origin', url: 'https://chat.example.test' })),
     originServer: { id: 'origin' },
@@ -129,7 +124,8 @@ vi.mock('$lib/state/server/registry.svelte', () => ({
 }));
 
 vi.mock('$lib/state/appUi.svelte', () => ({
-  getAppUiState: () => mocks.appUi
+  getAppUiState: () => mocks.appUi,
+  getRoomSidebarPresentation: () => 'desktop'
 }));
 
 vi.mock('$lib/state/presenceCache.svelte', () => ({
@@ -185,11 +181,11 @@ function user(id: string, login: string, displayName: string) {
 }
 
 function setRooms() {
-  mocks.store.rooms.rooms = [
+  mocks.store.navigation.rooms = [
     {
       id: 'channel-1',
       name: 'general',
-      type: RoomType.Channel,
+      type: RoomKind.CHANNEL,
       isUniversal: false,
       viewerIsMember: true,
       viewerCanJoinRoom: true,
@@ -200,7 +196,7 @@ function setRooms() {
     {
       id: 'joinable-channel',
       name: 'joinable',
-      type: RoomType.Channel,
+      type: RoomKind.CHANNEL,
       isUniversal: false,
       viewerIsMember: false,
       viewerCanJoinRoom: true,
@@ -211,7 +207,7 @@ function setRooms() {
     {
       id: 'restricted-channel',
       name: 'restricted',
-      type: RoomType.Channel,
+      type: RoomKind.CHANNEL,
       isUniversal: false,
       viewerIsMember: false,
       viewerCanJoinRoom: false,
@@ -222,7 +218,7 @@ function setRooms() {
     {
       id: 'dm-with-participants',
       name: '',
-      type: RoomType.Dm,
+      type: RoomKind.DM,
       isUniversal: false,
       viewerIsMember: true,
       viewerCanJoinRoom: true,
@@ -233,7 +229,7 @@ function setRooms() {
     {
       id: 'dm-phone-only',
       name: '',
-      type: RoomType.Dm,
+      type: RoomKind.DM,
       isUniversal: false,
       viewerIsMember: true,
       viewerCanJoinRoom: true,
@@ -245,7 +241,7 @@ function setRooms() {
 }
 
 function setRoomNotificationCount(roomId: string, count: number) {
-  const rooms = mocks.store.rooms.rooms as Array<{
+  const rooms = mocks.store.navigation.rooms as Array<{
     id: string;
     viewerNotificationCount: number;
   }>;
@@ -265,9 +261,9 @@ beforeEach(() => {
   mocks.activeCallRoomIds = new Set();
   mocks.projectedCallParticipants = new Map();
   mocks.unreadRoomIds = new Set();
-  mocks.store.rooms.roomGroups = null;
-  mocks.store.rooms.isInitialLoading = false;
-  mocks.store.rooms.currentUserId = 'me';
+  mocks.store.navigation.roomGroups = [];
+  mocks.store.navigation.isInitialLoading = false;
+  mocks.store.navigation.currentUserId = 'me';
   setRooms();
   vi.clearAllMocks();
   mocks.store.notifications.fetchRoomNotification.mockResolvedValue({
@@ -281,14 +277,13 @@ beforeEach(() => {
     notification: null
   });
   mocks.store.notifications.getCleanPath.mockReturnValue('/chat/-/room');
-  mocks.store.rooms.refreshNotificationCounts.mockResolvedValue(undefined);
   mocks.store.roomDirectory.joinRoom.mockResolvedValue({ ok: true });
   mocks.markNavigationRoomAsRead.mockResolvedValue(true);
 });
 
 describe('RoomList', () => {
   it('hides only DMs explicitly projected without message history', async () => {
-    const empty = mocks.store.rooms.rooms.find(
+    const empty = mocks.store.navigation.rooms.find(
       (room: { id: string }) => room.id === 'dm-with-participants'
     ) as unknown as { hasMessageHistory?: boolean };
     empty.hasMessageHistory = false;
@@ -352,7 +347,7 @@ describe('RoomList', () => {
   });
 
   it('offers room settings to a non-member room manager alongside Join', async () => {
-    const rooms = mocks.store.rooms.rooms as Array<{
+    const rooms = mocks.store.navigation.rooms as Array<{
       id: string;
       viewerCanManageRoom: boolean;
     }>;
@@ -512,7 +507,7 @@ describe('RoomList', () => {
     leave!.click();
 
     expect(mocks.pushState).toHaveBeenCalledWith('', {
-      modal: { type: 'leaveRoom', roomId: 'channel-1', roomName: 'general' }
+      modal: { type: 'leaveRoom', serverId: 'origin', roomId: 'channel-1', roomName: 'general' }
     });
   });
 
@@ -531,7 +526,7 @@ describe('RoomList', () => {
   });
 
   it('hides room settings without room.manage', async () => {
-    const rooms = mocks.store.rooms.rooms as Array<{
+    const rooms = mocks.store.navigation.rooms as Array<{
       id: string;
       viewerCanManageRoom: boolean;
     }>;
@@ -666,10 +661,12 @@ describe('RoomList', () => {
     await vi.waitFor(() => {
       expect(mocks.goto).toHaveBeenCalledWith('/chat/-/channel-1');
     });
-    expect(
-      localStorage.getItem(serverStorageKey('origin', roomSidebarPanelStorageSuffix('channel-1')))
-    ).toBe('call');
-    expect(consumePendingRoomSidebarPanel('origin', 'channel-1')).toBe('call');
+    expect(mocks.appUi.requestRoomSidebarPanel).toHaveBeenCalledWith(
+      'origin',
+      'channel-1',
+      'call',
+      'desktop'
+    );
   });
 
   it('opens the call panel when an active-call DM icon is clicked', async () => {
@@ -687,12 +684,12 @@ describe('RoomList', () => {
     await vi.waitFor(() => {
       expect(mocks.goto).toHaveBeenCalledWith('/chat/-/dm-with-participants');
     });
-    expect(
-      localStorage.getItem(
-        serverStorageKey('origin', roomSidebarPanelStorageSuffix('dm-with-participants'))
-      )
-    ).toBe('call');
-    expect(consumePendingRoomSidebarPanel('origin', 'dm-with-participants')).toBe('call');
+    expect(mocks.appUi.requestRoomSidebarPanel).toHaveBeenCalledWith(
+      'origin',
+      'dm-with-participants',
+      'call',
+      'desktop'
+    );
   });
 
   it.each([
@@ -715,10 +712,12 @@ describe('RoomList', () => {
       await vi.waitFor(() => {
         expect(mocks.goto).toHaveBeenCalledWith('/chat/-/channel-1');
       });
-      expect(
-        localStorage.getItem(serverStorageKey('origin', roomSidebarPanelStorageSuffix('channel-1')))
-      ).toBe('call');
-      expect(consumePendingRoomSidebarPanel('origin', 'channel-1')).toBe('call');
+      expect(mocks.appUi.requestRoomSidebarPanel).toHaveBeenCalledWith(
+        'origin',
+        'channel-1',
+        'call',
+        'desktop'
+      );
     }
   );
 
@@ -767,7 +766,7 @@ describe('RoomList', () => {
   });
 
   it('renders server-local sidebar links as same-tab anchors resolved against the active server', async () => {
-    mocks.store.rooms.roomGroups = [
+    mocks.store.navigation.roomGroups = [
       {
         id: 'g1',
         name: 'Links',
@@ -793,8 +792,8 @@ describe('RoomList', () => {
   });
 
   it('keeps an empty manageable group visible and opens its settings from a context menu', async () => {
-    mocks.store.rooms.rooms = [];
-    mocks.store.rooms.roomGroups = [
+    mocks.store.navigation.rooms = [];
+    mocks.store.navigation.roomGroups = [
       {
         id: 'private-group',
         name: 'Private Group',
@@ -829,7 +828,7 @@ describe('RoomList', () => {
   });
 
   it('renders active-server host sidebar links as same-tab anchors', async () => {
-    mocks.store.rooms.roomGroups = [
+    mocks.store.navigation.roomGroups = [
       {
         id: 'g1',
         name: 'Links',
@@ -858,7 +857,7 @@ describe('RoomList', () => {
   });
 
   it('renders external sidebar links as new-tab anchors', async () => {
-    mocks.store.rooms.roomGroups = [
+    mocks.store.navigation.roomGroups = [
       {
         id: 'g1',
         name: 'Links',
@@ -916,9 +915,11 @@ describe('RoomList', () => {
       expect(mocks.appUi.disableRoomCallWideFor.mock.invocationCallOrder[0]).toBeLessThan(
         mocks.goto.mock.invocationCallOrder[0]
       );
-      expect(mocks.store.rooms.decrementUnreadNotification).toHaveBeenCalledWith('channel-1');
       expect(mocks.store.notifications.dismiss).toHaveBeenCalledWith('mention-1');
-      expect(mocks.store.rooms.refreshNotificationCounts).toHaveBeenCalledOnce();
+      expect(mocks.store.notifications.getCleanPath).toHaveBeenCalledWith(
+        'origin',
+        roomNotification
+      );
       expect(mocks.goto).toHaveBeenCalledWith('/chat/-/channel-1/thread-1');
     });
   });
@@ -945,9 +946,6 @@ describe('RoomList', () => {
         'dm-with-participants',
         { isDM: true }
       );
-      expect(mocks.store.rooms.decrementUnreadNotification).toHaveBeenCalledWith(
-        'dm-with-participants'
-      );
       expect(mocks.appUi.disableRoomCallWideFor).toHaveBeenCalledWith(
         'origin',
         'dm-with-participants'
@@ -956,12 +954,11 @@ describe('RoomList', () => {
         mocks.goto.mock.invocationCallOrder[0]
       );
       expect(mocks.store.notifications.dismiss).toHaveBeenCalledWith('dm-1');
-      expect(mocks.store.rooms.refreshNotificationCounts).toHaveBeenCalledOnce();
       expect(mocks.goto).toHaveBeenCalledWith('/chat/-/dm-with-participants');
     });
   });
 
-  it('clears a stale room badge when the room-scoped query returns no notifications', async () => {
+  it('leaves a stale room badge to converge through the authoritative projection', async () => {
     setRoomNotificationCount('channel-1', 1);
     mocks.store.notifications.resolveRoomNotification.mockResolvedValue({
       ok: true,
@@ -979,7 +976,6 @@ describe('RoomList', () => {
       expect(mocks.store.notifications.resolveRoomNotification).toHaveBeenCalledWith('channel-1', {
         isDM: false
       });
-      expect(mocks.store.rooms.clearUnreadNotifications).toHaveBeenCalledWith('channel-1');
       expect(mocks.goto).not.toHaveBeenCalled();
       expect(mocks.store.notifications.dismiss).not.toHaveBeenCalled();
     });

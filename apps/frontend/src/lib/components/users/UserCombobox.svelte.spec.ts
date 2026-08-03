@@ -7,10 +7,15 @@ const mocks = vi.hoisted(() => ({
   listUsers: vi.fn()
 }));
 
-vi.mock('$lib/state/server/connection.svelte', () => ({
-  useConnection: () => () => ({
-    connectBaseUrl: 'http://localhost/api/connect',
-    bearerToken: null
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({
+    serverId: 'origin',
+    store: {},
+    connection: {
+      connectBaseUrl: 'http://localhost/api/connect',
+      bearerToken: null,
+      getAPI: (factory: (config: never) => unknown) => factory({} as never)
+    }
   })
 }));
 
@@ -54,7 +59,7 @@ describe('UserCombobox', () => {
   });
 
   it('searches server members as the actor text changes', async () => {
-    const { container } = render(UserCombobox, {
+    const { container, unmount } = render(UserCombobox, {
       props: {
         id: 'actor',
         label: 'Actor'
@@ -68,5 +73,11 @@ describe('UserCombobox', () => {
     await settle();
 
     expect(mocks.listUsers).toHaveBeenCalledWith('alice', 10, 0);
+
+    input.value = 'bob';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    unmount();
+    await vi.advanceTimersByTimeAsync(220);
+    expect(mocks.listUsers).toHaveBeenCalledTimes(1);
   });
 });

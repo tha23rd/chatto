@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import * as m from '$lib/i18n/messages';
   import { createRoomCommandAPI } from '$lib/api-client/rooms';
+  import { normalizeRoomName } from '$lib/utils/roomName';
   import {
     TextInput,
     TextArea,
@@ -21,7 +22,7 @@
     onroomcreated?: (roomId: string) => void;
   } = $props();
 
-  const connection = useConnection();
+  const serverScope = useServerScope();
 
   const schema = z.object({
     name: z.string().trim().min(1, m['room.create.name_required']()),
@@ -50,14 +51,9 @@
         return;
       }
 
-      const conn = connection();
-      const api = createRoomCommandAPI({
-        serverId: conn.serverId,
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      });
+      const api = serverScope.connection.getAPI(createRoomCommandAPI);
       const created = await api.createRoom({
-        name: values.name.trim(),
+        name: normalizeRoomName(values.name),
         description: values.description.trim() || null,
         groupId: targetGroupId,
         universal: values.isUniversal
@@ -67,6 +63,7 @@
 
       await api.joinRoom(roomId);
 
+      if (!serverScope.isCurrent()) return;
       onroomcreated?.(roomId);
     } catch (err) {
       submitError = err instanceof Error ? err.message : m['room.create.failed']();

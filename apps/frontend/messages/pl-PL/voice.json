@@ -72,6 +72,7 @@
     "camera_failed": "Nie można włączyć aparatu.",
     "screen_share_blocked": "Udostępnianie ekranu zostało anulowane lub zablokowane.",
     "screen_share_failed": "Nie można rozpocząć udostępniania ekranu.",
+    "screen_share_audio_unavailable": "Dźwięk aplikacji nie został udostępniony. Okno jest nadal udostępniane bez dźwięku.",
     "speaker_switch_failed": "Nie można przełączyć głośników. Ta przeglądarka lub urządzenie może nie obsługiwać wyboru głośników.",
     "device_switch_failed": "Nie można przełączyć się na to urządzenie.",
     "stream_quality": "Jakość transmisji",

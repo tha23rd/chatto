@@ -69,6 +69,12 @@ type GetServerResponse struct {
 	// Login and registration options.
 	Login *v1.ServerLogin `protobuf:"bytes,2,opt,name=login,proto3" json:"login,omitempty"`
 	// Protocol support and bundled-web-client compatibility metadata.
+	//
+	// Upstream Chatto removed this field in favour of release-version gating.
+	// This distribution keeps it because it ships protocol features upstream
+	// releases do not have, and a release version cannot distinguish them. A
+	// server that omits this field is read as declaring no capabilities, so
+	// capability-gated behaviour stays off.
 	Compatibility *ServerCompatibility `protobuf:"bytes,3,opt,name=compatibility,proto3" json:"compatibility,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

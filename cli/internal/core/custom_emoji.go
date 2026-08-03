@@ -63,7 +63,7 @@ func (c *ChattoCore) CreateCustomEmoji(ctx context.Context, actorID, name string
 	id := NewCustomEmojiID()
 	event := newCustomEmojiCreatedEvent(actorID, id, name, asset)
 	if _, err := c.appendCustomEmojiEvent(ctx, event, func() error {
-		if c.CustomEmojis.IsCustomEmojiName(name) {
+		if c.customEmojis.Projection().IsCustomEmojiName(name) {
 			return invalidArgument("a custom emoji with this name already exists")
 		}
 		return nil
@@ -73,7 +73,7 @@ func (c *ChattoCore) CreateCustomEmoji(ctx context.Context, actorID, name string
 		return nil, err
 	}
 
-	if emoji, ok := c.CustomEmojis.Get(id); ok {
+	if emoji, ok := c.customEmojis.Projection().Get(id); ok {
 		return emoji, nil
 	}
 	// appendCustomEmojiEvent waits for read-your-writes, so this fallback is
@@ -95,14 +95,14 @@ func (c *ChattoCore) DeleteCustomEmoji(ctx context.Context, actorID, id string) 
 		return err
 	}
 
-	existing, ok := c.CustomEmojis.Get(id)
+	existing, ok := c.customEmojis.Projection().Get(id)
 	if !ok {
 		return fmt.Errorf("custom emoji %s: %w", id, ErrNotFound)
 	}
 
 	event := newCustomEmojiDeletedEvent(actorID, id)
 	if _, err := c.appendCustomEmojiEvent(ctx, event, func() error {
-		if _, ok := c.CustomEmojis.Get(id); !ok {
+		if _, ok := c.customEmojis.Projection().Get(id); !ok {
 			return fmt.Errorf("custom emoji %s: %w", id, ErrNotFound)
 		}
 		return nil
@@ -120,7 +120,7 @@ func (c *ChattoCore) DeleteCustomEmoji(ctx context.Context, actorID, id string) 
 // ListCustomEmojis returns the full server custom emoji catalog, ordered by
 // name.
 func (c *ChattoCore) ListCustomEmojis() []*CustomEmoji {
-	return c.CustomEmojis.List()
+	return c.customEmojis.Projection().List()
 }
 
 // CustomEmojiURL builds the public URL that renders a custom emoji's image.

@@ -50,4 +50,6 @@ initial server view.
 | --- | --- | --- |
 | `profile` | [`chatto.api.v1.ServerPublicProfile`](/reference/connectrpc-api/types/#chatto-api-v1-ServerPublicProfile) | Public server profile and branding. |
 | `login` | [`chatto.api.v1.ServerLogin`](/reference/connectrpc-api/types/#chatto-api-v1-ServerLogin) | Login and registration options. |
-| `compatibility` | [`ServerCompatibility`](/reference/connectrpc-api/types/#chatto-discovery-v1-ServerCompatibility) | Protocol support and bundled-web-client compatibility metadata. |
+| `compatibility` | [`ServerCompatibility`](/reference/connectrpc-api/types/#chatto-discovery-v1-ServerCompatibility) | Protocol support and bundled-web-client compatibility metadata.
+
+Upstream Chatto removed this field in favour of release-version gating. This distribution keeps it because it ships protocol features upstream releases do not have, and a release version cannot distinguish them. A server that omits this field is read as declaring no capabilities, so capability-gated behaviour stays off. |

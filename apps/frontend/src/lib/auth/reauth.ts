@@ -23,6 +23,7 @@ import {
 import { serverIdToSegment } from '$lib/navigation';
 import { clearCachedUser } from './loadAuth';
 import { completeServerOAuth } from './serverOAuth';
+import { saveReturnUrl } from './returnNavigation';
 
 function serverAuthorizeUrl(
   serverUrl: string,
@@ -292,9 +293,9 @@ export async function completeServerOAuthFlow(
     addedAt: Date.now()
   });
   // Registration creates the retained store immediately, but discovery is
-  // otherwise fire-and-forget. Complete capability discovery before routing
-  // to the new server so the transport coordinator can deterministically
-  // include its required projection stream on the first route transition.
+  // otherwise fire-and-forget. Complete server discovery before routing to the
+  // new server so the transport coordinator can deterministically include its
+  // required projection stream on the first route transition.
   await serverRegistry.getStore(id).serverInfo.init();
   return id;
 }
@@ -310,7 +311,7 @@ export async function startRemoteReauthentication(server: RegisteredServer): Pro
 
 export function beginOriginReauthentication(): void {
   const path = window.location.pathname + window.location.search;
-  sessionStorage.setItem('returnUrl', path);
+  saveReturnUrl(path);
   clearCachedUser();
   serverRegistry.clearOriginAuthentication();
 

@@ -11,9 +11,11 @@
  * - Message reactions, which resolve a reaction name to a {@link CustomEmoji}
  *   (with `.url`) and render its image instead of a unicode glyph.
  *
- * State is keyed by server via {@link normalizeServerKey}; the same server is
- * addressable both by its raw registry id (used by the picker) and by its URL
- * segment (used by message components), which normalize to one store instance.
+ * State is keyed by raw server registry id. Callers holding a URL segment must
+ * resolve it themselves (they are inside a `/chat/[serverId]` route and so
+ * already have a `ServerScope`); keeping this module free of `$lib/navigation`
+ * keeps it a leaf, which matters because the server store imports
+ * {@link notifyCustomEmojis} from here.
  */
 
 import {
@@ -23,7 +25,6 @@ import {
 } from '$lib/api-client/customEmojis';
 import type { CustomEmoji as CustomEmojiProto } from '@chatto/api-types/api/v1/custom_emojis_pb';
 import type { ConnectAPIConfig } from '$lib/api-client/connect';
-import { segmentToServerId } from '$lib/navigation';
 
 export type { CustomEmoji };
 
@@ -148,21 +149,16 @@ export class CustomEmojisStore {
 const stores = new Map<string, CustomEmojisStore>();
 
 /**
- * Normalize a server identifier to a stable key. Accepts either a raw registry
- * id or a URL segment; both resolve to the same key so the picker (raw id) and
- * message components (segment) share one store.
+ * Get (or lazily create) the custom-emoji store for a given server.
+ *
+ * `serverId` must be a raw server registry id, not a URL segment, so that every
+ * surface for one server shares a single store instance.
  */
-function normalizeServerKey(serverId: string): string {
-  return segmentToServerId(serverId) ?? serverId;
-}
-
-/** Get (or lazily create) the custom-emoji store for a given server. */
 export function getCustomEmojis(serverId: string): CustomEmojisStore {
-  const key = normalizeServerKey(serverId);
-  let store = stores.get(key);
+  let store = stores.get(serverId);
   if (!store) {
     store = new CustomEmojisStore();
-    stores.set(key, store);
+    stores.set(serverId, store);
   }
   return store;
 }

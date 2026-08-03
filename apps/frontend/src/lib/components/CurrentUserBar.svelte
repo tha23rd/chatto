@@ -6,41 +6,52 @@ sidebar. Shows the avatar with presence and the live display name, and links
 to the user settings page for the active server.
 -->
 <script lang="ts">
+  import { RoomKind } from '@chatto/api-types/api/v1/rooms_pb';
+  import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
   import { serverIdToSegment } from '$lib/navigation';
   import * as m from '$lib/i18n/messages';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { getLiveDisplayName, type CustomUserStatus } from '$lib/state/userProfiles.svelte';
   import { setPresenceMode } from '$lib/presenceTracking';
   import { presencePreference, type PresenceMode } from '$lib/state/presencePreference.svelte';
-  import { PresenceStatus, RoomType } from '$lib/render/types';
+  import { buildDirectMessagePresentation } from '$lib/render/users';
+
   import { getPresenceCache } from '$lib/state/presenceCache.svelte';
-  import {
-    roomSidebarPanelStorageSuffix,
-    setPendingRoomSidebarPanel,
-    setRoomSidebarPanel
-  } from '$lib/storage/roomSidebarPanel';
-  import { serverStorageKey } from '$lib/storage/serverStorage';
+  import { getAppUiState, getRoomSidebarPresentation } from '$lib/state/appUi.svelte';
   import { prefersTouchActions, supportsHoverActions } from '$lib/utils/inputCapabilities';
   import BottomSheet from '$lib/ui/BottomSheet.svelte';
   import ContextMenu from '$lib/ui/ContextMenu.svelte';
   import Dialog from '$lib/ui/Dialog.svelte';
   import UserAvatar from './UserAvatar.svelte';
   import UserCustomStatusBadge from './UserCustomStatusBadge.svelte';
-  import UserCustomStatusEditor from './UserCustomStatusEditor.svelte';
   import { roleColorToCSS } from '$lib/roleColors';
+  import VoiceCallControlButton from './voice/VoiceCallControlButton.svelte';
 
-  const connection = useConnection();
+  let customStatusEditorModule: Promise<typeof import('./UserCustomStatusEditor.svelte')> | null =
+    null;
+  let customStatusEditorLoadAttempt = $state(0);
+
+  function loadCustomStatusEditor(_attempt: number) {
+    customStatusEditorModule ??= import('./UserCustomStatusEditor.svelte').catch(
+      (error: unknown) => {
+        customStatusEditorModule = null;
+        throw error;
+      }
+    );
+    return customStatusEditorModule;
+  }
+
+  const serverScope = useServerScope();
+  const appUi = getAppUiState();
   const presenceCache = getPresenceCache();
-  const activeServerId = $derived(getActiveServer());
+  const activeServerId = $derived(serverScope.serverId);
   const serverSegment = $derived(serverIdToSegment(activeServerId));
-  const activeStore = $derived(serverRegistry.tryGetStore(activeServerId));
-  const activeServerUser = $derived(activeStore?.currentUser.user);
-  const voiceCallState = $derived(activeStore?.voiceCall);
-  const roomsStore = $derived(activeStore?.rooms);
+  const activeStore = $derived(serverScope.store);
+  const activeServerUser = $derived(activeStore.currentUser.user);
+  const voiceCallState = $derived(activeStore.voiceCall);
+  const navigation = $derived(activeStore.navigation);
 
   const displayName = $derived(
     activeServerUser
@@ -57,19 +68,19 @@ to the user settings page for the active server.
   );
   const activeCallRoom = $derived(
     activeCallRoomId
-      ? (roomsStore?.rooms.find((room) => room.id === activeCallRoomId) ?? null)
+      ? (navigation?.rooms.find((room) => room.id === activeCallRoomId) ?? null)
       : null
   );
   const activeCallRoomName = $derived.by(() => {
     const room = activeCallRoom;
     if (!room) return m['common.current_call']();
-    if (room.type === RoomType.Dm) {
-      const meId = roomsStore?.currentUserId;
-      const others = room.members.filter((member) => member.id !== meId);
-      if (others.length === 0) return m['common.you']();
-      return others
-        .map((member) => getLiveDisplayName(member.id, member.displayName || member.login))
-        .join(', ');
+    if (room.type === RoomKind.DM) {
+      return buildDirectMessagePresentation(
+        room.members,
+        navigation?.currentUserId,
+        m['common.you'](),
+        getLiveDisplayName
+      ).label;
     }
     return `# ${room.name}`;
   });
@@ -79,7 +90,7 @@ to the user settings page for the active server.
   const useSheetDialog = prefersTouchActions() && !supportsHoverActions();
   const presenceModes: PresenceMode[] = ['auto', 'away', 'doNotDisturb', 'invisible'];
   const currentPresence = $derived.by(() => {
-    if (!activeServerUser) return PresenceStatus.Offline;
+    if (!activeServerUser) return PresenceStatus.OFFLINE;
     return presenceCache.get(
       { serverId: activeServerId, userId: activeServerUser.id },
       activeServerUser.presenceStatus
@@ -90,12 +101,7 @@ to the user settings page for the active server.
   let customStatusDialogVisible = $state(false);
 
   function customStatusAPIConfig() {
-    const conn = connection();
-    return {
-      serverId: activeServerId,
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
-    };
+    return { ...serverScope.connection.apiConfig, serverId: activeServerId };
   }
 
   function openStatusMenu(event: MouseEvent) {
@@ -118,11 +124,11 @@ to the user settings page for the active server.
 
   function presenceStatusLabel(status: PresenceStatus): string {
     switch (status) {
-      case PresenceStatus.Away:
+      case PresenceStatus.AWAY:
         return m['settings.profile.presence.away']();
-      case PresenceStatus.DoNotDisturb:
+      case PresenceStatus.DO_NOT_DISTURB:
         return m['settings.profile.presence.do_not_disturb']();
-      case PresenceStatus.Offline:
+      case PresenceStatus.OFFLINE:
         return m['settings.profile.presence.offline']();
       default:
         return m['settings.profile.presence.auto']();
@@ -154,7 +160,7 @@ to the user settings page for the active server.
 
   function updateCurrentCustomStatus(status: CustomUserStatus | null) {
     const store = activeStore;
-    if (!store?.currentUser.user) return;
+    if (!store.currentUser.user) return;
     store.currentUser.user = {
       ...store.currentUser.user,
       customStatus: status
@@ -165,14 +171,7 @@ to the user settings page for the active server.
     const roomId = activeCallRoomId;
     if (!roomId) return;
 
-    setRoomSidebarPanel(activeServerId, roomId, 'call');
-    setPendingRoomSidebarPanel(activeServerId, roomId, 'call');
-    window.dispatchEvent(
-      new StorageEvent('storage', {
-        key: serverStorageKey(activeServerId, roomSidebarPanelStorageSuffix(roomId)),
-        newValue: 'call'
-      })
-    );
+    appUi.requestRoomSidebarPanel(activeServerId, roomId, 'call', getRoomSidebarPresentation());
     goto(
       resolve('/chat/[serverId]/[roomId]', {
         serverId: serverSegment,
@@ -183,14 +182,27 @@ to the user settings page for the active server.
 </script>
 
 {#snippet customStatusEditor(sheet = false)}
-  {#if activeServerUser}
-    <UserCustomStatusEditor
-      status={activeServerUser.customStatus}
-      config={customStatusAPIConfig()}
-      {sheet}
-      onChange={updateCurrentCustomStatus}
-      onClose={() => (customStatusDialogVisible = false)}
-    />
+  {#if activeServerUser && customStatusDialogVisible}
+    {#await loadCustomStatusEditor(customStatusEditorLoadAttempt) then { default: UserCustomStatusEditor }}
+      <UserCustomStatusEditor
+        status={activeServerUser.customStatus}
+        config={customStatusAPIConfig()}
+        {sheet}
+        onChange={updateCurrentCustomStatus}
+        onClose={() => (customStatusDialogVisible = false)}
+      />
+    {:catch}
+      <div class="flex flex-col items-center gap-3 p-4 text-center" role="alert">
+        <p class="text-sm text-muted">{m['common.error.network']()}</p>
+        <button
+          type="button"
+          class="btn-secondary"
+          onclick={() => (customStatusEditorLoadAttempt += 1)}
+        >
+          {m['common.retry']()}
+        </button>
+      </div>
+    {/await}
   {/if}
 {/snippet}
 
@@ -198,98 +210,53 @@ to the user settings page for the active server.
   <div class="flex shrink-0 flex-col gap-1 p-2">
     {#if activeCallRoomId && voiceCallState}
       <div class="grid min-w-0 grid-cols-5 gap-1.5" data-testid="current-user-call-card">
-        <button
-          type="button"
+        <VoiceCallControlButton
           class={compactCallButtonClass}
-          title={`Open ${activeCallRoomName}`}
-          aria-label={`Open ${activeCallRoomName}`}
-          data-testid="current-user-call-link"
+          label={`Open ${activeCallRoomName}`}
+          testId="current-user-call-link"
+          icon="uil--phone"
+          iconClass="text-action"
           onclick={openActiveCallRoom}
-        >
-          <span class="iconify text-action uil--phone" aria-hidden="true"></span>
-        </button>
-        <button
-          type="button"
+        />
+        <VoiceCallControlButton
           class={voiceCallState.isMuted ? compactCallButtonClass : compactCallActiveButtonClass}
-          title={voiceCallState.isMuted ? m['voice.unmute']() : m['voice.mute']()}
-          aria-label={voiceCallState.isMuted ? m['voice.unmute']() : m['voice.mute']()}
-          data-testid="current-user-call-mute"
+          label={voiceCallState.isMuted ? m['voice.unmute']() : m['voice.mute']()}
+          testId="current-user-call-mute"
+          icon={voiceCallState.isMuted ? 'uil--microphone-slash' : 'uil--microphone'}
           onclick={() => voiceCallState.toggleMute()}
-          disabled={voiceCallState.isMicrophonePending}
-          aria-busy={voiceCallState.isMicrophonePending || undefined}
-        >
-          {#if voiceCallState.isMicrophonePending}
-            <span class="iconify animate-spin uil--spinner" aria-hidden="true"></span>
-          {:else}
-            <span
-              class={[
-                'iconify',
-                voiceCallState.isMuted ? 'uil--microphone-slash' : 'uil--microphone'
-              ]}
-              aria-hidden="true"
-            ></span>
-          {/if}
-        </button>
-        <button
-          type="button"
+          pending={voiceCallState.isMicrophonePending}
+        />
+        <VoiceCallControlButton
           class={voiceCallState.isCameraEnabled
             ? compactCallActiveButtonClass
             : compactCallButtonClass}
-          title={voiceCallState.isCameraEnabled
+          label={voiceCallState.isCameraEnabled
             ? m['voice.turn_off_camera']()
             : m['voice.turn_on_camera']()}
-          aria-label={voiceCallState.isCameraEnabled
-            ? m['voice.turn_off_camera']()
-            : m['voice.turn_on_camera']()}
-          data-testid="current-user-call-camera"
+          testId="current-user-call-camera"
+          icon={voiceCallState.isCameraEnabled ? 'uil--video' : 'uil--video-slash'}
           onclick={() => voiceCallState.toggleCamera()}
-          disabled={voiceCallState.isCameraPending}
-          aria-busy={voiceCallState.isCameraPending || undefined}
-        >
-          {#if voiceCallState.isCameraPending}
-            <span class="iconify animate-spin uil--spinner" aria-hidden="true"></span>
-          {:else}
-            <span
-              class={[
-                'iconify',
-                voiceCallState.isCameraEnabled ? 'uil--video' : 'uil--video-slash'
-              ]}
-              aria-hidden="true"
-            ></span>
-          {/if}
-        </button>
-        <button
-          type="button"
+          pending={voiceCallState.isCameraPending}
+        />
+        <VoiceCallControlButton
           class={voiceCallState.isScreenShareEnabled
             ? compactCallActiveButtonClass
             : compactCallButtonClass}
-          title={voiceCallState.isScreenShareEnabled
+          label={voiceCallState.isScreenShareEnabled
             ? m['voice.stop_share_screen']()
             : m['voice.share_screen']()}
-          aria-label={voiceCallState.isScreenShareEnabled
-            ? m['voice.stop_share_screen']()
-            : m['voice.share_screen']()}
-          data-testid="current-user-call-screen-share"
+          testId="current-user-call-screen-share"
+          icon="uil--desktop"
           onclick={() => voiceCallState.toggleScreenShare()}
-          disabled={voiceCallState.isScreenSharePending}
-          aria-busy={voiceCallState.isScreenSharePending || undefined}
-        >
-          {#if voiceCallState.isScreenSharePending}
-            <span class="iconify animate-spin uil--spinner" aria-hidden="true"></span>
-          {:else}
-            <span class="iconify uil--desktop" aria-hidden="true"></span>
-          {/if}
-        </button>
-        <button
-          type="button"
+          pending={voiceCallState.isScreenSharePending}
+        />
+        <VoiceCallControlButton
           class={compactCallDangerButtonClass}
-          title={m['voice.leave']()}
-          aria-label={m['voice.leave']()}
-          data-testid="current-user-call-leave"
+          label={m['voice.leave']()}
+          testId="current-user-call-leave"
+          icon="uil--phone-slash"
           onclick={() => voiceCallState.leave()}
-        >
-          <span class="iconify uil--phone-slash" aria-hidden="true"></span>
-        </button>
+        />
       </div>
     {/if}
 
@@ -305,7 +272,7 @@ to the user settings page for the active server.
         data-testid="current-user-presence-menu"
         onclick={openStatusMenu}
       >
-        <UserAvatar user={activeServerUser} size="sm" showPresence />
+        <UserAvatar user={activeServerUser} serverId={activeServerId} size="sm" showPresence />
       </button>
       <div
         class="flex min-w-0 flex-1 flex-col overflow-hidden leading-tight"

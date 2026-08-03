@@ -49,10 +49,6 @@ describe('getPublicServerInfo', () => {
             loginUrl: '/auth/providers/hub'
           }
         ]
-      },
-      compatibility: {
-        protocolCapabilities: ['chatto.api.v1', 'chatto.realtime.v1'],
-        minimumWebClientVersion: '0.5.0-beta.2'
       }
     });
 
@@ -80,10 +76,9 @@ describe('getPublicServerInfo', () => {
           loginUrl: '/auth/providers/hub'
         }
       ],
-      compatibility: {
-        protocolCapabilities: ['chatto.api.v1', 'chatto.realtime.v1'],
-        minimumWebClientVersion: '0.5.0-beta.2'
-      }
+      // The mocked discovery response declares no capabilities, which is what
+      // an upstream Chatto server sends too.
+      compatibility: null
     });
   });
 
@@ -101,8 +96,7 @@ describe('getPublicServerInfo', () => {
       welcomeMessage: null,
       description: null,
       iconUrl: null,
-      bannerUrl: null,
-      compatibility: null
+      bannerUrl: null
     });
   });
 });

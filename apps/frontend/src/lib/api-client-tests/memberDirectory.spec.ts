@@ -1,7 +1,8 @@
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
 import { Timestamp } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PresenceStatus } from '$lib/api-client/renderTypes';
+
 import { PresenceStatus as APIPresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
 import { createMemberDirectoryAPI } from '$lib/api-client/memberDirectory';
 
@@ -91,7 +92,7 @@ describe('createMemberDirectoryAPI', () => {
           deleted: false,
           avatarUrl: 'https://cdn/avatar.webp',
           roleColor: 0x336699,
-          presenceStatus: PresenceStatus.Away,
+          presenceStatus: PresenceStatus.AWAY,
           customStatus: {
             emoji: ':seedling:',
             text: 'Focus',
@@ -136,15 +137,13 @@ describe('createMemberDirectoryAPI', () => {
 
     await expect(api.getUser('U1')).resolves.toMatchObject({
       id: 'U1',
-      presenceStatus: PresenceStatus.Online
+      presenceStatus: PresenceStatus.ONLINE
     });
     await expect(api.getUserByLogin('alice')).resolves.toMatchObject({
       id: 'U1',
-      presenceStatus: PresenceStatus.Online
+      presenceStatus: PresenceStatus.ONLINE
     });
-    await expect(api.batchGetUsers(['U1', 'missing'])).resolves.toMatchObject([
-      { id: 'U1' }
-    ]);
+    await expect(api.batchGetUsers(['U1', 'missing'])).resolves.toMatchObject([{ id: 'U1' }]);
 
     expect(mocks.getUser).toHaveBeenNthCalledWith(
       1,
@@ -190,7 +189,7 @@ describe('createMemberDirectoryAPI', () => {
           deleted: false,
           avatarUrl: null,
           roleColor: null,
-          presenceStatus: PresenceStatus.DoNotDisturb,
+          presenceStatus: PresenceStatus.DO_NOT_DISTURB,
           customStatus: null,
           roles: [],
           createdAt: null
@@ -277,20 +276,20 @@ describe('createMemberDirectoryAPI', () => {
       users: [
         {
           user: {
-              id: 'U3',
-              login: 'carol',
-              displayName: 'Carol',
-              deleted: false,
+            id: 'U3',
+            login: 'carol',
+            displayName: 'Carol',
+            deleted: false,
             presenceStatus: APIPresenceStatus.OFFLINE
           },
           roles: []
         },
         {
           user: {
-              id: 'U4',
-              login: 'dave',
-              displayName: 'Dave',
-              deleted: false,
+            id: 'U4',
+            login: 'dave',
+            displayName: 'Dave',
+            deleted: false,
             presenceStatus: APIPresenceStatus.UNSPECIFIED
           },
           roles: []
@@ -303,8 +302,8 @@ describe('createMemberDirectoryAPI', () => {
 
     await expect(api.listUsers()).resolves.toMatchObject({
       members: [
-        { id: 'U3', presenceStatus: PresenceStatus.Offline },
-        { id: 'U4', presenceStatus: PresenceStatus.Offline }
+        { id: 'U3', presenceStatus: PresenceStatus.OFFLINE },
+        { id: 'U4', presenceStatus: PresenceStatus.OFFLINE }
       ]
     });
   });

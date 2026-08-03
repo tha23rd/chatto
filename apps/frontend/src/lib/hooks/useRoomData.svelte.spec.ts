@@ -1,7 +1,8 @@
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
 import { flushSync } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PresenceStatus } from '$lib/render/types';
+
 import { RoomKind } from '@chatto/api-types/api/v1/rooms_pb';
 import { useRoomData } from './useRoomData.svelte';
 
@@ -20,14 +21,8 @@ const { mocks } = vi.hoisted(() => ({
   }
 }));
 
-vi.mock('$lib/state/server/connection.svelte', () => ({
-  useConnection: () => () => ({ serverId: 'server-1' })
-}));
-
-vi.mock('$lib/state/server/registry.svelte', () => ({
-  serverRegistry: {
-    tryGetStore: () => mocks.store
-  }
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({ store: mocks.store })
 }));
 
 function projectedRoom(roomId: string, kind = RoomKind.DM) {
@@ -62,7 +57,7 @@ function member(id: string) {
     displayName: `User ${id}`,
     deleted: false,
     avatarUrl: null,
-    presenceStatus: PresenceStatus.Online
+    presenceStatus: PresenceStatus.ONLINE
   };
 }
 
