@@ -315,7 +315,7 @@ errors.
 Run:
 
 ```bash
-mise x -- pnpm --filter chatto-docs build
+mise x -- pnpm --filter docs-website build
 mise license-check
 git diff --check main-native...HEAD
 ```
