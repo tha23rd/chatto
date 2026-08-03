@@ -1419,43 +1419,64 @@ export class VoiceCallState {
       systemAudio: capture.systemAudio
     };
     const stream = await this.nativeHost.captureDisplayMedia(displayOptions);
-    const videoTrack = stream.getVideoTracks()[0];
-    const audioTrack = stream.getAudioTracks()[0];
-    if (!videoTrack) {
-      stream.getTracks().forEach((track) => track.stop());
-      throw new Error('display capture did not return a video track');
-    }
-    const displaySurface = videoTrack.getSettings?.().displaySurface;
-    const applicationAudioUnavailable =
-      audioTrack === undefined && displaySurface !== 'monitor' && displaySurface !== 'browser';
-
-    videoTrack.contentHint = capture.contentHint;
-    if (audioTrack && 'contentHint' in audioTrack) {
-      audioTrack.contentHint = 'music';
-    }
-
+    const streamTracks = stream.getTracks();
     const publishedTracks: MediaStreamTrack[] = [];
+    let streamTracksStopped = false;
+    const stopStreamTracks = (): void => {
+      if (streamTracksStopped) return;
+      streamTracksStopped = true;
+      streamTracks.forEach((track) => track.stop());
+    };
+    const requireCurrentRoom = (): void => {
+      if (this.room !== room) {
+        throw new Error('voice room changed during native screen-share publication');
+      }
+    };
+    const rollbackPublishedTracks = async (): Promise<void> => {
+      await Promise.all(
+        publishedTracks.map((track) =>
+          // Keep raw-track stopping centralised below so every captured track is stopped once.
+          room.localParticipant.unpublishTrack(track, false).catch(() => undefined)
+        )
+      );
+      stopStreamTracks();
+    };
+
     try {
+      requireCurrentRoom();
+      const videoTrack = stream.getVideoTracks()[0];
+      const audioTrack = stream.getAudioTracks()[0];
+      if (!videoTrack) {
+        throw new Error('display capture did not return a video track');
+      }
+      const displaySurface = videoTrack.getSettings?.().displaySurface;
+      const applicationAudioUnavailable =
+        audioTrack === undefined && displaySurface !== 'monitor' && displaySurface !== 'browser';
+
+      videoTrack.contentHint = capture.contentHint;
+      if (audioTrack && 'contentHint' in audioTrack) {
+        audioTrack.contentHint = 'music';
+      }
+
+      requireCurrentRoom();
       await room.localParticipant.publishTrack(videoTrack, {
         ...publish,
         source: Track.Source.ScreenShare
       });
       publishedTracks.push(videoTrack);
+      requireCurrentRoom();
       if (audioTrack) {
+        requireCurrentRoom();
         await room.localParticipant.publishTrack(audioTrack, {
           ...publish,
           source: Track.Source.ScreenShareAudio
         });
         publishedTracks.push(audioTrack);
+        requireCurrentRoom();
       }
       return { applicationAudioUnavailable };
     } catch (error) {
-      await Promise.all(
-        publishedTracks.map((track) =>
-          room.localParticipant.unpublishTrack(track).catch(() => undefined)
-        )
-      );
-      stream.getTracks().forEach((track) => track.stop());
+      await rollbackPublishedTracks();
       throw error;
     }
   }
