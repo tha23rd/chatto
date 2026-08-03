@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"slices"
-	"strings"
 
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
 )
@@ -46,6 +45,7 @@ type MessageSearchHit struct {
 	MessageID   string
 	RoomID      string
 	BodyEventID string
+	Score       float64
 }
 
 // MessageSearchResult is one current message that survived authorization and
@@ -53,6 +53,7 @@ type MessageSearchHit struct {
 type MessageSearchResult struct {
 	Kind  RoomKind
 	Event *corev1.Event
+	Score float64
 }
 
 // ResolveScope returns only rooms the actor is currently an effective member
@@ -157,7 +158,7 @@ func (s *MessageSearchReadModel) HydrateHits(ctx context.Context, actorID string
 			continue
 		}
 		seen[key] = struct{}{}
-		results = append(results, MessageSearchResult{Kind: candidate.kind, Event: candidate.event})
+		results = append(results, MessageSearchResult{Kind: candidate.kind, Event: candidate.event, Score: hit.Score})
 	}
 	return results, nil
 }
@@ -200,7 +201,7 @@ func filterSearchRoomsBySelectors(rooms map[string]*corev1.Room, selectors []str
 	result := make(map[string]*corev1.Room)
 	for _, selector := range selectors {
 		for roomID, room := range rooms {
-			if roomID == selector || (room.GetName() != "" && strings.EqualFold(room.GetName(), selector)) {
+			if roomID == selector || (room.GetName() != "" && canonicalRoomName(room.GetName()) == canonicalRoomName(selector)) {
 				result[roomID] = room
 			}
 		}

@@ -14,24 +14,26 @@ Room sidebar panel for voice/video calls.
 - `livekitUrl` - The LiveKit server WebSocket URL (needed for joining)
 -->
 <script lang="ts">
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
-  import { getServerPermissions } from '$lib/state/server/permissions.svelte';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
+  import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { userPreferences } from '$lib/state/userPreferences.svelte';
   import * as m from '$lib/i18n/messages';
 
-  const stores = serverRegistry.getStore(getActiveServer());
-  const voiceCallState = stores.voiceCall;
-  const activeCallRooms = stores.activeCallRooms;
+  const serverScope = useServerScope();
+  const activeServerId = $derived(serverScope.serverId);
+  const stores = $derived(serverScope.store);
+  const voiceCallState = $derived(stores.voiceCall);
+  const activeCallRooms = $derived(stores.activeCallRooms);
 
   // Shared per-server soundboard catalog. Loaded lazily once the viewer is in
   // the call; the in-call panel plays these into the LiveKit room.
-  const soundboardStore = getSoundboard(getActiveServer());
-  const connection = useConnection();
-  import type { PresenceStatus } from '$lib/render/types';
+  const soundboardStore = $derived(getSoundboard(activeServerId));
+  const connection = () => serverScope.connection;
+
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import VideoThumbnail from './VideoThumbnail.svelte';
   import AudioDeviceMenu from './AudioDeviceMenu.svelte';
+  import VoiceCallControlButton from './VoiceCallControlButton.svelte';
   import CallTileActionButton from './CallTileActionButton.svelte';
   import CallTileActionToolbar from './CallTileActionToolbar.svelte';
   import ParticipantVolumePopover from './ParticipantVolumePopover.svelte';
@@ -41,7 +43,6 @@ Room sidebar panel for voice/video calls.
   import { getVoiceCallJoinErrorMessage } from '$lib/state/server/voiceCall.svelte';
   import { getSoundboard } from '$lib/state/soundboard.svelte';
   import type { Sound } from '$lib/api-client/soundboard';
-  import { useConnection } from '$lib/state/server/connection.svelte';
   import type { Track } from 'livekit-client';
   import type { Attachment } from 'svelte/attachments';
   import { startDMWith } from '$lib/dm/startDM';
@@ -67,7 +68,7 @@ Room sidebar panel for voice/video calls.
   let isConnecting = $derived(voiceCallState.connecting && voiceCallState.roomId === roomId);
   let hasActiveCall = $derived(activeCallRooms.has(roomId));
   let roomMembers = $derived(
-    stores.rooms?.rooms?.find((room) => room.id === roomId)?.members ?? []
+    stores.navigation?.rooms?.find((room) => room.id === roomId)?.members ?? []
   );
   let isStageLayout = $derived(layout === 'stage');
   let deviceMenuAnchor = $state<{ top: number; bottom: number; left: number } | null>(null);
@@ -114,7 +115,7 @@ Room sidebar panel for voice/video calls.
           login: p.login,
           displayName: p.name,
           avatarUrl: p.avatarUrl,
-          presenceStatus: 'ONLINE' as PresenceStatus,
+          presenceStatus: PresenceStatus.ONLINE,
           roleColor: roomMembers.find((member) => member.id === p.identity)?.roleColor ?? null
         },
         isMuted: p.isMuted,
@@ -142,7 +143,7 @@ Room sidebar panel for voice/video calls.
         login: p.login,
         displayName: p.displayName,
         avatarUrl: p.avatarUrl,
-        presenceStatus: 'ONLINE' as PresenceStatus,
+        presenceStatus: PresenceStatus.ONLINE,
         roleColor: roomMembers.find((member) => member.id === p.userId)?.roleColor ?? null
       },
       isMuted: false,
@@ -382,8 +383,7 @@ Room sidebar panel for voice/video calls.
   });
 
   // DM start capability
-  const serverPerms = getServerPermissions();
-  const canStartDMs = $derived(serverPerms.current.canStartDMs);
+  const canStartDMs = $derived(stores.permissions.canStartDMs);
 
   // User context menu popover
   let popoverParticipant = $state<DisplayParticipant | null>(null);
@@ -539,6 +539,7 @@ Room sidebar panel for voice/video calls.
     try {
       await voiceCallState.join(livekitUrl, roomId);
     } catch (err) {
+      if (!serverScope.isCurrent()) return;
       stores.handleVoiceCallJoinFailed(roomId);
       toast.error(getVoiceCallJoinErrorMessage(err));
     }
@@ -993,141 +994,89 @@ Room sidebar panel for voice/video calls.
 {#snippet callControls()}
   {#if isInThisCall}
     <div class={isStageLayout ? 'mx-auto max-w-2xl' : ''}>
+      <!-- Auto-flow columns: the soundboard control is conditional, so the
+           track count varies between four and six. -->
       <div class="grid grid-flow-col auto-cols-fr gap-2">
-        <button
-          type="button"
+        <VoiceCallControlButton
           class={controlButtonClass}
-          title={m['voice.devices']()}
-          aria-label={m['voice.devices']()}
-          data-testid="call-device-menu-button"
+          label={m['voice.devices']()}
+          testId="call-device-menu-button"
+          icon="uil--setting"
+          iconClass="text-lg"
           onclick={openDeviceMenu}
-        >
-          <span class="iconify text-lg uil--setting" aria-hidden="true"></span>
-        </button>
+        />
 
-        <button
-          type="button"
+        <VoiceCallControlButton
           class={voiceCallState.isCameraEnabled ? activeControlButtonClass : controlButtonClass}
-          title={voiceCallState.isCameraEnabled
+          label={voiceCallState.isCameraEnabled
             ? m['voice.turn_off_camera']()
             : m['voice.turn_on_camera']()}
-          aria-label={voiceCallState.isCameraEnabled
-            ? m['voice.turn_off_camera']()
-            : m['voice.turn_on_camera']()}
-          data-testid="call-camera-toggle"
+          testId="call-camera-toggle"
+          icon={voiceCallState.isCameraEnabled ? 'uil--video' : 'uil--video-slash'}
+          iconClass="text-lg"
           onclick={() => voiceCallState.toggleCamera()}
-          disabled={voiceCallState.isCameraPending}
-          aria-busy={voiceCallState.isCameraPending || undefined}
-        >
-          {#if voiceCallState.isCameraPending}
-            <span class="iconify animate-spin text-lg uil--spinner" aria-hidden="true"></span>
-          {:else}
-            <span
-              class={[
-                'iconify text-lg',
-                voiceCallState.isCameraEnabled ? 'uil--video' : 'uil--video-slash'
-              ]}
-              aria-hidden="true"
-            ></span>
-          {/if}
-        </button>
+          pending={voiceCallState.isCameraPending}
+        />
 
-        <button
-          type="button"
+        <VoiceCallControlButton
           class={voiceCallState.isMuted ? controlButtonClass : activeControlButtonClass}
-          title={voiceCallState.isMuted ? m['voice.unmute']() : m['voice.mute']()}
-          aria-label={voiceCallState.isMuted ? m['voice.unmute']() : m['voice.mute']()}
-          data-testid="call-mute-toggle"
+          label={voiceCallState.isMuted ? m['voice.unmute']() : m['voice.mute']()}
+          testId="call-mute-toggle"
+          icon={voiceCallState.isMuted ? 'uil--microphone-slash' : 'uil--microphone'}
+          iconClass="text-lg"
           onclick={() => voiceCallState.toggleMute()}
-          disabled={voiceCallState.isMicrophonePending}
-          aria-busy={voiceCallState.isMicrophonePending || undefined}
-        >
-          {#if voiceCallState.isMicrophonePending}
-            <span class="iconify animate-spin text-lg uil--spinner" aria-hidden="true"></span>
-          {:else}
-            <span
-              class={[
-                'iconify text-lg',
-                voiceCallState.isMuted ? 'uil--microphone-slash' : 'uil--microphone'
-              ]}
-              aria-hidden="true"
-            ></span>
-          {/if}
-        </button>
+          pending={voiceCallState.isMicrophonePending}
+        />
 
-        <button
-          type="button"
+        <VoiceCallControlButton
           class={voiceCallState.isDeafened ? controlButtonClass : activeControlButtonClass}
-          title={voiceCallState.isDeafened ? m['voice.undeafen']() : m['voice.deafen']()}
-          aria-label={voiceCallState.isDeafened ? m['voice.undeafen']() : m['voice.deafen']()}
-          aria-pressed={voiceCallState.isDeafened}
-          data-testid="call-deafen-toggle"
+          label={voiceCallState.isDeafened ? m['voice.undeafen']() : m['voice.deafen']()}
+          testId="call-deafen-toggle"
+          icon={voiceCallState.isDeafened ? 'uil--headphone-slash' : 'uil--headphones'}
+          iconClass="text-lg"
+          pressed={voiceCallState.isDeafened}
           onclick={() => voiceCallState.toggleDeafen()}
-          disabled={voiceCallState.isDeafenPending}
-          aria-busy={voiceCallState.isDeafenPending || undefined}
-        >
-          {#if voiceCallState.isDeafenPending}
-            <span class="iconify animate-spin text-lg uil--spinner" aria-hidden="true"></span>
-          {:else}
-            <span
-              class={[
-                'iconify text-lg',
-                voiceCallState.isDeafened ? 'uil--headphone-slash' : 'uil--headphones'
-              ]}
-              aria-hidden="true"
-            ></span>
-          {/if}
-        </button>
+          pending={voiceCallState.isDeafenPending}
+        />
 
-        <button
-          type="button"
+        <!-- Opens the stream-quality picker rather than toggling directly, so
+             this control advertises a dialog instead of a pressed state. -->
+        <VoiceCallControlButton
           class={voiceCallState.isScreenShareEnabled
             ? activeControlButtonClass
             : controlButtonClass}
-          title={voiceCallState.isScreenShareEnabled
+          label={voiceCallState.isScreenShareEnabled
             ? m['voice.stream_quality_settings']()
             : m['voice.share_screen']()}
-          aria-label={voiceCallState.isScreenShareEnabled
-            ? m['voice.stream_quality_settings']()
-            : m['voice.share_screen']()}
-          aria-haspopup="dialog"
-          aria-expanded={!!streamQualityAnchor}
-          data-testid="call-screen-share-toggle"
+          testId="call-screen-share-toggle"
+          icon="uil--desktop"
+          iconClass="text-lg"
+          haspopup="dialog"
+          expanded={!!streamQualityAnchor}
           onclick={onScreenShareClick}
-          disabled={voiceCallState.isScreenSharePending}
-          aria-busy={voiceCallState.isScreenSharePending || undefined}
-        >
-          {#if voiceCallState.isScreenSharePending}
-            <span class="iconify animate-spin text-lg uil--spinner" aria-hidden="true"></span>
-          {:else}
-            <span class="iconify text-lg uil--desktop" aria-hidden="true"></span>
-          {/if}
-        </button>
+          pending={voiceCallState.isScreenSharePending}
+        />
 
         {#if showSoundboardButton}
-          <button
-            type="button"
+          <VoiceCallControlButton
             class={soundboardAnchor ? activeControlButtonClass : controlButtonClass}
-            title={m['soundboard.panel_button']()}
-            aria-label={m['soundboard.panel_button']()}
-            aria-pressed={!!soundboardAnchor}
-            data-testid="call-soundboard-button"
+            label={m['soundboard.panel_button']()}
+            testId="call-soundboard-button"
+            icon="uil--music"
+            iconClass="text-lg"
+            pressed={!!soundboardAnchor}
             onclick={toggleSoundboard}
-          >
-            <span class="iconify text-lg uil--music" aria-hidden="true"></span>
-          </button>
+          />
         {/if}
 
-        <button
-          type="button"
+        <VoiceCallControlButton
           class={dangerControlButtonClass}
           onclick={() => voiceCallState.leave()}
-          title={m['voice.leave']()}
-          aria-label={m['voice.leave']()}
-          data-testid="call-leave-button"
-        >
-          <span class="iconify text-lg uil--phone-slash" aria-hidden="true"></span>
-        </button>
+          label={m['voice.leave']()}
+          testId="call-leave-button"
+          icon="uil--phone-slash"
+          iconClass="text-lg"
+        />
       </div>
     </div>
   {:else}
@@ -1270,7 +1219,7 @@ Room sidebar panel for voice/video calls.
     user={popoverParticipant.avatarUser}
     anchorRect={popoverAnchorRect}
     canSendMessage={canStartDMs}
-    onSendMessage={() => startDMWith(getActiveServer(), popoverParticipant!.avatarUser.id)}
+    onSendMessage={() => startDMWith(activeServerId, popoverParticipant!.avatarUser.id)}
     onClose={closeUserMenu}
   />
 {/if}

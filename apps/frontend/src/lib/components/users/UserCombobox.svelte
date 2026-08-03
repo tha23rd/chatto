@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import { createMemberDirectoryAPI, type DirectoryMember } from '$lib/api-client/memberDirectory';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useDebounce } from '$lib/hooks/useDebounce.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { Combobox } from '$lib/ui/form';
   import SkeletonImg from '$lib/ui/SkeletonImg.svelte';
   import { getAvatarInitials } from '$lib/utils/initials';
@@ -23,16 +23,12 @@
     placeholder?: string;
   } = $props();
 
-  const connection = useConnection();
+  const serverScope = useServerScope();
 
   let users = $state.raw<User[]>([]);
   let loading = $state(false);
   let requestId = 0;
-  let searchTimer: ReturnType<typeof setTimeout> | null = null;
-
-  onDestroy(() => {
-    if (searchTimer) clearTimeout(searchTimer);
-  });
+  const searchDebounce = useDebounce();
 
   function userLabel(user: User): string {
     const handle = user.login ? `@${user.login}` : user.id;
@@ -40,7 +36,7 @@
   }
 
   function scheduleSearch(query: string) {
-    if (searchTimer) clearTimeout(searchTimer);
+    searchDebounce.cancel();
     const search = query.trim();
     const currentRequest = ++requestId;
 
@@ -51,18 +47,14 @@
     }
 
     loading = true;
-    searchTimer = setTimeout(() => {
+    searchDebounce.run(() => {
       void searchUsers(search, currentRequest);
     }, 200);
   }
 
   async function searchUsers(search: string, currentRequest: number) {
     try {
-      const currentConnection = connection();
-      const api = createMemberDirectoryAPI({
-        baseUrl: currentConnection.connectBaseUrl,
-        bearerToken: currentConnection.bearerToken
-      });
+      const api = serverScope.connection.getAPI(createMemberDirectoryAPI);
       const result = await api.listUsers(search, 10, 0);
       if (currentRequest !== requestId) return;
       users = result.members;

@@ -9,7 +9,7 @@ Reactions reference custom emojis by their shortcode `name`, so names are the
 stable identity shown here alongside the rendered image.
 -->
 <script lang="ts">
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import {
     createAdminCustomEmojiAPI,
     type CustomEmoji
@@ -25,7 +25,8 @@ stable identity shown here alongside the rendered image.
   import { dropZone } from '$lib/attachments/dropZone.svelte';
   import DropZoneOverlay from '$lib/attachments/DropZoneOverlay.svelte';
 
-  const connection = useConnection();
+  const serverScope = useServerScope();
+  const connection = () => serverScope.connection;
 
   function apiConfig(): ConnectAPIConfig {
     const conn = connection();

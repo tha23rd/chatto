@@ -6,10 +6,12 @@ import MessageComposer, { type MessageComposerApi } from './MessageComposer.svel
 import { q } from '$lib/test-utils';
 import { getToasts, toast } from '$lib/ui/toast';
 import type { QuoteInsertionContent, RoomMember } from '$lib/state/room';
-import { PresenceStatus } from '$lib/render/types';
-import { RoomEventKind } from '$lib/render/eventKinds';
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
+
+import { TimelineEventKind } from '$lib/render/timelineEvents';
 import { renderMarkdown } from '$lib/markdown';
 import type { CreateMessageInput } from '$lib/api-client/messages';
+import { MentionRolesStore } from '$lib/state/server/mentionRoles.svelte';
 
 function postedMessageEvent(
   id = 'msg_123',
@@ -22,7 +24,7 @@ function postedMessageEvent(
     actorId: 'test-user',
     actor: null,
     event: {
-      kind: RoomEventKind.MessagePosted,
+      kind: TimelineEventKind.MessagePosted,
       roomId,
       body: 'hello world',
       attachments: [],
@@ -79,8 +81,9 @@ const roomStateMock = vi.hoisted(() => ({
 }));
 
 // Mock instance state
+let mentionRolesStore = new MentionRolesStore({ listRoles: listRolesConnectMock });
 const mockInstanceStores = {
-  currentUser: { user: { id: 'test-user', login: 'testuser' }, loading: false },
+  currentUser: { user: { id: 'test-user', login: 'testuser', settings: null }, loading: false },
   serverInfo: {
     videoProcessingEnabled: false,
     maxUploadSize: 25 * 1024 * 1024,
@@ -88,21 +91,29 @@ const mockInstanceStores = {
   },
   roomUnread: {
     setRoomUnread: vi.fn()
+  },
+  get mentionRoles() {
+    return mentionRolesStore;
   }
 };
 
-vi.mock('$lib/state/server/connection.svelte', () => ({
-  useConnection: () => () => ({
-    isConnected: true,
-    showConnectionLostBanner: false,
-    client: {
-      query: queryMock,
-      mutation: mutationMock,
-      subscription: vi.fn()
-    },
-    connectBaseUrl: 'http://localhost/api/connect',
-    bearerToken: null,
-    serverId: 'test-instance'
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({
+    serverId: 'test-instance',
+    store: mockInstanceStores,
+    connection: {
+      isConnected: true,
+      showConnectionLostBanner: false,
+      client: {
+        query: queryMock,
+        mutation: mutationMock,
+        subscription: vi.fn()
+      },
+      connectBaseUrl: 'http://localhost/api/connect',
+      bearerToken: null,
+      serverId: 'test-instance',
+      getAPI: (factory: (config: never) => unknown) => factory({} as never)
+    }
   })
 }));
 
@@ -129,32 +140,9 @@ vi.mock('$lib/attachments/prepareFiles', () => ({
   prepareFiles: prepareFilesMock
 }));
 
-vi.mock('$lib/state/server/registry.svelte', () => ({
-  serverRegistry: {
-    getStore: () => mockInstanceStores,
-    getServer: () => ({ id: 'test-instance', url: 'http://localhost' }),
-    isOriginServer: () => true,
-    originServer: { id: 'test-instance', url: 'http://localhost' },
-    servers: [{ id: 'test-instance', url: 'http://localhost' }]
-  }
-}));
-
-vi.mock('$lib/state/activeServer.svelte', () => ({
-  getActiveServer: () => () => 'test-instance'
-}));
-
-vi.mock('$lib/state/userSettings.svelte', () => ({
-  getUserSettings: () => ({
-    get effectiveTimezone() {
-      return 'UTC';
-    },
-    get effectiveHour12() {
-      return false;
-    }
-  })
-}));
-
 vi.mock('$lib/state/room', () => ({
+  MessagesStore: class {},
+  RoomFilesStore: class {},
   getRoomMembers: () => roomStateMock.members,
   getRoomMembersStore: () => ({
     searchMembers: vi.fn(async () => roomStateMock.members)
@@ -214,7 +202,7 @@ function roomMember(login: string, displayName = login): RoomMember {
     login,
     displayName,
     avatarUrl: null,
-    presenceStatus: PresenceStatus.Offline
+    presenceStatus: PresenceStatus.OFFLINE
   };
 }
 
@@ -417,6 +405,7 @@ describe('MessageComposer', () => {
     fetchLinkPreviewConnectMock.mockResolvedValue(null);
     listRolesConnectMock.mockReset();
     listRolesConnectMock.mockResolvedValue({ roles: [] });
+    mentionRolesStore = new MentionRolesStore({ listRoles: listRolesConnectMock });
     queryMock.mockReset();
     queryMock.mockResolvedValue({ data: null, error: null });
     sessionStorage.clear();
@@ -578,6 +567,25 @@ describe('MessageComposer', () => {
   });
 
   describe('initial state', () => {
+    it('publishes its API after initial synchronization and republishes it to replacement callbacks', async () => {
+      const firstReady = vi.fn((api: MessageComposerApi) => {
+        void api.addFiles([imageFile('ready.png')]);
+      });
+      const secondReady = vi.fn();
+      const rendered = renderMessageComposer(
+        { roomId: 'room-ready', onReady: firstReady },
+        { exactRoomId: true }
+      );
+
+      await findEditor(rendered.container);
+      await vi.waitFor(() => expect(firstReady).toHaveBeenCalledOnce());
+      await expect.element(rendered.container).toHaveTextContent('ready.png');
+
+      await rendered.rerender({ roomId: 'room-ready', onReady: secondReady });
+
+      await vi.waitFor(() => expect(secondReady).toHaveBeenCalledOnce());
+    });
+
     it('editor is editable initially', async () => {
       const { container } = renderMessageComposer({ roomId: 'room_456' });
 
@@ -1004,7 +1012,11 @@ describe('MessageComposer', () => {
       const editor = await findEditor(container);
 
       await expect.element(editor).toHaveTextContent(body);
-      editor.focus();
+      // The text assertion above only proves the DOM caught up, not that
+      // ProseMirror adopted the restored draft into its own document. Placing
+      // the caret explicitly both yields for that flush and states where this
+      // test means to type, instead of relying on where `focus()` lands.
+      await placeCaretAtEditorEnd(editor);
       document.execCommand('insertText', false, '!');
 
       await vi.waitFor(() =>
@@ -2550,7 +2562,7 @@ describe('MessageComposer', () => {
       expect(onMessageSent).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'msg_123',
-          event: expect.objectContaining({ kind: RoomEventKind.MessagePosted })
+          event: expect.objectContaining({ kind: TimelineEventKind.MessagePosted })
         })
       );
       expect(mockInstanceStores.roomUnread.setRoomUnread).toHaveBeenCalledWith(roomId, false);
@@ -2744,9 +2756,7 @@ describe('MessageComposer', () => {
       (q(container, 'button[aria-label="Send message"]') as HTMLButtonElement).click();
 
       await vi.waitFor(() => expect(mutationMock).toHaveBeenCalledOnce());
-      expect(mutationMock.mock.calls[0][1].input.linkPreview).toMatchObject({
-        previewToken: 'cht_LPpreviewtoken'
-      });
+      expect(mutationMock.mock.calls[0][1].input.linkPreviewToken).toBe('cht_LPpreviewtoken');
     });
 
     it('dismisses a fetched preview so it is not attached to the outgoing message', async () => {
@@ -2764,7 +2774,7 @@ describe('MessageComposer', () => {
       (q(container, 'button[aria-label="Send message"]') as HTMLButtonElement).click();
 
       await vi.waitFor(() => expect(mutationMock).toHaveBeenCalledOnce());
-      expect(mutationMock.mock.calls[0][1].input.linkPreview).toBeNull();
+      expect(mutationMock.mock.calls[0][1].input.linkPreviewToken).toBeNull();
     });
   });
 

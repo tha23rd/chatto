@@ -1,5 +1,5 @@
 import { getCustomEmojis } from '$lib/state/customEmojis.svelte';
-import { useConnection } from '$lib/state/server/connection.svelte';
+import { useServerScope } from '$lib/state/server/scope.svelte';
 
 /**
  * Ensure a server's custom emojis are loaded for the lifetime of the calling
@@ -11,18 +11,18 @@ import { useConnection } from '$lib/state/server/connection.svelte';
  * the first thing to need them, so each ensures the load itself; the fetch is
  * idempotent per server, so overlapping callers share one request.
  *
- * Must be called during component initialization (it reads connection context
+ * Must be called during component initialization (it reads the server scope
  * and registers an `$effect`). Pass `serverId` as a getter so the load follows
  * a changing server.
  */
 export function useEnsureCustomEmojis(serverId: () => string): void {
-  const connection = useConnection();
+  const scope = useServerScope();
   $effect(() => {
-    const conn = connection();
+    const connection = scope.connection;
     getCustomEmojis(serverId()).ensureLoaded({
-      serverId: conn.serverId,
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
+      serverId: connection.serverId,
+      baseUrl: connection.connectBaseUrl,
+      bearerToken: connection.bearerToken
     });
   });
 }

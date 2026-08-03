@@ -19,9 +19,8 @@ import {
 const mocks = vi.hoisted(() => ({
   getRoom: vi.fn(),
   projectionHandlers: [] as Array<(event: RealtimeProjectionEvent) => void>,
-  refreshRooms: vi.fn(),
   updateRoom: vi.fn(),
-  protocolCapabilities: ['chatto.api.room-manager-member-reads.v1'] as string[]
+  serverVersion: '0.5.0'
 }));
 
 vi.mock('$app/state', () => ({ page: roomManagementTestPage }));
@@ -36,36 +35,54 @@ vi.mock('$lib/hooks', () => ({
   }
 }));
 
-vi.mock('$lib/state/server/serverConnection.svelte', () => ({
-  serverConnectionManager: {
-    getClient: (serverId: string) => ({
-      serverId,
-      connectBaseUrl: `https://${serverId}.example.test/api/connect`,
-      bearerToken: `${serverId}-token`
-    })
-  }
-}));
-
 vi.mock('$lib/state/server/registry.svelte', () => ({
   serverRegistry: {
     isOriginServer: () => false,
     getServer: (serverId: string) => ({ id: serverId, url: `https://${serverId}.example.test` }),
     tryGetStore: () => ({
       serverInfo: {
-        version: '0.5.0',
-        get protocolCapabilities() {
-          return mocks.protocolCapabilities;
-        }
+        get version() {
+          return mocks.serverVersion;
+        },
+        supportsFeature: () => mocks.serverVersion === '0.5.0'
       }
     }),
-    getStore: () => ({ rooms: { refresh: mocks.refreshRooms } })
+    getStore: () => ({})
   }
 }));
 
-vi.mock('$lib/state/server/chromePermissions.svelte', () => ({
-  getChromePermissions: () => ({
-    current: { canManageRooms: true, canManageRoles: true }
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({
+    get serverId() {
+      return roomManagementPageTestState.serverId;
+    },
+    get connection() {
+      const serverId = roomManagementPageTestState.serverId;
+      return {
+        getAPI: (factory: (config: never) => unknown) =>
+          factory({
+            serverId,
+            baseUrl: `https://${serverId}.example.test/api/connect`,
+            bearerToken: `${serverId}-token`
+          } as never)
+      };
+    },
+    get store() {
+      return {
+        serverInfo: {
+          get version() {
+            return mocks.serverVersion;
+          },
+          supportsFeature: () => mocks.serverVersion === '0.5.0'
+        }
+      };
+    },
+    isCurrent: () => true
   })
+}));
+
+vi.mock('$lib/state/server/chromePermissions.svelte', () => ({
+  getChromePermissions: () => () => ({ canManageRooms: true, canManageRoles: true })
 }));
 
 vi.mock('$lib/api-client/adminRoomLayout', () => ({
@@ -153,7 +170,7 @@ describe('room management page identity and realtime authority', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mocks.projectionHandlers = [];
-    mocks.protocolCapabilities = ['chatto.api.room-manager-member-reads.v1'];
+    mocks.serverVersion = '0.5.0';
     mocks.updateRoom.mockResolvedValue({
       id: 'shared-room',
       name: 'general',
@@ -207,8 +224,8 @@ describe('room management page identity and realtime authority', () => {
     expect(container.textContent).toContain('Membership is automatic in Universal rooms.');
   });
 
-  it('hides member management when the server does not advertise manager reads', async () => {
-    mocks.protocolCapabilities = ['chatto.api.v1'];
+  it('hides member management on servers that predate the room-management API', async () => {
+    mocks.serverVersion = '0.4.19';
     mocks.getRoom.mockResolvedValue(managedRoom('general'));
 
     const { container } = render(RoomManagementPage);
@@ -216,6 +233,38 @@ describe('room management page identity and realtime authority', () => {
 
     expect(container.textContent).not.toContain('Members');
     expect(container.querySelector('#room-member-picker')).toBeNull();
+  });
+
+  it('does not request management details from servers that predate the admin API', async () => {
+    mocks.serverVersion = '0.4.19';
+
+    const { container } = render(RoomManagementPage);
+    await settle();
+
+    expect(mocks.getRoom).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('You do not have permission to access this page.');
+  });
+
+  it('accepts and normalizes Unicode room names', async () => {
+    mocks.getRoom.mockResolvedValue(managedRoom('general'));
+    const { container } = render(RoomManagementPage);
+    await settle();
+
+    const nameInput = container.querySelector('#room-settings-name') as HTMLInputElement;
+    nameInput.value = 'Ku\u0308che_繁體';
+    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    flushSync();
+
+    const submit = container.querySelector('form button[type="submit"]') as HTMLButtonElement;
+    expect(submit.disabled).toBe(false);
+    submit.click();
+
+    await vi.waitFor(() => {
+      expect(mocks.updateRoom).toHaveBeenCalledWith({
+        roomId: 'shared-room',
+        name: 'Küche_繁體'
+      });
+    });
   });
 
   it('purges room metadata synchronously when realtime removes access', async () => {

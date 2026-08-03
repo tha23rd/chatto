@@ -4,17 +4,13 @@ import { render } from 'vitest-browser-svelte';
 import '../../app.css';
 import { q } from '$lib/test-utils';
 import type { RoomMember } from '$lib/mentions';
-import { PresenceStatus } from '$lib/render/types';
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
+
 import type { TimeFormatSettings } from '$lib/utils/formatTime';
 
 const mocks = vi.hoisted(() => ({
   goto: vi.fn(),
-  segmentToServerId: vi.fn((segment: string) => (segment === '-' ? 'origin' : null)),
-  store: {
-    currentUser: {
-      user: undefined as { login: string } | undefined
-    }
-  }
+  segmentToServerId: vi.fn((segment: string) => (segment === '-' ? 'origin' : null))
 }));
 
 vi.mock('$app/navigation', () => ({
@@ -27,13 +23,8 @@ vi.mock('$lib/navigation', () => ({
   segmentToServerId: mocks.segmentToServerId
 }));
 
-vi.mock('$lib/state/activeServer.svelte', () => ({
-  getActiveServer: () => 'origin'
-}));
-
 vi.mock('$lib/state/server/registry.svelte', () => ({
   serverRegistry: {
-    tryGetStore: () => mocks.store,
     getServer: (serverId: string) =>
       serverId === 'origin'
         ? { id: 'origin', url: window.location.origin }
@@ -49,15 +40,20 @@ vi.mock('$lib/state/server/registry.svelte', () => ({
   }
 }));
 
-import MessageContent, { renderMarkdown, rendererReady } from './MessageContent.svelte';
+import MessageContent, { renderMarkdown } from './MessageContent.svelte';
 
 const channelRoomId = 'R123456789abcde';
 const dmRoomId = 'abcdef12345678';
 const messageId = 'Eabc123DEF456gh';
 const threadRootEventId = 'Ethread12345678';
 
-function renderMessage(body: string, members: RoomMember[] = [], roleHandles: string[] = []) {
-  return render(MessageContent, { props: { body, members, roleHandles } });
+function renderMessage(
+  body: string,
+  members: RoomMember[] = [],
+  roleHandles: string[] = [],
+  viewerLogin?: string
+) {
+  return render(MessageContent, { props: { body, members, roleHandles, viewerLogin } });
 }
 
 const utc24Settings: TimeFormatSettings = {
@@ -77,7 +73,7 @@ function member(login: string): RoomMember {
     login,
     displayName: login,
     avatarUrl: null,
-    presenceStatus: PresenceStatus.Offline
+    presenceStatus: PresenceStatus.OFFLINE
   };
 }
 
@@ -131,11 +127,6 @@ afterAll(() => {
 });
 
 describe('renderMarkdown', () => {
-  // Wait for the markdown renderer to initialize before running tests
-  beforeAll(async () => {
-    await rendererReady;
-  });
-
   describe('allowed syntax', () => {
     it('renders bold text with **', async () => {
       const html = await renderMarkdown('**bold**');
@@ -393,11 +384,6 @@ describe('MessageContent component', () => {
     const content = q(container, '.prose')!;
     expect(content.textContent).not.toContain('&nbsp;');
     expect(content.clientHeight).toBeLessThan(500);
-  });
-
-  // Wait for the markdown renderer to initialize before running tests
-  beforeAll(async () => {
-    await rendererReady;
   });
 
   it('renders markdown content', async () => {
@@ -714,6 +700,11 @@ describe('MessageContent component', () => {
       const span = q(container, 'span.mention')!;
       expect(span.textContent).toBe('@alice');
       expect(span.getAttribute('data-user-id')).toBe('u_alice');
+    });
+
+    it('uses the supplied viewer identity for self-mention highlighting', async () => {
+      const { container } = renderMessage('Hello @alice!', [member('alice')], [], 'alice');
+      await expect.poll(() => q(container, 'span.mention-self')).toBeTruthy();
     });
 
     it('does not wrap an @mention when no member matches', async () => {

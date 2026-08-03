@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"hmans.de/chatto/internal/events"
+	"hmans.de/chatto/internal/evtstream"
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
+	"hmans.de/chatto/pkg/events"
 )
 
 const maxCustomEmojiMutationRetries = 5
@@ -35,7 +36,7 @@ func newCustomEmojiDeletedEvent(actorID, id string) *corev1.Event {
 // invariants (such as unique names) can reject the mutation, and is retried on
 // OCC conflict.
 func (c *ChattoCore) appendCustomEmojiEvent(ctx context.Context, event *corev1.Event, check func() error) (uint64, error) {
-	filter := events.CustomEmojiSubjectFilter()
+	filter := evtstream.CustomEmojiSubjectFilter()
 
 	for attempt := 0; attempt < maxCustomEmojiMutationRetries; attempt++ {
 		filterSeq, err := c.EventPublisher.LastSubjectSeq(ctx, filter)
@@ -50,7 +51,7 @@ func (c *ChattoCore) appendCustomEmojiEvent(ctx context.Context, event *corev1.E
 				return 0, err
 			}
 		}
-		subject := events.CustomEmojiAggregate().SubjectFor(event)
+		subject := evtstream.CustomEmojiAggregate().SubjectFor(event)
 
 		seq, err := c.EventPublisher.AppendAtFilter(ctx, subject, event, filter, filterSeq)
 		if err == nil {
@@ -73,5 +74,5 @@ func (c *ChattoCore) appendCustomEmojiEvent(ctx context.Context, event *corev1.E
 }
 
 func (c *ChattoCore) waitForCustomEmojiProjection(ctx context.Context, pos events.StreamPosition) error {
-	return waitForPositionAll(ctx, pos, waitForProjection("Custom Emojis", c.CustomEmojisProjector))
+	return waitForPositionAll(ctx, pos, waitForProjection("Custom Emojis", c.customEmojis.Projector()))
 }

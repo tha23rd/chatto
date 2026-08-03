@@ -15,7 +15,7 @@ cost through capabilities that a browser tab cannot provide reliably:
 - desktop-safe authentication against arbitrary self-hosted servers;
 - authenticated HTTP and realtime WebSocket connectivity when a server's
   browser origin policy does not recognize the packaged application origin;
-- Windows display capture with system audio; and
+- Windows entire-display system audio and selected-application window audio; and
 - observable resource and WebRTC behavior for streaming optimization.
 
 Maintaining a native Windows UI in parallel with the Svelte client would
@@ -51,9 +51,9 @@ code into the privileged application window.
 
 Tauri is not accepted merely because the executable or installer is small. The
 POC must pass the authentication, transport, E2EE voice, global push-to-talk,
-system-audio capture, lifecycle, security, and resource checks defined in the
-Windows acceptance matrix. This ADR remains Proposed until that evidence is
-recorded.
+display and application-audio capture, lifecycle, security, and resource checks
+defined in the Windows acceptance matrix. This ADR remains Proposed until that
+evidence is recorded.
 
 Electron is a fallback, not a second implementation. Chatto will run an
 Electron comparison only when WebView2 fails a required media behavior and a
@@ -198,13 +198,21 @@ when the selected feed changes, and closes it on call cleanup or track end.
 The shared WebView2 environment preserves the opener relationship without
 creating another LiveKit connection or granting the child native authority.
 
-For this POC, screen-share audio means Windows system/loopback audio offered
-with an entire display or a selected window. Selecting a window scopes the
-picture but does not isolate its sound: current Chromium pairs that window with
-all system output and Chatto asks it to filter Chatto's own playback to avoid a
-call-audio loop. Native LiveKit or Windows per-process audio capture requires a
-separate ADR supported by measurements showing that this WebView2 media path is
-insufficient.
+Screen-share audio follows the selected capture surface. An entire-display
+share can retain Windows system/loopback audio. A selected-window share requests
+Chromium application loopback for the owning process tree. Current Chromium can
+fall back to system audio when application loopback is unavailable, so the
+renderer adapter validates the returned surface and audio-device label before
+LiveKit publication. A window or missing/unknown surface retains only an exact
+`Application Audio` track; `System Audio` and unrecognised tracks are stopped
+and removed. Monitor system audio and browser-tab scoped audio remain available.
+
+If selected-application audio is missing or rejected, Chatto publishes the
+window video and warns the presenter that it has no sound. It never broadens the
+window's audio scope automatically. This keeps LiveKit and E2EE in the renderer
+without adding native WASAPI media ownership. A native LiveKit or Windows audio
+path requires a separate ADR supported by reproducible WebView2 acceptance
+failure and resource measurements.
 
 ### Use tray-resident lifecycle for the POC
 
@@ -267,7 +275,8 @@ artifacts signed only by the new key.
 WebView2 updates with Windows rather than with Chatto. This reduces bundle size
 but means the exact embedded Chromium build is not pinned by an application
 release. The acceptance matrix must record the Windows and WebView2 versions
-used for media results.
+used for media results, the picker's exact audio-option wording, and whether
+Chromium returned application audio or its broader system-audio fallback.
 
 If a native media stack is later justified, it will likely own the complete
 LiveKit session rather than accepting renderer-owned tracks over IPC. That is a

@@ -20,7 +20,7 @@
  * reactive preference lives in the controller; this class only owns the
  * audio graph.
  */
-import { Track, type TrackProcessor } from 'livekit-client';
+import type { Track, TrackProcessor } from 'livekit-client';
 import type { DfnStats } from './dfnWorkletCore';
 
 /** DFN3 core surface this processor depends on; fakeable in tests. */

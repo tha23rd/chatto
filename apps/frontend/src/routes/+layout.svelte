@@ -5,24 +5,24 @@
   import { onNotificationClick } from '$lib/notifications/pushNotifications';
   import { prepareUiForNotificationPath } from '$lib/notifications/notificationNavigationUi';
   import { setAuthServerInfo } from '$lib/components/authServerInfo';
-  import ConnectionIndicator from '$lib/components/ConnectionIndicator.svelte';
-  import ConnectionProvider from '$lib/components/ConnectionProvider.svelte';
   import GlobalKeyboardShortcuts from '$lib/components/GlobalKeyboardShortcuts.svelte';
   import IdleTracker from '$lib/components/IdleTracker.svelte';
   import MobileSidebarChrome from '$lib/components/MobileSidebarChrome.svelte';
   import NotificationSync from '$lib/components/NotificationSync.svelte';
   import UpdateNotifier from '$lib/components/UpdateNotifier.svelte';
-  import DesktopUpdateNotifier from '$lib/components/DesktopUpdateNotifier.svelte';
-  import { usePageTitle, usePinchZoomPrevention, useVisualViewport } from '$lib/hooks';
+  import { usePageTitle } from '$lib/hooks/usePageTitle.svelte';
+  import { usePinchZoomPrevention } from '$lib/hooks/usePinchZoomPrevention.svelte';
   import { sidebarSwipe } from '$lib/hooks/useSidebarSwipe.svelte';
+  import { useVisualViewport } from '$lib/hooks/useVisualViewport.svelte';
   import { chatRoomIdFromRoute } from '$lib/navigation/chatRoomRoute';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
   import { sidebarNav } from '$lib/state/globals.svelte';
   import { provideAppUiState } from '$lib/state/appUi.svelte';
   import { useServerRegistry } from '$lib/state/server/useServerRegistry.svelte';
   import { ToastContainer } from '$lib/ui/toast';
-  import { AppHeader, Frame } from '$lib/ui';
-  import { desktopUpdates } from '$lib/native/desktopUpdates.svelte';
+  import AppHeader from '$lib/ui/AppHeader.svelte';
+  import Frame from '$lib/ui/Frame.svelte';
+  import { getNativeHost } from '$lib/native/host';
   import { onMount } from 'svelte';
   import '../app.css';
 
@@ -34,6 +34,18 @@
     return modalContainerModule;
   }
 
+  // The desktop updater and its notifier only exist in the packaged build, so
+  // they load behind the capability rather than shipping in every web bundle.
+  const supportsDesktopUpdates = getNativeHost().capabilities.desktopUpdates;
+  let desktopUpdateNotifierModule: Promise<
+    typeof import('$lib/components/DesktopUpdateNotifier.svelte')
+  > | null = null;
+
+  function loadDesktopUpdateNotifier() {
+    desktopUpdateNotifierModule ??= import('$lib/components/DesktopUpdateNotifier.svelte');
+    return desktopUpdateNotifierModule;
+  }
+
   setAuthServerInfo(() => data.serverInfo);
   const appUi = provideAppUiState();
   useServerRegistry(() => data.user);
@@ -41,9 +53,14 @@
   usePinchZoomPrevention();
 
   onMount(() => {
-    void desktopUpdates.initialize();
+    if (!supportsDesktopUpdates) return;
+    let started: typeof import('$lib/native/desktopUpdates.svelte') | null = null;
+    void import('$lib/native/desktopUpdates.svelte').then((module) => {
+      started = module;
+      void module.desktopUpdates.initialize();
+    });
     return () => {
-      void desktopUpdates.destroy();
+      void started?.desktopUpdates.destroy();
     };
   });
 
@@ -87,32 +104,28 @@
 <IdleTracker />
 <NotificationSync />
 <UpdateNotifier />
-<DesktopUpdateNotifier />
+{#if supportsDesktopUpdates}
+  {#await loadDesktopUpdateNotifier() then { default: DesktopUpdateNotifier }}
+    <DesktopUpdateNotifier />
+  {/await}
+{/if}
 
 <svelte:head>
   <title>{fullTitle}</title>
 </svelte:head>
 
-<ConnectionProvider>
-  {@render frame()}
-</ConnectionProvider>
+<div
+  use:sidebarSwipe
+  class="flex h-full w-full flex-col overscroll-y-contain bg-surface pt-[env(safe-area-inset-top,0px)] md:p-3 md:pt-0"
+>
+  <AppHeader />
 
-{#snippet frame()}
-  <div
-    use:sidebarSwipe
-    class="flex h-full w-full flex-col overscroll-y-contain bg-surface pt-[env(safe-area-inset-top,0px)] md:p-3 md:pt-0"
-  >
-    <ConnectionIndicator />
-
-    <AppHeader />
-
-    <Frame class="relative flex-col">
-      <MobileSidebarChrome>
-        {@render children?.()}
-      </MobileSidebarChrome>
-    </Frame>
-  </div>
-{/snippet}
+  <Frame class="relative flex-col">
+    <MobileSidebarChrome>
+      {@render children?.()}
+    </MobileSidebarChrome>
+  </Frame>
+</div>
 
 {#if page.state.modal}
   {#await loadModalContainer() then { default: ModalContainer }}

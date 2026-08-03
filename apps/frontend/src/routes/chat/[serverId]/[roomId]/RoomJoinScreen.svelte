@@ -1,8 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import * as m from '$lib/i18n/messages';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { Button } from '$lib/ui/form';
   import { toast } from '$lib/ui/toast';
   import PageTitle from '$lib/ui/PageTitle.svelte';
@@ -17,13 +16,13 @@
     serverSegment: string;
   } = $props();
 
-  const activeServerId = $derived(getActiveServer());
-  const stores = $derived(serverRegistry.getStore(activeServerId));
+  const serverScope = useServerScope();
+  const stores = $derived(serverScope.store);
   const overviewPath = $derived(resolve('/chat/[serverId]', { serverId: serverSegment }));
   const title = $derived(`#${room.name}`);
   let joining = $state(false);
   const groupName = $derived(
-    stores.rooms.roomGroups?.find((group) => group.roomIds.includes(room.id))?.name ?? null
+    stores.navigation.roomGroups.find((group) => group.roomIds.includes(room.id))?.name ?? null
   );
   const description = $derived(room.description?.trim() || null);
 
@@ -33,6 +32,7 @@
     joining = true;
     try {
       const result = await stores.roomDirectory.joinRoom(room.id);
+      if (!serverScope.isCurrent()) return;
 
       if (!result.ok) {
         toast.error(m['room.join.failed']());
@@ -45,9 +45,8 @@
           ? m['room.join.success']({ room: result.room.name })
           : m['room.join.success_generic']()
       );
-      await stores.rooms.refresh();
     } finally {
-      joining = false;
+      if (serverScope.isCurrent()) joining = false;
     }
   }
 </script>

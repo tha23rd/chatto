@@ -72,6 +72,7 @@
     "camera_failed": "Kan je camera niet inschakelen.",
     "screen_share_blocked": "Scherm delen is geannuleerd of geblokkeerd.",
     "screen_share_failed": "Kan scherm delen niet starten.",
+    "screen_share_audio_unavailable": "Applicatieaudio is niet gedeeld. Het venster wordt nog steeds zonder geluid gedeeld.",
     "speaker_switch_failed": "Kan niet schakelen tussen luidsprekers. Deze browser of dit apparaat ondersteunt mogelijk geen luidsprekerselectie.",
     "device_switch_failed": "Kan niet overschakelen naar dat apparaat.",
     "stream_quality": "Streamkwaliteit",

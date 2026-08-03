@@ -63,7 +63,9 @@ func TestWebhookLifecycle(t *testing.T) {
 			t.Fatal("webhook user must not appear in the user directory")
 		}
 	}
-	if _, ok := core.Users.GetByLogin(whUser.GetLogin()); ok {
+	if _, ok, err := core.userModel.userByLogin(ctx, whUser.GetLogin()); err != nil {
+		t.Fatalf("userByLogin: %v", err)
+	} else if ok {
 		t.Fatal("webhook user must not be resolvable by login")
 	}
 

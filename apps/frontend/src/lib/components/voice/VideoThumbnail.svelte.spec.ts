@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { flushSync } from 'svelte';
 import { render } from 'vitest-browser-svelte';
 import { q } from '$lib/test-utils';
-import { PresenceStatus } from '$lib/render/types';
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
 import type { Track } from 'livekit-client';
 import VideoThumbnail from './VideoThumbnail.svelte';
 
@@ -18,7 +18,7 @@ const user = {
   login: 'bob',
   displayName: 'Bob',
   avatarUrl: null,
-  presenceStatus: PresenceStatus.Online
+  presenceStatus: PresenceStatus.ONLINE
 };
 
 describe('VideoThumbnail', () => {

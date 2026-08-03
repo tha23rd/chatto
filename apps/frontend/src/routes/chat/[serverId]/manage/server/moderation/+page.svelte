@@ -8,17 +8,17 @@
   import { Button } from '$lib/ui/form';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
   import UnbanRoomMemberModal from '$lib/components/moderation/UnbanRoomMemberModal.svelte';
-  import { getUserSettings } from '$lib/state/userSettings.svelte';
-  import { formatDate as formatDateUtil } from '$lib/utils/formatTime';
+  import { formatDate as formatDateUtil, timeFormatSettingsFor } from '$lib/utils/formatTime';
   import { getLocale } from '$lib/i18n/runtime';
   import { toast } from '$lib/ui/toast';
-  import { useConnection } from '$lib/state/server/connection.svelte';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import * as m from '$lib/i18n/messages';
 
-  const userSettings = getUserSettings();
   const activeLocale = $derived(getLocale());
-  const connection = useConnection();
+  const serverScope = useServerScope();
+  const userSettings = $derived(
+    timeFormatSettingsFor(serverScope.store.currentUser.user?.settings)
+  );
 
   let bans = $state.raw<RoomBanSummary[]>([]);
   let unbanningBanId = $state<string | null>(null);
@@ -29,12 +29,7 @@
   let loadRequest = 0;
 
   function roomAPI() {
-    const conn = connection();
-    return createRoomCommandAPI({
-      serverId: conn.serverId ?? getActiveServer(),
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
-    });
+    return serverScope.connection.getAPI(createRoomCommandAPI);
   }
 
   async function loadRoomBans() {
@@ -53,14 +48,14 @@
         offset += page.bans.length;
         if (page.bans.length === 0) break;
       }
-      if (request !== loadRequest) return;
+      if (!serverScope.isCurrent() || request !== loadRequest) return;
       bans = nextBans;
     } catch (err) {
-      if (request !== loadRequest) return;
+      if (!serverScope.isCurrent() || request !== loadRequest) return;
       error = m['admin.moderation.admin_unavailable']();
       console.error('Failed to load room bans:', err);
     } finally {
-      if (request === loadRequest) {
+      if (serverScope.isCurrent() && request === loadRequest) {
         loading = false;
       }
     }
@@ -95,12 +90,14 @@
         reason
       });
     } catch (error) {
+      if (!serverScope.isCurrent()) return;
       unbanningBanId = null;
       unbanError = m['admin.moderation.unban_failed']();
       toast.error(unbanError);
       console.error('Failed to unban room member:', error);
       return;
     }
+    if (!serverScope.isCurrent()) return;
     unbanningBanId = null;
 
     toast.success(m['admin.moderation.unban_success']());

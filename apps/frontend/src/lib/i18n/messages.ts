@@ -34,6 +34,8 @@ const localeLoaders: Record<Locale, () => Promise<LocaleMessages>> = {
   "pl-PL": () => import('$lib/paraglide/messages/pl-PL.js') as Promise<LocaleMessages>,
   "uk-UA": () => import('$lib/paraglide/messages/uk-UA.js') as Promise<LocaleMessages>,
   "ja-JP": () => import('$lib/paraglide/messages/ja-JP.js') as Promise<LocaleMessages>,
+  "zh-TW": () => import('$lib/paraglide/messages/zh-TW.js') as Promise<LocaleMessages>,
+  "zh-CN": () => import('$lib/paraglide/messages/zh-CN.js') as Promise<LocaleMessages>,
   "eo": () => import('$lib/paraglide/messages/eo.js') as Promise<LocaleMessages>,
 };
 
@@ -594,10 +596,7 @@ const msg_chat_server_gutter_version = (
   inputs: Parameters<LocaleMessages['chat_server_gutter_version']>[0]
 ): LocalizedString => messages().chat_server_gutter_version(inputs);
 const msg_chat_server_gutter_version_unknown = (): LocalizedString => messages().chat_server_gutter_version_unknown(empty());
-const msg_chat_server_gutter_compatibility_degraded = (): LocalizedString => messages().chat_server_gutter_compatibility_degraded(empty());
 const msg_chat_server_gutter_compatibility_server_too_old = (): LocalizedString => messages().chat_server_gutter_compatibility_server_too_old(empty());
-const msg_chat_server_gutter_compatibility_client_too_old = (): LocalizedString => messages().chat_server_gutter_compatibility_client_too_old(empty());
-const msg_chat_server_gutter_compatibility_unsupported = (): LocalizedString => messages().chat_server_gutter_compatibility_unsupported(empty());
 const msg_chat_server_gutter_compatibility_unknown = (): LocalizedString => messages().chat_server_gutter_compatibility_unknown(empty());
 const msg_chat_threads_title = (): LocalizedString => messages().chat_threads_title(empty());
 const msg_chat_threads_subtitle = (): LocalizedString => messages().chat_threads_subtitle(empty());
@@ -1063,6 +1062,9 @@ const msg_quick_switcher_kind_server = (): LocalizedString => messages().quick_s
 const msg_quick_switcher_kind_room = (): LocalizedString => messages().quick_switcher_kind_room(empty());
 const msg_quick_switcher_kind_dm = (): LocalizedString => messages().quick_switcher_kind_dm(empty());
 const msg_quick_switcher_kind_user = (): LocalizedString => messages().quick_switcher_kind_user(empty());
+const msg_quick_switcher_kind_message = (): LocalizedString => messages().quick_switcher_kind_message(empty());
+const msg_quick_switcher_message_search_prompt = (): LocalizedString => messages().quick_switcher_message_search_prompt(empty());
+const msg_quick_switcher_message_search_no_results = (): LocalizedString => messages().quick_switcher_message_search_no_results(empty());
 const msg_search_title = (): LocalizedString => messages().search_title(empty());
 const msg_search_open = (): LocalizedString => messages().search_open(empty());
 const msg_search_in_room = (): LocalizedString => messages().search_in_room(empty());
@@ -1225,6 +1227,7 @@ const msg_voice_camera_in_use = (): LocalizedString => messages().voice_camera_i
 const msg_voice_camera_failed = (): LocalizedString => messages().voice_camera_failed(empty());
 const msg_voice_screen_share_blocked = (): LocalizedString => messages().voice_screen_share_blocked(empty());
 const msg_voice_screen_share_failed = (): LocalizedString => messages().voice_screen_share_failed(empty());
+const msg_voice_screen_share_audio_unavailable = (): LocalizedString => messages().voice_screen_share_audio_unavailable(empty());
 const msg_voice_speaker_switch_failed = (): LocalizedString => messages().voice_speaker_switch_failed(empty());
 const msg_voice_device_switch_failed = (): LocalizedString => messages().voice_device_switch_failed(empty());
 const msg_voice_stream_quality = (): LocalizedString => messages().voice_stream_quality(empty());
@@ -2430,10 +2433,7 @@ export { msg_chat_user_menu_send_message as 'chat.user_menu.send_message' };
 export { msg_chat_server_gutter_add_server as 'chat.server_gutter.add_server' };
 export { msg_chat_server_gutter_version as 'chat.server_gutter.version' };
 export { msg_chat_server_gutter_version_unknown as 'chat.server_gutter.version_unknown' };
-export { msg_chat_server_gutter_compatibility_degraded as 'chat.server_gutter.compatibility_degraded' };
 export { msg_chat_server_gutter_compatibility_server_too_old as 'chat.server_gutter.compatibility_server_too_old' };
-export { msg_chat_server_gutter_compatibility_client_too_old as 'chat.server_gutter.compatibility_client_too_old' };
-export { msg_chat_server_gutter_compatibility_unsupported as 'chat.server_gutter.compatibility_unsupported' };
 export { msg_chat_server_gutter_compatibility_unknown as 'chat.server_gutter.compatibility_unknown' };
 export { msg_chat_threads_title as 'chat.threads.title' };
 export { msg_chat_threads_subtitle as 'chat.threads.subtitle' };
@@ -2805,6 +2805,9 @@ export { msg_quick_switcher_kind_server as 'quick_switcher.kind.server' };
 export { msg_quick_switcher_kind_room as 'quick_switcher.kind.room' };
 export { msg_quick_switcher_kind_dm as 'quick_switcher.kind.dm' };
 export { msg_quick_switcher_kind_user as 'quick_switcher.kind.user' };
+export { msg_quick_switcher_kind_message as 'quick_switcher.kind.message' };
+export { msg_quick_switcher_message_search_prompt as 'quick_switcher.message_search.prompt' };
+export { msg_quick_switcher_message_search_no_results as 'quick_switcher.message_search.no_results' };
 export { msg_search_title as 'search.title' };
 export { msg_search_open as 'search.open' };
 export { msg_search_in_room as 'search.in_room' };
@@ -2943,6 +2946,7 @@ export { msg_voice_camera_in_use as 'voice.camera_in_use' };
 export { msg_voice_camera_failed as 'voice.camera_failed' };
 export { msg_voice_screen_share_blocked as 'voice.screen_share_blocked' };
 export { msg_voice_screen_share_failed as 'voice.screen_share_failed' };
+export { msg_voice_screen_share_audio_unavailable as 'voice.screen_share_audio_unavailable' };
 export { msg_voice_speaker_switch_failed as 'voice.speaker_switch_failed' };
 export { msg_voice_device_switch_failed as 'voice.device_switch_failed' };
 export { msg_voice_stream_quality as 'voice.stream_quality' };

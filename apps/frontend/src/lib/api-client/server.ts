@@ -19,7 +19,12 @@ export type PublicServerInfo = {
   iconUrl: string | null;
   bannerUrl: string | null;
   authProviders: PublicAuthProvider[];
-  compatibility: {
+  /**
+   * Capability metadata, or `null` when the server does not advertise any.
+   * Upstream Chatto servers omit this field, which correctly reads as
+   * "declares no capabilities" and leaves capability-gated behaviour off.
+   */
+  compatibility?: {
     protocolCapabilities: string[];
     minimumWebClientVersion: string | null;
   } | null;
