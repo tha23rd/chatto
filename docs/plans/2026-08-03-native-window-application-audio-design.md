@@ -18,6 +18,12 @@ outputs, and WebView2 accurately exposes an **Also share all audio outputs**
 picker toggle. The earlier change therefore implemented system-wide loopback
 audio for a window-shaped video capture, not application-scoped audio.
 
+Chromium can also satisfy `windowAudio: "window"` with a system-loopback track
+when application loopback is unavailable. The returned video track identifies
+the selected display surface, while Chromium identifies the returned audio
+device as `Application Audio` or `System Audio`. The native adapter therefore
+has enough information to reject that broader fallback before publication.
+
 The renderer also treats a video-only `getDisplayMedia()` result as a complete
 success when audio was requested. That behavior is technically valid because
 display-capture audio is optional, but it gives the presenter no indication
@@ -46,6 +52,13 @@ capture seam. Its Tauri implementation will translate an audio-enabled capture
 to `windowAudio: "window"` and retain the existing `systemAudio: "include"`
 hint. WebView2 applies the window preference when the presenter selects a
 window and the system preference when they select an entire display.
+
+Before returning the stream to LiveKit, the Tauri adapter will inspect the
+selected video surface. A selected window may retain only an audio track
+positively identified by Chromium as `Application Audio`; any system or
+unrecognised audio track is stopped and removed. Entire-display system audio is
+left intact. If display-surface metadata is unavailable, the adapter fails
+closed by retaining only positively identified application audio.
 
 The renderer will continue publishing the returned raw video and optional audio
 tracks through LiveKit's normal publication path. This preserves E2EE, sender
@@ -90,6 +103,9 @@ Automated coverage will verify:
 
 - the Tauri host advertises application-window audio and requests
   `windowAudio: "window"`;
+- a selected window retains Chromium application audio but stops and removes a
+  system-audio fallback before publication;
+- an entire display retains its system-audio track;
 - the browser host does not advertise the native capability;
 - the native host API version advances with the capability rename;
 - a returned application-audio track is published as screen-share audio;
@@ -116,7 +132,8 @@ calls. It is not needed for the approved application-sharing behavior.
 
 This could produce sound on a runtime without application-loopback support, but
 it would silently cross the selected-window privacy boundary. Chatto will
-prefer an explicit no-audio warning over broader capture.
+stop and remove such a fallback, then prefer an explicit no-audio warning over
+broader capture.
 
 ### Add native WASAPI capture or move to Electron
 

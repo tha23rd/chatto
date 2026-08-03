@@ -4,7 +4,7 @@
 
 **Goal:** Make the Windows Tauri client share only the selected application's audio with a window capture, while preserving entire-display system audio and warning when requested application audio is absent.
 
-**Architecture:** Keep display media in the shared Svelte/LiveKit renderer and use the typed `NativeHost` seam solely to add WebView2's `windowAudio: "window"` hint. Preserve video-only shares when audio is absent, report that degraded result through a localized warning toast, and keep the FDR, ADR, public guide, runtime inventory, and Windows acceptance contract aligned.
+**Architecture:** Keep display media in the shared Svelte/LiveKit renderer and use the typed `NativeHost` seam to add WebView2's `windowAudio: "window"` hint and reject any broader system-audio fallback before publication. Preserve video-only shares when audio is absent, report that degraded result through a localized warning toast, and keep the FDR, ADR, public guide, runtime inventory, and Windows acceptance contract aligned.
 
 **Tech Stack:** Svelte 5 runes, TypeScript, Vitest, Paraglide i18n, LiveKit JavaScript SDK, Tauri 2, Windows WebView2, Astro/Starlight documentation, mise, pnpm.
 
@@ -21,6 +21,7 @@
 - Modify: `apps/frontend/src/lib/native/tauriHost.ts`
 - Modify: `apps/frontend/src/lib/state/server/voiceCall.svelte.spec.ts`
 - Modify: `apps/frontend/src/lib/state/server/voiceCall.svelte.ts`
+- Modify: `apps/frontend/src/lib/state/server/screenShareQuality.ts`
 
 **Step 1: Write failing native-host contract tests**
 
@@ -62,6 +63,12 @@ Expected: FAIL because the production contract still exposes
 - Advertise it only from the Tauri host.
 - Set `windowAudio` to `"window"` when capture audio is enabled and to
   `"exclude"` otherwise.
+- After capture, inspect the returned video track's `displaySurface`. For a
+  selected window, retain only an audio track whose Chromium label is exactly
+  `Application Audio`; stop and remove system or unrecognised tracks before
+  LiveKit receives the stream. Preserve system audio for an entire display. If
+  display-surface metadata is unavailable, fail closed by retaining only
+  positively identified application audio.
 - Select the manual native publication path through the renamed capability.
 - Update comments to describe selected-application audio rather than system
   audio.
@@ -75,6 +82,11 @@ Run the same focused Vitest command.
 
 Expected: all selected tests pass.
 
+Add focused adapter cases covering application audio retained for a selected
+window, system fallback stopped and removed for a selected window, system audio
+retained for an entire display, and `windowAudio: "exclude"` when audio is
+false or omitted.
+
 **Step 5: Commit the capture contract**
 
 ```bash
@@ -83,6 +95,7 @@ git add apps/frontend/src/lib/native/host.spec.ts \
   apps/frontend/src/lib/native/types.ts \
   apps/frontend/src/lib/native/browserHost.ts \
   apps/frontend/src/lib/native/tauriHost.ts \
+  apps/frontend/src/lib/state/server/screenShareQuality.ts \
   apps/frontend/src/lib/state/server/voiceCall.svelte.spec.ts \
   apps/frontend/src/lib/state/server/voiceCall.svelte.ts
 git commit -m "fix(desktop): capture selected application audio"
