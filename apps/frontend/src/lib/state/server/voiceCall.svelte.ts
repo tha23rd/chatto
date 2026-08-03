@@ -1356,7 +1356,7 @@ export class VoiceCallState {
         if (
           newEnabled &&
           screenShareCapture.audio !== false &&
-          this.nativeHost.capabilities.windowSystemAudio
+          this.nativeHost.capabilities.windowApplicationAudio
         ) {
           await this.publishNativeScreenShare(room, screenShareCapture, enablePublishOptions);
           return;
@@ -1383,7 +1383,7 @@ export class VoiceCallState {
   }
 
   /**
-   * Capture an audio-enabled desktop share outside LiveKit's capture helper.
+   * Capture an application-audio-enabled desktop share outside LiveKit's capture helper.
    *
    * livekit-client currently omits Chromium's `windowAudio` dictionary member
    * while converting its screen-share options to `getDisplayMedia()`. The

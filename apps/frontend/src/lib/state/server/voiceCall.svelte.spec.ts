@@ -849,7 +849,7 @@ describe('VoiceCallState', () => {
     expect(state.participants[0].screenShareTrack).toBeNull();
   });
 
-  it('publishes native display tracks through LiveKit when window system audio is available', async () => {
+  it('publishes native display tracks through LiveKit when window application audio is available', async () => {
     const videoTrack = {
       id: 'native-screen-video',
       kind: 'video',
@@ -874,7 +874,7 @@ describe('VoiceCallState', () => {
       kind: 'tauri',
       capabilities: {
         ...browserNativeHost.capabilities,
-        windowSystemAudio: true
+        windowApplicationAudio: true
       },
       captureDisplayMedia
     });

@@ -43,7 +43,7 @@ describe('Tauri NativeHost', () => {
       appBadge: true,
       desktopUpdates: true,
       managedVideoPopOut: true,
-      windowSystemAudio: true
+      windowApplicationAudio: true
     });
   });
 
@@ -58,7 +58,7 @@ describe('Tauri NativeHost', () => {
     expect(native.setTaskbarAttention.mock.calls).toEqual([[true], [true], [false]]);
   });
 
-  it('requests system audio when an audio-enabled desktop capture selects a window', async () => {
+  it('requests application audio when an audio-enabled desktop capture selects a window', async () => {
     const native = bindings();
     const host = createTauriNativeHost(native);
     const audio = {
@@ -82,7 +82,7 @@ describe('Tauri NativeHost', () => {
       audio,
       video,
       systemAudio: 'include',
-      windowAudio: 'system'
+      windowAudio: 'window'
     });
   });
 

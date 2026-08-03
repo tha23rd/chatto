@@ -74,7 +74,7 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       appBadge: true,
       desktopUpdates: true,
       managedVideoPopOut: true,
-      windowSystemAudio: true
+      windowApplicationAudio: true
     },
 
     registerServerOrigin(value) {
@@ -117,10 +117,9 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
     captureDisplayMedia(options) {
       return bindings.getDisplayMedia({
         ...options,
-        // Chromium 141+ can pair a selected window's video with system audio.
-        // It does not yet isolate one window's audio, so this deliberately
-        // captures all Windows output while keeping the shared picture scoped.
-        windowAudio: options.audio ? 'system' : 'exclude'
+        // Pair a selected window's video with audio from its application process tree.
+        // Do not silently broaden window capture to all Windows output.
+        windowAudio: options.audio ? 'window' : 'exclude'
       });
     },
 
