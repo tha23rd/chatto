@@ -65,7 +65,7 @@ Rooms support real-time voice conversations with optional camera video and scree
 ### 4. Audio tracks must be explicitly attached
 
 **Decision:** The frontend listens for `RoomEvent.TrackSubscribed` and calls `track.attach()` to wire LiveKit audio into a hidden `<audio>` element. On leave or `TrackUnsubscribed`, it calls `track.detach()`.
-**Why:** LiveKit delivers audio data over WebRTC, but the browser doesn't autoplay it without an attached element. Without explicit attach, the UI looks like everything works — participant rings even animate — but nobody hears anything. The pattern lives in `apps/frontend/src/lib/state/voiceCall.svelte.ts`; any refactor that touches LiveKit subscription handling needs to keep the `track.attach()` / `track.detach()` calls intact.
+**Why:** LiveKit delivers audio data over WebRTC, but the browser doesn't autoplay it without an attached element. Without explicit attach, the UI looks like everything works — participant rings even animate — but nobody hears anything. Any refactor that touches LiveKit subscription handling needs to keep the `track.attach()` / `track.detach()` calls intact.
 **Tradeoff:** A subtle requirement that's easy to miss when refactoring; the skill warns explicitly.
 
 ### 5. Speaking indicators use neutral inline glyphs
@@ -151,7 +151,7 @@ Voice calling doesn't have a dedicated permission today; room membership is the 
 
 ## Related
 
-- **ADRs:** ADR-009 (webhook-driven voice call state), ADR-012 (two-tier real-time events), ADR-020 (build-tag gated test endpoints), ADR-051 (server-scoped resumable client projection), ADR-900 (Windows desktop client)
+- **ADRs:** ADR-009 (durable LiveKit call state), ADR-012 (two-tier real-time events), ADR-020 (build-tag gated test endpoints), ADR-051 (server-scoped resumable client projection), ADR-900 (Windows desktop client)
 - **FDRs:** FDR-001 (Roles & Permissions), FDR-012 (Notifications), FDR-013 (Web Push Notifications), FDR-019 (Room Lifecycle)
 
 ## Open Questions

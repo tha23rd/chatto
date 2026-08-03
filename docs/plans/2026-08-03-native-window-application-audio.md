@@ -209,6 +209,7 @@ git commit -m "fix(voice): report missing application audio"
 **Files:**
 
 - Modify: `docs/fdr/FDR-016-voice-calls.md`
+- Modify: `docs/fdr/INDEX.md`
 - Modify: `docs/adr/ADR-900-windows-desktop-client.md`
 - Modify: `docs/architecture/runtime-components.md`
 - Modify: `apps/docs-website/src/content/docs/guides/infrastructure/voice-calls.mdx`
@@ -263,6 +264,7 @@ paragraph exceeds 100 words without a clear reason.
 
 ```bash
 git add docs/fdr/FDR-016-voice-calls.md \
+  docs/fdr/INDEX.md \
   docs/adr/ADR-900-windows-desktop-client.md \
   docs/architecture/runtime-components.md \
   apps/docs-website/src/content/docs/guides/infrastructure/voice-calls.mdx \
