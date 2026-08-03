@@ -14,7 +14,7 @@ const {
   registeredServersMock,
   replaceServerAuthenticationMock,
   startNativeOAuthMock,
-  updateServerMock
+  updateRegistrationMock
 } = vi.hoisted(() => ({
   addServerMock: vi.fn(),
   clearOriginAuthenticationMock: vi.fn(),
@@ -28,7 +28,7 @@ const {
   registeredServersMock: [] as Array<{ id: string; url: string }>,
   replaceServerAuthenticationMock: vi.fn(),
   startNativeOAuthMock: vi.fn(),
-  updateServerMock: vi.fn()
+  updateRegistrationMock: vi.fn()
 }));
 
 vi.mock('$app/navigation', () => ({ goto: gotoMock }));
@@ -48,7 +48,7 @@ vi.mock('$lib/state/server/registry.svelte', () => ({
     servers: registeredServersMock,
     addServer: addServerMock,
     getStore: vi.fn(() => ({ serverInfo: { init: initServerInfoMock } })),
-    updateServer: updateServerMock,
+    updateRegistration: updateRegistrationMock,
     replaceServerAuthentication: replaceServerAuthenticationMock,
     clearOriginAuthentication: clearOriginAuthenticationMock
   }

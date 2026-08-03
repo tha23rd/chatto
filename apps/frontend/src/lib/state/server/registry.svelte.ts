@@ -4,8 +4,7 @@ import { serverConnectionManager } from './serverConnection.svelte';
 import { eventBusManager } from './eventBus.svelte';
 import { Codecs, globalSlot } from '$lib/storage/slot';
 import { getPublicServerInfo } from '$lib/api-client/server';
-import { getNativeHost } from '$lib/native/host';
-import type { Unsubscribe } from '$lib/native/types';
+import { NativeServerOrigins } from './nativeOrigins';
 import { removeRegisteredServerQueries } from '$lib/query/cacheRegistry';
 import {
 	ServerCatalog,
@@ -187,7 +186,7 @@ class ServerRegistry {
 	readonly catalog: ServerCatalog;
 	readonly sessions: ServerSessions;
 	#stores = new SvelteMap<string, ServerStateStore>();
-	#nativeOriginRegistrations = new Map<string, { url: string; release: Unsubscribe }>();
+	#nativeOrigins = new NativeServerOrigins();
 
 	constructor() {
 		const persisted = restorePersistedServerState();
@@ -417,9 +416,8 @@ class ServerRegistry {
 	 */
 	init(): void {
 		for (const registration of this.registrations) {
-			// The native host needs every server origin registered up front, not
-			// only the ones a store is created for.
-			this.#registerNativeOrigin(registration);
+			// Every origin needs a lease, not only the ones with a store.
+			this.#nativeOrigins.register(registration.id, registration.url);
 			if (!this.#stores.has(registration.id)) {
 				this.#createStore(registration.id);
 			}
@@ -441,7 +439,7 @@ class ServerRegistry {
 		if (!this.catalog.add(publicRegistration)) return;
 		this.sessions.replace(registration.id, localSession);
 		this.#persist();
-		this.#registerNativeOrigin(publicRegistration);
+		this.#nativeOrigins.register(publicRegistration.id, publicRegistration.url);
 		this.#createStore(registration.id);
 	}
 
@@ -461,7 +459,7 @@ class ServerRegistry {
 
 		// Dispose connection state
 		serverConnectionManager.destroyClient(id);
-		this.#releaseNativeOrigin(id);
+		this.#nativeOrigins.release(id);
 
 		this.sessions.remove(id);
 		this.catalog.remove(id);
@@ -485,28 +483,14 @@ class ServerRegistry {
 		this.catalog.reset(origin ? [registrationFromServer(origin)] : []);
 		if (origin) {
 			this.sessions.ensure(origin.id);
+			// #disposeServers released every lease, but this registration survives
+			// the reset. `init` runs once per page load, so retake it here or the
+			// desktop client cannot reach its own origin again.
+			this.#nativeOrigins.register(origin.id, origin.url);
 			this.#createStore(origin.id);
 			this.settleOriginUnauthenticated();
 		}
 		this.#persist();
-	}
-
-	/**
-	 * Update a registered server's catalogue metadata.
-	 *
-	 * Upstream replaced this with `updateRegistration`, which takes only the
-	 * synchronizable metadata patch. It is retained here because this
-	 * distribution's OAuth completion path calls it, and because changing a
-	 * server's URL has to re-register the origin with the native host.
-	 */
-	updateServer(id: string, data: Partial<Omit<RegisteredServer, 'id'>>): boolean {
-		const server = this.getServer(id);
-		if (!server) return false;
-		if (data.url && data.url !== server.url) {
-			this.#registerNativeOrigin({ id, url: data.url });
-		}
-		const { name, iconUrl, addedAt } = data;
-		return this.updateRegistration(id, { name, iconUrl, addedAt });
 	}
 
 	/** Drop catalogue entries learned only from a previous Authling account. */
@@ -528,9 +512,7 @@ class ServerRegistry {
 			this.#stores.get(id)?.dispose();
 			this.#stores.delete(id);
 			serverConnectionManager.destroyClient(id);
-			// Paired with #registerNativeOrigin: the native host holds a
-			// reference-counted lease per origin, so disposal must release it.
-			this.#releaseNativeOrigin(id);
+			this.#nativeOrigins.release(id);
 		}
 	}
 
@@ -544,21 +526,6 @@ class ServerRegistry {
 	/** Subscribe only to public catalogue changes used by account-data sync. */
 	subscribeCatalog(listener: (change: ServerCatalogChange) => void): () => void {
 		return this.catalog.subscribe(listener);
-	}
-
-	#registerNativeOrigin(server: Pick<RegisteredServer, 'id' | 'url'>): void {
-		const existing = this.#nativeOriginRegistrations.get(server.id);
-		if (existing?.url === server.url) return;
-		const release = getNativeHost().registerServerOrigin(server.url);
-		existing?.release();
-		this.#nativeOriginRegistrations.set(server.id, { url: server.url, release });
-	}
-
-	#releaseNativeOrigin(serverId: string): void {
-		const registration = this.#nativeOriginRegistrations.get(serverId);
-		if (!registration) return;
-		this.#nativeOriginRegistrations.delete(serverId);
-		registration.release();
 	}
 
 	replaceServerAuthentication(

@@ -32,9 +32,16 @@ vi.mock('$lib/state/server/eventBus.svelte', () => ({
 }));
 
 vi.mock('$lib/state/server/registry.svelte', () => ({
+  // The layout mounts AuthStatusNotice, which imports the reauth module, which
+  // imports `generateServerId` from here. Unused by this test, but the mock has
+  // to provide it or the module namespace fails to resolve.
+  generateServerId: (url: string) => url,
   serverRegistry: {
     originServer: null,
     servers: [{ id: 'remote' }],
+    // No server resolves, so the reauth notice stays hidden and this test is
+    // only exercising the lifecycle owners the layout mounts.
+    getServer: () => undefined,
     tryGetStore: () => mocks.store
   }
 }));

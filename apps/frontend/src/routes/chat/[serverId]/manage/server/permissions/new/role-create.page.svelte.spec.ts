@@ -6,7 +6,8 @@ import { queryClient } from '$lib/query/client';
 const mocks = vi.hoisted(() => ({
   listAdminRoles: vi.fn(),
   createRole: vi.fn(),
-  goto: vi.fn()
+  goto: vi.fn(),
+  supportsProtocolCapability: vi.fn(() => true)
 }));
 
 vi.mock('$app/navigation', () => ({ goto: mocks.goto }));
@@ -21,7 +22,9 @@ vi.mock('$lib/navigation', () => ({ serverIdToSegment: (serverId: string) => ser
 vi.mock('$lib/state/server/scope.svelte', () => ({
   useServerScope: () => ({
     serverId: 'origin',
-    store: {},
+    // Role colours are gated on a protocol capability, so this page reads the
+    // server-info snapshot as well as its query data.
+    store: { serverInfo: { supportsProtocolCapability: mocks.supportsProtocolCapability } },
     connection: {
       queryScope: 'role-create-test',
       getAPI: () => ({
@@ -73,6 +76,28 @@ describe('role creation query invalidation', () => {
     await vi.waitFor(() => expect(mocks.createRole).toHaveBeenCalledOnce());
     expect(queryClient.getQueryState(tierKey)?.isInvalidated).toBe(true);
     expect(mocks.goto).toHaveBeenCalledWith('/chat/origin/manage/server/permissions/moderator');
+  });
+
+  // Role colours are gated on `chatto.role-colors.v1`. A server that never
+  // declared it cannot interpret the field, so the create call must omit it
+  // rather than send a default the server would reject or misread.
+  it.each([
+    [true, true],
+    [false, false]
+  ])('sends a role colour only when the server declares the capability (%s)', async (
+    supported,
+    expectColor
+  ) => {
+    mocks.supportsProtocolCapability.mockReturnValue(supported);
+    const { container } = render(RoleCreatePage);
+    await vi.waitFor(() =>
+      expect(container.querySelector('[data-testid="create-role"]')).not.toBeNull()
+    );
+
+    (container.querySelector('[data-testid="create-role"]') as HTMLButtonElement).click();
+
+    await vi.waitFor(() => expect(mocks.createRole).toHaveBeenCalledOnce());
+    expect('color' in mocks.createRole.mock.calls[0][0]).toBe(expectColor);
   });
 
   it('reuses the cached role catalog capability snapshot', async () => {

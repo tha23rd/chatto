@@ -1,4 +1,5 @@
-import { afterEach, describe, it, expect, beforeEach } from 'vitest';
+import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest';
+import { browserNativeHost } from '$lib/native/browserHost';
 import {
 	generateServerId,
 	restorePersistedServerState,
@@ -339,7 +340,7 @@ describe('ServerRegistry', () => {
 		});
 	});
 
-	describe('updateServer', () => {
+	describe('updateRegistration', () => {
 		it('updates fields on an existing instance', async () => {
 			const registry = await createRegistry();
 			registry.removeAll();
@@ -426,6 +427,38 @@ describe('ServerRegistry', () => {
 			expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toEqual([
 				expect.objectContaining({ id: 'origin', token: null })
 			]);
+		});
+
+		// The reset disposes every server, which releases each native origin
+		// lease. The origin registration survives the reset, so its lease has to
+		// be retaken: `init` only runs once per page load, and the desktop host
+		// rejects requests to an origin it does not hold a lease for.
+		it('retakes the origin native lease during a local all-server reset', async () => {
+			const releases: Array<ReturnType<typeof vi.fn>> = [];
+			const register = vi
+				.spyOn(browserNativeHost, 'registerServerOrigin')
+				.mockImplementation(() => {
+					const release = vi.fn();
+					releases.push(release);
+					return release;
+				});
+			try {
+				const registry = await createRegistry();
+				registry.removeAll();
+				registry.addServer(makeServer({ id: 'origin', url: window.location.origin }));
+				registry.addServer(
+					makeServer({ id: 'remote', url: 'https://remote.example.com', token: 'remote-token' })
+				);
+				register.mockClear();
+				releases.length = 0;
+
+				registry.resetToOrigin();
+
+				expect(register).toHaveBeenCalledWith(window.location.origin);
+				expect(releases.filter((release) => release.mock.calls.length === 0)).toHaveLength(1);
+			} finally {
+				register.mockRestore();
+			}
 		});
 
 		it('drops signed-out synced entries and promotes authenticated ones on disconnect', async () => {
