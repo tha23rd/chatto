@@ -71,6 +71,7 @@
     "camera_failed": "Não foi possível ligar sua câmera.",
     "screen_share_blocked": "O compartilhamento de tela foi cancelado ou bloqueado.",
     "screen_share_failed": "Não foi possível iniciar o compartilhamento de tela.",
+    "screen_share_audio_unavailable": "O áudio do aplicativo não foi compartilhado. A janela continua sendo compartilhada sem som.",
     "speaker_switch_failed": "Não foi possível trocar os alto-falantes. Este navegador ou dispositivo pode não suportar a seleção de alto-falantes.",
     "device_switch_failed": "Não foi possível mudar para esse dispositivo.",
     "stream_quality": "Qualidade da transmissão",

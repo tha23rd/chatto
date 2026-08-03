@@ -71,6 +71,7 @@
     "camera_failed": "Kunne ikke slå på kameraet ditt.",
     "screen_share_blocked": "Skjermdeling ble kansellert eller blokkert.",
     "screen_share_failed": "Kunne ikke starte skjermdeling.",
+    "screen_share_audio_unavailable": "Programlyden ble ikke delt. Vinduet deles fortsatt uten lyd.",
     "speaker_switch_failed": "Kunne ikke bytte høyttalere. Denne nettleseren eller enheten støtter kanskje ikke høyttalervalg.",
     "device_switch_failed": "Kunne ikke bytte til den enheten.",
     "stream_quality": "Strømkvalitet",

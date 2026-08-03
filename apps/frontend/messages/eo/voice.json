@@ -71,6 +71,7 @@
     "camera_failed": "Ne eblis ŝalti vian fotilon.",
     "screen_share_blocked": "Ekrankundivido estis nuligita aŭ blokita.",
     "screen_share_failed": "Ne eblis komenci ekrankundividon.",
+    "screen_share_audio_unavailable": "La sono de la aplikaĵo ne estis kundividita. La fenestro ankoraŭ estas kundividata sen sono.",
     "speaker_switch_failed": "Ne eblis ŝanĝi laŭtparolilojn. Ĉi tiu retumilo aŭ aparato eble ne subtenas elektadon de laŭtparoliloj.",
     "device_switch_failed": "Ne eblis ŝanĝi al tiu aparato.",
     "stream_quality": "Stream quality",

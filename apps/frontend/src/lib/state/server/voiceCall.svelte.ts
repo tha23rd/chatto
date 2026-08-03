@@ -141,6 +141,9 @@ const DEAFENED_ATTRIBUTE = 'deafened';
 
 type VoiceCallMediaDeviceTarget = 'microphone' | 'camera' | 'screen' | 'speaker' | 'device';
 type VoiceCallMediaDeviceContext = 'join' | 'enable' | 'switch' | 'event';
+type NativeScreenSharePublishResult = {
+  readonly applicationAudioUnavailable: boolean;
+};
 type MediaDeviceFailureKind =
   | 'permission-denied'
   | 'not-found'
@@ -1344,6 +1347,7 @@ export class VoiceCallState {
       this.screenShareQuality,
       this.screenShareCeiling
     );
+    let nativeScreenShareResult: NativeScreenSharePublishResult | undefined;
     try {
       const enablePublishOptions: TrackPublishOptions = {
         ...screenSharePublish,
@@ -1358,7 +1362,11 @@ export class VoiceCallState {
           screenShareCapture.audio !== false &&
           this.nativeHost.capabilities.windowApplicationAudio
         ) {
-          await this.publishNativeScreenShare(room, screenShareCapture, enablePublishOptions);
+          nativeScreenShareResult = await this.publishNativeScreenShare(
+            room,
+            screenShareCapture,
+            enablePublishOptions
+          );
           return;
         }
         await room.localParticipant.setScreenShareEnabled(
@@ -1370,7 +1378,12 @@ export class VoiceCallState {
       if (this.room !== room) return;
 
       this.isScreenShareEnabled = newEnabled;
-      if (newEnabled) this.markSharedAudioAsMusic(room);
+      if (newEnabled) {
+        this.markSharedAudioAsMusic(room);
+        if (nativeScreenShareResult?.applicationAudioUnavailable) {
+          toast.warning(m['voice.screen_share_audio_unavailable']());
+        }
+      }
     } catch (err) {
       if (this.room !== room) return;
       if (newEnabled) {
@@ -1395,7 +1408,7 @@ export class VoiceCallState {
     room: Room,
     capture: ResolvedScreenShareOptions['capture'],
     publish: TrackPublishOptions
-  ): Promise<void> {
+  ): Promise<NativeScreenSharePublishResult> {
     const displayOptions: NativeDisplayMediaOptions = {
       audio: capture.audio,
       video: {
@@ -1412,6 +1425,9 @@ export class VoiceCallState {
       stream.getTracks().forEach((track) => track.stop());
       throw new Error('display capture did not return a video track');
     }
+    const displaySurface = videoTrack.getSettings?.().displaySurface;
+    const applicationAudioUnavailable =
+      audioTrack === undefined && displaySurface !== 'monitor' && displaySurface !== 'browser';
 
     videoTrack.contentHint = capture.contentHint;
     if (audioTrack && 'contentHint' in audioTrack) {
@@ -1432,6 +1448,7 @@ export class VoiceCallState {
         });
         publishedTracks.push(audioTrack);
       }
+      return { applicationAudioUnavailable };
     } catch (error) {
       await Promise.all(
         publishedTracks.map((track) =>

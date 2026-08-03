@@ -22,6 +22,14 @@ describe('regional English messages', () => {
     expect(m['settings.profile.status.template.vacation']()).toBe('Holiday');
   });
 
+  it('returns the application audio was not shared warning in British English', async () => {
+    await selectLocale('en-GB');
+
+    expect(m['voice.screen_share_audio_unavailable']()).toBe(
+      'Application audio was not shared. The window is still being shared without sound.'
+    );
+  });
+
   it('uses US overrides and falls back for shared messages', async () => {
     await selectLocale('en-US');
 

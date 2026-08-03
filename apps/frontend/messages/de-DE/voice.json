@@ -71,6 +71,7 @@
     "camera_failed": "Deine Kamera konnte nicht eingeschaltet werden.",
     "screen_share_blocked": "Die Bildschirmfreigabe wurde abgebrochen oder blockiert.",
     "screen_share_failed": "Die Bildschirmfreigabe konnte nicht gestartet werden.",
+    "screen_share_audio_unavailable": "Das Anwendungsaudio wurde nicht übertragen. Das Fenster wird weiterhin ohne Ton geteilt.",
     "speaker_switch_failed": "Der Lautsprecher konnte nicht gewechselt werden. Dieser Browser oder dieses Gerät unterstützt die Lautsprecherauswahl möglicherweise nicht.",
     "device_switch_failed": "Zu diesem Gerät konnte nicht gewechselt werden.",
     "stream_quality": "Streamqualität",

@@ -11,7 +11,8 @@ const { popOutMocks, soundMocks, toastMocks } = vi.hoisted(() => ({
     playCallSound: vi.fn(() => Promise.resolve())
   },
   toastMocks: {
-    error: vi.fn()
+    error: vi.fn(),
+    warning: vi.fn()
   }
 }));
 
@@ -151,11 +152,23 @@ vi.mock('livekit-client', () => {
       setAttributes: vi.fn(async (attrs: Record<string, string>) => {
         calls.push(`setAttributes:${JSON.stringify(attrs)}`);
       }),
-      publishTrack: vi.fn(async (track: MediaStreamTrack, options?: { name?: string }) => {
-        calls.push(`publishTrack:${options?.name ?? ''}:${track.id}`);
-      }),
+      publishTrack: vi.fn(
+        async (track: MediaStreamTrack, options?: { name?: string; source?: string }) => {
+          if (options?.source === 'screen_share' || options?.source === 'screen_share_audio') {
+            localTrackPublications.push({
+              isMuted: false,
+              source: options.source,
+              track: { source: options.source, mediaStreamTrack: track }
+            });
+          }
+          calls.push(`publishTrack:${options?.name ?? ''}:${track.id}`);
+        }
+      ),
       unpublishTrack: vi.fn(async (track: MediaStreamTrack) => {
         calls.push(`unpublishTrack:${track.id}`);
+        localTrackPublications = localTrackPublications.filter(
+          (publication) => publication.track.mediaStreamTrack !== track
+        );
       }),
       publishData: vi.fn(async () => {}),
       identity: 'local-user',
@@ -389,6 +402,7 @@ describe('VoiceCallState', () => {
     vi.stubGlobal('crypto', { subtle: {} });
     soundMocks.playCallSound.mockClear();
     toastMocks.error.mockClear();
+    toastMocks.warning.mockClear();
     popOutMocks.closeActiveVideoPopOut.mockClear();
     vi.mocked(Room.getLocalDevices).mockClear();
   });
@@ -854,6 +868,7 @@ describe('VoiceCallState', () => {
       id: 'native-screen-video',
       kind: 'video',
       contentHint: '',
+      getSettings: vi.fn(() => ({ displaySurface: 'window' })),
       stop: vi.fn()
     } as unknown as MediaStreamTrack;
     const audioTrack = {
@@ -920,6 +935,130 @@ describe('VoiceCallState', () => {
     );
     expect(videoTrack.contentHint).toBe('motion');
     expect(audioTrack.contentHint).toBe('music');
+  });
+
+  it('shares a native window without application audio and keeps video active', async () => {
+    const videoTrack = {
+      id: 'native-screen-video',
+      kind: 'video',
+      contentHint: '',
+      getSettings: vi.fn(() => ({ displaySurface: 'window' })),
+      stop: vi.fn()
+    } as unknown as MediaStreamTrack;
+    const captureDisplayMedia = vi.fn(async () => {
+      return {
+        getVideoTracks: () => [videoTrack],
+        getAudioTracks: () => [],
+        getTracks: () => [videoTrack]
+      } as unknown as MediaStream;
+    });
+    installNativeHost({
+      ...browserNativeHost,
+      kind: 'tauri',
+      capabilities: {
+        ...browserNativeHost.capabilities,
+        windowApplicationAudio: true
+      },
+      captureDisplayMedia
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.setScreenShareQuality({
+      ...DEFAULT_SCREEN_SHARE_QUALITY,
+      shareAudio: true
+    });
+    await state.join('wss://livekit.example.test', 'R1');
+
+    await state.toggleScreenShare();
+
+    expect(state.isScreenShareEnabled).toBe(true);
+    expect(lastRoom?.localParticipant.publishTrack).toHaveBeenCalledOnce();
+    expect(lastRoom?.localParticipant.publishTrack).toHaveBeenCalledWith(
+      videoTrack,
+      expect.objectContaining({ source: 'screen_share' })
+    );
+    expect(toastMocks.warning).toHaveBeenCalledWith(
+      'Application audio was not shared. The window is still being shared without sound.'
+    );
+    expect(toastMocks.error).not.toHaveBeenCalled();
+  });
+
+  it('does not report missing application audio for a monitor share without audio', async () => {
+    const videoTrack = {
+      id: 'native-monitor-video',
+      kind: 'video',
+      contentHint: '',
+      getSettings: vi.fn(() => ({ displaySurface: 'monitor' })),
+      stop: vi.fn()
+    } as unknown as MediaStreamTrack;
+    installNativeHost({
+      ...browserNativeHost,
+      kind: 'tauri',
+      capabilities: {
+        ...browserNativeHost.capabilities,
+        windowApplicationAudio: true
+      },
+      captureDisplayMedia: vi.fn(async () => {
+        return {
+          getVideoTracks: () => [videoTrack],
+          getAudioTracks: () => [],
+          getTracks: () => [videoTrack]
+        } as unknown as MediaStream;
+      })
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.setScreenShareQuality({
+      ...DEFAULT_SCREEN_SHARE_QUALITY,
+      shareAudio: true
+    });
+    await state.join('wss://livekit.example.test', 'R1');
+
+    await state.toggleScreenShare();
+
+    expect(state.isScreenShareEnabled).toBe(true);
+    expect(lastRoom?.localParticipant.publishTrack).toHaveBeenCalledOnce();
+    expect(toastMocks.warning).not.toHaveBeenCalled();
+    expect(toastMocks.error).not.toHaveBeenCalled();
+  });
+
+  it('does not warn about a late degraded native share after leaving the room', async () => {
+    const videoTrack = {
+      id: 'late-native-screen-video',
+      kind: 'video',
+      contentHint: '',
+      stop: vi.fn()
+    } as unknown as MediaStreamTrack;
+    const captureGate = deferredVoid();
+    installNativeHost({
+      ...browserNativeHost,
+      kind: 'tauri',
+      capabilities: {
+        ...browserNativeHost.capabilities,
+        windowApplicationAudio: true
+      },
+      captureDisplayMedia: vi.fn(async () => {
+        await captureGate.promise;
+        return {
+          getVideoTracks: () => [videoTrack],
+          getAudioTracks: () => [],
+          getTracks: () => [videoTrack]
+        } as unknown as MediaStream;
+      })
+    });
+    const state = new VoiceCallState(createVoiceCallClient());
+    await state.setScreenShareQuality({
+      ...DEFAULT_SCREEN_SHARE_QUALITY,
+      shareAudio: true
+    });
+    await state.join('wss://livekit.example.test', 'R1');
+
+    const toggle = state.toggleScreenShare();
+    await flushPromises();
+    await state.leave();
+    captureGate.resolve();
+    await toggle;
+
+    expect(state.isScreenShareEnabled).toBe(false);
+    expect(toastMocks.warning).not.toHaveBeenCalled();
   });
 
   it('collects diagnostics from the published local screen-share track', async () => {

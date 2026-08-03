@@ -71,6 +71,7 @@
     "camera_failed": "Det gick inte att slå på kameran.",
     "screen_share_blocked": "Skärmdelning avbröts eller blockerades.",
     "screen_share_failed": "Det gick inte att starta skärmdelning.",
+    "screen_share_audio_unavailable": "Appljudet delades inte. Fönstret delas fortfarande utan ljud.",
     "speaker_switch_failed": "Det gick inte att byta högtalare. Den här webbläsaren eller enheten kanske inte stöder val av högtalare.",
     "device_switch_failed": "Kunde inte byta till den enheten.",
     "stream_quality": "Strömkvalitet",
