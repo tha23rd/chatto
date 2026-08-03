@@ -282,7 +282,11 @@ to the user settings page for the active server.
           <span class="min-w-0 truncate" style:color={roleColorToCSS(activeServerUser.roleColor)}
             >{displayName}</span
           >
-          <UserCustomStatusBadge status={activeServerUser.customStatus} class="text-xs" />
+          <UserCustomStatusBadge
+            serverId={activeServerId}
+            status={activeServerUser.customStatus}
+            class="text-xs"
+          />
         </span>
         <span class="truncate text-xs text-muted">@{login}</span>
       </div>
@@ -341,7 +345,10 @@ to the user settings page for the active server.
         >
           <span class="grid w-5 shrink-0 place-items-center" aria-hidden="true">
             {#if activeServerUser.customStatus}
-              {activeServerUser.customStatus.emoji}
+              <UserCustomStatusBadge
+                serverId={activeServerId}
+                status={activeServerUser.customStatus}
+              />
             {:else}
               <span class="iconify text-muted uil--comment-alt-edit"></span>
             {/if}

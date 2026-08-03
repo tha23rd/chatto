@@ -6,6 +6,7 @@ element. On mobile (touch devices), renders as a bottom sheet. This dual behavio
 ContextMenu, which handles both modes automatically.
 
 **Props:**
+- `serverId` - Server whose custom emoji catalog resolves the user's status marker.
 - `user` - The user to display (must include id, login, displayName, presenceStatus)
 - `anchorRect` - Bounding rect of the trigger element (used for desktop positioning)
 - `canSendMessage` - Whether to show the "Send Message" button
@@ -31,6 +32,7 @@ ContextMenu, which handles both modes automatically.
   import { roleColorToCSS } from '$lib/roleColors';
 
   let {
+    serverId,
     user,
     anchorRect,
     canSendMessage = false,
@@ -40,6 +42,7 @@ ContextMenu, which handles both modes automatically.
     onBanFromRoom,
     onClose
   }: {
+    serverId: string;
     user: {
       id: string;
       login: string;
@@ -86,7 +89,7 @@ ContextMenu, which handles both modes automatically.
           {displayName}
         </div>
         <div class="truncate text-xs text-muted">@{getLiveLogin(user.id, user.login)}</div>
-        <UserCustomStatusBadge status={customStatus} showText class="mt-1 max-w-full" />
+        <UserCustomStatusBadge {serverId} status={customStatus} showText class="mt-1 max-w-full" />
       </div>
     </div>
 

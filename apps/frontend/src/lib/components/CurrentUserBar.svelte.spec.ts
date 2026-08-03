@@ -8,6 +8,7 @@ import { q } from '$lib/test-utils';
 
 import { presencePreference } from '$lib/state/presencePreference.svelte';
 import { getRoomSidebarPanelState } from '$lib/storage/roomSidebarPanel';
+import { __resetCustomEmojisForTests, getCustomEmojis } from '$lib/state/customEmojis.svelte';
 import CurrentUserBarTestHarness from './CurrentUserBarTestHarness.svelte';
 
 function computedBackgroundColor(color: string): string {
@@ -143,6 +144,7 @@ describe('CurrentUserBar', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    __resetCustomEmojisForTests();
     currentUserState.user = {
       id: 'user-1',
       login: 'alice',
@@ -361,6 +363,47 @@ describe('CurrentUserBar', () => {
     expect(q(container, '[data-testid="current-user-identity-card"]')!.textContent).not.toContain(
       'Out for lunch'
     );
+  });
+
+  it('renders a custom status emoji image in the identity card and editor', async () => {
+    getCustomEmojis('origin').upsert({
+      id: 'emoji-partyparrot',
+      name: 'partyparrot',
+      url: 'https://example.test/assets/emoji/partyparrot'
+    });
+    currentUserState.user = {
+      ...currentUserState.user!,
+      customStatus: {
+        emoji: 'partyparrot',
+        text: 'Working',
+        expiresAt: null
+      }
+    };
+
+    const { container } = render(CurrentUserBarTestHarness);
+    const identityCard = q(container, '[data-testid="current-user-identity-card"]')!;
+    const identityImage = q(identityCard, 'img[alt=":partyparrot:"]') as HTMLImageElement;
+
+    expect(identityImage.src).toBe('https://example.test/assets/emoji/partyparrot');
+    expect(identityCard.textContent).not.toContain('partyparrot');
+
+    (q(container, '[data-testid="current-user-presence-menu"]') as HTMLButtonElement).click();
+    await vi.waitFor(() => {
+      expect(q(container, '[data-testid="current-user-custom-status-action"]')).toBeTruthy();
+    });
+    (
+      q(container, '[data-testid="current-user-custom-status-action"]') as HTMLButtonElement
+    ).click();
+
+    await vi.waitFor(() => {
+      const editor = q(container, '[data-testid="custom-status-editor"]')!;
+      const picker = q(
+        editor,
+        '[data-testid="settings-custom-status-emoji-picker"]'
+      ) as HTMLButtonElement;
+      expect(q(picker, 'img[alt=":partyparrot:"]')).toBeTruthy();
+      expect(picker.textContent).not.toContain('partyparrot');
+    });
   });
 
   it('keeps the identity card at the same control height with long profile content', () => {

@@ -148,6 +148,7 @@
     {/if}
     {#if showCustomStatusBadge}
       <UserCustomStatusBadge
+        {serverId}
         status={customStatus}
         class="{customStatusTextSizeClasses[
           size
