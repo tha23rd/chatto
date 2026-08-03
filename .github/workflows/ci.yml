@@ -119,6 +119,9 @@ jobs:
 
   desktop:
     name: desktop (${{ matrix.platform }})
+    # Upstream's Deno + CEF client, which this distribution carries but does not
+    # ship. Ours is the Tauri app, covered by test-desktop-windows.
+    if: github.repository == 'chattocorp/chatto'
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -353,6 +356,9 @@ jobs:
         run: cd cli && go test -trimpath -p 1 -tags test_endpoints ./...
 
   test-authling-e2e:
+    # Authling is a separate upstream product (authling/README.md) that this
+    # distribution carries but does not ship.
+    if: github.repository == 'chattocorp/chatto'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
