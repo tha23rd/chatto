@@ -1,12 +1,32 @@
-import type { NativeCallControls, NativeHost, Unsubscribe } from './types';
-
-export const PUSH_TO_TALK_ACCELERATOR = 'Control+Shift+Space';
+import {
+  type CallKeybindingAction,
+  callKeybindingAcceleratorFromEvent,
+  callKeybindingActionForAccelerator,
+  isCallKeybindingCaptureActive,
+  isEditableShortcutTarget,
+  onCallKeybindingsChanged
+} from '$lib/callKeybindings';
+import { userPreferences } from '$lib/state/userPreferences.svelte';
+import type {
+  NativeCallControls,
+  NativeHost,
+  NativeShortcutState,
+  Unsubscribe
+} from './types';
 
 export interface NativeCallControlTarget {
   snapshot(): NativeCallControls;
   setPushToTalkPressed(pressed: boolean): Promise<void>;
+  setPushToMutePressed(pressed: boolean): Promise<void>;
   toggleMute(): Promise<void>;
+  setMuted(muted: boolean): Promise<void>;
   toggleDeafen(): Promise<void>;
+  setDeafened(deafened: boolean): Promise<void>;
+  toggleCamera(): Promise<void>;
+  setCameraEnabled(enabled: boolean): Promise<void>;
+  toggleScreenShare(): Promise<void>;
+  setScreenShareEnabled(enabled: boolean): Promise<void>;
+  leave(): Promise<void>;
 }
 
 type CallOwner = {
@@ -28,19 +48,31 @@ async function unsubscribeWithRetry(unsubscribe: Unsubscribe): Promise<void> {
   }
 }
 
+function keybindingSignature(): string {
+  return JSON.stringify(userPreferences.callKeybindings);
+}
+
+function isMomentaryAction(action: CallKeybindingAction): boolean {
+  return action === 'push-to-talk' || action === 'push-to-mute';
+}
+
 /**
- * Owns the one process-wide shortcut and tray subscription.
+ * Owns process-wide call keybindings and the native tray subscription.
  *
  * Chatto may keep calls connected on more than one server. The most recently
- * started call owns native actions; when it stops, ownership falls back to the
- * previous connected call. Registration and cleanup share one promise chain so
- * a late unregister can never remove a newly installed shortcut.
+ * started call owns shortcut actions; when it stops, ownership falls back to
+ * the previous connected call. Native registration and cleanup share one
+ * promise chain so a late unregister cannot remove newly installed bindings.
  */
 class NativeCallControlsCoordinator {
   readonly #host: NativeHost;
   readonly #owners = new Map<symbol, CallOwner>();
-  #pushToTalkUnsubscribe: Unsubscribe | null = null;
+  readonly #shortcutUnsubscribes = new Map<string, Unsubscribe>();
+  readonly #pressedAccelerators = new Map<string, CallKeybindingAction>();
   #trayUnsubscribe: Unsubscribe | null = null;
+  #keybindingChangeUnsubscribe: Unsubscribe | null = null;
+  #browserListenersInstalled = false;
+  #registeredKeybindingSignature: string | null = null;
   #transition: Promise<void> = Promise.resolve();
 
   constructor(host: NativeHost) {
@@ -50,6 +82,9 @@ class NativeCallControlsCoordinator {
   start(owner: CallOwner): void {
     if (this.#owners.has(owner.id)) return;
     this.#owners.set(owner.id, owner);
+    this.#keybindingChangeUnsubscribe ??= onCallKeybindingsChanged(() => {
+      this.#scheduleReconcile();
+    });
     this.#scheduleReconcile();
   }
 
@@ -59,10 +94,9 @@ class NativeCallControlsCoordinator {
   }
 
   stop(owner: CallOwner): void {
+    const wasActive = this.#activeOwner()?.id === owner.id;
     if (!this.#owners.delete(owner.id)) return;
-    void owner.target
-      .setPushToTalkPressed(false)
-      .catch((error) => reportNativeControlFailure('push-to-talk release', error));
+    if (wasActive) this.#releasePressedActions(owner.target);
     this.#scheduleReconcile();
   }
 
@@ -80,65 +114,236 @@ class NativeCallControlsCoordinator {
     const active = this.#activeOwner();
     if (!active) {
       await this.#cleanupRegistrations(true);
+      this.#keybindingChangeUnsubscribe?.();
+      this.#keybindingChangeUnsubscribe = null;
       return;
     }
 
-    await this.#ensureRegistered();
+    await this.#ensureRegistered(active.target);
     if (this.#host.capabilities.tray) {
       await this.#host.setCallControls(active.target.snapshot());
     }
   }
 
-  async #ensureRegistered(): Promise<void> {
-    try {
-      if (this.#host.capabilities.globalPushToTalk && !this.#pushToTalkUnsubscribe) {
-        this.#pushToTalkUnsubscribe = await this.#host.registerPushToTalk(
-          PUSH_TO_TALK_ACCELERATOR,
-          (state) => {
-            const active = this.#activeOwner();
-            if (!active) return;
-            void active.target
-              .setPushToTalkPressed(state === 'pressed')
-              .catch((error) => reportNativeControlFailure('push-to-talk action', error));
+  async #ensureRegistered(target: NativeCallControlTarget): Promise<void> {
+    const signature = keybindingSignature();
+    if (this.#registeredKeybindingSignature !== signature) {
+      this.#releasePressedActions(target);
+      await this.#cleanupShortcuts();
+      this.#registeredKeybindingSignature = signature;
+
+      if (this.#host.capabilities.globalCallKeybindings) {
+        for (const [action, accelerator] of Object.entries(userPreferences.callKeybindings)) {
+          if (!accelerator) continue;
+          try {
+            const unsubscribe = await this.#host.registerGlobalShortcut(
+              accelerator,
+              (state) => this.#handleShortcut(action as CallKeybindingAction, accelerator, state)
+            );
+            this.#shortcutUnsubscribes.set(accelerator, unsubscribe);
+          } catch (error) {
+            // A system shortcut can already belong to another app. Keep every
+            // other binding active and retry this one after the user changes
+            // preferences or reconnects the final call.
+            reportNativeControlFailure(`register ${accelerator}`, error);
           }
-        );
+        }
+      } else {
+        this.#installBrowserListeners();
       }
-      if (this.#host.capabilities.tray && !this.#trayUnsubscribe) {
-        this.#trayUnsubscribe = await this.#host.onTrayAction((action) => {
-          const active = this.#activeOwner();
-          if (!active) return;
-          const operation =
-            action === 'toggle-mute'
-              ? active.target.toggleMute()
-              : action === 'toggle-deafen'
-                ? active.target.toggleDeafen()
-                : null;
-          void operation?.catch((error) => reportNativeControlFailure('tray action', error));
-        });
-      }
-    } catch (error) {
-      await this.#cleanupRegistrations(false).catch((cleanupError) =>
-        reportNativeControlFailure('partial registration cleanup', cleanupError)
-      );
-      throw error;
+    }
+
+    if (this.#host.capabilities.tray && !this.#trayUnsubscribe) {
+      this.#trayUnsubscribe = await this.#host.onTrayAction((action) => {
+        const active = this.#activeOwner();
+        if (!active) return;
+        const operation =
+          action === 'toggle-mute'
+            ? active.target.toggleMute()
+            : action === 'toggle-deafen'
+              ? active.target.toggleDeafen()
+              : null;
+        void operation?.catch((error) => reportNativeControlFailure('tray action', error));
+      });
     }
   }
 
-  async #cleanupRegistrations(disableTray: boolean): Promise<void> {
-    const failures: unknown[] = [];
-    const pushToTalkUnsubscribe = this.#pushToTalkUnsubscribe;
-    const trayUnsubscribe = this.#trayUnsubscribe;
+  #installBrowserListeners(): void {
+    if (this.#browserListenersInstalled || typeof window === 'undefined') return;
+    window.addEventListener('keydown', this.#handleBrowserKeyDown);
+    window.addEventListener('keyup', this.#handleBrowserKeyUp);
+    window.addEventListener('blur', this.#handleBrowserBlur);
+    this.#browserListenersInstalled = true;
+  }
 
-    if (pushToTalkUnsubscribe) {
+  readonly #handleBrowserKeyDown = (event: KeyboardEvent): void => {
+    if (isCallKeybindingCaptureActive() || isEditableShortcutTarget(event.target)) return;
+    const accelerator = callKeybindingAcceleratorFromEvent(event);
+    if (!accelerator) return;
+    const action = callKeybindingActionForAccelerator(
+      userPreferences.callKeybindings,
+      accelerator
+    );
+    if (!action) return;
+
+    event.preventDefault();
+    this.#handleShortcut(action, accelerator, 'pressed');
+  };
+
+  readonly #handleBrowserKeyUp = (event: KeyboardEvent): void => {
+    const accelerator = callKeybindingAcceleratorFromEvent(event);
+    const pressed = accelerator ? this.#pressedAccelerators.get(accelerator) : undefined;
+    const matches = pressed
+      ? [[accelerator as string, pressed] as const]
+      : [...this.#pressedAccelerators].filter(
+          ([pressedAccelerator]) =>
+            pressedAccelerator === event.code || pressedAccelerator.endsWith(`+${event.code}`)
+        );
+    if (matches.length === 0) return;
+    event.preventDefault();
+    // Modifier key-up events can arrive before the main key is released, so
+    // `ctrlKey`/`altKey` may no longer reproduce the pressed accelerator.
+    // Physical-code fallback guarantees held microphone actions still release.
+    for (const [pressedAccelerator, action] of matches) {
+      this.#handleShortcut(action, pressedAccelerator, 'released');
+    }
+  };
+
+  readonly #handleBrowserBlur = (): void => {
+    const target = this.#activeOwner()?.target;
+    if (target) this.#releasePressedActions(target);
+  };
+
+  #handleShortcut(
+    action: CallKeybindingAction,
+    accelerator: string,
+    state: NativeShortcutState
+  ): void {
+    const target = this.#activeOwner()?.target;
+    if (!target) return;
+
+    if (state === 'pressed') {
+      if (isCallKeybindingCaptureActive() || this.#pressedAccelerators.has(accelerator)) return;
+      if (isMomentaryAction(action)) this.#releaseMomentaryActions(target);
+      this.#pressedAccelerators.set(accelerator, action);
+    } else {
+      if (!this.#pressedAccelerators.delete(accelerator)) return;
+      if (!isMomentaryAction(action)) return;
+    }
+
+    void this.#dispatchShortcut(target, action, state).catch((error) =>
+      reportNativeControlFailure(`${action} action`, error)
+    );
+  }
+
+  async #dispatchShortcut(
+    target: NativeCallControlTarget,
+    action: CallKeybindingAction,
+    state: NativeShortcutState
+  ): Promise<void> {
+    const pressed = state === 'pressed';
+    switch (action) {
+      case 'push-to-talk':
+        await target.setPushToTalkPressed(pressed);
+        break;
+      case 'push-to-mute':
+        await target.setPushToMutePressed(pressed);
+        break;
+      case 'toggle-mute':
+        if (pressed) await target.toggleMute();
+        break;
+      case 'mute':
+        if (pressed) await target.setMuted(true);
+        break;
+      case 'unmute':
+        if (pressed) await target.setMuted(false);
+        break;
+      case 'toggle-deafen':
+        if (pressed) await target.toggleDeafen();
+        break;
+      case 'deafen':
+        if (pressed) await target.setDeafened(true);
+        break;
+      case 'undeafen':
+        if (pressed) await target.setDeafened(false);
+        break;
+      case 'toggle-camera':
+        if (pressed) await target.toggleCamera();
+        break;
+      case 'camera-on':
+        if (pressed) await target.setCameraEnabled(true);
+        break;
+      case 'camera-off':
+        if (pressed) await target.setCameraEnabled(false);
+        break;
+      case 'toggle-screen-share':
+        if (pressed) await target.toggleScreenShare();
+        break;
+      case 'start-screen-share':
+        if (pressed) await target.setScreenShareEnabled(true);
+        break;
+      case 'stop-screen-share':
+        if (pressed) await target.setScreenShareEnabled(false);
+        break;
+      case 'leave-call':
+        if (pressed) await target.leave();
+        break;
+    }
+  }
+
+  #releaseMomentaryActions(target: NativeCallControlTarget): void {
+    for (const [accelerator, action] of this.#pressedAccelerators) {
+      if (!isMomentaryAction(action)) continue;
+      this.#pressedAccelerators.delete(accelerator);
+      void this.#dispatchShortcut(target, action, 'released').catch((error) =>
+        reportNativeControlFailure(`${action} release`, error)
+      );
+    }
+  }
+
+  #releasePressedActions(target: NativeCallControlTarget): void {
+    this.#releaseMomentaryActions(target);
+    this.#pressedAccelerators.clear();
+  }
+
+  async #cleanupShortcuts(): Promise<void> {
+    const failures: unknown[] = [];
+    const target = this.#activeOwner()?.target;
+    if (target) this.#releasePressedActions(target);
+
+    for (const [accelerator, unsubscribe] of this.#shortcutUnsubscribes) {
       try {
-        await unsubscribeWithRetry(pushToTalkUnsubscribe);
-        if (this.#pushToTalkUnsubscribe === pushToTalkUnsubscribe) {
-          this.#pushToTalkUnsubscribe = null;
+        await unsubscribeWithRetry(unsubscribe);
+        if (this.#shortcutUnsubscribes.get(accelerator) === unsubscribe) {
+          this.#shortcutUnsubscribes.delete(accelerator);
         }
       } catch (error) {
         failures.push(error);
       }
     }
+
+    if (this.#browserListenersInstalled && typeof window !== 'undefined') {
+      window.removeEventListener('keydown', this.#handleBrowserKeyDown);
+      window.removeEventListener('keyup', this.#handleBrowserKeyUp);
+      window.removeEventListener('blur', this.#handleBrowserBlur);
+      this.#browserListenersInstalled = false;
+    }
+    this.#registeredKeybindingSignature = null;
+
+    if (failures.length > 0) {
+      throw new AggregateError(failures, 'One or more call keybinding cleanups failed.');
+    }
+  }
+
+  async #cleanupRegistrations(disableTray: boolean): Promise<void> {
+    const failures: unknown[] = [];
+    try {
+      await this.#cleanupShortcuts();
+    } catch (error) {
+      failures.push(error);
+    }
+
+    const trayUnsubscribe = this.#trayUnsubscribe;
     if (trayUnsubscribe) {
       try {
         await unsubscribeWithRetry(trayUnsubscribe);
@@ -169,7 +374,7 @@ function coordinatorFor(host: NativeHost): NativeCallControlsCoordinator {
   return coordinator;
 }
 
-/** A per-call handle into the process-wide native call-control coordinator. */
+/** A per-call handle into the process-wide call-control coordinator. */
 export class NativeCallControlsController {
   readonly #coordinator: NativeCallControlsCoordinator;
   readonly #owner: CallOwner;

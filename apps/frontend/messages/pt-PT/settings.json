@@ -6,6 +6,7 @@
       "back_to_server": "Voltar ao servidor",
       "profile": "Perfil",
       "display": "Exibição",
+      "keybinds": "Atalhos de teclado",
       "notifications": "Notificações",
       "account": "Conta"
     },
@@ -199,6 +200,42 @@
           "label": "Silenciar o soundboard",
           "description": "Silencie todos os sons do soundboard de outros membros."
         }
+      }
+    },
+    "keybinds": {
+      "title": "Atalhos de teclado",
+      "subtitle": "Controle chamadas sem usar o rato",
+      "instructions": "Escolha uma ação e prima a combinação de teclas que pretende usar. Prima Escape para cancelar.",
+      "browser_note": "Os atalhos do navegador funcionam enquanto este separador do Chatto estiver ativo. Ficam em pausa quando escreve num campo ou mensagem.",
+      "desktop_note": "Os atalhos da aplicação para computador funcionam em todo o sistema enquanto estiver ligado a uma chamada, mesmo quando o Chatto não estiver em foco.",
+      "unassigned": "Não definido",
+      "recording": "Prima as teclas…",
+      "record_for": "Gravar atalho para {action}",
+      "clear_for": "Limpar atalho para {action}",
+      "reset": "Repor predefinições",
+      "reset_success": "Atalhos repostos",
+      "reassigned": "{keybind} foi movido de {action}.",
+      "groups": {
+        "voice": "Voz",
+        "video_streaming": "Vídeo e transmissão",
+        "call": "Chamada"
+      },
+      "actions": {
+        "push_to_talk": "Manter premido para falar",
+        "push_to_mute": "Manter premido para silenciar",
+        "toggle_mute": "Alternar silêncio",
+        "mute": "Silenciar",
+        "unmute": "Ativar microfone",
+        "toggle_deafen": "Alternar áudio",
+        "deafen": "Desativar áudio",
+        "undeafen": "Ativar áudio",
+        "toggle_camera": "Alternar câmara",
+        "camera_on": "Ligar câmara",
+        "camera_off": "Desligar câmara",
+        "toggle_screen_share": "Alternar partilha de ecrã",
+        "start_screen_share": "Iniciar partilha de ecrã",
+        "stop_screen_share": "Parar partilha de ecrã",
+        "leave_call": "Sair da chamada"
       }
     },
     "notifications": {

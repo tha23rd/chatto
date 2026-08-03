@@ -223,10 +223,11 @@ media cleanup guard.
 
 The tray exposes mute/deafen toggles while the renderer has an active call.
 The native global-shortcut plugin supplies both pressed and released events for
-momentary push-to-talk while Chatto is unfocused. The initial POC accelerator is
-documented rather than exposed as a new settings surface. If calls remain
-connected to multiple servers, the most recently started call owns the one
-process-wide shortcut and tray actions; ownership returns to the previous call
+configured call keybinds while Chatto is unfocused. The initial POC accelerator,
+`Control+Shift+Space`, remains the push-to-talk default, while a shared settings
+surface can replace it and bind the other call actions. If calls remain
+connected to multiple servers, the most recently started call owns the
+process-wide keybinds and tray actions; ownership returns to the previous call
 when the newer call ends.
 
 The shared frontend remains authoritative for installed-app badge intent. The

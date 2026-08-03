@@ -3,7 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { register, unregister } from '@tauri-apps/plugin-global-shortcut';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { PUSH_TO_TALK_ACCELERATOR } from './callControls';
+import { normalizeCallKeybindingAccelerator } from '$lib/callKeybindings';
 import {
   assertAllowedExternalUrl,
   assertAllowedHttpEndpoint,
@@ -30,7 +30,7 @@ export interface TauriHostBindings {
     options: NativeDisplayMediaOptions
   ) => ReturnType<NativeHost['captureDisplayMedia']>;
   readonly startServerOAuth: NativeHost['startServerOAuth'];
-  readonly registerPushToTalk: NativeHost['registerPushToTalk'];
+  readonly registerGlobalShortcut: NativeHost['registerGlobalShortcut'];
   readonly onTrayAction: NativeHost['onTrayAction'];
   readonly setCallControls: NativeHost['setCallControls'];
   readonly setTaskbarAttention: (active: boolean) => Promise<void>;
@@ -82,7 +82,7 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       nativeOAuth: true,
       nativeHttp: true,
       nativeRealtime: true,
-      globalPushToTalk: true,
+      globalCallKeybindings: true,
       tray: true,
       appBadge: true,
       desktopUpdates: true,
@@ -151,8 +151,10 @@ export function createTauriNativeHost(bindings: TauriHostBindings): NativeHost {
       await bindings.openUrl(assertAllowedExternalUrl(url));
     },
 
-    registerPushToTalk(accelerator, listener) {
-      return bindings.registerPushToTalk(accelerator, listener);
+    registerGlobalShortcut(value, listener) {
+      const accelerator = normalizeCallKeybindingAccelerator(value);
+      if (!accelerator) return Promise.reject(new Error('Global shortcut is not allowed.'));
+      return bindings.registerGlobalShortcut(accelerator, listener);
     },
 
     onTrayAction(listener) {
@@ -199,10 +201,9 @@ export const tauriNativeHost = createTauriNativeHost({
   createRealtimeSocket: createTauriRealtimeSocket,
   getDisplayMedia: (options) => navigator.mediaDevices.getDisplayMedia(options),
   startServerOAuth: (request) => invoke('start_server_oauth', { request }),
-  registerPushToTalk: async (accelerator, listener) => {
-    if (accelerator !== PUSH_TO_TALK_ACCELERATOR) {
-      throw new Error('Global shortcut is not allowed.');
-    }
+  registerGlobalShortcut: async (value, listener) => {
+    const accelerator = normalizeCallKeybindingAccelerator(value);
+    if (!accelerator) throw new Error('Global shortcut is not allowed.');
     await register(accelerator, ({ state }) => {
       listener(state === 'Pressed' ? 'pressed' : 'released');
     });

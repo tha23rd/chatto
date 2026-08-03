@@ -6,6 +6,7 @@
       "back_to_server": "Tillbaka till servern",
       "profile": "Profil",
       "display": "Skärm",
+      "keybinds": "Kortkommandon",
       "notifications": "Aviseringar",
       "account": "Konto"
     },
@@ -199,6 +200,42 @@
           "label": "Tysta soundboardet",
           "description": "Tysta alla soundboard-ljud från andra medlemmar."
         }
+      }
+    },
+    "keybinds": {
+      "title": "Kortkommandon",
+      "subtitle": "Styr samtal utan att använda musen",
+      "instructions": "Välj en bindning och tryck sedan på den tangentkombination du vill använda. Tryck på Escape för att avbryta.",
+      "browser_note": "Kortkommandon i webbläsaren fungerar när den här Chatto-fliken är aktiv. De pausas när du skriver i ett fält eller meddelande.",
+      "desktop_note": "Kortkommandon i skrivbordsappen fungerar i hela systemet medan du är ansluten till ett samtal, även när Chatto inte är i fokus.",
+      "unassigned": "Inte angivet",
+      "recording": "Tryck på tangenter…",
+      "record_for": "Spela in kortkommando för {action}",
+      "clear_for": "Rensa kortkommando för {action}",
+      "reset": "Återställ standardvärden",
+      "reset_success": "Kortkommandon återställda",
+      "reassigned": "{keybind} flyttades från {action}.",
+      "groups": {
+        "voice": "Röst",
+        "video_streaming": "Video och strömning",
+        "call": "Samtal"
+      },
+      "actions": {
+        "push_to_talk": "Håll inne för att tala",
+        "push_to_mute": "Håll inne för att tysta",
+        "toggle_mute": "Växla mikrofon",
+        "mute": "Stäng av mikrofon",
+        "unmute": "Slå på mikrofon",
+        "toggle_deafen": "Växla ljud",
+        "deafen": "Stäng av ljud",
+        "undeafen": "Slå på ljud",
+        "toggle_camera": "Växla kamera",
+        "camera_on": "Slå på kameran",
+        "camera_off": "Stäng av kameran",
+        "toggle_screen_share": "Växla skärmdelning",
+        "start_screen_share": "Starta skärmdelning",
+        "stop_screen_share": "Stoppa skärmdelning",
+        "leave_call": "Lämna samtalet"
       }
     },
     "notifications": {
