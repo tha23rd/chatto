@@ -155,7 +155,7 @@ describe('Tauri NativeHost', () => {
 
   it('retains tab audio for a browser-surface capture', async () => {
     const native = bindings();
-    const capture = displayCaptureStream('browser', ['Tab Audio']);
+    const capture = displayCaptureStream('browser', ['Tab audio']);
     native.getDisplayMedia.mockResolvedValue(capture.stream);
     const host = createTauriNativeHost(native);
 
