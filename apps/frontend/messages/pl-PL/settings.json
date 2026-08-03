@@ -6,6 +6,7 @@
       "back_to_server": "Powrót do serwera",
       "profile": "Profil",
       "display": "Wyświetlacz",
+      "keybinds": "Skróty klawiszowe",
       "notifications": "Powiadomienia",
       "account": "Konto"
     },
@@ -199,6 +200,42 @@
           "label": "Wycisz soundboard",
           "description": "Wycisz wszystkie dźwięki soundboardu innych członków."
         }
+      }
+    },
+    "keybinds": {
+      "title": "Skróty klawiszowe",
+      "subtitle": "Steruj połączeniami bez używania myszy",
+      "instructions": "Wybierz działanie, a następnie naciśnij kombinację klawiszy, której chcesz użyć. Naciśnij Escape, aby anulować.",
+      "browser_note": "Skróty w przeglądarce działają, gdy ta karta Chatto jest aktywna. Są wstrzymywane podczas pisania w polu lub wiadomości.",
+      "desktop_note": "Skróty aplikacji komputerowej działają w całym systemie podczas połączenia, nawet gdy Chatto nie jest aktywne.",
+      "unassigned": "Nie ustawiono",
+      "recording": "Naciśnij klawisze…",
+      "record_for": "Nagraj skrót dla {action}",
+      "clear_for": "Wyczyść skrót dla {action}",
+      "reset": "Przywróć domyślne",
+      "reset_success": "Skróty zresetowane",
+      "reassigned": "{keybind} przeniesiono z działania {action}.",
+      "groups": {
+        "voice": "Głos",
+        "video_streaming": "Wideo i transmisja",
+        "call": "Połączenie"
+      },
+      "actions": {
+        "push_to_talk": "Przytrzymaj, aby mówić",
+        "push_to_mute": "Przytrzymaj, aby wyciszyć",
+        "toggle_mute": "Przełącz wyciszenie",
+        "mute": "Wycisz",
+        "unmute": "Wyłącz wyciszenie",
+        "toggle_deafen": "Przełącz dźwięk",
+        "deafen": "Wyłącz dźwięk",
+        "undeafen": "Włącz dźwięk",
+        "toggle_camera": "Przełącz kamerę",
+        "camera_on": "Włącz kamerę",
+        "camera_off": "Wyłącz kamerę",
+        "toggle_screen_share": "Przełącz udostępnianie ekranu",
+        "start_screen_share": "Rozpocznij udostępnianie ekranu",
+        "stop_screen_share": "Zatrzymaj udostępnianie ekranu",
+        "leave_call": "Opuść połączenie"
       }
     },
     "notifications": {

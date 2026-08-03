@@ -6,6 +6,7 @@
       "back_to_server": "返回服务器",
       "profile": "个人资料",
       "display": "显示",
+      "keybinds": "按键绑定",
       "notifications": "通知",
       "account": "账号"
     },
@@ -199,6 +200,42 @@
           "label": "静音音效板",
           "description": "静音其他成员的所有音效板音效。"
         }
+      }
+    },
+    "keybinds": {
+      "title": "按键绑定",
+      "subtitle": "无需移动鼠标即可控制通话",
+      "instructions": "选择一个动作，然后按下要使用的按键组合。按 Escape 取消。",
+      "browser_note": "浏览器按键绑定仅在此 Chatto 标签页处于活动状态时生效。当你在输入框或消息中输入文字时会暂停。",
+      "desktop_note": "只要你已连接到通话，桌面版按键绑定就能在整个系统中生效，即使 Chatto 未获得焦点也一样。",
+      "unassigned": "未设置",
+      "recording": "请按下按键…",
+      "record_for": "录制“{action}”的按键绑定",
+      "clear_for": "清除“{action}”的按键绑定",
+      "reset": "重置为默认值",
+      "reset_success": "按键绑定已重置",
+      "reassigned": "{keybind} 已从“{action}”移到此动作。",
+      "groups": {
+        "voice": "语音",
+        "video_streaming": "视频与直播",
+        "call": "通话"
+      },
+      "actions": {
+        "push_to_talk": "按住说话",
+        "push_to_mute": "按住静音",
+        "toggle_mute": "切换静音",
+        "mute": "静音",
+        "unmute": "取消静音",
+        "toggle_deafen": "切换声音开关",
+        "deafen": "关闭声音",
+        "undeafen": "开启声音",
+        "toggle_camera": "切换摄像头",
+        "camera_on": "打开摄像头",
+        "camera_off": "关闭摄像头",
+        "toggle_screen_share": "切换屏幕共享",
+        "start_screen_share": "开始屏幕共享",
+        "stop_screen_share": "停止屏幕共享",
+        "leave_call": "离开通话"
       }
     },
     "notifications": {

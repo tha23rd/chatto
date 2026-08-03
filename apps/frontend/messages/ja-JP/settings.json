@@ -6,6 +6,7 @@
       "back_to_server": "サーバーに戻る",
       "profile": "プロフィール",
       "display": "ディスプレイ",
+      "keybinds": "キーバインド",
       "notifications": "通知",
       "account": "アカウント"
     },
@@ -199,6 +200,42 @@
           "label": "サウンドボードをミュート",
           "description": "他のメンバーのサウンドボードの音をすべてミュートします。"
         }
+      }
+    },
+    "keybinds": {
+      "title": "キーバインド",
+      "subtitle": "マウスを使わずに通話を操作します",
+      "instructions": "操作を選び、使用するキーの組み合わせを押してください。キャンセルするには Escape を押します。",
+      "browser_note": "ブラウザーのキーバインドは、この Chatto タブがアクティブな間に動作します。入力欄やメッセージに文字を入力している間は一時停止します。",
+      "desktop_note": "デスクトップのキーバインドは、通話に接続している間は Chatto にフォーカスがなくてもシステム全体で動作します。",
+      "unassigned": "未設定",
+      "recording": "キーを押してください…",
+      "record_for": "{action} のキーバインドを記録",
+      "clear_for": "{action} のキーバインドを解除",
+      "reset": "既定値に戻す",
+      "reset_success": "キーバインドをリセットしました",
+      "reassigned": "{keybind} を {action} から移動しました。",
+      "groups": {
+        "voice": "音声",
+        "video_streaming": "ビデオと配信",
+        "call": "通話"
+      },
+      "actions": {
+        "push_to_talk": "長押しで話す",
+        "push_to_mute": "長押しでミュート",
+        "toggle_mute": "ミュートを切り替え",
+        "mute": "ミュート",
+        "unmute": "ミュート解除",
+        "toggle_deafen": "音声を切り替え",
+        "deafen": "音声をオフ",
+        "undeafen": "音声をオン",
+        "toggle_camera": "カメラを切り替え",
+        "camera_on": "カメラをオン",
+        "camera_off": "カメラをオフ",
+        "toggle_screen_share": "画面共有を切り替え",
+        "start_screen_share": "画面共有を開始",
+        "stop_screen_share": "画面共有を停止",
+        "leave_call": "通話から退出"
       }
     },
     "notifications": {

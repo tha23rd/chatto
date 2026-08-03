@@ -166,14 +166,17 @@ requires HTTPS except for local development.
 
 ## Native call controls
 
-While connected to a call, hold `Control+Shift+Space` to talk if the microphone
-was muted when the key was pressed. Releasing the keys restores mute. The
-shortcut works while Chatto is unfocused, never overrides deafen, and is
-unregistered when the call ends.
+Open **Settings → Keybinds** to assign system-wide controls for push-to-talk,
+push-to-mute, mute, deafen, camera, screen sharing, and leaving a call.
+`Control+Shift+Space` remains the default push-to-talk binding. Hold actions
+restore the previous microphone state when released, never override deafen, and
+are released and unregistered when the call ends.
 
-Chatto has one process-wide global shortcut and tray menu. If calls remain
+Chatto has one process-wide keybinding owner and tray menu. If calls remain
 connected on multiple servers, the most recently started call owns those
-controls. Ending it returns ownership to the previously connected call.
+controls. Ending it returns ownership to the previously connected call. If
+another application already owns a configured key combination, choose a
+different binding; Chatto keeps the other available bindings active.
 
 Closing the window hides it to the notification area. The tray menu can show
 Chatto, mute/unmute, deafen/undeafen, or quit. Only **Quit** terminates the

@@ -11,7 +11,7 @@ export const browserNativeHost: NativeHost = {
     nativeOAuth: false,
     nativeHttp: false,
     nativeRealtime: false,
-    globalPushToTalk: false,
+    globalCallKeybindings: false,
     tray: false,
     appBadge: false,
     desktopUpdates: false,
@@ -44,8 +44,8 @@ export const browserNativeHost: NativeHost = {
     window.open(allowedUrl, '_blank', 'noopener,noreferrer');
   },
 
-  async registerPushToTalk() {
-    throw unsupported('Global push-to-talk');
+  async registerGlobalShortcut() {
+    throw unsupported('Global call keybindings');
   },
 
   async onTrayAction() {

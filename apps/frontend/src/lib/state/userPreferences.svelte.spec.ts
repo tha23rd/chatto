@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { defaultNotificationSoundFilters, defaultSoundId } from '$lib/audio/notificationSounds';
+import { DEFAULT_CALL_KEYBINDINGS } from '$lib/callKeybindings';
 import { UserPreferencesState, resolveDisplayTheme } from './userPreferences.svelte';
 
 const STORAGE_KEY = 'chatto:preferences';
@@ -248,6 +249,60 @@ describe('UserPreferencesState', () => {
       const state = new UserPreferencesState();
       state.notificationSound = 'pop';
       expect(state.isMuted).toBe(false);
+    });
+  });
+
+  describe('call keybindings', () => {
+    it('preserves the original desktop push-to-talk shortcut by default', () => {
+      const state = new UserPreferencesState();
+      expect(state.callKeybindings).toEqual(DEFAULT_CALL_KEYBINDINGS);
+    });
+
+    it('hydrates valid bindings and drops invalid or conflicting stored values', () => {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          callKeybindings: {
+            'push-to-talk': 'Alt+KeyT',
+            'push-to-mute': 'Alt+KeyT',
+            'toggle-mute': 'Control+KeyM',
+            'toggle-deafen': 'not-a-shortcut'
+          }
+        })
+      );
+
+      const state = new UserPreferencesState();
+      expect(state.callKeybindings).toEqual({
+        'push-to-talk': 'Alt+KeyT',
+        'toggle-mute': 'Control+KeyM'
+      });
+    });
+
+    it('moves a reused accelerator to the newly assigned action and persists clearing', () => {
+      const state = new UserPreferencesState();
+      state.setCallKeybinding('toggle-mute', 'Control+KeyM');
+      state.setCallKeybinding('toggle-deafen', 'Control+KeyM');
+
+      expect(state.callKeybindings).toEqual({
+        'push-to-talk': 'Control+Shift+Space',
+        'toggle-deafen': 'Control+KeyM'
+      });
+
+      state.setCallKeybinding('push-to-talk', null);
+      expect(state.callKeybindings).toEqual({ 'toggle-deafen': 'Control+KeyM' });
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}').callKeybindings).toEqual({
+        'toggle-deafen': 'Control+KeyM'
+      });
+    });
+
+    it('restores the default bindings', () => {
+      const state = new UserPreferencesState();
+      state.setCallKeybinding('push-to-talk', null);
+      state.setCallKeybinding('leave-call', 'F12');
+
+      state.resetCallKeybindings();
+
+      expect(state.callKeybindings).toEqual(DEFAULT_CALL_KEYBINDINGS);
     });
   });
 

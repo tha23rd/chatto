@@ -6,6 +6,7 @@
       "back_to_server": "Back to Server",
       "profile": "Profile",
       "display": "Display",
+      "keybinds": "Keybinds",
       "notifications": "Notifications",
       "account": "Account"
     },
@@ -199,6 +200,42 @@
           "label": "Mute the soundboard",
           "description": "Silence all soundboard sounds from other members."
         }
+      }
+    },
+    "keybinds": {
+      "title": "Keybinds",
+      "subtitle": "Control calls without reaching for the mouse",
+      "instructions": "Choose a binding, then press the key combination you want to use. Press Escape to cancel.",
+      "browser_note": "Browser keybinds work while this Chatto tab is active. They pause while you type in a field or message.",
+      "desktop_note": "Desktop keybinds work system-wide while you are connected to a call, even when Chatto is not focused.",
+      "unassigned": "Not set",
+      "recording": "Press keys…",
+      "record_for": "Record keybind for {action}",
+      "clear_for": "Clear keybind for {action}",
+      "reset": "Reset to defaults",
+      "reset_success": "Keybinds reset",
+      "reassigned": "{keybind} was moved from {action}.",
+      "groups": {
+        "voice": "Voice",
+        "video_streaming": "Video and streaming",
+        "call": "Call"
+      },
+      "actions": {
+        "push_to_talk": "Push to talk",
+        "push_to_mute": "Push to mute",
+        "toggle_mute": "Toggle mute",
+        "mute": "Mute",
+        "unmute": "Unmute",
+        "toggle_deafen": "Toggle deafen",
+        "deafen": "Deafen",
+        "undeafen": "Undeafen",
+        "toggle_camera": "Toggle camera",
+        "camera_on": "Turn camera on",
+        "camera_off": "Turn camera off",
+        "toggle_screen_share": "Toggle screen share",
+        "start_screen_share": "Start screen share",
+        "stop_screen_share": "Stop screen share",
+        "leave_call": "Leave call"
       }
     },
     "notifications": {

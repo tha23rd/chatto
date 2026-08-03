@@ -404,6 +404,9 @@ export class VoiceCallState {
   private pushToTalkPressed = false;
   private pushToTalkOwnsMicrophone = false;
   private pushToTalkReconcileInFlight: Promise<void> | null = null;
+  private pushToMutePressed = false;
+  private pushToMuteOwnsMicrophone = false;
+  private pushToMuteReconcileInFlight: Promise<void> | null = null;
   private readonly nativeCallControls: NativeCallControlsController;
   private readonly nativeHost: NativeHost;
   private readonly screenShareDiagnosticsCollector: ScreenShareDiagnosticsCollector;
@@ -498,8 +501,16 @@ export class VoiceCallState {
         deafened: this.isDeafened
       }),
       setPushToTalkPressed: (pressed) => this.setPushToTalkPressed(pressed),
+      setPushToMutePressed: (pressed) => this.setPushToMutePressed(pressed),
       toggleMute: () => this.toggleMute(),
-      toggleDeafen: () => this.toggleDeafen()
+      setMuted: (muted) => this.setMuted(muted),
+      toggleDeafen: () => this.toggleDeafen(),
+      setDeafened: (deafened) => this.setDeafened(deafened),
+      toggleCamera: () => this.toggleCamera(),
+      setCameraEnabled: (enabled) => this.setCameraEnabled(enabled),
+      toggleScreenShare: () => this.toggleScreenShare(),
+      setScreenShareEnabled: (enabled) => this.setScreenShareEnabled(enabled),
+      leave: () => this.leave()
     });
     this.screenShareDiagnosticsCollector = new ScreenShareDiagnosticsCollector((snapshot) => {
       this.screenShareDiagnostics = snapshot;
@@ -1012,6 +1023,13 @@ export class VoiceCallState {
     }
   }
 
+  async setMuted(muted: boolean): Promise<void> {
+    const inFlight = this.microphoneToggleInFlight;
+    if (inFlight) await inFlight.catch(() => {});
+    if (this.isMuted === muted) return;
+    await this.toggleMute();
+  }
+
   private async performToggleMute(room: Room): Promise<void> {
     const newMuted = !this.isMuted;
     try {
@@ -1091,7 +1109,7 @@ export class VoiceCallState {
         }
         if (!this.pushToTalkPressed || this.isDeafened) continue;
 
-        if (await this.applyPushToTalkMicState(room, true)) {
+        if (await this.applyMomentaryMicState(room, true)) {
           this.pushToTalkOwnsMicrophone = true;
           continue;
         }
@@ -1110,14 +1128,80 @@ export class VoiceCallState {
         continue;
       }
 
-      if (await this.applyPushToTalkMicState(room, false)) {
+      if (await this.applyMomentaryMicState(room, false)) {
         this.pushToTalkOwnsMicrophone = false;
       }
       return;
     }
   }
 
-  private async applyPushToTalkMicState(room: Room, enabled: boolean): Promise<boolean> {
+  /**
+   * Apply push-to-mute as momentary microphone state.
+   *
+   * The shortcut takes ownership only when the press begins unmuted. Releasing
+   * restores that state unless another action muted or deafened the call.
+   */
+  async setPushToMutePressed(pressed: boolean): Promise<void> {
+    const needsReleaseRetry = !pressed && this.pushToMuteOwnsMicrophone;
+    if (this.pushToMutePressed === pressed && !needsReleaseRetry) {
+      return this.pushToMuteReconcileInFlight ?? Promise.resolve();
+    }
+    this.pushToMutePressed = pressed;
+
+    if (this.pushToMuteReconcileInFlight) return this.pushToMuteReconcileInFlight;
+    const room = this.room;
+    if (!room || !this.connected) return;
+
+    const reconcile = this.performPushToMuteReconciliation(room);
+    this.pushToMuteReconcileInFlight = reconcile;
+    try {
+      await reconcile;
+    } finally {
+      if (this.pushToMuteReconcileInFlight === reconcile) {
+        this.pushToMuteReconcileInFlight = null;
+      }
+    }
+  }
+
+  private async performPushToMuteReconciliation(room: Room): Promise<void> {
+    while (this.room === room && this.connected) {
+      if (this.pushToMutePressed) {
+        if (this.pushToMuteOwnsMicrophone || this.isMuted) return;
+
+        const inFlightMic = this.microphoneToggleInFlight;
+        if (inFlightMic) {
+          await inFlightMic.catch(() => {});
+          continue;
+        }
+        if (!this.pushToMutePressed || this.isMuted) continue;
+
+        if (await this.applyMomentaryMicState(room, false)) {
+          this.pushToMuteOwnsMicrophone = true;
+          continue;
+        }
+        return;
+      }
+
+      if (!this.pushToMuteOwnsMicrophone) return;
+      if (!this.isMuted || this.isDeafened) {
+        this.pushToMuteOwnsMicrophone = false;
+        return;
+      }
+
+      const inFlightMic = this.microphoneToggleInFlight;
+      if (inFlightMic) {
+        await inFlightMic.catch(() => {});
+        continue;
+      }
+
+      if (await this.applyMomentaryMicState(room, true)) {
+        this.pushToMuteOwnsMicrophone = false;
+      }
+      return;
+    }
+  }
+
+  private async applyMomentaryMicState(room: Room, enabled: boolean): Promise<boolean> {
     const operation: Promise<void> = this.runExplicitMediaDeviceOperation(() =>
       room.localParticipant.setMicrophoneEnabled(enabled)
     ).then(() => {});
@@ -1173,6 +1257,13 @@ export class VoiceCallState {
         this.isDeafenPending = false;
       }
     }
+  }
+
+  async setDeafened(deafened: boolean): Promise<void> {
+    const inFlight = this.deafenToggleInFlight;
+    if (inFlight) await inFlight.catch(() => {});
+    if (this.isDeafened === deafened) return;
+    await this.toggleDeafen();
   }
 
   private async performToggleDeafen(room: Room): Promise<void> {
@@ -1291,6 +1382,13 @@ export class VoiceCallState {
     }
   }
 
+  async setCameraEnabled(enabled: boolean): Promise<void> {
+    const inFlight = this.cameraToggleInFlight;
+    if (inFlight) await inFlight.catch(() => {});
+    if (this.isCameraEnabled === enabled) return;
+    await this.toggleCamera();
+  }
+
   private async performToggleCamera(room: Room): Promise<void> {
     const newEnabled = !this.isCameraEnabled;
     try {
@@ -1332,6 +1430,13 @@ export class VoiceCallState {
         this.isScreenSharePending = false;
       }
     }
+  }
+
+  async setScreenShareEnabled(enabled: boolean): Promise<void> {
+    const inFlight = this.screenShareToggleInFlight;
+    if (inFlight) await inFlight.catch(() => {});
+    if (this.isScreenShareEnabled === enabled) return;
+    await this.toggleScreenShare();
   }
 
   private async performToggleScreenShare(room: Room): Promise<void> {
@@ -2324,6 +2429,9 @@ export class VoiceCallState {
     this.pushToTalkPressed = false;
     this.pushToTalkOwnsMicrophone = false;
     this.pushToTalkReconcileInFlight = null;
+    this.pushToMutePressed = false;
+    this.pushToMuteOwnsMicrophone = false;
+    this.pushToMuteReconcileInFlight = null;
     this.suppressDisconnectToast = false;
     this.streamSoundParticipantIds = [];
     this.streamTransitionSoundsArmed = false;

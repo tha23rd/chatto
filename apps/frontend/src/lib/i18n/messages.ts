@@ -127,6 +127,7 @@ const msg_settings_nav_title = (): LocalizedString => messages().settings_nav_ti
 const msg_settings_nav_back_to_server = (): LocalizedString => messages().settings_nav_back_to_server(empty());
 const msg_settings_nav_profile = (): LocalizedString => messages().settings_nav_profile(empty());
 const msg_settings_nav_display = (): LocalizedString => messages().settings_nav_display(empty());
+const msg_settings_nav_keybinds = (): LocalizedString => messages().settings_nav_keybinds(empty());
 const msg_settings_nav_notifications = (): LocalizedString => messages().settings_nav_notifications(empty());
 const msg_settings_nav_account = (): LocalizedString => messages().settings_nav_account(empty());
 const msg_settings_profile_title = (): LocalizedString => messages().settings_profile_title(empty());
@@ -275,6 +276,42 @@ const msg_settings_preferences_soundboard_description = (): LocalizedString => m
 const msg_settings_preferences_soundboard_volume = (): LocalizedString => messages().settings_preferences_soundboard_volume(empty());
 const msg_settings_preferences_soundboard_mute_label = (): LocalizedString => messages().settings_preferences_soundboard_mute_label(empty());
 const msg_settings_preferences_soundboard_mute_description = (): LocalizedString => messages().settings_preferences_soundboard_mute_description(empty());
+const msg_settings_keybinds_title = (): LocalizedString => messages().settings_keybinds_title(empty());
+const msg_settings_keybinds_subtitle = (): LocalizedString => messages().settings_keybinds_subtitle(empty());
+const msg_settings_keybinds_instructions = (): LocalizedString => messages().settings_keybinds_instructions(empty());
+const msg_settings_keybinds_browser_note = (): LocalizedString => messages().settings_keybinds_browser_note(empty());
+const msg_settings_keybinds_desktop_note = (): LocalizedString => messages().settings_keybinds_desktop_note(empty());
+const msg_settings_keybinds_unassigned = (): LocalizedString => messages().settings_keybinds_unassigned(empty());
+const msg_settings_keybinds_recording = (): LocalizedString => messages().settings_keybinds_recording(empty());
+const msg_settings_keybinds_record_for = (
+  inputs: Parameters<LocaleMessages['settings_keybinds_record_for']>[0]
+): LocalizedString => messages().settings_keybinds_record_for(inputs);
+const msg_settings_keybinds_clear_for = (
+  inputs: Parameters<LocaleMessages['settings_keybinds_clear_for']>[0]
+): LocalizedString => messages().settings_keybinds_clear_for(inputs);
+const msg_settings_keybinds_reset = (): LocalizedString => messages().settings_keybinds_reset(empty());
+const msg_settings_keybinds_reset_success = (): LocalizedString => messages().settings_keybinds_reset_success(empty());
+const msg_settings_keybinds_reassigned = (
+  inputs: Parameters<LocaleMessages['settings_keybinds_reassigned']>[0]
+): LocalizedString => messages().settings_keybinds_reassigned(inputs);
+const msg_settings_keybinds_groups_voice = (): LocalizedString => messages().settings_keybinds_groups_voice(empty());
+const msg_settings_keybinds_groups_video_streaming = (): LocalizedString => messages().settings_keybinds_groups_video_streaming(empty());
+const msg_settings_keybinds_groups_call = (): LocalizedString => messages().settings_keybinds_groups_call(empty());
+const msg_settings_keybinds_actions_push_to_talk = (): LocalizedString => messages().settings_keybinds_actions_push_to_talk(empty());
+const msg_settings_keybinds_actions_push_to_mute = (): LocalizedString => messages().settings_keybinds_actions_push_to_mute(empty());
+const msg_settings_keybinds_actions_toggle_mute = (): LocalizedString => messages().settings_keybinds_actions_toggle_mute(empty());
+const msg_settings_keybinds_actions_mute = (): LocalizedString => messages().settings_keybinds_actions_mute(empty());
+const msg_settings_keybinds_actions_unmute = (): LocalizedString => messages().settings_keybinds_actions_unmute(empty());
+const msg_settings_keybinds_actions_toggle_deafen = (): LocalizedString => messages().settings_keybinds_actions_toggle_deafen(empty());
+const msg_settings_keybinds_actions_deafen = (): LocalizedString => messages().settings_keybinds_actions_deafen(empty());
+const msg_settings_keybinds_actions_undeafen = (): LocalizedString => messages().settings_keybinds_actions_undeafen(empty());
+const msg_settings_keybinds_actions_toggle_camera = (): LocalizedString => messages().settings_keybinds_actions_toggle_camera(empty());
+const msg_settings_keybinds_actions_camera_on = (): LocalizedString => messages().settings_keybinds_actions_camera_on(empty());
+const msg_settings_keybinds_actions_camera_off = (): LocalizedString => messages().settings_keybinds_actions_camera_off(empty());
+const msg_settings_keybinds_actions_toggle_screen_share = (): LocalizedString => messages().settings_keybinds_actions_toggle_screen_share(empty());
+const msg_settings_keybinds_actions_start_screen_share = (): LocalizedString => messages().settings_keybinds_actions_start_screen_share(empty());
+const msg_settings_keybinds_actions_stop_screen_share = (): LocalizedString => messages().settings_keybinds_actions_stop_screen_share(empty());
+const msg_settings_keybinds_actions_leave_call = (): LocalizedString => messages().settings_keybinds_actions_leave_call(empty());
 const msg_settings_notifications_title = (): LocalizedString => messages().settings_notifications_title(empty());
 const msg_settings_notifications_subtitle = (): LocalizedString => messages().settings_notifications_subtitle(empty());
 const msg_settings_notifications_push_title = (): LocalizedString => messages().settings_notifications_push_title(empty());
@@ -2018,6 +2055,7 @@ export { msg_settings_nav_title as 'settings.nav.title' };
 export { msg_settings_nav_back_to_server as 'settings.nav.back_to_server' };
 export { msg_settings_nav_profile as 'settings.nav.profile' };
 export { msg_settings_nav_display as 'settings.nav.display' };
+export { msg_settings_nav_keybinds as 'settings.nav.keybinds' };
 export { msg_settings_nav_notifications as 'settings.nav.notifications' };
 export { msg_settings_nav_account as 'settings.nav.account' };
 export { msg_settings_profile_title as 'settings.profile.title' };
@@ -2150,6 +2188,36 @@ export { msg_settings_preferences_soundboard_description as 'settings.preference
 export { msg_settings_preferences_soundboard_volume as 'settings.preferences.soundboard.volume' };
 export { msg_settings_preferences_soundboard_mute_label as 'settings.preferences.soundboard.mute.label' };
 export { msg_settings_preferences_soundboard_mute_description as 'settings.preferences.soundboard.mute.description' };
+export { msg_settings_keybinds_title as 'settings.keybinds.title' };
+export { msg_settings_keybinds_subtitle as 'settings.keybinds.subtitle' };
+export { msg_settings_keybinds_instructions as 'settings.keybinds.instructions' };
+export { msg_settings_keybinds_browser_note as 'settings.keybinds.browser_note' };
+export { msg_settings_keybinds_desktop_note as 'settings.keybinds.desktop_note' };
+export { msg_settings_keybinds_unassigned as 'settings.keybinds.unassigned' };
+export { msg_settings_keybinds_recording as 'settings.keybinds.recording' };
+export { msg_settings_keybinds_record_for as 'settings.keybinds.record_for' };
+export { msg_settings_keybinds_clear_for as 'settings.keybinds.clear_for' };
+export { msg_settings_keybinds_reset as 'settings.keybinds.reset' };
+export { msg_settings_keybinds_reset_success as 'settings.keybinds.reset_success' };
+export { msg_settings_keybinds_reassigned as 'settings.keybinds.reassigned' };
+export { msg_settings_keybinds_groups_voice as 'settings.keybinds.groups.voice' };
+export { msg_settings_keybinds_groups_video_streaming as 'settings.keybinds.groups.video_streaming' };
+export { msg_settings_keybinds_groups_call as 'settings.keybinds.groups.call' };
+export { msg_settings_keybinds_actions_push_to_talk as 'settings.keybinds.actions.push_to_talk' };
+export { msg_settings_keybinds_actions_push_to_mute as 'settings.keybinds.actions.push_to_mute' };
+export { msg_settings_keybinds_actions_toggle_mute as 'settings.keybinds.actions.toggle_mute' };
+export { msg_settings_keybinds_actions_mute as 'settings.keybinds.actions.mute' };
+export { msg_settings_keybinds_actions_unmute as 'settings.keybinds.actions.unmute' };
+export { msg_settings_keybinds_actions_toggle_deafen as 'settings.keybinds.actions.toggle_deafen' };
+export { msg_settings_keybinds_actions_deafen as 'settings.keybinds.actions.deafen' };
+export { msg_settings_keybinds_actions_undeafen as 'settings.keybinds.actions.undeafen' };
+export { msg_settings_keybinds_actions_toggle_camera as 'settings.keybinds.actions.toggle_camera' };
+export { msg_settings_keybinds_actions_camera_on as 'settings.keybinds.actions.camera_on' };
+export { msg_settings_keybinds_actions_camera_off as 'settings.keybinds.actions.camera_off' };
+export { msg_settings_keybinds_actions_toggle_screen_share as 'settings.keybinds.actions.toggle_screen_share' };
+export { msg_settings_keybinds_actions_start_screen_share as 'settings.keybinds.actions.start_screen_share' };
+export { msg_settings_keybinds_actions_stop_screen_share as 'settings.keybinds.actions.stop_screen_share' };
+export { msg_settings_keybinds_actions_leave_call as 'settings.keybinds.actions.leave_call' };
 export { msg_settings_notifications_title as 'settings.notifications.title' };
 export { msg_settings_notifications_subtitle as 'settings.notifications.subtitle' };
 export { msg_settings_notifications_push_title as 'settings.notifications.push.title' };
