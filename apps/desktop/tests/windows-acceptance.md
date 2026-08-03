@@ -12,6 +12,7 @@ imply that media, OAuth, or resource checks passed.
 | Git commit                        | UNRUN          |
 | Windows edition/build             | UNRUN          |
 | WebView2 runtime version          | UNRUN          |
+| Display-capture picker label(s)   | UNRUN          |
 | CPU / logical processors          | UNRUN          |
 | RAM                               | UNRUN          |
 | GPU and driver                    | UNRUN          |
@@ -50,8 +51,9 @@ private URLs, window titles, or message/media payloads.
 | Share 1080p60       | Share motion/content at 1920x1080/60; record actual diagnostics and remote quality.                                                                                                                                                      | UNRUN  |                                |
 | Share retune        | Change quality during an active share; confirm no second picker appears and diagnostics reflect the new ceiling.                                                                                                                         | UNRUN  |                                |
 | Diagnostics export  | From the live share quality gear, copy diagnostics JSON; confirm it parses, includes packet loss/jitter fields, and contains no identifiers or URLs.                                                                                     | UNRUN  |                                |
-| Entire-screen audio | Select an entire Windows display with share-audio enabled and verify remote system audio plus video. Record `BLOCKED` if WebView2 does not expose it.                                                                                    | UNRUN  |                                |
-| Selected-window audio | With WebView2 141 or newer, select a game window with share-audio enabled and verify the remote client receives that window's video plus Windows system audio. Confirm unrelated system sound can also be captured, while remote Chatto call playback is not looped back into the room. Record `BLOCKED` if WebView2 returns no audio track. | UNRUN | |
+| Entire-screen audio | Select an entire Windows display with share-audio enabled and verify remote system audio plus video. Record the Windows build, WebView2 runtime version, and exact picker audio-option label in the evidence. Record `BLOCKED` if WebView2 does not expose system audio. | UNRUN | |
+| Selected-window application audio | On a Windows/WebView2 combination whose picker offers application audio, select a game or other application window and enable that control. Verify the remote client receives the selected window's video and owning process-tree audio, but hears neither unrelated application output nor Chatto call playback. Record the Windows build, WebView2 runtime version, and exact picker label in the evidence. Record `BLOCKED` rather than passing if WebView2 does not return Chromium's `Application Audio`. | UNRUN | |
+| Selected-window fallback sanitisation | On a Windows/WebView2 combination whose picker offers all-system audio instead of application audio, select an application window and enable that control. Verify the remote client receives the selected window's video without screen-share audio, unrelated output, or Chatto call playback, and verify the presenter sees the no-audio warning while video continues. Record the Windows build, WebView2 runtime version, and exact picker label in the evidence. | UNRUN | |
 | PTT muted           | Mute, unfocus/minimise Chatto, hold `Control+Shift+Space`, verify speech only while held, then verify mute restoration.                                                                                                                  | UNRUN  |                                |
 | PTT unmuted         | While already unmuted, press/release PTT and verify the microphone remains unmuted.                                                                                                                                                      | UNRUN  |                                |
 | PTT deafened        | While deafened, press/release PTT and verify neither deafen nor mute is overridden.                                                                                                                                                      | UNRUN  |                                |
@@ -125,6 +127,7 @@ quality tier. Unavailable WebRTC fields remain `null`.
 Tauri/WebView2 can advance only when authentication, native transports, E2EE
 voice, global PTT, tray lifecycle, and install/uninstall pass, and when resource
 measurements are recorded honestly. A WebView2 media failure—especially required
-entire-screen or selected-window system audio, or unacceptable encoder/resource
-behavior—must be recorded with reproducible evidence before considering the
-ADR-900 Electron fallback. An unrun check is not a pass.
+entire-screen system audio, selected-window application audio, fail-closed
+fallback sanitisation, or unacceptable encoder/resource behavior—must be
+recorded with reproducible evidence before considering the ADR-900 Electron
+fallback. An unrun check is not a pass.
