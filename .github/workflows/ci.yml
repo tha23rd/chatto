@@ -47,13 +47,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          base_version="$(sed -n 's/.*Version = "\([^"]*\)".*/\1/p' cli/version.go)"
-          if [[ -z "$base_version" ]]; then
-            echo "::error::Could not read the base version from cli/version.go."
+          development_version="$(mise env --json | jq -r '.CHATTO_DEVELOPMENT_VERSION // empty')"
+          if [[ -z "$development_version" ]]; then
+            echo "::error::Could not read CHATTO_DEVELOPMENT_VERSION from mise.toml."
             exit 1
           fi
 
-          echo "version=${base_version}+${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+          echo "version=${development_version}+${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
 
       - name: Build frontend for production image
         env:
@@ -139,7 +139,12 @@ jobs:
             --exclude-path chatto/discovery/v1 \
             --exclude-path chatto/api/v1 \
             --exclude-path chatto/admin/v1 \
-            --exclude-path chatto/realtime/v1
+            --exclude-path chatto/realtime/v1 \
+            --exclude-path chatto/core/v1/projection_snapshots.proto
+
+      - name: Check projection snapshot schema contracts
+        working-directory: cli
+        run: mise x -- go test ./internal/core -run TestProjectionSnapshotContractsIncludeCurrentSchema -count=1
 
       - name: Check public API protobuf breaking changes
         if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'api-breaking-change') }}
@@ -153,13 +158,32 @@ jobs:
             --path chatto/admin/v1 \
             --path chatto/realtime/v1
 
+      - name: Check Authling persisted protobuf breaking changes
+        run: |
+          base_ref="${GITHUB_BASE_REF:-${GITHUB_REF_NAME}}"
+          if git cat-file -e "origin/${base_ref}:authling/buf.yaml" 2>/dev/null; then
+            cd authling
+            mise x -- buf breaking . \
+              --against "../.git#branch=origin/${base_ref},subdir=authling" \
+              --exclude-imports
+          else
+            echo "::notice::Authling protobufs are new; no base schema exists yet."
+          fi
+
       - name: Acknowledge intentional public API protobuf breaking changes
         if: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'api-breaking-change') }}
         run: |
           echo "::notice::Skipping public API Buf breaking check because this PR has the api-breaking-change label. Storage, internal, Operator, and codegen drift checks still run."
 
+      - name: Lint Authling protobufs
+        working-directory: authling
+        run: mise x -- buf lint
+
       - name: Regenerate protobuf bindings
-        run: mise codegen-proto
+        run: |
+          mise codegen-proto
+          cd authling
+          mise codegen-proto
 
       - name: Check generated protobuf bindings are current
         run: |
@@ -243,11 +267,62 @@ jobs:
       - name: Setup environment
         uses: ./.github/actions/setup
 
+      - name: Run Authling tests
+        working-directory: authling
+        run: mise test
+
+      - name: Run application configuration tests
+        run: mise test-appconfig
+
+      - name: Run data cryptography tests
+        run: mise test-datacrypto
+
+      - name: Run event framework tests
+        run: mise test-events
+
+      - name: Run embedded NATS runtime tests
+        run: mise test-natsruntime
+
       - name: Build frontend
         run: mise build-frontend
 
       - name: Run Go tests
         run: cd cli && go test -trimpath -p 1 -tags test_endpoints ./...
+
+  test-authling-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
+      - name: Setup Authling E2E dependencies
+        working-directory: authling
+        run: |
+          mise install
+          mise deps-web
+
+      - name: Setup Playwright
+        uses: ./.github/actions/setup-playwright
+        timeout-minutes: 15
+        with:
+          working-directory: authling
+
+      - name: Run Authling E2E tests
+        working-directory: authling
+        run: mise test-e2e
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with:
+          name: authling-playwright-report
+          path: |
+            authling/playwright-report/
+            authling/test-results/
+          retention-days: 14
 
   test-e2e:
     # runs-on: ubicloud-standard-4

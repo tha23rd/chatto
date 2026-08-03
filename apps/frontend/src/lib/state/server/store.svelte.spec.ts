@@ -14,7 +14,12 @@ import { User } from '@chatto/api-types/api/v1/users_pb';
 import { DirectoryMember } from '@chatto/api-types/api/v1/member_directory_pb';
 import { Message, MessageAttachment } from '@chatto/api-types/api/v1/message_types_pb';
 import { Room } from '@chatto/api-types/api/v1/rooms_pb';
-import { RoomViewerState, RoomWithViewerState } from '@chatto/api-types/api/v1/room_directory_pb';
+import {
+  RoomGroup,
+  RoomViewerState,
+  RoomWithViewerState
+} from '@chatto/api-types/api/v1/room_directory_pb';
+import { GetViewerResponse, ViewerUser } from '@chatto/api-types/api/v1/viewer_pb';
 import {
   RoomMessagePosted,
   RoomTimelineEvent,
@@ -56,7 +61,7 @@ const { soundMocks, apiMocks } = vi.hoisted(() => ({
     joinCall: vi.fn(() => Promise.resolve(true)),
     getCallToken: vi.fn(() => Promise.resolve(null)),
     leaveCall: vi.fn(() => Promise.resolve(true)),
-    listNotificationCounts: vi.fn(() => Promise.resolve({})),
+    listRoomNotificationCounts: vi.fn(() => Promise.resolve({})),
     listNotifications: vi.fn(() =>
       Promise.resolve({
         items: [],
@@ -124,7 +129,14 @@ const { soundMocks, apiMocks } = vi.hoisted(() => ({
     listRoomAttachments: vi.fn<
       () => Promise<{ items: RoomFileItem[]; totalCount: number; hasMore: boolean }>
     >(() => Promise.resolve({ items: [], totalCount: 0, hasMore: false })),
-    refreshAssetUrls: vi.fn(() => Promise.resolve(new Map()))
+    refreshAssetUrls: vi.fn(() => Promise.resolve(new Map())),
+    listRoles: vi.fn(() =>
+      Promise.resolve({
+        roles: [],
+        viewerCanManageRoles: false,
+        viewerCanAssignRoles: false
+      })
+    )
   }
 }));
 
@@ -180,10 +192,15 @@ vi.mock('$lib/api-client/notifications', () => ({
   createNotificationAPI: vi.fn(() => ({
     listNotifications: apiMocks.listNotifications,
     listRoomNotifications: vi.fn(),
-    hasNotifications: vi.fn(),
-    listNotificationCounts: apiMocks.listNotificationCounts,
+    listRoomNotificationCounts: apiMocks.listRoomNotificationCounts,
     dismissNotification: vi.fn(),
     dismissAllNotifications: vi.fn()
+  }))
+}));
+
+vi.mock('$lib/api-client/roles', () => ({
+  createRoleAPI: vi.fn(() => ({
+    listRoles: apiMocks.listRoles
   }))
 }));
 
@@ -243,6 +260,10 @@ class FakeServerConnection {
         toPromise: vi.fn().mockResolvedValue({ data, error: null })
       };
     });
+  }
+
+  getAPI<T>(factory: (config: never) => T): T {
+    return factory({} as never);
   }
 }
 
@@ -363,7 +384,7 @@ beforeEach(() => {
   apiMocks.joinCall.mockResolvedValue(true);
   apiMocks.getCallToken.mockResolvedValue(null);
   apiMocks.leaveCall.mockResolvedValue(true);
-  apiMocks.listNotificationCounts.mockResolvedValue({});
+  apiMocks.listRoomNotificationCounts.mockResolvedValue({});
   apiMocks.listNotifications.mockResolvedValue({
     items: [],
     unreadCount: 0
@@ -446,6 +467,31 @@ describe('ServerStateStore authentication state', () => {
 
     expect(store.isAuthenticated).toBe(false);
     expect(store.currentUser.user).toMatchObject({ id: 'U1' });
+  });
+});
+
+describe('ServerStateStore room search state', () => {
+  it('retains separate transient search state for each room', () => {
+    const store = makeStore(new FakeServerConnection([]));
+    const firstRoomSearch = store.messageSearchForRoom('R1');
+    const secondRoomSearch = store.messageSearchForRoom('R2');
+
+    firstRoomSearch.query = 'first room only';
+
+    expect(store.messageSearchForRoom('R1')).toBe(firstRoomSearch);
+    expect(secondRoomSearch).not.toBe(firstRoomSearch);
+    expect(secondRoomSearch.query).toBe('');
+    expect(store.messageSearch.query).toBe('');
+  });
+
+  it('bounds retained room search plaintext', () => {
+    const store = makeStore(new FakeServerConnection([]));
+    const oldestSearch = store.messageSearchForRoom('R1');
+    oldestSearch.query = 'sensitive result scope';
+    for (let index = 2; index <= 11; index++) store.messageSearchForRoom(`R${index}`);
+
+    expect(oldestSearch.query).toBe('');
+    expect(store.messageSearchForRoom('R1')).not.toBe(oldestSearch);
   });
 });
 
@@ -542,11 +588,16 @@ describe('ServerStateStore live server updates', () => {
         })
       })
     );
-    store.rooms.rooms = [{ id: 'R1' } as never];
-    store.rooms.roomGroups = [{ id: 'G1' } as never];
-    store.rooms.isInitialLoading = false;
-    store.roomDirectory.allRooms = [{ id: 'R1' } as never];
-    store.roomDirectory.isLoading = false;
+    store.projection.viewer = new GetViewerResponse({
+      user: new ViewerUser({ profile: new User({ id: 'U1' }) })
+    });
+    store.projection.rooms.set(
+      'R1',
+      new RealtimeProjectionRoom({
+        room: new RoomWithViewerState({ room: new Room({ id: 'R1' }) })
+      })
+    );
+    store.projection.roomGroups = [new RoomGroup({ id: 'G1' })];
     store.currentUser.loading = false;
 
     for (const handler of bus.projectionHandlers) {
@@ -572,9 +623,9 @@ describe('ServerStateStore live server updates', () => {
     expect(store.serverInfo.motd).toBeNull();
     expect(store.serverInfo.pushNotificationsEnabled).toBe(false);
     expect(store.serverInfo.livekitUrl).toBeNull();
-    expect(store.rooms.rooms).toEqual([]);
-    expect(store.rooms.roomGroups).toEqual([]);
-    expect(store.rooms.isInitialLoading).toBe(true);
+    expect(store.navigation.rooms).toEqual([]);
+    expect(store.navigation.roomGroups).toEqual([]);
+    expect(store.navigation.isInitialLoading).toBe(true);
     expect(store.roomDirectory.allRooms).toEqual([]);
     expect(store.roomDirectory.isLoading).toBe(true);
     expect(store.currentUser.loading).toBe(true);
@@ -647,8 +698,7 @@ describe('ServerStateStore live server updates', () => {
         memberUserIds: ['U2']
       })
     );
-    const replaceNavigation = vi.spyOn(store.rooms, 'replaceProjection');
-
+    store.realtimeSync.markCaughtUp(undefined);
     eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
     flushSync();
     const bus = eventBusManager.getBus(registered.id)!;
@@ -669,9 +719,7 @@ describe('ServerStateStore live server updates', () => {
 
     expect(store.projection.users.has('U2')).toBe(false);
     expect(store.projection.rooms.get('R1')?.memberUserIds).toEqual([]);
-    expect(replaceNavigation).toHaveBeenCalled();
-    const membersByRoom = replaceNavigation.mock.calls.at(-1)?.[3];
-    expect(membersByRoom?.get('R1')).toEqual([]);
+    expect(store.navigation.rooms[0]?.members).toEqual([]);
     expect(messages.events[0]).toMatchObject({ actorId: 'U2', actor: null });
   });
 
@@ -881,15 +929,7 @@ describe('ServerStateStore live server updates', () => {
       iconUrl: 'https://cdn/icon.webp',
       bannerUrl: 'https://cdn/banner.webp',
       directRegistrationEnabled: false,
-      authProviders: [],
-      compatibility: {
-        protocolCapabilities: [
-          'chatto.api.v1',
-          'chatto.realtime.v1',
-          'chatto.realtime.projection.v1'
-        ],
-        minimumWebClientVersion: null
-      }
+      authProviders: []
     });
     const store = makeStore(fake, registered, publicServerInfoLoader);
     await flushPromises();
@@ -1391,11 +1431,10 @@ describe('ServerStateStore live server updates', () => {
     release();
   });
 
-  it('does not inject an old mutation outside the retained room window or bump the room', () => {
+  it('does not inject an old mutation outside the retained room window', () => {
     const fake = new FakeServerConnection([]);
     const store = makeStore(fake);
     const messages = store.messagesForRoom('R1');
-    const bumpRoom = vi.spyOn(store.rooms, 'bumpRoom');
     const retained = Array.from({ length: 50 }, (_, index) =>
       projectedMessage(`M${index}`, new Date(Date.UTC(2026, 0, 1, 0, 0, index)))
     );
@@ -1453,13 +1492,23 @@ describe('ServerStateStore live server updates', () => {
     );
     expect(messages.events).toHaveLength(50);
     expect(messages.events.some(({ id }) => id === 'OLD-ROOT')).toBe(false);
-    expect(bumpRoom).not.toHaveBeenCalled();
   });
 
-  it('bumps an unretained room when lightweight activity arrives', () => {
+  it('derives unretained-room activity ordering directly from the projection', () => {
     const fake = new FakeServerConnection([]);
     const store = makeStore(fake);
-    const bumpRoom = vi.spyOn(store.rooms, 'bumpRoom');
+    store.projection.rooms.set(
+      'R1',
+      new RealtimeProjectionRoom({
+        room: new RoomWithViewerState({ room: new Room({ id: 'R1' }) })
+      })
+    );
+    store.projection.rooms.set(
+      'R2',
+      new RealtimeProjectionRoom({
+        room: new RoomWithViewerState({ room: new Room({ id: 'R2' }) })
+      })
+    );
 
     eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
     flushSync();
@@ -1480,14 +1529,14 @@ describe('ServerStateStore live server updates', () => {
       );
     }
 
-    expect(bumpRoom).toHaveBeenCalledWith('R2');
+    expect([...store.projection.rooms.keys()]).toEqual(['R2', 'R1']);
     expect(store.projection.timelines.has('R2')).toBe(false);
   });
 
   it('derives call join and leave effects from active-call projection replacements', () => {
     const fake = new FakeServerConnection([]);
     const store = makeStore(fake);
-    store.rooms.currentUserId = 'U1';
+    store.currentUser.user = { id: 'U1' } as never;
     const shouldPlay = vi
       .spyOn(store.voiceCall, 'callTransitionSoundDecision')
       .mockReturnValue('play');

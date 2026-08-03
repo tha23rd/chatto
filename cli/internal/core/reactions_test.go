@@ -7,9 +7,32 @@ import (
 	"testing"
 	"time"
 
-	"hmans.de/chatto/internal/events"
+	"hmans.de/chatto/internal/evtstream"
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
 )
+
+func TestTimelineFacadesHandleUnavailableRoomTimeline(t *testing.T) {
+	for name, core := range map[string]*ChattoCore{
+		"nil core":          nil,
+		"nil room model":    {},
+		"nil room timeline": {roomModel: &RoomModel{}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if echoID, ok := core.ChannelEchoEventID("M1"); ok || echoID != "" {
+				t.Fatalf("ChannelEchoEventID = %q/%v, want empty/false", echoID, ok)
+			}
+			if echoID, ok := core.LinkedChannelEchoEventID("M1"); ok || echoID != "" {
+				t.Fatalf("LinkedChannelEchoEventID = %q/%v, want empty/false", echoID, ok)
+			}
+			if core.IsHiddenChannelEcho("M1") {
+				t.Fatal("IsHiddenChannelEcho = true, want false")
+			}
+			if got := core.CanonicalReactionMessageEventID("R1", "M1"); got != "M1" {
+				t.Fatalf("CanonicalReactionMessageEventID = %q, want M1", got)
+			}
+		})
+	}
+}
 
 func TestReactionModel_AddReactionWrite(t *testing.T) {
 	core, _ := setupTestCore(t)
@@ -133,16 +156,14 @@ func TestReactionModel_AddReactionRefreshesStaleNoopSnapshot(t *testing.T) {
 	reactions := NewReactionProjection()
 	reactionsProjector := harness.projector(reactions)
 	core := &ChattoCore{
-		logger:             testCoreLogger(),
-		EventPublisher:     harness.publisher,
-		Reactions:          reactions,
-		ReactionsProjector: reactionsProjector,
+		logger:         testCoreLogger(),
+		EventPublisher: harness.publisher,
 	}
-	core.roomModel = newRoomModel(nil, nil, nil, nil, nil, nil, nil, nil, reactions, reactionsProjector)
+	core.roomModel = newTestRoomModel(t, nil, nil, nil, nil, nil, nil, nil, nil, reactions, reactionsProjector)
 	service := &ReactionModel{core: core}
 
 	addedOnOtherReplica := newReactionAddedEvent("U1", "R1", "M1", "thumbsup")
-	addSubject := events.RoomAggregate("R1").SubjectFor(addedOnOtherReplica)
+	addSubject := evtstream.RoomAggregate("R1").SubjectFor(addedOnOtherReplica)
 	addSeq, err := harness.publisher.AppendEventually(ctx, addSubject, addedOnOtherReplica)
 	if err != nil {
 		t.Fatalf("append existing reaction: %v", err)
@@ -152,7 +173,7 @@ func TestReactionModel_AddReactionRefreshesStaleNoopSnapshot(t *testing.T) {
 	}
 
 	removedOnOtherReplica := newReactionRemovedEvent("U1", "R1", "M1", "thumbsup")
-	removeSubject := events.RoomAggregate("R1").SubjectFor(removedOnOtherReplica)
+	removeSubject := evtstream.RoomAggregate("R1").SubjectFor(removedOnOtherReplica)
 	if _, err := harness.publisher.AppendEventually(ctx, removeSubject, removedOnOtherReplica); err != nil {
 		t.Fatalf("append remote reaction removal: %v", err)
 	}

@@ -5,11 +5,11 @@ Server-wide and per-room notification level settings for the current user.
 These preferences are server-side and sync across devices.
 -->
 <script lang="ts">
+  import { NotificationLevel } from '@chatto/api-types/api/v1/notification_preferences_pb';
+  import { notificationLevelOrDefault } from '$lib/api-client/enumDefaults';
   import { onMount } from 'svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
-  import { NotificationLevel } from '$lib/render/types';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
+
   import { ChoiceRow, FormSection } from '$lib/ui';
   import { FormError } from '$lib/ui/form';
   import { toast } from '$lib/ui/toast';
@@ -21,14 +21,14 @@ These preferences are server-side and sync across devices.
   } from '$lib/api-client/notificationPreferences';
   import { createRoomDirectoryAPI, RoomDirectoryScope } from '$lib/api-client/roomDirectory';
   import { getViewerStateViaConnect } from '$lib/api-client/viewer';
-  import { NotificationLevel as ApiNotificationLevel } from '@chatto/api-types/api/v1/notification_preferences_pb';
 
-  const serverId = getActiveServer();
-  const notificationLevelStore = serverRegistry.getStore(serverId).notificationLevels;
-  const connection = useConnection();
+  const serverScope = useServerScope();
+  const serverId = serverScope.serverId;
+  const connection = serverScope.connection;
+  const notificationLevelStore = serverScope.store.notificationLevels;
 
-  let serverLevel = $state<NotificationLevel>(NotificationLevel.Default);
-  let serverEffectiveLevel = $state<NotificationLevel>(NotificationLevel.Normal);
+  let serverLevel = $state<NotificationLevel>(NotificationLevel.DEFAULT);
+  let serverEffectiveLevel = $state<NotificationLevel>(NotificationLevel.NORMAL);
 
   let rooms = $state<
     Array<{
@@ -58,17 +58,18 @@ These preferences are server-side and sync across devices.
     error = '';
 
     try {
-      const config = connectConfig();
+      const config = preferenceConfig();
       const [serverPref, viewer, channelRooms] = await Promise.all([
         getServerNotificationPreference(config),
         getViewerStateViaConnect(config),
-        createRoomDirectoryAPI(config).listRooms(RoomDirectoryScope.CHANNELS)
+        connection.getAPI(createRoomDirectoryAPI).listRooms(RoomDirectoryScope.CHANNELS)
       ]);
+      if (!serverScope.isCurrent()) return;
 
       const mappedServerPref = notificationPreferenceFromAPI(serverPref);
       serverLevel =
-        mappedServerPref.level === NotificationLevel.Default
-          ? NotificationLevel.Normal
+        mappedServerPref.level === NotificationLevel.DEFAULT
+          ? NotificationLevel.NORMAL
           : mappedServerPref.level;
       serverEffectiveLevel = mappedServerPref.effectiveLevel;
       notificationLevelStore.setServerPreference(
@@ -84,8 +85,8 @@ These preferences are server-side and sync across devices.
         return {
           id: room.id,
           name: room.name,
-          level: pref?.level ?? NotificationLevel.Default,
-          effectiveLevel: pref?.effectiveLevel ?? NotificationLevel.Normal
+          level: pref?.level ?? NotificationLevel.DEFAULT,
+          effectiveLevel: pref?.effectiveLevel ?? NotificationLevel.NORMAL
         };
       });
 
@@ -93,9 +94,10 @@ These preferences are server-side and sync across devices.
         notificationLevelStore.setRoomPreference(room.id, room.level, room.effectiveLevel);
       }
     } catch (e) {
+      if (!serverScope.isCurrent()) return;
       error = e instanceof Error ? e.message : m['settings.notifications.levels.load_failed']();
     } finally {
-      loading = false;
+      if (serverScope.isCurrent()) loading = false;
     }
   }
 
@@ -104,20 +106,23 @@ These preferences are server-side and sync across devices.
 
     try {
       const pref = notificationPreferenceFromAPI(
-        await updateServerNotificationPreference(connectConfig(), notificationLevelToAPI(newLevel))
+        await updateServerNotificationPreference(preferenceConfig(), newLevel)
       );
+      if (!serverScope.isCurrent()) return;
       serverLevel = pref.level;
       serverEffectiveLevel = pref.effectiveLevel;
       notificationLevelStore.setServerPreference(pref.level, pref.effectiveLevel);
 
       await loadPreferences();
+      if (!serverScope.isCurrent()) return;
       toast.success(m['settings.notifications.levels.server_updated']());
     } catch (e) {
+      if (!serverScope.isCurrent()) return;
       toast.error(
         e instanceof Error ? e.message : m['settings.notifications.levels.update_failed']()
       );
     } finally {
-      savingServerLevel = false;
+      if (serverScope.isCurrent()) savingServerLevel = false;
     }
   }
 
@@ -126,6 +131,7 @@ These preferences are server-side and sync across devices.
 
     try {
       const pref = await setRoomLevel(roomId, newLevel);
+      if (!serverScope.isCurrent()) return;
       const idx = rooms.findIndex((r) => r.id === roomId);
       if (idx !== -1) {
         rooms[idx] = { ...rooms[idx], level: pref.level, effectiveLevel: pref.effectiveLevel };
@@ -134,11 +140,12 @@ These preferences are server-side and sync across devices.
       notificationLevelStore.setRoomPreference(roomId, pref.level, pref.effectiveLevel);
       toast.success(m['settings.notifications.levels.room_updated']());
     } catch (e) {
+      if (!serverScope.isCurrent()) return;
       toast.error(
         e instanceof Error ? e.message : m['settings.notifications.levels.update_failed']()
       );
     } finally {
-      savingRoomId = null;
+      if (serverScope.isCurrent()) savingRoomId = null;
     }
   }
 
@@ -146,22 +153,22 @@ These preferences are server-side and sync across devices.
     Array<{ value: NotificationLevel; label: string; description: string }>
   >([
     {
-      value: NotificationLevel.Default,
+      value: NotificationLevel.DEFAULT,
       label: m['settings.notifications.levels.default.label'](),
       description: m['settings.notifications.levels.default.description']()
     },
     {
-      value: NotificationLevel.Muted,
+      value: NotificationLevel.MUTED,
       label: m['settings.notifications.levels.muted.label'](),
       description: m['settings.notifications.levels.muted.description']()
     },
     {
-      value: NotificationLevel.Normal,
+      value: NotificationLevel.NORMAL,
       label: m['settings.notifications.levels.normal.label'](),
       description: m['settings.notifications.levels.normal.description']()
     },
     {
-      value: NotificationLevel.AllMessages,
+      value: NotificationLevel.ALL_MESSAGES,
       label: m['settings.notifications.levels.all_messages.label'](),
       description: m['settings.notifications.levels.all_messages.description']()
     }
@@ -171,68 +178,30 @@ These preferences are server-side and sync across devices.
     roomId: string,
     newLevel: NotificationLevel
   ): Promise<NotificationPreference> {
-    const pref = await updateRoomNotificationPreference(
-      connectConfig(),
-      roomId,
-      notificationLevelToAPI(newLevel)
-    );
+    const pref = await updateRoomNotificationPreference(preferenceConfig(), roomId, newLevel);
     return notificationPreferenceFromAPI(pref);
   }
 
-  function connectConfig() {
-    const conn = connection();
-    return {
-      serverId,
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
-    };
+  function preferenceConfig() {
+    return { ...connection.apiConfig, serverId };
   }
 
   function notificationPreferenceFromAPI(pref: {
-    level: ApiNotificationLevel;
-    effectiveLevel: ApiNotificationLevel;
+    level: NotificationLevel;
+    effectiveLevel: NotificationLevel;
   }): NotificationPreference {
     return {
-      level: notificationLevelFromAPI(pref.level),
-      effectiveLevel: notificationLevelFromAPI(pref.effectiveLevel)
+      level: notificationLevelOrDefault(pref.level),
+      effectiveLevel: notificationLevelOrDefault(pref.effectiveLevel)
     };
   }
 
   const serverLevelOptions = $derived(
-    levelOptions.filter((o) => o.value !== NotificationLevel.Default)
+    levelOptions.filter((o) => o.value !== NotificationLevel.DEFAULT)
   );
 
   function levelLabel(level: NotificationLevel): string {
-    return levelOptions.find((o) => o.value === level)?.label ?? level;
-  }
-
-  function notificationLevelToAPI(level: NotificationLevel): ApiNotificationLevel {
-    switch (level) {
-      case NotificationLevel.Muted:
-        return ApiNotificationLevel.MUTED;
-      case NotificationLevel.Normal:
-        return ApiNotificationLevel.NORMAL;
-      case NotificationLevel.AllMessages:
-        return ApiNotificationLevel.ALL_MESSAGES;
-      case NotificationLevel.Default:
-      default:
-        return ApiNotificationLevel.DEFAULT;
-    }
-  }
-
-  function notificationLevelFromAPI(level: ApiNotificationLevel): NotificationLevel {
-    switch (level) {
-      case ApiNotificationLevel.MUTED:
-        return NotificationLevel.Muted;
-      case ApiNotificationLevel.NORMAL:
-        return NotificationLevel.Normal;
-      case ApiNotificationLevel.ALL_MESSAGES:
-        return NotificationLevel.AllMessages;
-      case ApiNotificationLevel.DEFAULT:
-      case ApiNotificationLevel.UNSPECIFIED:
-      default:
-        return NotificationLevel.Default;
-    }
+    return levelOptions.find((o) => o.value === level)?.label ?? String(level);
   }
 </script>
 
@@ -285,7 +254,7 @@ These preferences are server-side and sync across devices.
             data-testid={`room-notification-${room.name}`}
             class={[
               'flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2',
-              room.effectiveLevel === NotificationLevel.Muted ? 'opacity-60' : ''
+              room.effectiveLevel === NotificationLevel.MUTED ? 'opacity-60' : ''
             ]}
           >
             <div class="min-w-0">
@@ -293,7 +262,7 @@ These preferences are server-side and sync across devices.
                 <span class="text-muted">#</span>
                 <span class="truncate font-medium">{room.name}</span>
               </div>
-              {#if room.level !== NotificationLevel.Default}
+              {#if room.level !== NotificationLevel.DEFAULT}
                 <div class="text-xs text-muted">
                   {m['settings.notifications.levels.effective']({
                     level: levelLabel(room.effectiveLevel)
@@ -303,17 +272,17 @@ These preferences are server-side and sync across devices.
             </div>
             <select
               aria-label={m['settings.notifications.levels.room_level_label']({ room: room.name })}
-              value={room.level}
+              value={String(room.level)}
               disabled={isSaving}
               onchange={(e) =>
                 handleRoomLevelChange(
                   room.id,
-                  (e.target as HTMLSelectElement).value as NotificationLevel
+                  Number((e.target as HTMLSelectElement).value) as NotificationLevel
                 )}
               class={['input w-auto min-w-[120px] text-sm', isSaving ? 'opacity-50' : '']}
             >
               {#each levelOptions as option (option.value)}
-                <option value={option.value}>{option.label}</option>
+                <option value={String(option.value)}>{option.label}</option>
               {/each}
             </select>
           </div>

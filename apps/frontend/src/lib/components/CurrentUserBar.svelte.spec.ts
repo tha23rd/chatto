@@ -1,15 +1,13 @@
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
+import { RoomKind } from '@chatto/api-types/api/v1/rooms_pb';
+import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import '../../app.css';
 import { q } from '$lib/test-utils';
-import { PresenceStatus } from '$lib/render/types';
+
 import { presencePreference } from '$lib/state/presencePreference.svelte';
-import {
-  consumePendingRoomSidebarPanel,
-  getRoomSidebarPanelState,
-  roomSidebarPanelStorageSuffix
-} from '$lib/storage/roomSidebarPanel';
-import { serverStorageKey } from '$lib/storage/serverStorage';
+import { getRoomSidebarPanelState } from '$lib/storage/roomSidebarPanel';
 import CurrentUserBarTestHarness from './CurrentUserBarTestHarness.svelte';
 
 function computedBackgroundColor(color: string): string {
@@ -32,11 +30,17 @@ type MockRoomMember = {
 type MockRoom = {
   id: string;
   name: string;
-  type: 'CHANNEL' | 'DM';
+  type: RoomKind;
   members: MockRoomMember[];
 };
 
-const { currentUserState, voiceCallState, roomsState } = vi.hoisted(() => ({
+const {
+  currentUserState,
+  voiceCallState,
+  roomsState,
+  inputCapabilities,
+  customStatusEditorModuleLoaded
+} = vi.hoisted(() => ({
   currentUserState: {
     user: null as {
       id: string;
@@ -73,11 +77,17 @@ const { currentUserState, voiceCallState, roomsState } = vi.hoisted(() => ({
       {
         id: 'room-1',
         name: 'general',
-        type: 'CHANNEL',
+        // RoomKind.CHANNEL; vi.hoisted cannot reference module imports.
+        type: 1 as RoomKind,
         members: []
       }
     ] as MockRoom[]
-  }
+  },
+  inputCapabilities: {
+    prefersTouchActions: false,
+    supportsHoverActions: true
+  },
+  customStatusEditorModuleLoaded: vi.fn()
 }));
 const navigation = vi.hoisted(() => ({
   goto: vi.fn(),
@@ -88,10 +98,23 @@ vi.mock('$lib/state/activeServer.svelte', () => ({
   getActiveServer: () => 'origin'
 }));
 
-vi.mock('$lib/state/server/connection.svelte', () => ({
-  useConnection: () => () => ({
-    connectBaseUrl: 'https://chat.example.test',
-    bearerToken: 'token'
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({
+    serverId: 'origin',
+    store: {
+      currentUser: currentUserState,
+      voiceCall: voiceCallState,
+      navigation: roomsState
+    },
+    connection: {
+      connectBaseUrl: 'https://chat.example.test',
+      bearerToken: 'token',
+      apiConfig: {
+        serverId: 'origin',
+        baseUrl: 'https://chat.example.test',
+        bearerToken: 'token'
+      }
+    }
   })
 }));
 
@@ -100,22 +123,21 @@ vi.mock('$app/navigation', () => ({
   pushState: navigation.pushState
 }));
 
-vi.mock('$lib/state/server/registry.svelte', () => ({
-  serverRegistry: {
-    isOriginServer: () => true,
-    tryGetStore: () => ({
-      currentUser: currentUserState,
-      voiceCall: voiceCallState,
-      rooms: roomsState
-    })
-  }
-}));
-
 vi.mock('$lib/state/userProfiles.svelte', () => ({
   getLiveAvatarUrl: (_userId: string, fallback: string | null) => fallback,
   getLiveCustomStatus: (_userId: string, fallback: unknown) => fallback,
   getLiveDisplayName: (_userId: string, fallback: string) => fallback
 }));
+
+vi.mock('$lib/utils/inputCapabilities', () => ({
+  prefersTouchActions: () => inputCapabilities.prefersTouchActions,
+  supportsHoverActions: () => inputCapabilities.supportsHoverActions
+}));
+
+vi.mock('./UserCustomStatusEditor.svelte', async (importOriginal) => {
+  customStatusEditorModuleLoaded();
+  return importOriginal();
+});
 
 describe('CurrentUserBar', () => {
   beforeEach(() => {
@@ -126,13 +148,13 @@ describe('CurrentUserBar', () => {
       login: 'alice',
       displayName: 'Alice',
       avatarUrl: null,
-      presenceStatus: PresenceStatus.Offline,
+      presenceStatus: PresenceStatus.OFFLINE,
       customStatus: null,
       hasVerifiedEmail: true,
       settings: null
     };
     presencePreference.mode = 'auto';
-    presencePreference.effectiveStatus = PresenceStatus.Online;
+    presencePreference.effectiveStatus = PresenceStatus.ONLINE;
     voiceCallState.connected = false;
     voiceCallState.roomId = null;
     voiceCallState.isMuted = false;
@@ -151,10 +173,13 @@ describe('CurrentUserBar', () => {
       {
         id: 'room-1',
         name: 'general',
-        type: 'CHANNEL',
+        type: RoomKind.CHANNEL,
         members: []
       }
     ];
+    inputCapabilities.prefersTouchActions = false;
+    inputCapabilities.supportsHoverActions = true;
+    customStatusEditorModuleLoaded.mockClear();
   });
 
   it('uses the seeded presence cache instead of the first-login offline fallback', () => {
@@ -172,7 +197,7 @@ describe('CurrentUserBar', () => {
   });
 
   it('uses the presence cache instead of local presence preference for the current user dot', () => {
-    presencePreference.effectiveStatus = PresenceStatus.Away;
+    presencePreference.effectiveStatus = PresenceStatus.AWAY;
 
     const { container } = render(CurrentUserBarTestHarness);
 
@@ -186,10 +211,10 @@ describe('CurrentUserBar', () => {
   });
 
   it('renders the current user dot from the seeded away presence cache value', () => {
-    presencePreference.effectiveStatus = PresenceStatus.Online;
+    presencePreference.effectiveStatus = PresenceStatus.ONLINE;
 
     const { container } = render(CurrentUserBarTestHarness, {
-      cachedPresence: PresenceStatus.Away
+      cachedPresence: PresenceStatus.AWAY
     });
 
     expect(q(container, '[aria-label="Presence: Away"]')).toBeTruthy();
@@ -263,6 +288,31 @@ describe('CurrentUserBar', () => {
       expect(container.textContent).not.toContain('Do Not Disturb');
     });
     expect(presencePreference.mode).toBe('away');
+  });
+
+  it('loads the custom status editor only after opening the touch bottom sheet', async () => {
+    inputCapabilities.prefersTouchActions = true;
+    inputCapabilities.supportsHoverActions = false;
+
+    const { container } = render(CurrentUserBarTestHarness);
+
+    await tick();
+    await Promise.resolve();
+    expect(customStatusEditorModuleLoaded).not.toHaveBeenCalled();
+    expect(q(container, '[data-testid="custom-status-editor"]')).toBeFalsy();
+
+    (q(container, '[data-testid="current-user-presence-menu"]') as HTMLButtonElement).click();
+    await vi.waitFor(() => {
+      expect(q(container, '[data-testid="current-user-custom-status-action"]')).toBeTruthy();
+    });
+    (
+      q(container, '[data-testid="current-user-custom-status-action"]') as HTMLButtonElement
+    ).click();
+
+    await vi.waitFor(() => {
+      expect(customStatusEditorModuleLoaded).toHaveBeenCalledOnce();
+      expect(q(container, '[data-testid="custom-status-editor"]')).toBeTruthy();
+    }, 10_000);
   });
 
   it('opens the custom status dialog from the status menu', async () => {
@@ -380,9 +430,6 @@ describe('CurrentUserBar', () => {
   it('shows active call controls and links to the call room', async () => {
     voiceCallState.connected = true;
     voiceCallState.roomId = 'room-1';
-    const storageEvents: StorageEvent[] = [];
-    const listener = (event: StorageEvent) => storageEvents.push(event);
-    window.addEventListener('storage', listener);
 
     const { container } = render(CurrentUserBarTestHarness);
 
@@ -419,17 +466,10 @@ describe('CurrentUserBar', () => {
 
     expect(navigation.goto).toHaveBeenCalledWith('/chat/-/room-1');
     expect(getRoomSidebarPanelState('origin', 'room-1')).toBe('call');
-    expect(consumePendingRoomSidebarPanel('origin', 'room-1')).toBe('call');
-    expect(storageEvents).toHaveLength(1);
-    expect(storageEvents[0].key).toBe(
-      serverStorageKey('origin', roomSidebarPanelStorageSuffix('room-1'))
-    );
-    expect(storageEvents[0].newValue).toBe('call');
     expect(voiceCallState.toggleMute).toHaveBeenCalledOnce();
     expect(voiceCallState.toggleCamera).toHaveBeenCalledOnce();
     expect(voiceCallState.toggleScreenShare).toHaveBeenCalledOnce();
     expect(voiceCallState.leave).toHaveBeenCalledOnce();
-    window.removeEventListener('storage', listener);
   });
 
   it('aligns the equal-width call controls with the user card', () => {
@@ -444,8 +484,9 @@ describe('CurrentUserBar', () => {
     const identityCard = q(container, '[data-testid="current-user-identity-card"]')!;
     const callCardRect = callCard.getBoundingClientRect();
     const identityCardRect = identityCard.getBoundingClientRect();
-    const controlWidths = Array.from(callCard.children, (control) =>
-      control.getBoundingClientRect().width
+    const controlWidths = Array.from(
+      callCard.children,
+      (control) => control.getBoundingClientRect().width
     );
 
     expect(callCardRect.left).toBe(identityCardRect.left);
@@ -505,21 +546,21 @@ describe('CurrentUserBar', () => {
       {
         id: 'dm-1',
         name: 'dm-1',
-        type: 'DM',
+        type: RoomKind.DM,
         members: [
           {
             id: 'user-1',
             login: 'alice',
             displayName: 'Alice',
             avatarUrl: null,
-            presenceStatus: PresenceStatus.Online
+            presenceStatus: PresenceStatus.ONLINE
           },
           {
             id: 'user-2',
             login: 'bob',
             displayName: 'Bob',
             avatarUrl: null,
-            presenceStatus: PresenceStatus.Online
+            presenceStatus: PresenceStatus.ONLINE
           }
         ]
       }

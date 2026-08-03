@@ -13,7 +13,7 @@ The generous byte cap lets an admin drop in a full-quality source file and trim
 it down to the few seconds they want before uploading.
 -->
 <script lang="ts">
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { createAdminSoundboardAPI, type Sound } from '$lib/api-client/soundboard';
   import type { ConnectAPIConfig } from '$lib/api-client/connect';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
@@ -38,7 +38,8 @@ it down to the few seconds they want before uploading.
   const ACCEPTED_AUDIO_TYPES = ['audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm'];
   const ACCEPT_ATTR = ACCEPTED_AUDIO_TYPES.join(',');
 
-  const connection = useConnection();
+  const serverScope = useServerScope();
+  const connection = () => serverScope.connection;
 
   function apiConfig(): ConnectAPIConfig {
     const conn = connection();

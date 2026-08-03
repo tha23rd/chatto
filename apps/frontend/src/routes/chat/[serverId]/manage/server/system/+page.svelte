@@ -11,11 +11,11 @@
   import { Hint, PaneContent, Pill } from '$lib/ui';
   import PaneHeader from '$lib/ui/PaneHeader.svelte';
   import PageTitle from '$lib/ui/PageTitle.svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import * as m from '$lib/i18n/messages';
   import AssetCleanupPanel from './AssetCleanupPanel.svelte';
 
-  const connection = useConnection();
+  const serverScope = useServerScope();
 
   let systemInfo = $state.raw<AdminSystemInfo | null>(null);
   let loading = $state(true);
@@ -71,19 +71,11 @@
     return largest;
   });
 
-  function apiConfig() {
-    const conn = connection();
-    return {
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
-    };
-  }
-
   async function loadSystemInfo() {
     loading = true;
     error = null;
     try {
-      systemInfo = await getAdminSystemInfo(apiConfig());
+      systemInfo = await getAdminSystemInfo(serverScope.connection.apiConfig);
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
       systemInfo = null;

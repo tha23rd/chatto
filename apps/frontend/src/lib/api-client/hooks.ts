@@ -4,6 +4,7 @@ export type UserSummaryForCache = {
   displayName: string;
   deleted: boolean;
   avatarUrl: string | null;
+  roleColor?: number | null;
 };
 
 export type ApiClientHooks = {

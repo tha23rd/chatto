@@ -7,35 +7,29 @@
   import { toast } from '$lib/ui/toast';
   import { Panel } from '$lib/components/admin';
   import { Hint, PaneContent } from '$lib/ui';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import * as m from '$lib/i18n/messages';
 
-  const connection = useConnection();
+  const serverScope = useServerScope();
 
   let blockedUsernames = $state('');
   let loading = $state(true);
   let saving = $state(false);
   let error = $state<string | null>(null);
 
-  function apiConfig() {
-    const conn = connection();
-    return {
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
-    };
-  }
-
   async function loadSecurityConfig() {
     loading = true;
     error = null;
     try {
-      const config = await getServerSecurityConfig(apiConfig());
+      const config = await getServerSecurityConfig(serverScope.connection.apiConfig);
+      if (!serverScope.isCurrent()) return;
       blockedUsernames = config.blockedUsernames;
     } catch (err) {
+      if (!serverScope.isCurrent()) return;
       error = err instanceof Error ? err.message : String(err);
       toast.error(error);
     } finally {
-      loading = false;
+      if (serverScope.isCurrent()) loading = false;
     }
   }
 
@@ -48,14 +42,19 @@
     saving = true;
     error = null;
     try {
-      const config = await updateBlockedUsernames(apiConfig(), blockedUsernames);
+      const config = await updateBlockedUsernames(
+        serverScope.connection.apiConfig,
+        blockedUsernames
+      );
+      if (!serverScope.isCurrent()) return;
       blockedUsernames = config.blockedUsernames;
       toast.success(m['admin.security.settings_saved']());
     } catch (err) {
+      if (!serverScope.isCurrent()) return;
       error = err instanceof Error ? err.message : String(err);
       toast.error(error);
     } finally {
-      saving = false;
+      if (serverScope.isCurrent()) saving = false;
     }
   }
 </script>

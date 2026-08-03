@@ -1,8 +1,10 @@
+import { RoomKind } from '@chatto/api-types/api/v1/rooms_pb';
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { q, testSnippet } from '$lib/test-utils';
-import { PresenceStatus, RoomType } from '$lib/render/types';
+
 import type { RoomsListItem } from '$lib/state/server/rooms.svelte';
 
 const { mocks } = vi.hoisted(() => ({
@@ -23,7 +25,6 @@ const { mocks } = vi.hoisted(() => ({
     currentUserId: 'viewer-1',
     joinRoom: vi.fn(),
     loadJoinPreview: vi.fn(),
-    refreshRooms: vi.fn(),
     toastSuccess: vi.fn(),
     toastError: vi.fn()
   }
@@ -64,7 +65,7 @@ vi.mock('$lib/state/userProfiles.svelte', () => ({
 vi.mock('$lib/state/server/registry.svelte', () => ({
   serverRegistry: {
     getStore: () => ({
-      rooms: {
+      navigation: {
         get rooms() {
           return mocks.roomsStore.rooms;
         },
@@ -76,8 +77,7 @@ vi.mock('$lib/state/server/registry.svelte', () => ({
         },
         get currentUserId() {
           return mocks.roomsStore.currentUserId;
-        },
-        refresh: mocks.refreshRooms
+        }
       },
       currentUser: {
         get user() {
@@ -91,6 +91,20 @@ vi.mock('$lib/state/server/registry.svelte', () => ({
     })
   }
 }));
+
+vi.mock('$lib/state/server/scope.svelte', async () => {
+  const { serverRegistry } = await import('$lib/state/server/registry.svelte');
+  return {
+    useServerScope: () => ({
+      serverId: 'origin',
+      connection: {},
+      get store() {
+        return serverRegistry.getStore('origin');
+      },
+      isCurrent: () => true
+    })
+  };
+});
 
 vi.mock('$lib/ui/toast', () => ({
   toast: {
@@ -110,7 +124,7 @@ function room(overrides: Partial<RoomsListItem> = {}): RoomsListItem {
   return {
     id: 'room-1',
     name: 'development',
-    type: RoomType.Channel,
+    type: RoomKind.CHANNEL,
     isUniversal: false,
     viewerIsMember: true,
     viewerCanJoinRoom: true,
@@ -149,7 +163,6 @@ beforeEach(() => {
   mocks.currentUserId = 'viewer-1';
   mocks.loadJoinPreview.mockResolvedValue(null);
   mocks.joinRoom.mockResolvedValue({ ok: true, room: { id: 'room-1', name: 'development' } });
-  mocks.refreshRooms.mockResolvedValue(undefined);
 });
 
 describe('room route layout access handling', () => {
@@ -225,7 +238,7 @@ describe('room route layout access handling', () => {
           displayName: 'Alice',
           deleted: false,
           avatarUrl: null,
-          presenceStatus: PresenceStatus.Offline,
+          presenceStatus: PresenceStatus.OFFLINE,
           customStatus: null
         },
         {
@@ -234,7 +247,7 @@ describe('room route layout access handling', () => {
           displayName: 'Bob',
           deleted: false,
           avatarUrl: null,
-          presenceStatus: PresenceStatus.Online,
+          presenceStatus: PresenceStatus.ONLINE,
           customStatus: null
         }
       ]
@@ -288,7 +301,7 @@ describe('room route layout access handling', () => {
     await expect.element(q(container, 'button')).toHaveTextContent('Join Room');
   });
 
-  it('joins a nonmember room inline and refreshes room membership without changing URLs', async () => {
+  it('joins a nonmember room inline and waits for projected membership without changing URLs', async () => {
     mocks.roomsStore.rooms = [room({ viewerIsMember: false })];
 
     const { container } = renderLayout();
@@ -297,7 +310,6 @@ describe('room route layout access handling', () => {
     await vi.waitFor(() => {
       expect(mocks.joinRoom).toHaveBeenCalledWith('room-1');
       expect(mocks.toastSuccess).toHaveBeenCalledWith('Joined #development');
-      expect(mocks.refreshRooms).toHaveBeenCalledOnce();
     });
     expect(mocks.goto).not.toHaveBeenCalled();
   });

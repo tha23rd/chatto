@@ -6,8 +6,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"hmans.de/chatto/internal/events"
+	"hmans.de/chatto/internal/evtstream"
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
+	"hmans.de/chatto/pkg/events"
 )
 
 // CustomEmoji is the projected current-state view of one server custom emoji.
@@ -48,7 +49,7 @@ func NewCustomEmojiProjection() *CustomEmojiProjection {
 
 // Subjects returns the subject filter this projection consumes.
 func (p *CustomEmojiProjection) Subjects() []string {
-	return []string{events.CustomEmojiSubjectFilter()}
+	return []string{evtstream.CustomEmojiSubjectFilter()}
 }
 
 // Apply folds one custom-emoji event into the catalog.

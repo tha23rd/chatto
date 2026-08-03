@@ -8,7 +8,7 @@ identity, body rendering, and row geometry consistent.
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import type { ClassValue } from 'svelte/elements';
-  import type { UserAvatarUserView } from '$lib/render/types';
+  import type { UserAvatarUserView } from '$lib/render/users';
   import type { RoomMember } from '$lib/state/room';
   import type { TimeFormatSettings } from '$lib/utils/formatTime';
   import UserAvatar from '$lib/components/UserAvatar.svelte';
@@ -25,6 +25,7 @@ identity, body rendering, and row geometry consistent.
     body = null,
     deleted = false,
     edited = false,
+    viewerLogin,
     compact = false,
     avatarOffset = false,
     hasFooter = false,
@@ -42,6 +43,7 @@ identity, body rendering, and row geometry consistent.
     ontouchend,
     ontouchmove,
     ontouchcancel,
+    oncontextmenu,
     onmousedown,
     onmouseup,
     onmouseleave,
@@ -62,6 +64,7 @@ identity, body rendering, and row geometry consistent.
     body?: string | null;
     deleted?: boolean;
     edited?: boolean;
+    viewerLogin?: string;
     compact?: boolean;
     avatarOffset?: boolean;
     hasFooter?: boolean;
@@ -79,6 +82,7 @@ identity, body rendering, and row geometry consistent.
     ontouchend?: (event: TouchEvent) => void;
     ontouchmove?: (event: TouchEvent) => void;
     ontouchcancel?: (event: TouchEvent) => void;
+    oncontextmenu?: (event: MouseEvent) => void;
     onmousedown?: (event: MouseEvent) => void;
     onmouseup?: (event: MouseEvent) => void;
     onmouseleave?: (event: MouseEvent) => void;
@@ -109,6 +113,7 @@ identity, body rendering, and row geometry consistent.
     {ontouchend}
     {ontouchmove}
     {ontouchcancel}
+    {oncontextmenu}
     {onmousedown}
     {onmouseup}
     {onmouseleave}
@@ -196,6 +201,7 @@ identity, body rendering, and row geometry consistent.
             {members}
             {roleHandles}
             {edited}
+            {viewerLogin}
             {timestampSettings}
             {timestampLocale}
             {onMentionClick}

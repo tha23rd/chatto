@@ -1,8 +1,9 @@
+import { NotificationLevel } from '@chatto/api-types/api/v1/notification_preferences_pb';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { flushSync } from 'svelte';
 import NotificationsPage from './+page.svelte';
-import { NotificationLevel } from '$lib/render/types';
+
 import { NotificationLevel as ApiNotificationLevel } from '@chatto/api-types/api/v1/notification_preferences_pb';
 import { RoomDirectoryScope } from '@chatto/api-types/api/v1/room_directory_pb';
 import { q } from '$lib/test-utils';
@@ -78,25 +79,37 @@ vi.mock('$lib/state/activeServer.svelte', () => ({
 
 vi.mock('$lib/state/server/registry.svelte', () => ({
   serverRegistry: {
-    getStore: () => ({
-      serverInfo: mocks.serverInfo,
-      notificationLevels: mocks.notificationLevels
-    }),
     isOriginServer: (serverId: string) => serverId === 'origin'
   }
 }));
 
-vi.mock('$lib/state/server/connection.svelte', () => ({
-  useConnection: () => () => ({
-    isConnected: true,
-    showConnectionLostBanner: false,
-    client: {
-      query: mocks.query,
-      mutation: mocks.mutation,
-      subscription: vi.fn()
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({
+    get serverId() {
+      return mocks.activeServerId;
     },
-    connectBaseUrl: 'https://origin.test/api/connect',
-    bearerToken: 'origin-token'
+    store: {
+      serverInfo: mocks.serverInfo,
+      notificationLevels: mocks.notificationLevels
+    },
+    connection: {
+      isConnected: true,
+      showConnectionLostBanner: false,
+      client: {
+        query: mocks.query,
+        mutation: mocks.mutation,
+        subscription: vi.fn()
+      },
+      connectBaseUrl: 'https://origin.test/api/connect',
+      bearerToken: 'origin-token',
+      apiConfig: {
+        serverId: 'origin',
+        baseUrl: 'https://origin.test/api/connect',
+        bearerToken: 'origin-token'
+      },
+      getAPI: (factory: (config: never) => unknown) => factory({} as never)
+    },
+    isCurrent: () => true
   })
 }));
 
@@ -172,13 +185,13 @@ describe('Notification settings page', () => {
       roomNotificationPreferences: [
         {
           roomId: 'room-1',
-          level: NotificationLevel.Default,
-          effectiveLevel: NotificationLevel.Normal
+          level: NotificationLevel.DEFAULT,
+          effectiveLevel: NotificationLevel.NORMAL
         },
         {
           roomId: 'dm-1',
-          level: NotificationLevel.Muted,
-          effectiveLevel: NotificationLevel.Muted
+          level: NotificationLevel.MUTED,
+          effectiveLevel: NotificationLevel.MUTED
         }
       ]
     });
@@ -269,7 +282,7 @@ describe('Notification settings page', () => {
       container,
       '[data-testid="room-notification-general"] select'
     ) as HTMLSelectElement;
-    select.value = NotificationLevel.Muted;
+    select.value = String(NotificationLevel.MUTED);
     select.dispatchEvent(new Event('change', { bubbles: true }));
     await settle();
 
@@ -285,8 +298,8 @@ describe('Notification settings page', () => {
     expect(mocks.mutation).not.toHaveBeenCalled();
     expect(mocks.notificationLevels.setRoomPreference).toHaveBeenLastCalledWith(
       'room-1',
-      NotificationLevel.Muted,
-      NotificationLevel.Muted
+      NotificationLevel.MUTED,
+      NotificationLevel.MUTED
     );
   });
 
@@ -307,8 +320,8 @@ describe('Notification settings page', () => {
     );
     expect(mocks.mutation).not.toHaveBeenCalled();
     expect(mocks.notificationLevels.setServerPreference).toHaveBeenCalledWith(
-      NotificationLevel.AllMessages,
-      NotificationLevel.AllMessages
+      NotificationLevel.ALL_MESSAGES,
+      NotificationLevel.ALL_MESSAGES
     );
   });
 

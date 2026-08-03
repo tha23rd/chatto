@@ -58,6 +58,7 @@ let observers: MockIntersectionObserver[] = [];
 class MockIntersectionObserver implements IntersectionObserver {
   readonly root: Element | Document | null;
   readonly rootMargin: string;
+  readonly scrollMargin: string;
   readonly thresholds: ReadonlyArray<number> = [];
   private elements: Element[] = [];
 
@@ -67,6 +68,7 @@ class MockIntersectionObserver implements IntersectionObserver {
   ) {
     this.root = options?.root ?? null;
     this.rootMargin = options?.rootMargin ?? '0px';
+    this.scrollMargin = options?.scrollMargin ?? '0px';
     observers.push(this);
   }
 
@@ -134,41 +136,34 @@ vi.mock('$lib/state/activeServer.svelte', () => ({
   getActiveServer: () => 'origin'
 }));
 
-vi.mock('$lib/state/userSettings.svelte', () => ({
-  getUserSettings: () => ({
-    effectiveTimezone: undefined,
-    effectiveHour12: undefined
-  })
-}));
-
-vi.mock('$lib/state/server/registry.svelte', () => ({
-  serverRegistry: {
-    getStore: () => ({
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({
+    serverId: 'origin',
+    store: {
+      currentUser: { user: { settings: null } },
       adminEventLog: {
         ...mocks.eventLog,
         loadFirstPage: mocks.loadFirstPage,
         loadMore: mocks.loadMore,
         loadEventTypes: mocks.loadEventTypes
       }
-    })
-  }
-}));
-
-vi.mock('$lib/state/server/connection.svelte', () => ({
-  useConnection: () => () => ({
-    client: {
-      query: vi.fn(() => ({
-        toPromise: vi.fn().mockResolvedValue({
-          data: {
-            server: {
-              members: {
-                users: []
+    },
+    connection: {
+      getAPI: (factory: (config: never) => unknown) => factory({} as never),
+      client: {
+        query: vi.fn(() => ({
+          toPromise: vi.fn().mockResolvedValue({
+            data: {
+              server: {
+                members: {
+                  users: []
+                }
               }
-            }
-          },
-          error: null
-        })
-      }))
+            },
+            error: null
+          })
+        }))
+      }
     }
   })
 }));

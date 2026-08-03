@@ -6,20 +6,17 @@
  * screen share toggle, and audio/video device selection.
  */
 
-import {
+import type {
+  Participant,
+  RemoteTrack,
+  RemoteTrackPublication,
+  RemoteParticipant,
   Room,
-  RoomEvent,
   Track,
-  AudioPresets,
-  VideoPresets,
-  ExternalE2EEKeyProvider,
-  type Participant,
-  type RemoteTrack,
-  type RemoteTrackPublication,
-  type RemoteParticipant,
-  type RemoteAudioTrack,
-  type TrackPublishOptions
+  RemoteAudioTrack,
+  TrackPublishOptions
 } from 'livekit-client';
+import { getLoadedLiveKit, loadLiveKit } from '$lib/voice/livekitModule';
 import { toast } from '$lib/ui/toast';
 import { playCallSound } from '$lib/audio/callSounds';
 import { userPreferences } from '$lib/state/userPreferences.svelte';
@@ -145,12 +142,7 @@ type NativeScreenSharePublishResult = {
   readonly applicationAudioUnavailable: boolean;
 };
 type MediaDeviceFailureKind =
-  | 'permission-denied'
-  | 'not-found'
-  | 'in-use'
-  | 'constraint'
-  | 'aborted'
-  | 'unknown';
+  'permission-denied' | 'not-found' | 'in-use' | 'constraint' | 'aborted' | 'unknown';
 
 export class VoiceCallJoinError extends Error {
   readonly userMessage: string;
@@ -568,6 +560,7 @@ export class VoiceCallState {
    * than claiming a change that did not land.
    */
   async setScreenShareQuality(prefs: ScreenShareQualityPrefs): Promise<void> {
+    const { Track } = getLoadedLiveKit();
     const clamped = clampQualityPrefs(prefs, this.screenShareCeiling);
     this.screenShareQuality = clamped;
     this.#screenShareQualitySlot?.set(clamped);
@@ -830,6 +823,8 @@ export class VoiceCallState {
     let joinIntentRecorded = false;
 
     try {
+      const { AudioPresets, ExternalE2EEKeyProvider, Room, VideoPresets } = await loadLiveKit();
+
       await this.#api.joinCall(roomId);
       joinIntentRecorded = true;
 
@@ -1348,6 +1343,7 @@ export class VoiceCallState {
       this.screenShareCeiling
     );
     let nativeScreenShareResult: NativeScreenSharePublishResult | undefined;
+    const { AudioPresets } = getLoadedLiveKit();
     try {
       const enablePublishOptions: TrackPublishOptions = {
         ...screenSharePublish,
@@ -1409,6 +1405,7 @@ export class VoiceCallState {
     capture: ResolvedScreenShareOptions['capture'],
     publish: TrackPublishOptions
   ): Promise<NativeScreenSharePublishResult> {
+    const { Track } = getLoadedLiveKit();
     const displayOptions: NativeDisplayMediaOptions = {
       audio: capture.audio,
       video: {
@@ -1482,6 +1479,7 @@ export class VoiceCallState {
   }
 
   private syncScreenShareDiagnostics(room: Room): void {
+    const { Track } = getLoadedLiveKit();
     if (!this.isScreenShareEnabled || this.room !== room) {
       this.screenShareDiagnosticsCollector.stop();
       return;
@@ -1507,6 +1505,7 @@ export class VoiceCallState {
    * default, and the share is already live either way.
    */
   private markSharedAudioAsMusic(room: Room): void {
+    const { Track } = getLoadedLiveKit();
     const track = room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)?.track;
     const mediaStreamTrack = track?.mediaStreamTrack;
     if (!mediaStreamTrack || !('contentHint' in mediaStreamTrack)) return;
@@ -1532,6 +1531,7 @@ export class VoiceCallState {
    * remote listener, instead of layering the two clips.
    */
   async playSoundIntoCall(sound: { url: string; volume: number }): Promise<SoundboardPlayResult> {
+    const { Track } = getLoadedLiveKit();
     const room = this.room;
     if (!room || !this.connected) return 'not-in-call';
 
@@ -1697,6 +1697,7 @@ export class VoiceCallState {
    */
   async refreshDevices(options: { requestVideoPermissions?: boolean } = {}): Promise<void> {
     try {
+      const { Room } = await loadLiveKit();
       const requestVideoPermissions = options.requestVideoPermissions ?? this.isCameraEnabled;
       const [rawInputDevices, rawOutputDevices, rawVideoInputDevices] = await Promise.all([
         Room.getLocalDevices('audioinput'),
@@ -1726,11 +1727,6 @@ export class VoiceCallState {
       this.audioOutputDevices = [];
       this.videoDevices = [];
     }
-  }
-
-  /** @deprecated Use refreshDevices() instead */
-  async refreshAudioDevices(): Promise<void> {
-    return this.refreshDevices();
   }
 
   /**
@@ -1798,6 +1794,7 @@ export class VoiceCallState {
 
   private setupRoomEventListeners(): void {
     if (!this.room) return;
+    const { RoomEvent, Track } = getLoadedLiveKit();
 
     this.room.on(RoomEvent.ParticipantConnected, () => {
       this.updateParticipantsAndStreamSounds();
@@ -2037,6 +2034,7 @@ export class VoiceCallState {
    * element. Resuming costs a renegotiation and a keyframe, hence the brief black frame.
    */
   private applyFeedSubscriptions(identity: string): void {
+    const { Track } = getLoadedLiveKit();
     const participant = this.room?.remoteParticipants.get(identity);
     if (!participant) return;
 
@@ -2079,6 +2077,7 @@ export class VoiceCallState {
   }
 
   private applyRemoteParticipantAudioVolume(participant: RemoteParticipant): void {
+    const { Track } = getLoadedLiveKit();
     const muted = this.isDeafened || this.isParticipantLocallyMuted(participant.identity);
     this.applyDeafenGate(participant);
     // Two faders, one mute: deafen and local mute still silence everything from this
@@ -2228,6 +2227,7 @@ export class VoiceCallState {
     this.teardownLocalAudioAnalyser();
     if (!this.room) return;
 
+    const { Track } = getLoadedLiveKit();
     const micPub = this.room.localParticipant.getTrackPublication(Track.Source.Microphone);
     const mediaStreamTrack = micPub?.track?.mediaStreamTrack;
     if (!mediaStreamTrack) return;
@@ -2412,6 +2412,7 @@ function parseParticipantMetadata(metadata: string | undefined): ParticipantMeta
 }
 
 function isParticipantMuted(participant: Participant): boolean {
+  const { Track } = getLoadedLiveKit();
   for (const pub of participant.getTrackPublications()) {
     if (pub.source === Track.Source.Microphone) {
       return pub.isMuted;
@@ -2430,6 +2431,7 @@ function isParticipantMuted(participant: Participant): boolean {
  * camera or screen off.
  */
 function isParticipantCameraEnabled(participant: Participant): boolean {
+  const { Track } = getLoadedLiveKit();
   for (const pub of participant.getTrackPublications()) {
     if (pub.source === Track.Source.Camera) {
       return !pub.isMuted;
@@ -2439,6 +2441,7 @@ function isParticipantCameraEnabled(participant: Participant): boolean {
 }
 
 function getParticipantCameraTrack(participant: Participant): Track | null {
+  const { Track } = getLoadedLiveKit();
   for (const pub of participant.getTrackPublications()) {
     if (pub.source === Track.Source.Camera && !pub.isMuted) {
       // Undefined once the publication is unsubscribed; the caller treats that as "no
@@ -2450,6 +2453,7 @@ function getParticipantCameraTrack(participant: Participant): Track | null {
 }
 
 function isParticipantScreenShareEnabled(participant: Participant): boolean {
+  const { Track } = getLoadedLiveKit();
   for (const pub of participant.getTrackPublications()) {
     if (pub.source === Track.Source.ScreenShare) {
       return !pub.isMuted;
@@ -2459,6 +2463,7 @@ function isParticipantScreenShareEnabled(participant: Participant): boolean {
 }
 
 function getParticipantScreenShareTrack(participant: Participant): Track | null {
+  const { Track } = getLoadedLiveKit();
   for (const pub of participant.getTrackPublications()) {
     if (pub.source === Track.Source.ScreenShare && !pub.isMuted) {
       // Undefined once the publication is unsubscribed; the caller treats that as "no
@@ -2476,6 +2481,7 @@ function getParticipantScreenShareTrack(participant: Participant): Track | null 
  * none, so the stream-audio volume control is only meaningful when this is true.
  */
 function isParticipantScreenShareAudioPublished(participant: Participant): boolean {
+  const { Track } = getLoadedLiveKit();
   for (const pub of participant.getTrackPublications()) {
     if (pub.source === Track.Source.ScreenShareAudio && !pub.isMuted) {
       return true;

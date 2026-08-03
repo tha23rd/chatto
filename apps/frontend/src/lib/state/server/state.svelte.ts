@@ -8,7 +8,8 @@ import type { RealtimeProjectionServerState } from '@chatto/api-types/realtime/v
 import {
   evaluateServerCompatibility,
   hasProtocolCapability,
-  REALTIME_PROJECTION_CAPABILITY,
+  supportsServerFeature,
+  type ServerFeature,
   type ServerCompatibilityResult
 } from './compatibility';
 
@@ -19,8 +20,12 @@ export class ServerInfoState {
 
   name = $state('Chatto');
   version = $state('');
+  /**
+   * Capability keys this server declared, or `null` when it advertised none.
+   * Upstream Chatto servers do not send capabilities, so `null` is the normal
+   * reading for them rather than an error.
+   */
   protocolCapabilities = $state<string[] | null>(null);
-  minimumWebClientVersion = $state<string | null>(null);
   lastDiscoveredAt = $state<number | null>(null);
   motd = $state<string | null>(null);
   welcomeMessage = $state<string | null>(null);
@@ -58,19 +63,27 @@ export class ServerInfoState {
   get compatibility(): ServerCompatibilityResult {
     return evaluateServerCompatibility({
       serverVersion: this.version,
-      protocolCapabilities: this.protocolCapabilities,
-      minimumWebClientVersion: this.minimumWebClientVersion,
       unreachable: this.error !== null
     });
   }
 
+  supportsFeature(feature: ServerFeature): boolean {
+    return supportsServerFeature(this.version, feature);
+  }
+
+  /**
+   * Whether this server declared a protocol capability. Use this for protocol
+   * features specific to this distribution; use `supportsFeature` for features
+   * that exist in upstream Chatto releases. Returns `null` before discovery
+   * has produced a capability list.
+   */
   supportsProtocolCapability(capability: string): boolean | null {
     return hasProtocolCapability(this.protocolCapabilities, capability);
   }
 
   /** Whether discovery confirmed the projection stream required by this client. */
   get supportsRealtimeProjection(): boolean {
-    return this.supportsProtocolCapability(REALTIME_PROJECTION_CAPABILITY) === true;
+    return this.supportsFeature('realtimeProjection');
   }
 
   /**
@@ -123,7 +136,6 @@ export class ServerInfoState {
       this.name = info.name;
       this.version = info.version;
       this.protocolCapabilities = info.compatibility?.protocolCapabilities ?? null;
-      this.minimumWebClientVersion = info.compatibility?.minimumWebClientVersion ?? null;
       this.lastDiscoveredAt = Date.now();
       this.welcomeMessage = info.welcomeMessage;
       this.description = info.description;
@@ -172,7 +184,7 @@ export class ServerInfoState {
 
   /**
    * Clear authenticated projection state while preserving independently
-   * discovered public profile and protocol-compatibility information.
+   * discovered public profile and server-version information.
    */
   resetProjectionState(): void {
     this.motd = null;

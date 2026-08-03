@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { SvelteMap } from 'svelte/reactivity';
 import { q } from '$lib/test-utils';
-import { RoomEventKind } from '$lib/render/eventKinds';
+import { TimelineEventKind } from '$lib/render/timelineEvents';
 import ThreadPane from './ThreadPane.svelte';
 import { ThreadPaneTestStore } from './ThreadPaneTestStore.svelte';
 
@@ -14,6 +15,8 @@ const { mocks } = vi.hoisted(() => {
       setThread: vi.fn(),
       retainMessagesForThread: vi.fn(),
       releaseMessagesForThread: vi.fn(),
+      nextServerRetainMessagesForThread: vi.fn(),
+      nextServerReleaseMessagesForThread: vi.fn(),
       disposeMessagesStore: vi.fn(),
       ingestEvent: vi.fn(),
       refreshCurrentWindow: vi.fn(),
@@ -26,19 +29,21 @@ const { mocks } = vi.hoisted(() => {
       resetTypingDebounce: vi.fn(),
       jumpToMessage: vi.fn(),
       onClose: vi.fn(),
+      clearUnreadMarker: vi.fn(),
+      unreadMarkerEventId: null as string | null,
       notifications: {
         dismissThreadNotifications: vi.fn().mockResolvedValue({ byRoom: {} })
-      },
-      rooms: {
-        decrementUnreadNotification: vi.fn()
       },
       appState: {
         isPresent: true
       },
-      threadStore: null as ThreadPaneTestStore | null
+      threadStore: null as ThreadPaneTestStore | null,
+      nextServerThreadStore: null as ThreadPaneTestStore | null
     }
   };
 });
+
+const scopeState = new SvelteMap([['serverId', 'server-1']]);
 
 vi.mock('$lib/api-client/readState', () => ({
   createReadStateAPI: () => ({
@@ -61,11 +66,9 @@ vi.mock('$lib/hooks', () => ({
   ) => {
     void options.markAsRead(getTargetId());
     return {
-      unreadMarkerEventId: null,
-      unreadMarkerWindow: null,
+      unreadMarkerEventId: mocks.unreadMarkerEventId,
       markAsRead: options.markAsRead,
-      setUnreadMarkerEventId: vi.fn(),
-      clearUnreadMarker: vi.fn()
+      clearUnreadMarker: mocks.clearUnreadMarker
     };
   },
   createTypingIndicator: () => ({
@@ -76,24 +79,41 @@ vi.mock('$lib/hooks', () => ({
   })
 }));
 
-vi.mock('$lib/state/server/connection.svelte', () => ({
-  useConnection: () => () => ({
-    serverId: 'server-1',
-    connectBaseUrl: 'http://localhost/api/connect',
-    bearerToken: null
-  })
-}));
+vi.mock('$lib/state/server/scope.svelte', async () => {
+  const { serverRegistry } = await import('$lib/state/server/registry.svelte');
+  return {
+    useServerScope: () => ({
+      get serverId() {
+        return scopeState.get('serverId')!;
+      },
+      connection: {
+        serverId: 'server-1',
+        connectBaseUrl: 'http://localhost/api/connect',
+        bearerToken: null,
+        getAPI: (factory: (config: never) => unknown) => factory({} as never)
+      },
+      get store() {
+        return serverRegistry.getStore(scopeState.get('serverId')!);
+      }
+    })
+  };
+});
 
 vi.mock('$lib/state/server/registry.svelte', () => ({
   serverRegistry: {
-    getStore: () => ({
+    getStore: (serverId: string) => ({
       currentUser: { user: { id: 'test-user', login: 'testuser' }, loading: false },
       notifications: mocks.notifications,
-      rooms: mocks.rooms,
-      retainMessagesForThread: mocks.retainMessagesForThread,
-      releaseMessagesForThread: mocks.releaseMessagesForThread,
+      retainMessagesForThread:
+        serverId === 'server-2'
+          ? mocks.nextServerRetainMessagesForThread
+          : mocks.retainMessagesForThread,
+      releaseMessagesForThread:
+        serverId === 'server-2'
+          ? mocks.nextServerReleaseMessagesForThread
+          : mocks.releaseMessagesForThread,
       messagesForThread: () =>
-        Object.assign(mocks.threadStore!, {
+        Object.assign(serverId === 'server-2' ? mocks.nextServerThreadStore! : mocks.threadStore!, {
           isLoadingMore: false,
           hasReachedStart: true,
           setThread: mocks.setThread,
@@ -156,9 +176,9 @@ vi.mock('$lib/state/room/messageMutationEvents', () => ({
   onRoomMessageMutated: vi.fn(() => vi.fn())
 }));
 
-vi.mock('./TimelineEventsPane.svelte', async () => {
-  const { default: EmptyMock } = await import('./RoomLocalEchoEmptyMock.svelte');
-  return { default: EmptyMock };
+vi.mock('./EventList.svelte', async () => {
+  const { default: EventListContractMock } = await import('./EventListContractMock.svelte');
+  return { default: EventListContractMock };
 });
 
 vi.mock('$lib/components/composer/MessageComposer.svelte', async () => {
@@ -170,7 +190,10 @@ describe('ThreadPane', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.threadStore = new ThreadPaneTestStore();
+    mocks.nextServerThreadStore = new ThreadPaneTestStore();
+    scopeState.set('serverId', 'server-1');
     mocks.appState.isPresent = true;
+    mocks.unreadMarkerEventId = null;
     mocks.markThreadAsRead.mockResolvedValue({
       previousReadAt: null,
       lastReadAt: '2026-07-04T13:00:00Z'
@@ -205,7 +228,25 @@ describe('ThreadPane', () => {
 
     expect(mocks.setThread).toHaveBeenCalledWith('room-1', 'thread-root');
     expect(mocks.notifications.dismissThreadNotifications).not.toHaveBeenCalled();
-    expect(mocks.rooms.decrementUnreadNotification).not.toHaveBeenCalled();
+  });
+
+  it('forwards unread marker state and bottom arrival to EventList', () => {
+    mocks.unreadMarkerEventId = 'thread-unread';
+    const { container } = render(ThreadPane, {
+      props: {
+        roomId: 'room-1',
+        roomName: 'General',
+        threadRootEventId: 'thread-root',
+        onClose: mocks.onClose
+      }
+    });
+
+    expect(
+      (q(container, '[data-testid="event-list-unread-after"]') as HTMLOutputElement).textContent
+    ).toBe('thread-unread');
+
+    (q(container, '[data-testid="event-list-reached-bottom"]') as HTMLButtonElement).click();
+    expect(mocks.clearUnreadMarker).toHaveBeenCalledOnce();
   });
 
   it('retains decrypted thread history only for the mounted pane lifetime', async () => {
@@ -231,6 +272,37 @@ describe('ThreadPane', () => {
       'room-1',
       'thread-root',
       mountedStore
+    );
+  });
+
+  it('releases decrypted thread history through its owning server store', async () => {
+    const rendered = render(ThreadPane, {
+      props: {
+        roomId: 'room-1',
+        roomName: 'General',
+        threadRootEventId: 'thread-root',
+        onClose: mocks.onClose
+      }
+    });
+
+    await vi.waitFor(() => expect(mocks.retainMessagesForThread).toHaveBeenCalledOnce());
+    const firstServerStore = mocks.threadStore;
+
+    scopeState.set('serverId', 'server-2');
+
+    await vi.waitFor(() => expect(mocks.nextServerRetainMessagesForThread).toHaveBeenCalledOnce());
+    expect(mocks.releaseMessagesForThread).toHaveBeenCalledWith(
+      'room-1',
+      'thread-root',
+      firstServerStore
+    );
+    expect(mocks.nextServerReleaseMessagesForThread).not.toHaveBeenCalled();
+
+    rendered.unmount();
+    expect(mocks.nextServerReleaseMessagesForThread).toHaveBeenCalledWith(
+      'room-1',
+      'thread-root',
+      mocks.nextServerThreadStore
     );
   });
 
@@ -337,7 +409,7 @@ describe('ThreadPane', () => {
         actorId: 'test-user',
         actor: null,
         event: {
-          kind: RoomEventKind.MessagePosted,
+          kind: TimelineEventKind.MessagePosted,
           roomId: 'room-1',
           body: 'Thread root',
           attachments: [],

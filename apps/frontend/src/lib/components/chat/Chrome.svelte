@@ -2,28 +2,29 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { viewerResponseToState } from '$lib/api-client/viewer';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { serverIdToSegment } from '$lib/navigation';
   import ServerSidebar from '$lib/components/ServerSidebar.svelte';
   import { ScrollFader } from '$lib/ui';
-  import { createChromePermissions } from '$lib/state/server/chromePermissions.svelte';
-  import { getServerPermissions } from '$lib/state/server/permissions.svelte';
+  import {
+    createChromePermissions,
+    type ChromePermissions
+  } from '$lib/state/server/chromePermissions.svelte';
   import RoomList from '$lib/RoomList.svelte';
   import ServerHeader from './ServerHeader.svelte';
   import ServerBanner from './ServerBanner.svelte';
-  import ServerEventProvider from './ServerEventProvider.svelte';
+  import ServerPresenceSync from './ServerPresenceSync.svelte';
   import SidebarNav from '$lib/components/SidebarNav.svelte';
   import MyThreadsNavItem from './MyThreadsNavItem.svelte';
-  import { MESSAGE_SEARCH_CAPABILITY } from '$lib/state/server/compatibility';
   import { MessageSearchState } from '$lib/state/server/messageSearch.svelte';
   import { getAdminNavItems } from './adminNav';
   import * as m from '$lib/i18n/messages';
 
   let { children } = $props();
 
-  const serverSegment = $derived(serverIdToSegment(getActiveServer()));
-  const activeStore = $derived(serverRegistry.getStore(getActiveServer()));
+  const serverScope = useServerScope();
+  const serverSegment = $derived(serverIdToSegment(serverScope.serverId));
+  const activeStore = $derived(serverScope.store);
 
   // All server- and resource-scoped management screens share one shell.
   const serverManagementPrefix = $derived(
@@ -69,13 +70,9 @@
     page.url.pathname === resolve('/chat/[serverId]/overview', { serverId: serverSegment })
   );
 
-  const searchHref = $derived(
-    resolve('/chat/[serverId]/search', { serverId: serverSegment })
-  );
+  const searchHref = $derived(resolve('/chat/[serverId]/search', { serverId: serverSegment }));
   const isSearchActive = $derived(page.url.pathname === searchHref);
-  const supportsMessageSearch = $derived(
-    activeStore.serverInfo.supportsProtocolCapability(MESSAGE_SEARCH_CAPABILITY)
-  );
+  const supportsMessageSearch = $derived(activeStore.serverInfo.supportsFeature('messageSearch'));
   const messageSearchAvailable = $derived(
     supportsMessageSearch &&
       !activeStore.messageSearch.statusLoading &&
@@ -93,21 +90,9 @@
     page.url.pathname === resolve('/chat/[serverId]/threads', { serverId: serverSegment })
   );
 
-  // Create server chrome permissions context (must be synchronous during init)
-  const updateChromePermissions = createChromePermissions();
-
-  type ServerChromeData = {
+  type ServerChromeData = ChromePermissions & {
     name: string;
     bannerUrl: string | null;
-    canViewAdmin: boolean;
-    canManage: boolean;
-    canManageEmoji: boolean;
-    canManageSoundboard: boolean;
-    canManageRooms: boolean;
-    canManageRoles: boolean;
-    canAssignRoles: boolean;
-    canManageUserAccounts: boolean;
-    canManageUserPermissions: boolean;
   };
 
   // Server chrome is part of the canonical retained projection. Switching a
@@ -133,47 +118,32 @@
     };
   });
 
-  // Update server chrome permissions context when serverData changes
-  $effect(() => {
-    if (serverData) {
-      updateChromePermissions({
-        canViewAdmin: serverData.canViewAdmin,
-        canManage: serverData.canManage,
-        canManageEmoji: serverData.canManageEmoji,
-        canManageSoundboard: serverData.canManageSoundboard,
-        canManageRooms: serverData.canManageRooms,
-        canManageRoles: serverData.canManageRoles,
-        canAssignRoles: serverData.canAssignRoles,
-        canManageUserAccounts: serverData.canManageUserAccounts,
-        canManageUserPermissions: serverData.canManageUserPermissions
-      });
-    }
-  });
+  // Descendants read the canonical derived state directly, without a mirrored
+  // permission object or post-render synchronization effect.
+  createChromePermissions(() => serverData);
 
   // Server updates mutate the retained projection, so these derived values
   // update without a separate validation query.
   let serverName = $derived(serverData?.name ?? null);
   let bannerUrl = $derived(serverData?.bannerUrl ?? null);
 
-  // Read server-wide permissions for admin-flavoured nav items (system, audit).
-  const serverPerms = getServerPermissions();
-
   // Admin navigation items - filtered based on permissions
   const adminNavItems = $derived(
     getAdminNavItems({
       serverSegment,
       chrome: serverData,
-      server: serverPerms.current
+      server: activeStore.permissions
     })
   );
   const managedRoom = $derived(
     page.params.roomId
-      ? (activeStore.rooms.rooms.find((room) => room.id === page.params.roomId) ?? null)
+      ? (activeStore.navigation.rooms.find((room) => room.id === page.params.roomId) ?? null)
       : null
   );
   const managedGroup = $derived(
     page.params.groupId
-      ? (activeStore.rooms.roomGroups?.find((group) => group.id === page.params.groupId) ?? null)
+      ? (activeStore.navigation.roomGroups.find((group) => group.id === page.params.groupId) ??
+          null)
       : null
   );
   const managementNavItems = $derived(
@@ -201,7 +171,7 @@
                 icon: 'iconify uil--setting'
               }
             ]
-        : []
+          : []
   );
   const adminHref = $derived(adminNavItems[0]?.href);
 
@@ -210,84 +180,83 @@
   }
 </script>
 
-<ServerEventProvider>
-  <!-- Sidebar -->
-  <ServerSidebar>
-    {#if isSettingsMode}
-      <SidebarNav
-        title={m['settings.nav.title']()}
-        items={settingsNavItems}
-        backHref={resolve('/chat/[serverId]', { serverId: serverSegment })}
-        backLabel={m['settings.nav.back_to_server']()}
-      />
-    {:else if !serverData}
-      <!-- Skeleton sidebar while server data is loading -->
-      <ServerHeader serverName="" loading />
+<ServerPresenceSync />
+<!-- Sidebar -->
+<ServerSidebar>
+  {#if isSettingsMode}
+    <SidebarNav
+      title={m['settings.nav.title']()}
+      items={settingsNavItems}
+      backHref={resolve('/chat/[serverId]', { serverId: serverSegment })}
+      backLabel={m['settings.nav.back_to_server']()}
+    />
+  {:else if !serverData}
+    <!-- Skeleton sidebar while server data is loading -->
+    <ServerHeader serverName="" loading />
 
-      <ScrollFader top bottom>
-        <div class="p-2">
-          <div class="skeleton h-40 w-full rounded-md"></div>
+    <ScrollFader top bottom>
+      <div class="p-2">
+        <div class="skeleton h-40 w-full rounded-md"></div>
+      </div>
+
+      {#each Array(2) as _, i (i)}
+        <div class="flex items-center gap-2 rounded-md px-4 py-2">
+          <div class="skeleton h-5 w-5 shrink-0 rounded"></div>
+          <div class="skeleton h-5 flex-1 rounded"></div>
         </div>
+      {/each}
+      <hr class="my-2 border-border" />
+      {#each Array(5) as _, i (i)}
+        <div class="flex items-center gap-2 rounded-md px-4 py-2">
+          <div class="skeleton h-5 w-5 shrink-0 rounded"></div>
+          <div class="skeleton h-5 flex-1 rounded"></div>
+        </div>
+      {/each}
+    </ScrollFader>
+  {:else if isManageMode}
+    <SidebarNav
+      title={serverName ?? m['chat.server_nav.server_fallback']()}
+      items={managementNavItems}
+      backHref={resolve('/chat/[serverId]', { serverId: serverSegment })}
+      backLabel={m['chat.server_nav.back_to_server']()}
+      isActive={isAdminNavActive}
+    />
+  {:else}
+    <!-- Server header - fixed at top -->
+    <ServerHeader serverName={serverName ?? ''} {adminHref} />
 
-        {#each Array(2) as _, i (i)}
-          <div class="flex items-center gap-2 rounded-md px-4 py-2">
-            <div class="skeleton h-5 w-5 shrink-0 rounded"></div>
-            <div class="skeleton h-5 flex-1 rounded"></div>
-          </div>
-        {/each}
-        <hr class="my-2 border-border" />
-        {#each Array(5) as _, i (i)}
-          <div class="flex items-center gap-2 rounded-md px-4 py-2">
-            <div class="skeleton h-5 w-5 shrink-0 rounded"></div>
-            <div class="skeleton h-5 flex-1 rounded"></div>
-          </div>
-        {/each}
-      </ScrollFader>
-    {:else if isManageMode}
-      <SidebarNav
-        title={serverName ?? m['chat.server_nav.server_fallback']()}
-        items={managementNavItems}
-        backHref={resolve('/chat/[serverId]', { serverId: serverSegment })}
-        backLabel={m['chat.server_nav.back_to_server']()}
-        isActive={isAdminNavActive}
-      />
-    {:else}
-      <!-- Server header - fixed at top -->
-      <ServerHeader serverName={serverName ?? ''} {adminHref} />
+    <!-- Scrollable area for room list sidebar -->
+    <ScrollFader top bottom>
+      {#if bannerUrl}
+        <ServerBanner url={bannerUrl} />
+      {/if}
 
-      <!-- Scrollable area for room list sidebar -->
-      <ScrollFader top bottom>
-        {#if bannerUrl}
-          <ServerBanner url={bannerUrl} />
-        {/if}
-
-        <nav class="sidebar-nav p-2">
-          <a
-            href={resolve('/chat/[serverId]/overview', { serverId: serverSegment })}
-            class={['sidebar-item', isHomeActive ? 'bg-surface' : '']}
-          >
-            <span class="sidebar-icon iconify uil--estate"></span>
-            {m['chat.overview.title']()}
+      <nav class="sidebar-nav p-2">
+        <a
+          href={resolve('/chat/[serverId]/overview', { serverId: serverSegment })}
+          class={['sidebar-item', isHomeActive ? 'bg-surface' : '']}
+        >
+          <span class="sidebar-icon iconify uil--estate"></span>
+          {m['chat.overview.title']()}
+        </a>
+        {#if messageSearchAvailable}
+          <a href={searchHref} class={['sidebar-item', isSearchActive ? 'bg-surface' : '']}>
+            <span class="sidebar-icon iconify uil--search" aria-hidden="true"></span>
+            {m['search.action']()}
           </a>
-          {#if messageSearchAvailable}
-            <a href={searchHref} class={['sidebar-item', isSearchActive ? 'bg-surface' : '']}>
-              <span class="sidebar-icon iconify uil--search" aria-hidden="true"></span>
-              {m['search.action']()}
-            </a>
-          {/if}
-          <MyThreadsNavItem active={isMyThreadsActive} />
-        </nav>
+        {/if}
+        <MyThreadsNavItem active={isMyThreadsActive} />
+      </nav>
 
-        <hr class="border-border" />
+      <hr class="border-border" />
 
-        <!-- Room List - always visible to server members (shows rooms user has joined) -->
-        <RoomList />
-      </ScrollFader>
-    {/if}
-  </ServerSidebar>
+      <!-- Room List - always visible to server members (shows rooms user has joined) -->
+      <RoomList />
+    </ScrollFader>
+  {/if}
+</ServerSidebar>
 
-  <!-- Main content - always renders so room can load in parallel -->
-  <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-    {@render children?.()}
-  </div>
-</ServerEventProvider>
+<!-- Main content - always renders so room can load in parallel -->
+<div class="flex min-h-0 min-w-0 flex-1 flex-col">
+  {@render children?.()}
+</div>

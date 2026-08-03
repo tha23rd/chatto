@@ -108,7 +108,7 @@ func (c *ChattoCore) CreateSound(ctx context.Context, actorID, name, emoji strin
 	}
 	volume = clampSoundVolume(volume)
 
-	if c.Soundboard != nil && c.Soundboard.Count() >= MaxSoundboardSounds {
+	if c.soundboard.Projection() != nil && c.soundboard.Projection().Count() >= MaxSoundboardSounds {
 		return nil, invalidArgument(fmt.Sprintf("soundboard is full (max %d sounds)", MaxSoundboardSounds))
 	}
 
@@ -120,10 +120,10 @@ func (c *ChattoCore) CreateSound(ctx context.Context, actorID, name, emoji strin
 	id := NewSoundboardSoundID()
 	event := newSoundboardSoundCreatedEvent(actorID, id, name, asset, emoji, volume, 0)
 	if _, err := c.appendSoundboardEvent(ctx, event, func() error {
-		if c.Soundboard.IsSoundName(name) {
+		if c.soundboard.Projection().IsSoundName(name) {
 			return invalidArgument("a sound with this name already exists")
 		}
-		if c.Soundboard.Count() >= MaxSoundboardSounds {
+		if c.soundboard.Projection().Count() >= MaxSoundboardSounds {
 			return invalidArgument(fmt.Sprintf("soundboard is full (max %d sounds)", MaxSoundboardSounds))
 		}
 		return nil
@@ -133,7 +133,7 @@ func (c *ChattoCore) CreateSound(ctx context.Context, actorID, name, emoji strin
 		return nil, err
 	}
 
-	if sound, ok := c.Soundboard.Get(id); ok {
+	if sound, ok := c.soundboard.Projection().Get(id); ok {
 		return sound, nil
 	}
 	// appendSoundboardEvent waits for read-your-writes, so this fallback is
@@ -157,14 +157,14 @@ func (c *ChattoCore) DeleteSound(ctx context.Context, actorID, id string) error 
 		return err
 	}
 
-	existing, ok := c.Soundboard.Get(id)
+	existing, ok := c.soundboard.Projection().Get(id)
 	if !ok {
 		return fmt.Errorf("sound %s: %w", id, ErrNotFound)
 	}
 
 	event := newSoundboardSoundDeletedEvent(actorID, id)
 	if _, err := c.appendSoundboardEvent(ctx, event, func() error {
-		if _, ok := c.Soundboard.Get(id); !ok {
+		if _, ok := c.soundboard.Projection().Get(id); !ok {
 			return fmt.Errorf("sound %s: %w", id, ErrNotFound)
 		}
 		return nil
@@ -181,10 +181,10 @@ func (c *ChattoCore) DeleteSound(ctx context.Context, actorID, id string) error 
 
 // ListSounds returns the full server soundboard catalog, ordered by name.
 func (c *ChattoCore) ListSounds() []*Sound {
-	if c.Soundboard == nil {
+	if c.soundboard.Projection() == nil {
 		return nil
 	}
-	return c.Soundboard.List()
+	return c.soundboard.Projection().List()
 }
 
 // SoundURL builds the public URL that serves a sound clip's audio bytes. Sound

@@ -471,6 +471,9 @@ test.describe('Voice calls', () => {
       await expect(callIcon.locator('.uil--phone').first()).toBeVisible();
       await expect(callIcon.getByTestId('active-call-pulse-icon')).toBeVisible();
 
+      await callIcon.click();
+      await expect(page.getByTestId('call-observer-panel')).toBeVisible();
+
       // Simulate User B leaving — active-call icon should disappear
       await page.request.post('/webhooks/test/call-leave', {
         data: { spaceId, roomId, userId: userB.id }
@@ -524,6 +527,48 @@ test.describe('Voice calls', () => {
 
       await expect(callIcon).not.toBeVisible({ timeout: TIMEOUTS.REALTIME_EVENT });
       await expect(callParticipants).not.toBeVisible();
+    });
+  });
+
+  test('active-call icon appears when the DM participant opens Chatto after the call starts', async ({
+    page,
+    chatPage,
+    browser,
+    serverURL
+  }) => {
+    const userB = await createAndLoginTestUser(page);
+    await chatPage.goto();
+
+    await withServerUser(browser!, serverURL, async ({ page: page2, user: userA }) => {
+      const roomA = await new DMPage(page2).startConversation(userB.login);
+      await roomA.sendMessage(`seed offline DM call indicator ${Date.now()}`);
+      const { roomId } = await getIdsFromUrlViaConnect(page2);
+
+      await expect(new DMPage(page).getConversation(userA.displayName)).toBeVisible({
+        timeout: TIMEOUTS.REALTIME_EVENT
+      });
+      await page.close();
+
+      const joinResponse = await page2.request.post('/webhooks/test/call-join', {
+        data: {
+          spaceId: 'DM',
+          roomId,
+          userId: userA.id,
+          displayName: userA.displayName,
+          login: userA.login
+        }
+      });
+      expect(joinResponse.ok()).toBe(true);
+
+      const reopenedPage = await page.context().newPage();
+      await reopenedPage.goto('/chat');
+
+      const dmRow = new DMPage(reopenedPage).getConversation(userA.displayName);
+      await expect(dmRow).toBeVisible({ timeout: TIMEOUTS.REALTIME_EVENT });
+      await expect(dmRow.getByTestId('room-call-icon')).toBeVisible({
+        timeout: TIMEOUTS.REALTIME_EVENT
+      });
+      await expect(dmRow.getByTestId('room-call-participants')).toBeVisible();
     });
   });
 

@@ -18,13 +18,13 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	jose "github.com/go-jose/go-jose/v3"
-	josejwt "github.com/go-jose/go-jose/v3/jwt"
+	jose "github.com/go-jose/go-jose/v4"
+	josejwt "github.com/go-jose/go-jose/v4/jwt"
 	"github.com/markbates/goth"
 	gothgithub "github.com/markbates/goth/providers/github"
 	"hmans.de/chatto/internal/config"
 	"hmans.de/chatto/internal/core"
-	"hmans.de/chatto/internal/events"
+	"hmans.de/chatto/internal/evtstream"
 )
 
 func TestProviderScopesForOIDC(t *testing.T) {
@@ -265,7 +265,7 @@ func TestOIDCProviderWithoutEmailAutoProvisionLinkAndLogin(t *testing.T) {
 		t.Fatal("multi-server token exchange returned no access token")
 	}
 
-	issuanceSubject := events.UserAggregate(user.Id).Subject(events.EventBearerTokenIssued)
+	issuanceSubject := evtstream.UserAggregate(user.Id).Subject(evtstream.EventBearerTokenIssued)
 	issuedBefore, _, err := chattoCore.EventPublisher.SubjectEvents(t.Context(), issuanceSubject)
 	if err != nil {
 		t.Fatalf("SubjectEvents before provider login: %v", err)
@@ -701,7 +701,7 @@ func (i *noEmailOIDCIssuer) idToken(_ context.Context) string {
 		Name:          "No Email User",
 		PreferredUser: "no-email-user",
 	}
-	raw, err := josejwt.Signed(signer).Claims(claims).Claims(profileClaims).CompactSerialize()
+	raw, err := josejwt.Signed(signer).Claims(claims).Claims(profileClaims).Serialize()
 	if err != nil {
 		panic(err)
 	}
