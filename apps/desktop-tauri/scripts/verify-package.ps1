@@ -80,7 +80,7 @@ if (-not [string]::IsNullOrWhiteSpace($UpdaterSignaturePath)) {
     Push-Location ([System.IO.Path]::GetFullPath((Join-Path $desktopRoot '..\..')))
     try {
         & cargo run --quiet `
-            --manifest-path apps/desktop/src-tauri/Cargo.toml `
+            --manifest-path apps/desktop-tauri/src-tauri/Cargo.toml `
             --features release-verifier `
             --bin verify-updater-signature `
             -- $resolvedPackage $UpdaterSignaturePath $UpdaterPublicKey

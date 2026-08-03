@@ -303,7 +303,7 @@ jobs:
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/desktop/src-tauri -> target
+          workspaces: apps/desktop-tauri/src-tauri -> target
 
       - name: Install Chromium for renderer tests
         run: pnpm --dir apps/frontend exec playwright install chromium
@@ -318,7 +318,7 @@ jobs:
         run: pnpm --dir apps/frontend run build:desktop
 
       - name: Build Windows desktop executable
-        run: pnpm --dir apps/desktop tauri build --no-bundle
+        run: pnpm --dir apps/desktop-tauri tauri build --no-bundle
 
   test-cli:
     # runs-on: ubicloud-standard-4
@@ -595,7 +595,7 @@ jobs:
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          workspaces: apps/desktop/src-tauri -> target
+          workspaces: apps/desktop-tauri/src-tauri -> target
 
       - name: Validate current main-native source and derive immutable Nightly timestamp
         shell: pwsh
@@ -624,7 +624,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          & ./apps/desktop/scripts/build-prerelease.ps1 `
+          & ./apps/desktop-tauri/scripts/build-prerelease.ps1 `
               -CommitSha $env:GITHUB_SHA `
               -TimestampUtc $env:NIGHTLY_TIMESTAMP `
               -RunNumber $env:GITHUB_RUN_NUMBER `
@@ -642,11 +642,11 @@ jobs:
           MANIFEST_NAME: ${{ steps.native_release.outputs.manifest_name }}
           METADATA_NAME: ${{ steps.native_release.outputs.metadata_name }}
           RELEASE_KIND: nightly
-        run: bash apps/desktop/scripts/publish-prerelease.sh
+        run: bash apps/desktop-tauri/scripts/publish-prerelease.sh
 
       - name: Advance the Nightly update channel
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           MANIFEST_NAME: ${{ steps.native_release.outputs.manifest_name }}
-        run: node apps/desktop/scripts/publish-update-channel.mjs nightly ".context/release/windows/${MANIFEST_NAME}"
+        run: node apps/desktop-tauri/scripts/publish-update-channel.mjs nightly ".context/release/windows/${MANIFEST_NAME}"

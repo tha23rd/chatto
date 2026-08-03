@@ -25,7 +25,7 @@ fi
 [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo '::error::Invalid source SHA.'; exit 1; }
 [[ "$GITHUB_REPOSITORY" == 'tha23rd/chatto' ]] || { echo '::error::Unexpected release repository.'; exit 1; }
 
-updater_public_key="$(tr -d '\r\n' <apps/desktop/updater-public-key.txt)"
+updater_public_key="$(tr -d '\r\n' <apps/desktop-tauri/updater-public-key.txt)"
 [[ -n "$updater_public_key" ]] || { echo '::error::Checked-in updater public key is empty.'; exit 1; }
 
 expected_tag="desktop-v${VERSION}"
@@ -55,7 +55,7 @@ mapfile -t staged_assets < <(find "$asset_directory" -maxdepth 1 -type f -printf
   cd "$asset_directory"
   sha256sum --check "${INSTALLER_NAME}.sha256"
 )
-node apps/desktop/scripts/update-manifest.mjs verify --manifest "${asset_directory}/${MANIFEST_NAME}"
+node apps/desktop-tauri/scripts/update-manifest.mjs verify --manifest "${asset_directory}/${MANIFEST_NAME}"
 jq -e --arg version "$VERSION" --arg sha "$GITHUB_SHA" \
   '.version == $version and .sourceSha == $sha and .authenticode == false and .publisher == null' \
   "${asset_directory}/${METADATA_NAME}" >/dev/null
@@ -107,11 +107,11 @@ verify_downloaded_assets() {
     cd "$verification_directory"
     sha256sum --check "${INSTALLER_NAME}.sha256"
   )
-  node apps/desktop/scripts/update-manifest.mjs verify --manifest "${verification_directory}/${MANIFEST_NAME}"
+  node apps/desktop-tauri/scripts/update-manifest.mjs verify --manifest "${verification_directory}/${MANIFEST_NAME}"
   jq -e --arg version "$VERSION" --arg sha "$GITHUB_SHA" \
     '.version == $version and .sourceSha == $sha and .authenticode == false and .publisher == null' \
     "${verification_directory}/${METADATA_NAME}" >/dev/null
-  pwsh -NoProfile -NonInteractive -File apps/desktop/scripts/verify-package.ps1 \
+  pwsh -NoProfile -NonInteractive -File apps/desktop-tauri/scripts/verify-package.ps1 \
     -PackagePath "${verification_directory}/${INSTALLER_NAME}" \
     -OutputDirectory "${verification_directory}/verification-report" \
     -SkipAuthenticode \

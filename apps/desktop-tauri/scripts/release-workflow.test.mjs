@@ -11,10 +11,10 @@ const read = (path) =>
   );
 const ci = read(".github/workflows/ci.yml");
 const stable = read(".github/workflows/desktop-release.yml");
-const nightlyBuilder = read("apps/desktop/scripts/build-prerelease.ps1");
-const releaseBuilder = read("apps/desktop/scripts/build-release.ps1");
-const publisher = read("apps/desktop/scripts/publish-prerelease.sh");
-const capabilities = read("apps/desktop/src-tauri/capabilities/default.json");
+const nightlyBuilder = read("apps/desktop-tauri/scripts/build-prerelease.ps1");
+const releaseBuilder = read("apps/desktop-tauri/scripts/build-release.ps1");
+const publisher = read("apps/desktop-tauri/scripts/publish-prerelease.sh");
+const capabilities = read("apps/desktop-tauri/src-tauri/capabilities/default.json");
 
 function job(workflow, name) {
   const marker = `  ${name}:\n`;
@@ -144,7 +144,7 @@ test("desktop releases embed the exact native version in the frontend build", ()
     "$env:CHATTO_BUILD_VERSION = $Version",
   );
   const build = releaseBuilder.indexOf(
-    "& pnpm --dir apps/desktop tauri build",
+    "& pnpm --dir apps/desktop-tauri tauri build",
   );
   const restore = releaseBuilder.indexOf(
     "$env:CHATTO_BUILD_VERSION = $previousBuildVersion",
@@ -229,9 +229,9 @@ test("published release retries reuse the stored signed assets", () => {
 test("Stable tags are exact, version-aligned, and reachable from main-native", () => {
   assert.match(stable, /tags:\n\s+- desktop-v\*/);
   assert.match(stable, /\^desktop-v\(\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+\)\$/);
-  assert.match(stable, /apps\/desktop\/package\.json/);
-  assert.match(stable, /apps\/desktop\/src-tauri\/Cargo\.toml/);
-  assert.match(stable, /apps\/desktop\/src-tauri\/tauri\.conf\.json/);
+  assert.match(stable, /apps\/desktop-tauri\/package\.json/);
+  assert.match(stable, /apps\/desktop-tauri\/src-tauri\/Cargo\.toml/);
+  assert.match(stable, /apps\/desktop-tauri\/src-tauri\/tauri\.conf\.json/);
   assert.match(stable, /git merge-base --is-ancestor .* origin\/main-native/);
 
   const release = job(stable, "publish-desktop-release");
@@ -257,7 +257,7 @@ test("Stable tags are exact, version-aligned, and reachable from main-native", (
 
 test("channel publisher compares canonical bytes before rolling GitHub upload", () => {
   const channelPublisher = read(
-    "apps/desktop/scripts/publish-update-channel.mjs",
+    "apps/desktop-tauri/scripts/publish-update-channel.mjs",
   );
   const canonicalRead = channelPublisher.indexOf("existingCanonicalResponse");
   const versionComparison = channelPublisher.indexOf(

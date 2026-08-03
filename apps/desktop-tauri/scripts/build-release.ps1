@@ -94,7 +94,7 @@ $env:CHATTO_BUILD_VERSION = $Version
 try {
     Push-Location $repositoryRoot
     try {
-        & pnpm --dir apps/desktop tauri build --config $overlayPath
+        & pnpm --dir apps/desktop-tauri tauri build --config $overlayPath
         if ($LASTEXITCODE -ne 0) {
             throw "Tauri release build failed with exit code $LASTEXITCODE."
         }
@@ -145,7 +145,7 @@ $manifestPath = Join-Path $resolvedOutputDirectory $manifestName
 $notes = if ($Channel -eq 'stable') { 'Stable Chatto desktop update.' } else { 'Nightly Chatto desktop update.' }
 Push-Location $repositoryRoot
 try {
-    & node apps/desktop/scripts/update-manifest.mjs build `
+    & node apps/desktop-tauri/scripts/update-manifest.mjs build `
         --version $Version `
         --published-at $publicationTime `
         --notes $notes `
@@ -153,7 +153,7 @@ try {
         --signature-file $stagedSignature `
         --output $manifestPath
     if ($LASTEXITCODE -ne 0) { throw 'Failed to generate the Tauri update manifest.' }
-    & node apps/desktop/scripts/update-manifest.mjs verify --manifest $manifestPath
+    & node apps/desktop-tauri/scripts/update-manifest.mjs verify --manifest $manifestPath
     if ($LASTEXITCODE -ne 0) { throw 'Generated Tauri update manifest is invalid.' }
 }
 finally {
