@@ -189,6 +189,20 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
 - For virtualized lists (`virtua`), use real wheel interaction in e2e tests; raw
   `scrollTop` writes are unreliable.
 
+## Voice And Audio Capture
+
+- Never stack two noise suppressors: while the enhanced (DeepFilterNet3) stage
+  is active, capture with the browser's `noiseSuppression` off. Derive capture
+  constraints from the selected mode in one place
+  (`NoiseSuppressionController.captureConstraints`); every `restartTrack` must
+  restate the full baseline and preserve the selected `deviceId`.
+- Loopback previews (mic test) must capture like the call path for the
+  selected mode, except with `echoCancellation` off: a loopback has no far
+  end, and the browser AEC's double-talk suppressor gates the user's own
+  monitored voice into chunks.
+- Capture constraints are fixed at `getUserMedia` time; restart a running
+  preview on mode changes instead of retuning it in place.
+
 ## Testing
 
 - `mise test-frontend` runs the frontend suite.

@@ -35,6 +35,7 @@
     "noise_suppression_enhanced": "Erweitert (DeepFilterNet3)",
     "noise_suppression_loading": "Modell wird geladen…",
     "noise_suppression_unavailable": "In diesem Browser nicht verfügbar",
+    "noise_suppression_overloaded": "Die erweiterte Rauschunterdrückung wurde deaktiviert, weil dieses Gerät nicht mithalten kann",
     "fullscreen_feed": "Feed im Vollbild",
     "pop_out_feed": "Feed als Bild im Bild",
     "pop_out_failed": "Dieser Feed konnte nicht als Bild im Bild geöffnet werden.",

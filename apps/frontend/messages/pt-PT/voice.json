@@ -35,6 +35,7 @@
     "noise_suppression_enhanced": "Melhorada (DeepFilterNet3)",
     "noise_suppression_loading": "A carregar modelo…",
     "noise_suppression_unavailable": "Indisponível neste navegador",
+    "noise_suppression_overloaded": "A supressão de ruído melhorada foi desativada porque este dispositivo não consegue acompanhar",
     "fullscreen_feed": "Feed em ecrã inteiro",
     "pop_out_feed": "Feed em imagem sobre imagem",
     "pop_out_failed": "Não foi possível abrir este feed em imagem sobre imagem.",
