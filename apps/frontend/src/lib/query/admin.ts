@@ -55,6 +55,9 @@ export const adminQueryKeys = {
   role(serverId: string, connection: AdminQueryConnection, roleName: string) {
     return [...adminRoot(serverId, connection), 'role', roleName] as const;
   },
+  webhooks(serverId: string, connection: AdminQueryConnection) {
+    return [...adminRoot(serverId, connection), 'webhooks'] as const;
+  },
   eventLog(
     serverId: string,
     connection: AdminQueryConnection,
