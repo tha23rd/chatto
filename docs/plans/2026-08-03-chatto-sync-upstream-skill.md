@@ -10,7 +10,7 @@ bypassing approval and compatibility gates.
 **Architecture:** Keep `SKILL.md` as the concise state-machine and safety
 contract. Put detailed integration, delivery, and run-journal instructions in
 three one-level reference files. Reuse existing Chatto review skills and the
-private VPS runbooks; do not add another deployment script.
+configured private production runbooks; do not add another deployment script.
 
 **Tech Stack:** Markdown agent skills, YAML `agents/openai.yaml`, Git/GitHub
 CLI, existing mise tasks, the skill-creator validation scripts, and dry-run
@@ -34,13 +34,14 @@ Create a rubric with these independently scored requirements:
 2. Preserve a true upstream merge and fork-owned behavior.
 3. Route Chatto/Authling/shared/API/event-sourcing reviews from changed paths.
 4. Require a ready main PR, explicit merge approval, and exact-head CI.
-5. Require the post-merge main push image for the exact SHA.
+5. Require the selected and qualified main SHA's own push CI and exact image.
 6. Forecast advertised server version against the native minimum.
 7. Require production preflight, explicit approval, immutable digest, and verification.
 8. Refuse unsafe rollback when persisted writes are unresolved.
 9. Deploy and verify the compatible server before merging main into main-native.
-10. Require a separate native PR, explicit merge approval, exact CI, tag, installer,
-    and checksum provenance.
+10. Require a separate native PR, explicit merge approval, exact CI, full
+    workflow/update-channel publication provenance, and a computed digest of
+    the exact client-consumed Windows artifact.
 11. Stop on remote-head races instead of silently changing the candidate.
 12. Keep an ignored resumable journal and avoid exposing production secrets.
 ```
@@ -240,18 +241,20 @@ Use `gh` for every GitHub operation.
 
 Cover:
 
-- exact post-merge `main` push CI and multi-platform image publication;
+- exact selected deployment SHA, its own `main` push CI, and every
+  workflow-defined production image publisher;
 - immutable digest resolution;
 - candidate version versus native minimum forecast;
-- private VPS runbook discovery without tracked operational details;
+- configured private operator-bundle discovery without tracked operational
+  details;
 - preflight, recorded rollback state, explicit approval, promotion, on-host and
   public verification;
 - safe versus conditional versus unsafe rollback behavior;
 - the hard server-before-native gate;
 - separate `main-native` branch and ready PR;
 - upstream-desktop versus fork-native conflict review;
-- exact native CI, release tag, installer, checksum, and production discovery
-  comparison; and
+- exact native CI, workflow/update-channel publication objects, computed
+  client-consumed artifact digest, and production discovery comparison; and
 - failure, cancellation, resume, and final-report behavior.
 
 **Step 5: Write `references/journal-template.md`**
@@ -259,7 +262,7 @@ Cover:
 Provide a Markdown template with:
 
 ```text
-Status and current phase
+Unique run ID, status, and canonical current phase
 Approval ledger
 Upstream and fork baselines
 Product-boundary and compatibility review
@@ -272,6 +275,8 @@ Blockers and next safe action
 ```
 
 Mark the journal as ignored operational state and prohibit secrets and PII.
+Require unique filenames for new runs plus exact-object reconciliation and
+approval invalidation when resuming an unfinished journal.
 
 ### Task 4: Verify GREEN and refactor loopholes
 
@@ -283,13 +288,18 @@ Mark the journal as ignored operational state and prohibit secrets and PII.
 
 **Step 1: Run scenarios A–E with the skill**
 
-Use fresh agents with no conversation history. Tell each agent to read
+Prefer agents whose first task is the scenario and give them no conversation
+history when the orchestrator has enough fresh-agent identities. If the
+session's agent-thread limit prevents that, use constrained read-only
+follow-up turns, preserve that limitation in the evaluation metadata, and do
+not claim independent context isolation. Tell each agent to read
 `.agents/skills/chatto-sync-upstream/SKILL.md` and every reference it requires,
-then answer the same read-only scenario. Do not provide the expected answer or
-the baseline diagnosis.
+then answer the same scenario without providing the expected answer or the
+baseline diagnosis.
 
-Expected: every applicable rubric item passes and every approval/stop
-condition is honored.
+Expected: every applicable rubric behavior is evidenced across the initial
+scenarios and focused regressions, every approval/stop condition is honored,
+and execution-provenance claims do not exceed the preserved evidence.
 
 **Step 2: Capture new rationalizations**
 
@@ -297,7 +307,8 @@ Record any attempt to:
 
 - deploy a moving `main` head;
 - rely on upstream or PR CI for post-merge artifacts;
-- treat a healthy container as sufficient production verification;
+- treat a generic deployment-health signal as sufficient production
+  verification;
 - roll back an unreviewed persisted-schema change;
 - publish native before compatible production discovery;
 - accept skipped native publication;
@@ -327,7 +338,8 @@ appears.
 Run:
 
 ```bash
-uv run /home/zach/.codex/skills/.system/skill-creator/scripts/quick_validate.py \
+uv run --with pyyaml \
+  /home/zach/.codex/skills/.system/skill-creator/scripts/quick_validate.py \
   .agents/skills/chatto-sync-upstream
 ```
 

@@ -72,8 +72,12 @@ judgment and orchestration around them.
 
 ## Run Journal
 
-Create an ignored `.context/upstream-sync-<date>.md` journal for each run.
-Record enough provenance to resume safely in a later session:
+Create a unique ignored
+`.context/upstream-sync-<UTC-timestamp>-<run-id>.md` journal for each new run.
+On resume, select the unique matching unfinished journal and reconcile its
+recorded objects with current reality before any mutation. Never overwrite or
+co-mingle same-day runs. Record enough provenance to resume safely in a later
+session:
 
 - last integrated and candidate upstream SHAs;
 - fork `main` and `main-native` baseline SHAs;
@@ -84,8 +88,9 @@ Record enough provenance to resume safely in a later session:
 - published image tag and resolved immutable digest;
 - previous and promoted production commits, versions, and digests;
 - production preflight and verification results;
-- native merge SHA, CI run, release tag, installer, and checksum; and
-- current phase, approval state, and unresolved blockers.
+- native merge SHA, CI run, and every workflow/update-channel publication
+  object tied to that SHA; and
+- canonical phase number and name, approval state, and unresolved blockers.
 
 The journal is operational state, not product documentation, and must remain
 untracked.
@@ -127,7 +132,7 @@ surfaces even when Git reports no textual conflict:
 
 Re-run the affected-path inventory after conflict resolution.
 
-## Phase 3: Route Required Reviews
+## Phase 3: Route Reviews, Resolve Conflicts, and Prove Compatibility
 
 Classify the resolved merge as Chatto, Authling, shared-framework, or
 repository-wide work. Apply all relevant nested instructions.
@@ -145,8 +150,6 @@ Use existing repository skills rather than duplicating their guidance:
 Record compatibility in both directions: older client with newer server and
 newer client with older server. Distinguish release-version gates, protocol
 capabilities, server configuration, and viewer permissions.
-
-## Phase 4: Forecast Server and Native Compatibility
 
 Before either downstream artifact is considered ready:
 
@@ -168,7 +171,7 @@ Classify rollback as:
   migration action; or
 - **unsafe/unresolved** — do not deploy until a recovery plan is approved.
 
-## Phase 5: Review and Merge the Main PR
+## Phase 4: Validate, Approve, and Merge the Main PR
 
 Run the lowest verification layer that can catch each affected risk, without
 stopping below the layer where the merge could fail. Create a ready-for-review
@@ -187,32 +190,43 @@ Wait for the complete PR CI matrix. Re-read the stored PR body and head SHA.
 Pause for explicit merge approval. After approval, merge through GitHub and
 verify the resulting merge commit, parents, and `origin/main` head.
 
-## Phase 6: Prove the Server Artifact
+## Phase 5: Prove the Server Artifact and Rollback Safety
 
-Wait for the `main` push CI run whose `headSha` is the exact merge commit.
-Require all applicable checks and the multi-platform image publication to
-succeed. A green PR run is not evidence that the post-merge image exists.
+Set the selected deployment SHA to the exact merge commit. If `origin/main`
+advanced, stop and let the user retain that cutoff or select the newer full
+SHA. A newer selection must receive its own complete delta review, specialist
+routing, verification, compatibility forecast, persistence/rollback
+classification, `main` push CI, and workflow-defined image. Thereafter every
+artifact, approval, and promotion object uses that exact selected SHA.
 
-Resolve the full-commit GHCR tag to an immutable digest. If `origin/main`
-advances before deployment, stop and present the reviewed commit and new head;
-do not silently deploy a different commit or call the older image "latest."
+Require all applicable checks and every workflow-defined production image
+publisher to succeed. Discover current jobs, platforms, and artifacts rather
+than inventing requirements. A green PR run or image for another SHA is not
+evidence that the selected deployment artifact exists. Resolve its full-commit
+GHCR tag to an immutable digest.
 
-## Phase 7: Promote and Verify Production
+## Phase 6: Approve, Promote, and Verify Production
 
-Use the private `.context/netcup-vps` operator bundle when available. Read its
-current runbooks and scripts before acting; do not copy host addresses,
-credentials, or private configuration into the public skill.
+Locate the configured private production operator bundle through repository
+instructions or private context documentation. Read its current runbooks and
+entry points before acting; stop on no match or ambiguity. Do not copy host
+addresses, credentials, provider details, or private configuration into the
+public skill.
 
 1. Inspect current production discovery and health.
-2. Run the VPS preflight and record the current image and rollback state.
+2. Run the documented preflight and record the current image and rollback
+   state.
 3. Present the exact candidate SHA, digest, version, expected interruption,
    compatibility conclusion, and rollback plan.
 4. Pause for explicit production approval.
-5. Invoke the existing `promote-image.sh` with the exact full commit SHA.
+5. Re-resolve the image and require the documented promotion entry point to
+   accept the approved digest or fail closed if the commit tag no longer
+   resolves to it.
 6. Run the complete production verification script.
-7. Independently verify public HTTPS, health, readiness, discovery version,
-   protocol capabilities, OAuth discovery, container health and restart
-   count, disk state, and recent panic/fatal markers.
+7. Run every service, endpoint, supporting-system, exposure, storage, restart,
+   and redacted-log check defined by the current operator bundle.
+8. Independently verify stable public readiness, discovery version and
+   capabilities, plus the approved commit and digest.
 
 Use the existing automatic health rollback only after the pre-deployment
 compatibility review establishes that it is a valid recovery path. A manual
@@ -223,7 +237,7 @@ stop and follow the approved recovery plan.
 Do not proceed to native synchronization until public discovery advertises a
 version compatible with the prospective native client.
 
-## Phase 8: Synchronize Main into Main-Native
+## Phase 7: Integrate the Deployed Main into Main-Native
 
 Create a separate branch from the latest exact `origin/main-native` SHA and
 merge the exact deployed `main` commit. Preserve the long-lived topology:
@@ -235,6 +249,22 @@ have independent desktop implementations and release paths. Verify native host
 contracts, renderer integration, native-specific capabilities, and release
 workflow ownership.
 
+The server-before-native gate is chronological. The downstream merge that
+satisfies this run must occur after production passes for the same deployed
+`main` SHA; a later server repair does not retroactively qualify an earlier
+native publication. Record the production-gate observation timestamp and
+commit/digest, the downstream PR `mergedAt`, and the native release
+`publishedAt`; require their identities and strict ordering to remain provable
+on resume.
+
+If that deployed SHA already entered `main-native` before the gate, do not
+fabricate an empty merge or reuse the earlier publication. Use a reviewed,
+workflow-supported post-gate source/release revision through a ready PR and
+exact-head CI. Stop for a separate product/release decision when the repository
+defines no such mechanism.
+
+## Phase 8: Validate, Approve, and Merge the Main-Native PR
+
 Create a ready-for-review PR containing the deployed server evidence, exact
 merged SHA, native compatibility assessment, conflict decisions, and tests.
 Wait for the full PR CI matrix and pause for explicit merge approval.
@@ -245,12 +275,16 @@ After the native PR merge:
 
 1. verify the exact `main-native` merge SHA;
 2. wait for its complete push CI;
-3. require native tests, type checks, renderer build, and Windows executable
-   build;
-4. verify the immutable native release tag points to that SHA;
-5. verify the expected installer and checksum assets;
-6. download and validate the checksum when practical; and
-7. compare the published client's minimum server version with current
+3. inspect current workflow and update-channel code to discover every required
+   verification, publication, and Windows release object;
+4. require every applicable native test, build, and publisher job;
+5. verify each discovered tag, release, installer, manifest, checksum,
+   signature, or current equivalent is tied to that SHA;
+6. prove the public update channel resolves to that exact release and artifact;
+7. download the exact client-consumed Windows artifact and record a
+   cryptographic digest of its bytes;
+8. validate any additional workflow-published integrity data; and
+9. compare the published client's minimum server version with current
    production discovery.
 
 Report the run complete only when the production server and native release are
@@ -271,8 +305,8 @@ Stop and report the exact blocker when:
 - production preflight or verification fails;
 - production discovery is incompatible with the prospective native client;
 - the private operator bundle is unavailable; or
-- a native release tag, installer, or checksum cannot be tied to the exact
-  merged SHA.
+- a workflow-defined native publication or update-channel object cannot be
+  tied to the exact merged SHA.
 
 Do not reinterpret "finish," "sync everything," or similar persistence
 language as authorization to bypass these gates.
