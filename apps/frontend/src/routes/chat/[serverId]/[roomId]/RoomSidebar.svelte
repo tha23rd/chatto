@@ -394,6 +394,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
 
       {#if popoverMember && popoverAnchorRect}
         <UserContextMenu
+          serverId={activeServerId}
           user={popoverMember}
           anchorRect={popoverAnchorRect}
           canSendMessage={canStartDMs}
@@ -491,6 +492,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
           {/if}
         </span>
         <UserCustomStatusBadge
+          serverId={activeServerId}
           status={getLiveCustomStatus(member.id, member.customStatus)}
           class="shrink-0 text-xs"
         />

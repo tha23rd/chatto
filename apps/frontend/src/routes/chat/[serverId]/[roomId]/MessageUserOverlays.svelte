@@ -135,6 +135,7 @@
     </ContextMenu>
   {:then { default: UserContextMenu }}
     <UserContextMenu
+      {serverId}
       user={interactions.user}
       anchorRect={interactions.anchorRect}
       canSendMessage={canStartDMs && !interactions.user.deleted}

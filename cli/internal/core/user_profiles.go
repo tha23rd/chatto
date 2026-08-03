@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	MaxCustomStatusEmojiLength = 16
+	MaxCustomStatusEmojiLength = 64
 	MaxCustomStatusTextLength  = 100
 )
 
@@ -62,6 +62,18 @@ var ErrCustomStatusTextRequired = fmt.Errorf("custom status text is required")
 var ErrCustomStatusEmojiTooLong = fmt.Errorf("custom status emoji is too long")
 var ErrCustomStatusTextTooLong = fmt.Errorf("custom status text is too long")
 var ErrCustomStatusExpiryInPast = fmt.Errorf("custom status expiry must be in the future")
+
+func (c *ChattoCore) resolveCustomStatusEmoji(emoji string) (string, error) {
+	if IsValidUnicodeEmoji(emoji) {
+		return emoji, nil
+	}
+	if customEmojis := c.customEmojis.Projection(); customEmojis != nil {
+		if customEmoji, ok := customEmojis.ByName(emoji); ok {
+			return customEmoji.Name, nil
+		}
+	}
+	return "", ErrCustomStatusEmojiInvalid
+}
 
 // UpdateUserDisplayName updates a user's display name.
 // Authorization: Caller should verify the actor is the user being updated.
@@ -455,8 +467,9 @@ func (c *ChattoCore) SetUserCustomStatus(ctx context.Context, userID, emoji, tex
 	if utf8.RuneCountInString(emoji) > MaxCustomStatusEmojiLength {
 		return nil, ErrCustomStatusEmojiTooLong
 	}
-	if !IsValidUnicodeEmoji(emoji) {
-		return nil, ErrCustomStatusEmojiInvalid
+	emoji, err := c.resolveCustomStatusEmoji(emoji)
+	if err != nil {
+		return nil, err
 	}
 	if utf8.RuneCountInString(text) > MaxCustomStatusTextLength {
 		return nil, ErrCustomStatusTextTooLong

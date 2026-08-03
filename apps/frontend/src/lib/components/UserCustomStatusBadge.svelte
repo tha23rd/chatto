@@ -5,20 +5,26 @@ Displays a user's custom status emoji with optional text. The status is
 independent of presence and hides itself after its expiry timestamp.
 
 **Props:**
+- `serverId` - Server whose custom emoji catalog resolves the status marker.
 - `status` - The custom user status to display.
 - `showText` - Whether to show the status text next to the emoji.
 -->
 <script lang="ts">
+  import { isCustomEmojiName } from '$lib/emoji';
+  import { getCustomEmoji } from '$lib/state/customEmojis.svelte';
   import type { CustomUserStatus } from '$lib/state/userProfiles.svelte';
   import { formatCustomStatusText } from '$lib/customStatusTemplates';
+  import EmojiToken from './EmojiToken.svelte';
 
   const MAX_TIMEOUT_DELAY_MS = 2_147_483_647;
 
   let {
+    serverId,
     status,
     showText = false,
     class: className = ''
   }: {
+    serverId: string;
     status?: CustomUserStatus | null;
     showText?: boolean;
     class?: string;
@@ -33,9 +39,24 @@ independent of presence and hides itself after its expiry timestamp.
     return new Date(status.expiresAt).getTime() > Date.now() ? status : null;
   });
   const displayText = $derived(activeStatus?.text ? formatCustomStatusText(activeStatus.text) : '');
-  const title = $derived(
-    activeStatus ? `${activeStatus.emoji}${displayText ? ` ${displayText}` : ''}` : undefined
+  const customEmoji = $derived(
+    activeStatus && isCustomEmojiName(activeStatus.emoji)
+      ? getCustomEmoji(serverId, activeStatus.emoji)
+      : undefined
   );
+  const hasEmojiMarker = $derived(
+    !!activeStatus && (!isCustomEmojiName(activeStatus.emoji) || !!customEmoji)
+  );
+  const shouldRender = $derived(!!activeStatus && (hasEmojiMarker || (showText && !!displayText)));
+  const title = $derived.by(() => {
+    if (!activeStatus) return undefined;
+    const markerLabel = customEmoji
+      ? `:${customEmoji.name}:`
+      : hasEmojiMarker
+        ? activeStatus.emoji
+        : '';
+    return [markerLabel, displayText].filter(Boolean).join(' ') || undefined;
+  });
 
   $effect(() => {
     const expiresAt = status?.expiresAt;
@@ -60,7 +81,7 @@ independent of presence and hides itself after its expiry timestamp.
   });
 </script>
 
-{#if activeStatus}
+{#if activeStatus && shouldRender}
   <span
     class={[
       'inline-flex min-w-0 shrink-0 items-center align-middle leading-none',
@@ -70,7 +91,11 @@ independent of presence and hides itself after its expiry timestamp.
     {title}
     aria-label={title}
   >
-    <span aria-hidden="true">{activeStatus.emoji}</span>
+    {#if hasEmojiMarker}
+      <span aria-hidden="true">
+        <EmojiToken {serverId} emoji={activeStatus.emoji} imgClass="h-[1em] w-auto" />
+      </span>
+    {/if}
     {#if showText && displayText}
       <span class="min-w-0 truncate">{displayText}</span>
     {/if}

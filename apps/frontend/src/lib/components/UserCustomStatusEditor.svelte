@@ -1,5 +1,6 @@
 <script lang="ts">
   import EmojiPicker from '$lib/components/EmojiPicker.svelte';
+  import EmojiToken from '$lib/components/EmojiToken.svelte';
   import ContextMenu from '$lib/ui/ContextMenu.svelte';
   import { Button, FormField } from '$lib/ui/form';
   import { Hint } from '$lib/ui';
@@ -18,9 +19,12 @@
     getCustomStatusTemplate,
     type CustomStatusTemplateId
   } from '$lib/customStatusTemplates';
+  import { isCustomEmojiName } from '$lib/emoji';
   import * as m from '$lib/i18n/messages';
+  import { getCustomEmoji } from '$lib/state/customEmojis.svelte';
 
   type Mode = CustomStatusTemplateId | 'custom';
+  const UNRESOLVED_STATUS_EMOJI_FALLBACK = '🙂';
   type ExpiryPreset =
     | 'today'
     | 'thirty_minutes'
@@ -79,6 +83,15 @@
       : CUSTOM_STATUS_TEMPLATES.find((template) => template.id === selectedMode)
   );
   const activeEmoji = $derived(isCustom ? statusEmoji : (activeTemplate?.emoji ?? statusEmoji));
+  const localStatusEmojiRenderable = $derived(
+    !!localStatus && isRenderableStatusEmoji(localStatus.emoji)
+  );
+  const effectiveStatusEmoji = $derived(
+    isRenderableStatusEmoji(statusEmoji) ? statusEmoji : UNRESOLVED_STATUS_EMOJI_FALLBACK
+  );
+  const effectiveActiveEmoji = $derived(
+    isRenderableStatusEmoji(activeEmoji) ? activeEmoji : UNRESOLVED_STATUS_EMOJI_FALLBACK
+  );
   const activeText = $derived(
     isCustom ? statusText.trim() : customStatusTemplateText(selectedMode as CustomStatusTemplateId)
   );
@@ -109,6 +122,11 @@
 
   function initialMode(value: CustomUserStatus | null | undefined): Mode {
     return getCustomStatusTemplate(value)?.id ?? 'custom';
+  }
+
+  function isRenderableStatusEmoji(emoji: string | undefined): emoji is string {
+    if (!emoji) return false;
+    return !isCustomEmojiName(emoji) || !!getCustomEmoji(config.serverId, emoji);
   }
 
   function initialText(value: CustomUserStatus | null | undefined): string {
@@ -230,13 +248,14 @@
   }
 
   function handleEmojiSelect(emoji: string) {
+    markCustomDraft();
     statusEmoji = emoji;
     emojiPickerAnchor = null;
   }
 
   async function saveCustomStatus(event: Event) {
     event.preventDefault();
-    const emoji = activeEmoji.trim();
+    const emoji = effectiveActiveEmoji.trim();
     const text = activeText.trim();
     if (!text && localStatus) {
       await clearCustomStatus();
@@ -400,9 +419,13 @@
         disabled={isSaving || isClearing}
         onclick={openCompactCustomEditor}
       >
-        {#if hasActiveCustomStatus && localStatus}
+        {#if hasActiveCustomStatus && localStatus && localStatusEmojiRenderable}
           <span class="grid w-5 shrink-0 place-items-center" aria-hidden="true">
-            {localStatus.emoji}
+            <EmojiToken
+              serverId={config.serverId}
+              emoji={localStatus.emoji}
+              imgClass="max-h-5 w-auto"
+            />
           </span>
         {:else}
           <span class="grid w-5 shrink-0 place-items-center" aria-hidden="true">
@@ -431,7 +454,13 @@
           onclick={openEmojiPicker}
           data-testid="settings-custom-status-emoji-picker"
         >
-          <span aria-hidden="true">{statusEmoji || '🙂'}</span>
+          <span aria-hidden="true">
+            <EmojiToken
+              serverId={config.serverId}
+              emoji={effectiveStatusEmoji}
+              imgClass="h-5 w-auto"
+            />
+          </span>
         </button>
         <input
           id={statusTextInputId}
@@ -483,7 +512,13 @@
         onclick={openEmojiPicker}
         data-testid="settings-custom-status-emoji-picker"
       >
-        <span aria-hidden="true">{activeEmoji || '🙂'}</span>
+        <span aria-hidden="true">
+          <EmojiToken
+            serverId={config.serverId}
+            emoji={effectiveActiveEmoji}
+            imgClass="h-5 w-auto"
+          />
+        </span>
       </button>
       <input
         id={statusTextInputId}
