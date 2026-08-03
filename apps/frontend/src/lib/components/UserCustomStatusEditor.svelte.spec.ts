@@ -142,4 +142,46 @@ describe('UserCustomStatusEditor', () => {
       'partyparrot'
     );
   });
+
+  it('switches a preset draft to custom when a custom emoji is selected', async () => {
+    getCustomEmojis('origin').upsert({
+      id: 'emoji-partyparrot',
+      name: 'partyparrot',
+      url: 'https://example.test/assets/emoji/partyparrot'
+    });
+    const { container } = render(UserCustomStatusEditor, {
+      props: {
+        status: {
+          emoji: '🌴',
+          text: 'chatto:status:vacation',
+          expiresAt: null
+        },
+        config
+      }
+    });
+
+    const pickerButton = container.querySelector(
+      '[data-testid="settings-custom-status-emoji-picker"]'
+    ) as HTMLButtonElement;
+    pickerButton.click();
+    flushSync();
+
+    const customEmojiButton = container.querySelector(
+      'button[title="partyparrot"]'
+    ) as HTMLButtonElement;
+    customEmojiButton.click();
+    flushSync();
+
+    expect(pickerButton.querySelector('img[alt=":partyparrot:"]')).not.toBeNull();
+
+    (container.querySelector('button[type="submit"]') as HTMLButtonElement).click();
+
+    await vi.waitFor(() => {
+      expect(userStatusAPI.updateCustomStatus).toHaveBeenCalledWith(config, {
+        emoji: 'partyparrot',
+        text: 'Holiday',
+        expiresAt: null
+      });
+    });
+  });
 });

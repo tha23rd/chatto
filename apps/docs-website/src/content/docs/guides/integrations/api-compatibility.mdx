@@ -86,6 +86,15 @@ catalog as authoritative empty state. This presence rule lets newer clients
 converge catalog changes while older clients safely ignore fields they do not
 recognise.
 
+`CustomUserStatus.emoji` accepts either one supported Unicode emoji or the
+canonical name of a current server custom emoji, up to 64 characters. A client
+must resolve custom names through that server's `custom_emojis` catalog, hide an
+unresolved or deleted marker, and keep rendering the status text. Older servers
+reject custom names with `INVALID_ARGUMENT`; older clients can decode the same
+string field but may show the bare name, and generated clients that enforce the
+older 16-character response bound may reject longer names. Deploy bundled
+client and server updates together when custom status markers matter.
+
 `compatibility.minimumWebClientVersion`, when present, applies only to Chatto's
 bundled web client. Third-party clients must not use it as their compatibility
 range.

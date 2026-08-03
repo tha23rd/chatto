@@ -248,6 +248,7 @@
   }
 
   function handleEmojiSelect(emoji: string) {
+    markCustomDraft();
     statusEmoji = emoji;
     emojiPickerAnchor = null;
   }
