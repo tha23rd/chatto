@@ -23,7 +23,6 @@ export type { NotificationItem };
  */
 export type NotificationTarget = {
   isDM: boolean;
-  spaceName: string | null;
   roomId: string | null;
   roomName: string | null;
   eventId: string | null;
@@ -85,7 +84,6 @@ export function notificationTarget(n: NotificationItem): NotificationTarget {
   if (isDMNotification(n)) {
     return {
       isDM: true,
-      spaceName: null,
       roomId: n.room.id,
       roomName: null,
       eventId: null,
@@ -95,7 +93,6 @@ export function notificationTarget(n: NotificationItem): NotificationTarget {
   if (isMentionNotification(n)) {
     return {
       isDM: false,
-      spaceName: null,
       roomId: n.mentionRoom?.id ?? null,
       roomName: n.mentionRoom?.name ?? null,
       eventId: n.mentionEventId ?? null,
@@ -105,7 +102,6 @@ export function notificationTarget(n: NotificationItem): NotificationTarget {
   if (isReplyNotification(n)) {
     return {
       isDM: false,
-      spaceName: null,
       roomId: n.replyRoom?.id ?? null,
       roomName: n.replyRoom?.name ?? null,
       eventId: n.replyEventId ?? null,
@@ -115,7 +111,6 @@ export function notificationTarget(n: NotificationItem): NotificationTarget {
   if (isRoomMessageNotification(n)) {
     return {
       isDM: false,
-      spaceName: null,
       roomId: n.roomMsgRoom?.id ?? null,
       roomName: n.roomMsgRoom?.name ?? null,
       eventId: n.roomMsgEventId ?? null,
@@ -125,7 +120,6 @@ export function notificationTarget(n: NotificationItem): NotificationTarget {
   if (isVoiceCallStartedNotification(n)) {
     return {
       isDM: n.callRoom?.isDM ?? false,
-      spaceName: null,
       roomId: n.callRoom?.id ?? null,
       roomName: n.callRoom?.name ?? null,
       eventId: null,
@@ -137,7 +131,6 @@ export function notificationTarget(n: NotificationItem): NotificationTarget {
     // message that was reacted to.
     return {
       isDM: n.reactionRoom?.isDM ?? false,
-      spaceName: null,
       roomId: n.reactionRoom?.id ?? null,
       roomName: n.reactionRoom?.name ?? null,
       eventId: n.reactionEventId ?? null,
@@ -146,7 +139,6 @@ export function notificationTarget(n: NotificationItem): NotificationTarget {
   }
   return {
     isDM: false,
-    spaceName: null,
     roomId: null,
     roomName: null,
     eventId: null,
@@ -170,11 +162,6 @@ export class NotificationStore {
 
   constructor(api: NotificationAPI) {
     this.#api = api;
-  }
-
-  // Derived properties
-  get hasNotifications() {
-    return this.notifications.length > 0;
   }
 
   get count() {
@@ -273,22 +260,16 @@ export class NotificationStore {
     });
   }
 
-  /**
-   * Check if the server has any pending notifications.
-   *
-   * Post-PR(b) the API surface has only one server, so this collapses to
-   * "any non-DM notification exists." The signature keeps a `_spaceId`
-   * parameter for call-site compatibility — it's ignored.
-   */
-  hasSpaceNotification(_spaceId?: string): boolean {
+  /** Check if the server has any pending non-DM notifications. */
+  hasNonDMNotifications(): boolean {
     return this.notifications.some((n) => !notificationTarget(n).isDM);
   }
 
   /**
-   * Get the most recent server notification.
+   * Get the most recent non-DM notification.
    * Notifications are sorted most-recent-first, so .find returns the freshest.
    */
-  getSpaceNotification(_spaceId?: string): NotificationItem | undefined {
+  getNonDMNotification(): NotificationItem | undefined {
     return this.notifications.find((n) => !notificationTarget(n).isDM);
   }
 
@@ -419,18 +400,6 @@ export class NotificationStore {
       return { ok: true, totalCount: null, notification: cached };
     }
     return this.fetchRoomNotification(roomId);
-  }
-
-  /**
-   * Check if user has any notifications (lightweight check for bell icon).
-   */
-  async checkHasNotifications(): Promise<boolean> {
-    try {
-      return await this.#api.hasNotifications();
-    } catch (e) {
-      console.error('Failed to check notifications:', e);
-      return false;
-    }
   }
 
   /**
@@ -584,51 +553,6 @@ export class NotificationStore {
     });
   }
 
-  /**
-   * Get navigation info for a notification.
-   * Returns the path to navigate to when acting on the notification, with
-   * `?highlight=<eventId>` for messages.
-   *
-   * @deprecated Prefer `getCleanPath` + `PendingHighlightStore.set`. The
-   *   `?highlight=` URL param survives refresh and re-fires; the transient
-   *   store delivers the intent one-shot. Kept for permalink-style call sites
-   *   that genuinely want the URL to encode the highlight.
-   */
-  getNavigationPath(serverId: string, notification: NotificationItem): string {
-    const seg = serverIdToSegment(serverId);
-    const t = notificationTarget(notification);
-
-    if (t.isDM && t.roomId) {
-      // DMs are now rooms on the Server (#330 phase 3) — use the standard
-      // room URL rather than the legacy /chat/dm/... path.
-      return resolve('/chat/[serverId]/[roomId]', {
-        serverId: seg,
-        roomId: t.roomId
-      });
-    }
-
-    if (!t.roomId) {
-      return resolve('/chat/[serverId]', { serverId: seg });
-    }
-
-    if (t.threadRootId && t.eventId) {
-      return (
-        resolve('/chat/[serverId]/[roomId]/[threadId]', {
-          serverId: seg,
-          roomId: t.roomId,
-          threadId: t.threadRootId
-        }) +
-        '?highlight=' +
-        t.eventId
-      );
-    }
-
-    const roomPath = resolve('/chat/[serverId]/[roomId]', {
-      serverId: seg,
-      roomId: t.roomId
-    });
-    return t.eventId ? `${roomPath}?highlight=${t.eventId}` : roomPath;
-  }
 }
 
 function redactedNotificationSummary(kind: NotificationItemKind): string {

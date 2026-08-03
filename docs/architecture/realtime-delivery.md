@@ -30,12 +30,11 @@ stream. It uses `RealtimeProjectionEvent`, an optional resume cursor on
 heartbeats and client `ping`/server `pong` share the same connection.
 
 The bundled client creates its event-bus reducer before discovery completes so
-consumers can register synchronously, but it opens the WebSocket only after
-discovery advertises `chatto.realtime.projection.v1`. Servers older than 0.5 do
-not advertise that required contract and are reported as unsupported rather
-than receiving the former ConnectRPC bootstrap plus protocol-v1 live feed. An
-`unsupported_protocol` error is terminal for the current bus and does not enter
-the reconnect loop.
+consumers can register synchronously, but it opens the WebSocket only after the
+discovered server version satisfies the 0.5 realtime-projection baseline.
+Older servers are reported as unsupported rather than receiving the former
+ConnectRPC bootstrap plus protocol-v1 live feed. An `unsupported_protocol`
+error is terminal for the current bus and does not enter the reconnect loop.
 
 The browser keeps the event bus, projection, readiness phase, and opaque cursor
 for every authenticated server in memory for the tab session. Transport is
@@ -223,13 +222,18 @@ Every subscription emits one finite latest-value reconciliation before
 permission state; the complete followed-thread viewer-state set, including
 RUNTIME_STATE unread markers; pending notifications and room counts; and the
 server directory's current presence. Missing followed-thread entries
-authoritatively clear follow/unread state on retained thread roots. Buffered
-live signals cover mutations concurrent with this reconciliation. Thread
+authoritatively clear follow/unread state on retained thread roots.
+
+Buffered live signals cover mutations concurrent with this reconciliation. Thread
 follow/unfollow and read-marker advances publish the same user-scoped
 viewer-state invalidation; after the finite replacement, a buffered signal is
 mapped to the current root timeline row. The complete followed-thread reader
 returns an error for uncertain membership, room metadata, follow, or read-marker
 state, so catch-up retries rather than converging to a lossy replacement.
+
+Room/thread marker hydration reads the process-wide `ReadStateModel` index,
+which is initialized and maintained by one filtered `RUNTIME_STATE` watcher;
+realtime subscriptions do not create their own marker watchers.
 
 This operation set closes the parts of client state that an EVT gap alone
 cannot reconstruct, without a ConnectRPC side read or a second bootstrap

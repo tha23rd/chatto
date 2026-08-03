@@ -18,6 +18,19 @@ import (
 
 const discoveryCacheControl = "public, no-cache"
 
+type serverDiscoveryService struct {
+	api *API
+}
+
+type serverProfileOptions struct {
+	tolerateErrors bool
+}
+
+// discoveryProtocolCapabilities are the stable protocol contracts this server
+// implements. Upstream Chatto dropped capability advertisement in favour of
+// release-version gating, but this distribution ships protocol features that
+// no upstream release has, so clients still need a positive signal that does
+// not depend on comparing version numbers. Keys are append-only.
 var discoveryProtocolCapabilities = []string{
 	"chatto.discovery.v1",
 	"chatto.auth.v1",
@@ -28,14 +41,6 @@ var discoveryProtocolCapabilities = []string{
 	"chatto.realtime.v1",
 	"chatto.realtime.projection.v1",
 	"chatto.role-colors.v1",
-}
-
-type serverDiscoveryService struct {
-	api *API
-}
-
-type serverProfileOptions struct {
-	tolerateErrors bool
 }
 
 func (s *serverDiscoveryService) GetServer(ctx context.Context, _ *connect.Request[discoveryv1.GetServerRequest]) (*connect.Response[discoveryv1.GetServerResponse], error) {

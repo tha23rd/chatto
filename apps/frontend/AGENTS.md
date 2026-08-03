@@ -19,11 +19,14 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
   stores under `src/lib/state/server/`.
 - Component-local `$state` is fine for UI-only state such as open/closed, hover,
   focus, draft text, and drag position.
-- Component render DTOs live in `$lib/render/types`; keep them narrow and move
-  callers toward protobuf-native API DTOs as Connect services replace legacy
-  compatibility shapes.
+- Component render DTOs live in focused modules under `$lib/render`; keep them
+  narrow and normalize generated protobuf data at API boundaries.
 - The URL is the source of truth for the active server. Pass explicit `serverId`
   values through helpers rather than relying on a global current server.
+- Descendants of a `[serverId]` route should obtain that server's store and
+  connection from `ServerScope`. Reserve `serverRegistry` for providers and
+  genuinely cross-server surfaces, and pass explicit server or viewer identity
+  into reusable render components.
 - Use Svelte `createContext` for context APIs, and prefer context over mutable
   singletons for URL-derived state.
 
@@ -58,10 +61,9 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
 ## ConnectRPC And Generated Types
 
 - Use the per-server compatibility state under `src/lib/state/server/` for
-  protocol feature gating and version-skew warnings. Prefer discovery protocol
-  capabilities; compare software versions only for legacy servers without
-  compatibility metadata. Do not conflate protocol support with enabled server
-  features or viewer permissions.
+  feature gating and version-skew warnings. Record each gated feature's minimum
+  server version in the shared compatibility table. Do not conflate versioned
+  protocol support with enabled server features or viewer permissions.
 - Use the app's connection surface from
   `$lib/state/server/serverConnection.svelte.ts` for Connect base URLs,
   `/api/realtime` URLs, bearer tokens, auth-required handling, and
@@ -69,9 +71,9 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
 - Treat an intentionally dormant inactive-server transport as healthy retained
   state, not as a failed connection. Only actual transport/auth/protocol
   failures should dim its server-gutter entry.
-- `$lib/render/types` is a hand-owned temporary render DTO compatibility layer,
-  not generated API output. Do not add documents or generated calls for the
-  retired legacy API.
+- `$lib/render/timelineEvents` contains the hand-owned timeline presentation
+  model; transient realtime signals belong in `$lib/realtimeEvents`. Do not
+  combine the two delivery paths or add calls for the retired legacy API.
 - Query permissions/capability hints from the backend instead of duplicating
   authorization rules in UI code.
 - Public ConnectRPC/protobuf clients live in the workspace package
@@ -125,6 +127,9 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
   popovers avoid clipping/stacking issues.
 - Use established `.menu`, `menu-section`, `btn`, dialog, toast, and chat overlay
   patterns before inventing new floating styles.
+- When an element supports both right-click actions and touch long-press
+  actions, suppress touch-synthesized `contextmenu` events while the long-press
+  gesture is active so only one action surface opens.
 
 ## Internationalization
 
@@ -215,6 +220,9 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
 - Pure functions/classes can use Node Vitest. Mounted Svelte components,
   DOM/CSS/localStorage/drag behavior, context, and `$effect` runtime behavior
   need browser/component tests.
+- Keep debounce assertions independent of browser-suite scheduling: use fake
+  timers or dispatch the complete input value synchronously instead of timing
+  multi-keystroke `userEvent.type` calls against the production delay.
 - E2E is for real backend/NATS/WebSocket/multi-user/cross-route behavior.
 - When changing multi-server authentication or shared chat providers, cover an
   authenticated remote server with an anonymous origin server.

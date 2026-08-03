@@ -11,13 +11,21 @@ current snapshot and explicit user actions.
   import { desktopUpdates } from '$lib/native/desktopUpdates.svelte';
   import type { DesktopUpdateSnapshot } from '$lib/native/types';
   import { idleState } from '$lib/state/idle.svelte';
-  import { getUserSettings } from '$lib/state/userSettings.svelte';
+  import type { TimeFormatSettings } from '$lib/utils/formatTime';
   import { ChoiceRow, ConfirmDialog, FormSection, Hint } from '$lib/ui';
   import { Button } from '$lib/ui/form';
   import { toast } from '$lib/ui/toast';
   import { formatDateTime } from '$lib/utils/formatTime';
 
-  const userSettings = getUserSettings();
+  // Time formatting is the viewer's, so it is passed in rather than reached for
+  // through a server scope: this panel is not otherwise server-scoped. Omitting
+  // it falls back to the browser's own timezone and clock.
+  const BROWSER_TIME_SETTINGS: TimeFormatSettings = {
+    effectiveTimezone: undefined,
+    effectiveHour12: undefined
+  };
+  let { timeSettings = BROWSER_TIME_SETTINGS }: { timeSettings?: TimeFormatSettings } = $props();
+  const userSettings = $derived(timeSettings);
   const activeLocale = $derived(getLocale());
 
   let nightlyConfirmationVisible = $state(false);

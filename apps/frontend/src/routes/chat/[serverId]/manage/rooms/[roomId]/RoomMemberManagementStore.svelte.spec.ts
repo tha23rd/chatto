@@ -1,10 +1,11 @@
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
 import { describe, expect, it, vi } from 'vitest';
 import type {
   DirectoryMember,
   MemberDirectoryAPI,
   MemberDirectoryPage
 } from '$lib/api-client/memberDirectory';
-import { PresenceStatus } from '$lib/api-client/renderTypes';
+
 import type { RoomCommandAPI } from '$lib/api-client/rooms';
 import {
   ROOM_MEMBER_MANAGEMENT_PAGE_SIZE,
@@ -19,7 +20,7 @@ function member(id: string): DirectoryMember {
     displayName: id.toUpperCase(),
     deleted: false,
     avatarUrl: null,
-    presenceStatus: PresenceStatus.Offline,
+    presenceStatus: PresenceStatus.OFFLINE,
     customStatus: null,
     roles: ['everyone'],
     createdAt: null
@@ -144,6 +145,30 @@ describe('RoomMemberManagementStore', () => {
     await staleLoad;
 
     expect(store.members).toEqual([member('bob')]);
+  });
+
+  it('suppresses a mutation that settles after its server scope is destroyed', async () => {
+    let scopeCurrent = true;
+    let rejectAdd!: (error: Error) => void;
+    const addMember = vi.fn(
+      () =>
+        new Promise<null>((_resolve, reject) => {
+          rejectAdd = reject;
+        })
+    );
+    const listRoomMembers = vi.fn().mockResolvedValue(page([]));
+    const store = new RoomMemberManagementStore(
+      () => APIs({ addMember, listRoomMembers }),
+      () => scopeCurrent
+    );
+    store.setRoom('server-1', 'room-1');
+
+    const staleMutation = store.addMember(member('alice'));
+    scopeCurrent = false;
+    rejectAdd(new Error('old server unavailable'));
+
+    await expect(staleMutation).resolves.toBe(false);
+    expect(listRoomMembers).not.toHaveBeenCalled();
   });
 
   it('purges room data and fences an older refresh at the access-loss boundary', async () => {

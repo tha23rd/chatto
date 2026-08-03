@@ -1,7 +1,8 @@
+import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
 import { describe, it, expect } from 'vitest';
-import { PresenceStatus } from '$lib/render/types';
+
 import type { RoomMember } from '$lib/state/room';
-import type { TipTapEditorApi } from './TipTapEditor.svelte';
+import type { TipTapEditorApi } from './editorTypes';
 import { AutocompleteState } from './autocomplete.svelte';
 
 function member(login: string, displayName = login, deleted = false): RoomMember {
@@ -11,7 +12,7 @@ function member(login: string, displayName = login, deleted = false): RoomMember
     displayName,
     deleted,
     avatarUrl: null,
-    presenceStatus: PresenceStatus.Offline
+    presenceStatus: PresenceStatus.OFFLINE
   };
 }
 

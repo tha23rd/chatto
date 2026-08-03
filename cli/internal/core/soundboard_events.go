@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"hmans.de/chatto/internal/events"
+	"hmans.de/chatto/internal/evtstream"
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
+	"hmans.de/chatto/pkg/events"
 )
 
 const maxSoundboardMutationRetries = 5
@@ -38,7 +39,7 @@ func newSoundboardSoundDeletedEvent(actorID, id string) *corev1.Event {
 // invariants (such as unique names and the catalog cap) can reject the
 // mutation, and is retried on OCC conflict.
 func (c *ChattoCore) appendSoundboardEvent(ctx context.Context, event *corev1.Event, check func() error) (uint64, error) {
-	filter := events.SoundboardSubjectFilter()
+	filter := evtstream.SoundboardSubjectFilter()
 
 	for attempt := 0; attempt < maxSoundboardMutationRetries; attempt++ {
 		filterSeq, err := c.EventPublisher.LastSubjectSeq(ctx, filter)
@@ -53,7 +54,7 @@ func (c *ChattoCore) appendSoundboardEvent(ctx context.Context, event *corev1.Ev
 				return 0, err
 			}
 		}
-		subject := events.SoundboardAggregate().SubjectFor(event)
+		subject := evtstream.SoundboardAggregate().SubjectFor(event)
 
 		seq, err := c.EventPublisher.AppendAtFilter(ctx, subject, event, filter, filterSeq)
 		if err == nil {
@@ -76,5 +77,5 @@ func (c *ChattoCore) appendSoundboardEvent(ctx context.Context, event *corev1.Ev
 }
 
 func (c *ChattoCore) waitForSoundboardProjection(ctx context.Context, pos events.StreamPosition) error {
-	return waitForPositionAll(ctx, pos, waitForProjection("Soundboard", c.SoundboardProjector))
+	return waitForPositionAll(ctx, pos, waitForProjection("Soundboard", c.soundboard.Projector()))
 }

@@ -16,6 +16,12 @@ message GetServerResponse {
   // Login and registration options.
   chatto.api.v1.ServerLogin login = 2;
   // Protocol support and bundled-web-client compatibility metadata.
+  //
+  // Upstream Chatto removed this field in favour of release-version gating.
+  // This distribution keeps it because it ships protocol features upstream
+  // releases do not have, and a release version cannot distinguish them. A
+  // server that omits this field is read as declaring no capabilities, so
+  // capability-gated behaviour stays off.
   ServerCompatibility compatibility = 3;
 }
 

@@ -1,5 +1,6 @@
+import { ImageFitMode } from '@chatto/api-types/api/v1/common_pb';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-import { FitMode } from '$lib/render/types';
+
 import type { ExpiringAssetUrl, RefreshedAttachmentUrls } from '$lib/attachments/attachmentUrls';
 import {
   assetUrlNeedsRefresh,
@@ -118,11 +119,7 @@ export class RoomFilesStore {
 
   constructor(serverConnection: ServerConnection, roomId: string) {
     this.roomId = roomId;
-    this.attachmentAPI = createAttachmentAPI({
-      serverId: serverConnection.serverId,
-      baseUrl: serverConnection.connectBaseUrl,
-      bearerToken: serverConnection.bearerToken
-    });
+    this.attachmentAPI = serverConnection.getAPI(createAttachmentAPI);
   }
 
   /** Hydrate this room's file cache the first time its Files panel opens. */
@@ -210,13 +207,7 @@ export class RoomFilesStore {
   }
 
   async loadMore(): Promise<void> {
-    if (
-      this.hydrationPromise ||
-      this.isLoadingMore ||
-      !this.hasMore ||
-      !this.hydrated
-    )
-      return;
+    if (this.hydrationPromise || this.isLoadingMore || !this.hasMore || !this.hydrated) return;
     const roomId = this.roomId;
     const requestEpoch = this.requestEpoch;
     const paginationEpoch = this.paginationEpoch;
@@ -309,16 +300,14 @@ export class RoomFilesStore {
           {
             width: 120,
             height: 120,
-            fit: FitMode.Cover
+            fit: ImageFitMode.COVER
           }
         );
         if (this.roomId !== roomId || this.requestEpoch !== requestEpoch) return;
         for (const assetId of assetIds) this.pendingUrlRefreshAssetIds.delete(assetId);
 
         const fresh = new SvelteMap<string, RefreshedAttachmentUrls>();
-        const currentAssetIds = new SvelteSet(
-          this.items.map((item) => item.attachment.id)
-        );
+        const currentAssetIds = new SvelteSet(this.items.map((item) => item.attachment.id));
         for (const [attachmentId, urls] of freshMap) {
           if (
             !currentAssetIds.has(attachmentId) ||
@@ -396,7 +385,7 @@ export class RoomFilesStore {
         thumbnail: {
           width: 120,
           height: 120,
-          fit: FitMode.Cover
+          fit: ImageFitMode.COVER
         }
       });
     } catch (error) {

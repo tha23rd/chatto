@@ -1,18 +1,19 @@
 <script lang="ts">
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { untrack } from 'svelte';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
   import { serverIdToSegment } from '$lib/navigation';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { createRoomDirectoryAPI, type DirectoryRoomDetails } from '$lib/api-client/roomDirectory';
   import { createAdminRoomLayoutAPI, type AdminManagedRoom } from '$lib/api-client/adminRoomLayout';
   import { createRoomCommandAPI } from '$lib/api-client/rooms';
+  import {
+    hasValidRoomNameCharacters,
+    normalizeRoomName,
+    ROOM_NAME_MAX_LENGTH,
+    roomNameCharacterCount
+  } from '$lib/utils/roomName';
   import { createMemberDirectoryAPI } from '$lib/api-client/memberDirectory';
-  import { Code, ConnectError } from '@connectrpc/connect';
   import { getChromePermissions } from '$lib/state/server/chromePermissions.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
-  import { serverConnectionManager } from '$lib/state/server/serverConnection.svelte';
-  import { supportsRoomManagerMemberReads } from '$lib/state/server/compatibility';
   import { useProjectionEvent } from '$lib/hooks';
   import { Panel } from '$lib/components/admin';
   import { Button, Checkbox, TextArea, TextInput } from '$lib/ui/form';
@@ -30,10 +31,13 @@
   import { RoomMemberManagementStore } from './RoomMemberManagementStore.svelte';
   import * as m from '$lib/i18n/messages';
 
+  const serverScope = useServerScope();
+
   const roomId = $derived(page.params.roomId!);
-  const activeServerId = $derived(getActiveServer());
+  const activeServerId = $derived(serverScope.serverId);
   const serverSegment = $derived(serverIdToSegment(activeServerId));
-  const chromePermissions = getChromePermissions();
+  const getChromePermissionsState = getChromePermissions();
+  const chromePermissions = $derived(getChromePermissionsState());
 
   let room = $state<AdminManagedRoom | null>(null);
   let loading = $state(true);
@@ -50,46 +54,42 @@
   let identityGeneration = 0;
   let scrollContainer = $state<HTMLDivElement>();
 
-  const memberManagement = new RoomMemberManagementStore((serverId) => {
-    const conn = serverConnectionManager.getClient(serverId);
-    return {
-      directory: createMemberDirectoryAPI({
-        serverId: conn.serverId,
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      }),
-      commands: createRoomCommandAPI({
-        serverId: conn.serverId,
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      })
-    };
-  });
+  const memberManagement = new RoomMemberManagementStore(
+    () => {
+      const conn = serverScope.connection;
+      return {
+        directory: conn.getAPI(createMemberDirectoryAPI),
+        commands: conn.getAPI(createRoomCommandAPI)
+      };
+    },
+    () => serverScope.isCurrent()
+  );
 
   const canManageRoom = $derived(room?.canManageRoom ?? false);
   const canManagePermissions = $derived(room?.canManagePermissions ?? false);
-  const supportsMemberManagement = $derived.by(() => {
-    const info = serverRegistry.tryGetStore(activeServerId)?.serverInfo;
-    if (!info) return false;
-    return supportsRoomManagerMemberReads(info.protocolCapabilities, info.version);
-  });
+  const supportsMemberManagement = $derived(
+    serverScope.store.serverInfo.supportsFeature('roomManagement')
+  );
   const backHref = $derived(
-    chromePermissions.current.canManageRooms
+    chromePermissions?.canManageRooms
       ? resolve('/chat/[serverId]/manage/rooms', { serverId: serverSegment })
       : resolve('/chat/[serverId]/[roomId]', { serverId: serverSegment, roomId })
   );
+  const normalizedName = $derived(normalizeRoomName(name));
   const nameError = $derived.by(() => {
     if (!name) return undefined;
     if (name.trim() === '') return m['admin.rooms_admin.room_name_empty']();
     if (name !== name.trim()) return m['admin.rooms_admin.room_name_trim']();
-    if (!/^[a-zA-Z0-9_-]+$/.test(name.trim())) {
+    if (!hasValidRoomNameCharacters(normalizedName)) {
       return m['admin.rooms_admin.room_name_charset']();
     }
-    if (name.length > 30) return m['admin.rooms_admin.room_name_too_long']();
+    if (roomNameCharacterCount(normalizedName) > ROOM_NAME_MAX_LENGTH) {
+      return m['admin.rooms_admin.room_name_too_long']();
+    }
     return undefined;
   });
   const changed = $derived(
-    name.trim() !== originalName ||
+    normalizedName !== originalName ||
       description.trim() !== originalDescription ||
       universal !== originalUniversal
   );
@@ -105,7 +105,12 @@
   }
 
   function isCurrentLoad(requestId: number, targetServerId: string, targetRoomId: string): boolean {
-    return requestId === loadId && targetServerId === activeServerId && targetRoomId === roomId;
+    return (
+      serverScope.isCurrent() &&
+      requestId === loadId &&
+      targetServerId === activeServerId &&
+      targetRoomId === roomId
+    );
   }
 
   function isCurrentIdentity(target: {
@@ -114,6 +119,7 @@
     identityGeneration: number;
   }): boolean {
     return (
+      serverScope.isCurrent() &&
       target.serverId === activeServerId &&
       target.roomId === roomId &&
       target.identityGeneration === identityGeneration
@@ -125,6 +131,9 @@
     targetRoomId: string,
     preserveRoom = false
   ): Promise<void> {
+    if (targetServerId !== serverScope.serverId) return;
+    const targetStore = serverScope.store;
+    const targetConnection = serverScope.connection;
     const thisId = ++loadId;
     if (!preserveRoom) {
       loading = true;
@@ -134,36 +143,14 @@
     accessDenied = false;
     loadFailure = null;
     try {
-      const conn = serverConnectionManager.getClient(targetServerId);
-      const adminAPI = createAdminRoomLayoutAPI({
-        serverId: conn.serverId,
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      });
-      let nextRoom: AdminManagedRoom | null;
-      try {
-        nextRoom = await adminAPI.getRoom(targetRoomId);
-      } catch (error) {
-        if (ConnectError.from(error).code !== Code.Unimplemented) throw error;
-        const directoryAPI = createRoomDirectoryAPI({
-          serverId: conn.serverId,
-          baseUrl: conn.connectBaseUrl,
-          bearerToken: conn.bearerToken
-        });
-        const legacyRoom: DirectoryRoomDetails | null = await directoryAPI.getRoom(targetRoomId);
-        nextRoom = legacyRoom
-          ? {
-              id: legacyRoom.id,
-              name: legacyRoom.name,
-              description: legacyRoom.description,
-              archived: legacyRoom.archived,
-              isUniversal: legacyRoom.isUniversal,
-              canManageRoom: legacyRoom.canManageRoom,
-              canManagePermissions:
-                legacyRoom.canManageRoom || chromePermissions.current.canManageRoles
-            }
-          : null;
+      const info = targetStore.serverInfo;
+      if (!info?.supportsFeature('adminApi')) {
+        accessDenied = true;
+        return;
       }
+      const nextRoom: AdminManagedRoom | null = await targetConnection
+        .getAPI(createAdminRoomLayoutAPI)
+        .getRoom(targetRoomId);
       if (!isCurrentLoad(thisId, targetServerId, targetRoomId)) return;
       if (nextRoom) {
         applyRoom(nextRoom);
@@ -235,12 +222,7 @@
     );
     saving = true;
     try {
-      const conn = serverConnectionManager.getClient(target.serverId);
-      const api = createRoomCommandAPI({
-        serverId: conn.serverId,
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      });
+      const api = serverScope.connection.getAPI(createRoomCommandAPI);
       const updated = await api.updateRoom(update);
       if (!isCurrentIdentity(target)) return;
       if (!updated) throw new Error('Room update returned no room');
@@ -254,7 +236,6 @@
           archived: updated.archived
         });
       }
-      void serverRegistry.getStore(activeServerId).rooms.refresh();
       toast.success(m['admin.rooms_admin.room_updated']());
     } catch (error) {
       if (!isCurrentIdentity(target)) return;

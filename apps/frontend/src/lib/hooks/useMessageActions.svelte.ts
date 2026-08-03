@@ -1,4 +1,4 @@
-import { useConnection } from '$lib/state/server/connection.svelte';
+import { useServerScope } from '$lib/state/server/scope.svelte';
 import { toast } from '$lib/ui/toast';
 import { pushState } from '$app/navigation';
 import { getComposerContext, type MessagesStore } from '$lib/state/room';
@@ -34,7 +34,7 @@ export async function copyMessageTextToClipboard(messageBody: string): Promise<v
 
 /** Shared reaction mutation handlers for all message reaction controls. */
 export function useReactionActions() {
-  const connection = useConnection();
+  const serverScope = useServerScope();
 
   // Normalize a unicode emoji to its gemoji shortcode. Custom emojis are
   // already passed in by name (not a unicode char), so the raw name flows
@@ -54,19 +54,16 @@ export function useReactionActions() {
     });
 
     try {
-      const conn = connection();
-      const result = await createReactionAPI({
-        serverId: conn.serverId ?? params.serverId,
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      }).addReaction({
+      const result = await serverScope.connection.getAPI(createReactionAPI).addReaction({
         roomId: params.roomId,
         messageEventId: params.messageEventId,
         emoji: name
       });
+      if (!serverScope.isCurrent()) return;
       optimistic?.applyServerReaction(result.reaction);
     } catch {
       optimistic?.rollback();
+      if (!serverScope.isCurrent()) return;
       toast.error(m['room.message.reaction_failed']());
     }
   }
@@ -81,19 +78,16 @@ export function useReactionActions() {
     });
 
     try {
-      const conn = connection();
-      const result = await createReactionAPI({
-        serverId: conn.serverId ?? params.serverId,
-        baseUrl: conn.connectBaseUrl,
-        bearerToken: conn.bearerToken
-      }).removeReaction({
+      const result = await serverScope.connection.getAPI(createReactionAPI).removeReaction({
         roomId: params.roomId,
         messageEventId: params.messageEventId,
         emoji: name
       });
+      if (!serverScope.isCurrent()) return;
       optimistic?.applyServerReaction(result.reaction);
     } catch {
       optimistic?.rollback();
+      if (!serverScope.isCurrent()) return;
       toast.error(m['room.message.reaction_failed']());
     }
   }
@@ -133,6 +127,7 @@ export function useMessageActions() {
     pushState('', {
       modal: {
         type: 'deleteMessage',
+        serverId: params.serverId,
         roomId: params.roomId,
         eventId: params.deleteEventId ?? params.eventId
       }

@@ -21,7 +21,7 @@ connection that CI does not have.
   import type { CallParticipantInfo } from '$lib/state/server/voiceCall.svelte';
   import { createPresenceCache } from '$lib/state/presenceCache.svelte';
   import { createUserProfileCache } from '$lib/state/userProfiles.svelte';
-  import { provideConnection } from '$lib/state/server/connection.svelte';
+  import { provideServerScope } from '$lib/state/server/scope.svelte';
   import { serverRegistry, type RegisteredServer } from '$lib/state/server/registry.svelte';
   import { serverConnectionManager } from '$lib/state/server/serverConnection.svelte';
 
@@ -65,9 +65,20 @@ connection that CI does not have.
     return server;
   }
 
-  // The panel reads the active connection while initialising, so provide it
-  // before the lazy import resolves.
-  provideConnection(() => serverConnectionManager.getClient(ensureServer().id));
+  // The panel reads the server scope while initialising, so provide it before
+  // the lazy import resolves.
+  provideServerScope({
+    get serverId() {
+      return ensureServer().id;
+    },
+    get connection() {
+      return serverConnectionManager.getClient(ensureServer().id);
+    },
+    get store() {
+      return serverRegistry.getStore(ensureServer().id);
+    },
+    isCurrent: () => true
+  });
 
   function localParticipant(): CallParticipantInfo {
     return {
@@ -95,7 +106,6 @@ connection that CI does not have.
   onMount(async () => {
     const server = ensureServer();
     const store = serverRegistry.getStore(server.id);
-    store.rooms.currentUserId = 'viewer';
     // isInCall(roomId) is `connected && roomId === roomId`; both are required
     // for the panel to treat the soundboard as configured.
     store.voiceCall.roomId = roomId;

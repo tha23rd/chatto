@@ -12,24 +12,21 @@ unknown instance) the component renders nothing.
 - `showDismiss` — Whether to show the dismiss button (default: true).
 -->
 <script lang="ts">
+  import { ImageFitMode } from '@chatto/api-types/api/v1/common_pb';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { MessageLink } from '$lib/messageLinks';
-  import {
-    FitMode,
-    MessageAttachmentViewDocument,
-    type MessageAttachmentView,
-    type UserAvatarUserView
-  } from '$lib/render/types';
-  import { useRenderData } from '$lib/render/data';
+  import type { MessageAttachmentView } from '$lib/render/messageAttachments';
+  import type { UserAvatarUserView } from '$lib/render/users';
   import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import { serverIdToSegment } from '$lib/navigation';
   import * as m from '$lib/i18n/messages';
   import { serverRegistry } from '$lib/state/server/registry.svelte';
+  import { serverConnectionManager } from '$lib/state/server/serverConnection.svelte';
   import { getLiveDisplayName } from '$lib/state/userProfiles.svelte';
   import { createRoomTimelineAPI } from '$lib/api-client/roomTimeline';
   import { createAttachmentAPI } from '$lib/api-client/attachments';
-  import { isMessagePostedEvent } from '$lib/render/eventKinds';
+  import { isMessagePostedEvent } from '$lib/render/timelineEvents';
   import { unmask } from '$lib/state/room/messages/helpers';
   import {
     assetUrlNeedsRefresh,
@@ -39,9 +36,10 @@ unknown instance) the component renders nothing.
     type ExpiringAssetUrl
   } from '$lib/attachments/attachmentUrls';
   import { assetUrlForServer } from '$lib/assets/assetUrls';
+  import { useExpiringAssetUrlRefresh } from '$lib/attachments/useExpiringAssetUrlRefresh.svelte';
   import { ScrollFader } from '$lib/ui';
   import MessageContent from './MessageContent.svelte';
-  import UserAvatar, { UserAvatarViewData } from './UserAvatar.svelte';
+  import UserAvatar from './UserAvatar.svelte';
   import DeletedUserLabel from './DeletedUserLabel.svelte';
   import { roleColorToCSS } from '$lib/roleColors';
 
@@ -82,17 +80,13 @@ unknown instance) the component renders nothing.
   const PREVIEW_THUMBNAIL_REFRESH = {
     width: 120,
     height: 120,
-    fit: FitMode.Cover
+    fit: ImageFitMode.COVER
   };
-
-  function connectBaseUrl(serverUrl: string): string {
-    return new URL('/api/connect', serverUrl).toString();
-  }
 
   function roomName(serverId: string, roomId: string): string | null {
     return (
-      serverRegistry.tryGetStore(serverId)?.rooms.rooms.find((room) => room.id === roomId)?.name ??
-      null
+      serverRegistry.tryGetStore(serverId)?.navigation.rooms.find((room) => room.id === roomId)
+        ?.name ?? null
     );
   }
 
@@ -129,15 +123,14 @@ unknown instance) the component renders nothing.
       try {
         const server = serverRegistry.getServer(serverId);
         if (!server) return;
-        const page = await createRoomTimelineAPI({
-          serverId,
-          baseUrl: connectBaseUrl(server.url),
-          bearerToken: server.token
-        }).getRoomEventsAround({
-          roomId,
-          eventId: messageId,
-          limit: 1
-        });
+        const page = await serverConnectionManager
+          .getClient(serverId)
+          .getAPI(createRoomTimelineAPI)
+          .getRoomEventsAround({
+            roomId,
+            eventId: messageId,
+            limit: 1
+          });
 
         if (cancelled) return;
 
@@ -147,9 +140,7 @@ unknown instance) the component renders nothing.
           return;
         }
 
-        const attachments = inner.attachments.map((attachment) =>
-          useRenderData(MessageAttachmentViewDocument, attachment)
-        );
+        const attachments = inner.attachments;
 
         // Need at least a body or attachments for a meaningful preview
         if (!inner.body && attachments.length === 0) {
@@ -180,7 +171,7 @@ unknown instance) the component renders nothing.
               thumbnailUrl: displayThumbnailAssetUrl?.url ?? null
             };
           }),
-          actor: ev.actor ? useRenderData(UserAvatarViewData, ev.actor) : null,
+          actor: ev.actor ?? null,
           spaceName: server.name ?? null,
           roomName: roomName(serverId, roomId)
         };
@@ -230,14 +221,9 @@ unknown instance) the component renders nothing.
     if (!preview || refreshPromise) return refreshPromise ?? undefined;
 
     const current = preview;
-    const server = serverRegistry.getServer(current.serverId);
-    if (!server) return undefined;
+    if (!serverRegistry.getServer(current.serverId)) return undefined;
     refreshPromise = refreshAttachmentUrlsForAssets(
-      createAttachmentAPI({
-        serverId: current.serverId,
-        baseUrl: connectBaseUrl(server.url),
-        bearerToken: server.token
-      }),
+      serverConnectionManager.getClient(current.serverId).getAPI(createAttachmentAPI),
       current.roomId,
       current.attachments.map((attachment) => attachment.id),
       PREVIEW_THUMBNAIL_REFRESH
@@ -301,18 +287,6 @@ unknown instance) the component renders nothing.
     });
   }
 
-  function refreshStalePreviewUrls() {
-    if (hasStaleThumbnailUrl()) {
-      refreshPreviewAttachmentUrls();
-    }
-  }
-
-  function handleVisibilityChange() {
-    if (document.visibilityState === 'visible') {
-      refreshStalePreviewUrls();
-    }
-  }
-
   function openPreview(event: MouseEvent) {
     if (!preview) return;
     if (event.defaultPrevented) return;
@@ -356,31 +330,11 @@ unknown instance) the component renders nothing.
     );
   }
 
-  $effect(() => {
-    if (nextThumbnailRefreshAt === null) return;
-
-    const timeout = window.setTimeout(
-      () => {
-        refreshPreviewAttachmentUrls();
-      },
-      Math.max(0, nextThumbnailRefreshAt - Date.now())
-    );
-
-    return () => window.clearTimeout(timeout);
-  });
-
-  $effect(() => {
-    refreshStalePreviewUrls();
-  });
-
-  $effect(() => {
-    window.addEventListener('focus', refreshStalePreviewUrls);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('focus', refreshStalePreviewUrls);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+  useExpiringAssetUrlRefresh({
+    getRefreshAt: () => nextThumbnailRefreshAt,
+    hasStaleUrl: hasStaleThumbnailUrl,
+    refresh: refreshPreviewAttachmentUrls,
+    errorMessage: 'Failed to refresh message preview attachment URLs'
   });
 </script>
 
@@ -430,10 +384,11 @@ unknown instance) the component renders nothing.
           class="max-h-52"
           scrollClass="overscroll-contain"
         >
-          <div
-            class="px-3 py-2.5 text-sm leading-relaxed pointer-fine:select-text"
-          >
-            <MessageContent body={bodyMarkdown} />
+          <div class="px-3 py-2.5 text-sm leading-relaxed pointer-fine:select-text">
+            <MessageContent
+              body={bodyMarkdown}
+              viewerLogin={serverRegistry.tryGetStore(preview.serverId)?.currentUser.user?.login}
+            />
           </div>
         </ScrollFader>
       {/if}

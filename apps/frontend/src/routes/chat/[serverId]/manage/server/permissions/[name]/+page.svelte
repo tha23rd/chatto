@@ -2,9 +2,9 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { untrack } from 'svelte';
   import { serverIdToSegment } from '$lib/navigation';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { createRoleAPI, type RoleUser } from '$lib/api-client/roles';
   import { Panel, UserList } from '$lib/components/admin';
   import { Hint, PaneContent } from '$lib/ui';
@@ -15,13 +15,12 @@
   import { DeleteRoleModal, RolePermissionsMatrix, type Role } from '$lib/components/rbac';
   import { RoleColorPicker } from '$lib/components/rbac';
   import { ROLE_COLORS_CAPABILITY } from '$lib/roleColors';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
   import * as m from '$lib/i18n/messages';
 
   type User = RoleUser;
 
-  const serverSegment = $derived(serverIdToSegment(getActiveServer()));
-  const connection = useConnection();
+  const serverScope = useServerScope();
+  const serverSegment = $derived(serverIdToSegment(serverScope.serverId));
   const roleName = $derived(page.params.name!);
 
   let role = $state<Role | null>(null);
@@ -35,6 +34,7 @@
   let deleting = $state(false);
   let showDeleteConfirm = $state(false);
   let error = $state<string | null>(null);
+  let roleGeneration = 0;
 
   // Form state for editing metadata
   let editDisplayName = $state('');
@@ -43,23 +43,31 @@
   let editColor = $state(0);
 
   const supportsRoleColors = $derived(
-    serverRegistry
-      .tryGetStore(getActiveServer())
-      ?.serverInfo.supportsProtocolCapability(ROLE_COLORS_CAPABILITY) === true
+    serverScope.store.serverInfo.supportsProtocolCapability(ROLE_COLORS_CAPABILITY) === true
   );
 
-  async function loadData() {
+  function isCurrentRole(targetRoleName: string, targetGeneration: number): boolean {
+    return (
+      serverScope.isCurrent() &&
+      targetRoleName === roleName &&
+      targetGeneration === roleGeneration
+    );
+  }
+
+  async function loadData(targetRoleName: string, targetGeneration: number) {
     loading = true;
     error = null;
 
     let resp;
     try {
-      resp = await roleAPI().getRole(roleName);
+      resp = await roleAPI().getRole(targetRoleName);
     } catch (err) {
+      if (!isCurrentRole(targetRoleName, targetGeneration)) return;
       error = err instanceof Error ? err.message : 'Server not found';
       loading = false;
       return;
     }
+    if (!isCurrentRole(targetRoleName, targetGeneration)) return;
 
     role = resp.role;
     roleUsers = resp.users;
@@ -77,30 +85,38 @@
   }
 
   $effect(() => {
-    if (roleName) {
-      loadData();
-    }
+    const targetRoleName = roleName;
+    if (!targetRoleName) return;
+    untrack(() => {
+      roleGeneration++;
+      void loadData(targetRoleName, roleGeneration);
+    });
   });
 
   async function saveMetadata() {
     if (!role || savingPingable || savingColor) return;
+    const targetRoleName = role.name;
+    const targetGeneration = roleGeneration;
+    const api = roleAPI();
 
     saving = true;
     error = null;
 
     try {
-      await roleAPI().updateRole({
-        name: role.name,
+      await api.updateRole({
+        name: targetRoleName,
         displayName: editDisplayName,
         description: editDescription
       });
+      if (!isCurrentRole(targetRoleName, targetGeneration)) return;
       // Reload data
-      await loadData();
+      await loadData(targetRoleName, targetGeneration);
     } catch (err) {
+      if (!isCurrentRole(targetRoleName, targetGeneration)) return;
       error = err instanceof Error ? err.message : 'Failed to update role';
     }
 
-    saving = false;
+    if (isCurrentRole(targetRoleName, targetGeneration)) saving = false;
   }
 
   async function savePingable(event: Event) {
@@ -109,6 +125,9 @@
     const target = event.currentTarget as HTMLInputElement;
     const nextPingable = target.checked;
     const previousPingable = role.pingable;
+    const targetRoleName = role.name;
+    const targetGeneration = roleGeneration;
+    const api = roleAPI();
 
     if (nextPingable === previousPingable) return;
 
@@ -116,10 +135,13 @@
     error = null;
 
     try {
-      const updated = await roleAPI().updateRole({
-        name: role.name,
+      const updated = await api.updateRole({
+        name: targetRoleName,
+        displayName: role.displayName,
+        description: role.description,
         pingable: nextPingable
       });
+      if (!isCurrentRole(targetRoleName, targetGeneration)) return;
       role = {
         ...role,
         pingable: updated.pingable
@@ -127,11 +149,12 @@
       editPingable = updated.pingable;
       toast.success(updated.pingable ? 'Role pings enabled' : 'Role pings disabled');
     } catch (err) {
+      if (!isCurrentRole(targetRoleName, targetGeneration)) return;
       editPingable = previousPingable;
       error = err instanceof Error ? err.message : 'Failed to update role ping setting';
     }
 
-    savingPingable = false;
+    if (isCurrentRole(targetRoleName, targetGeneration)) savingPingable = false;
   }
 
   async function saveColor(nextColor: number) {
@@ -158,29 +181,30 @@
 
   async function deleteRole() {
     if (!role || role.isSystem) return;
+    const targetRoleName = role.name;
+    const targetGeneration = roleGeneration;
+    const api = roleAPI();
 
     deleting = true;
     error = null;
 
     try {
-      await roleAPI().deleteRole(role.name);
+      await api.deleteRole(targetRoleName);
     } catch (err) {
+      if (!isCurrentRole(targetRoleName, targetGeneration)) return;
       error = err instanceof Error ? err.message : 'Failed to delete role';
       deleting = false;
       showDeleteConfirm = false;
       return;
     }
+    if (!isCurrentRole(targetRoleName, targetGeneration)) return;
 
     // Navigate back to permissions list
     goto(resolve('/chat/[serverId]/manage/server/permissions', { serverId: serverSegment }));
   }
 
   function roleAPI() {
-    const conn = connection();
-    return createRoleAPI({
-      baseUrl: conn.connectBaseUrl,
-      bearerToken: conn.bearerToken
-    });
+    return serverScope.connection.getAPI(createRoleAPI);
   }
 
   const permissionsHref = $derived(

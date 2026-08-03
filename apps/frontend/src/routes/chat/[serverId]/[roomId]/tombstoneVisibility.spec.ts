@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { RoomEventKind } from '$lib/render/eventKinds';
-import type { RoomEventView } from '$lib/render/types';
-import type { UserSettingsState } from '$lib/state/userSettings.svelte';
+import {
+  TimelineEventKind,
+  type TimelineEventView
+} from '$lib/render/timelineEvents';
+import type { TimeFormatSettings } from '$lib/utils/formatTime';
 import { computeEventMetadata } from './messageGrouping';
 import { buildVirtualItems } from './virtualItems';
 import {
@@ -17,22 +19,18 @@ import {
 const deletedAt = '2026-07-10T10:00:00.000Z';
 const deletedAtMs = Date.parse(deletedAt);
 const utcSettings = {
-  get effectiveTimezone() {
-    return 'UTC';
-  },
-  get effectiveHour12() {
-    return undefined;
-  }
-} as unknown as UserSettingsState;
+  effectiveTimezone: 'UTC',
+  effectiveHour12: undefined
+} satisfies TimeFormatSettings;
 
-function message(overrides: Record<string, unknown> = {}): RoomEventView {
+function message(overrides: Record<string, unknown> = {}): TimelineEventView {
   return {
     id: String(overrides.id ?? 'message-1'),
     createdAt: String(overrides.createdAt ?? '2026-07-10T09:00:00.000Z'),
     actorId: 'user-1',
     actor: null,
     event: {
-      kind: RoomEventKind.MessagePosted,
+      kind: TimelineEventKind.MessagePosted,
       roomId: 'room-1',
       body: null,
       attachments: [],
@@ -51,7 +49,7 @@ function message(overrides: Record<string, unknown> = {}): RoomEventView {
       viewerIsFollowingThread: null,
       ...overrides
     }
-  } as RoomEventView;
+  } as TimelineEventView;
 }
 
 describe('tombstone visibility', () => {

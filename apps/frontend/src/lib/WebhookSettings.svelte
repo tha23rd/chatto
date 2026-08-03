@@ -11,14 +11,13 @@ URL in a dismissable dialog with a copy-to-clipboard control and a clear
 warning, since it cannot be retrieved again afterwards.
 -->
 <script lang="ts">
-  import { useConnection } from '$lib/state/server/connection.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
   import { createAdminWebhookAPI, type WebhookImageUpload } from '$lib/api-client/webhooks';
   import type { ConnectAPIConfig } from '$lib/api-client/connect';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
   import { getWebhooks, type WebhookView } from '$lib/state/webhooks.svelte';
-  import { serverRegistry } from '$lib/state/server/registry.svelte';
-  import { RoomType } from '$lib/render/types';
-  import { getUserSettings } from '$lib/state/userSettings.svelte';
+  import { RoomKind } from '$lib/api-client/roomDirectory';
+  import { timeFormatSettingsFor } from '$lib/utils/formatTime';
   import { getLocale } from '$lib/i18n/runtime';
   import { formatDate } from '$lib/utils/formatTime';
   import * as m from '$lib/i18n/messages';
@@ -31,8 +30,9 @@ warning, since it cannot be retrieved again afterwards.
   import { dropZone } from '$lib/attachments/dropZone.svelte';
   import DropZoneOverlay from '$lib/attachments/DropZoneOverlay.svelte';
 
-  const connection = useConnection();
-  const userSettings = getUserSettings();
+  const serverScope = useServerScope();
+  const connection = () => serverScope.connection;
+  const userSettings = $derived(timeFormatSettingsFor(serverScope.store.currentUser.user?.settings));
   const activeLocale = $derived(getLocale());
 
   function apiConfig(): ConnectAPIConfig {
@@ -56,10 +56,10 @@ warning, since it cannot be retrieved again afterwards.
   // Rooms this server has, for the "target room" picker and for resolving a
   // webhook's room id to a display name in the list. Webhooks only post into
   // channel rooms, so DMs are excluded.
-  const roomsStore = $derived(serverRegistry.getStore(getActiveServer()).rooms);
+  const roomsStore = $derived(serverScope.store.navigation);
   const roomOptions = $derived(
     roomsStore.rooms
-      .filter((room) => room.type === RoomType.Channel)
+      .filter((room) => room.type === RoomKind.CHANNEL)
       .map((room) => ({ value: room.id, label: room.name }))
   );
 
