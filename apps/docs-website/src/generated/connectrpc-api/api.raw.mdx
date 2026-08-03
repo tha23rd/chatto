@@ -513,7 +513,7 @@ Request to update or replace the current user's custom status.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `emoji` | `string` | Short emoji marker displayed with the status. |
+| `emoji` | `string` | One supported Unicode emoji or the canonical shortcode name of a current server custom emoji. The server matches custom emoji names case-insensitively. |
 | `text` | `string` | User-written status text. |
 | `expires_at` | `google.protobuf.Timestamp` | Optional future time after which clients should stop showing the status. |
 
@@ -3580,7 +3580,7 @@ Custom status shown on a user profile, separate from presence.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `emoji` | `string` | Short emoji marker displayed with the status. |
+| `emoji` | `string` | One supported Unicode emoji or a canonical custom-emoji shortcode name. Deleted custom emoji may stop resolving; clients must preserve and render the status text. |
 | `text` | `string` | User-written status text. |
 | `expires_at` | `google.protobuf.Timestamp` | Optional time after which clients should stop showing the status. |
 

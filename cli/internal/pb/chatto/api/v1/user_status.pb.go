@@ -26,7 +26,8 @@ const (
 // Custom status shown on a user profile, separate from presence.
 type CustomUserStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Short emoji marker displayed with the status.
+	// One supported Unicode emoji or a canonical custom-emoji shortcode name.
+	// Deleted custom emoji may stop resolving; clients must preserve and render the status text.
 	Emoji string `protobuf:"bytes,1,opt,name=emoji,proto3" json:"emoji,omitempty"`
 	// User-written status text.
 	Text string `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
@@ -90,7 +91,8 @@ func (x *CustomUserStatus) GetExpiresAt() *timestamppb.Timestamp {
 // Request to update or replace the current user's custom status.
 type UpdateCustomStatusRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Short emoji marker displayed with the status.
+	// One supported Unicode emoji or the canonical shortcode name of a current server custom emoji.
+	// The server matches custom emoji names case-insensitively.
 	Emoji string `protobuf:"bytes,1,opt,name=emoji,proto3" json:"emoji,omitempty"`
 	// User-written status text.
 	Text string `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
@@ -286,7 +288,7 @@ const file_chatto_api_v1_user_status_proto_rawDesc = "" +
 	"\n" +
 	"\x1fchatto/api/v1/user_status.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8d\x01\n" +
 	"\x10CustomUserStatus\x12\x1f\n" +
-	"\x05emoji\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18\x10R\x05emoji\x12\x1d\n" +
+	"\x05emoji\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x05emoji\x12\x1d\n" +
 	"\x04text\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dR\x04text\x129\n" +
 	"\n" +
 	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"\x80\x01\n" +

@@ -13,7 +13,8 @@ import { Message, proto3, Timestamp } from "@bufbuild/protobuf";
  */
 export class CustomUserStatus extends Message<CustomUserStatus> {
   /**
-   * Short emoji marker displayed with the status.
+   * One supported Unicode emoji or a canonical custom-emoji shortcode name.
+   * Deleted custom emoji may stop resolving; clients must preserve and render the status text.
    *
    * @generated from field: string emoji = 1;
    */
@@ -70,7 +71,8 @@ export class CustomUserStatus extends Message<CustomUserStatus> {
  */
 export class UpdateCustomStatusRequest extends Message<UpdateCustomStatusRequest> {
   /**
-   * Short emoji marker displayed with the status.
+   * One supported Unicode emoji or the canonical shortcode name of a current server custom emoji.
+   * The server matches custom emoji names case-insensitively.
    *
    * @generated from field: string emoji = 1;
    */
