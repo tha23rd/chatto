@@ -1216,7 +1216,7 @@ Room sidebar panel for voice/video calls.
 
 {#if popoverParticipant && popoverAnchorRect}
   <UserContextMenu
-    serverId={getActiveServer()}
+    serverId={activeServerId}
     user={popoverParticipant.avatarUser}
     anchorRect={popoverAnchorRect}
     canSendMessage={canStartDMs}
