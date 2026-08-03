@@ -9,10 +9,38 @@ const idleUpdate: DesktopUpdateSnapshot = {
   currentVersion: '0.1.0'
 };
 
+function displayCaptureStream(
+  displaySurface: 'browser' | 'monitor' | 'window' | undefined,
+  audioLabels: readonly string[]
+) {
+  const videoTrack = {
+    getSettings: () => (displaySurface ? { displaySurface } : {})
+  } as unknown as MediaStreamTrack;
+  const audioTracks = audioLabels.map(
+    (label) =>
+      ({
+        label,
+        stop: vi.fn()
+      }) as unknown as MediaStreamTrack
+  );
+  let attachedAudioTracks = [...audioTracks];
+  const removeTrack = vi.fn((track: MediaStreamTrack) => {
+    attachedAudioTracks = attachedAudioTracks.filter((candidate) => candidate !== track);
+  });
+  const stream = {
+    getVideoTracks: () => [videoTrack],
+    getAudioTracks: () => attachedAudioTracks,
+    getTracks: () => [videoTrack, ...attachedAudioTracks],
+    removeTrack
+  } as unknown as MediaStream;
+
+  return { audioTracks, removeTrack, stream };
+}
+
 function bindings() {
   return {
     fetch: vi.fn(async () => new Response(null, { status: 204 })),
-    getDisplayMedia: vi.fn(async () => ({}) as MediaStream),
+    getDisplayMedia: vi.fn(async () => displayCaptureStream('monitor', []).stream),
     openUrl: vi.fn(async () => {}),
     createRealtimeSocket: vi.fn(),
     startServerOAuth: vi.fn(),
@@ -83,6 +111,89 @@ describe('Tauri NativeHost', () => {
       video,
       systemAudio: 'include',
       windowAudio: 'window'
+    });
+  });
+
+  it('retains positively identified application audio for a window capture', async () => {
+    const native = bindings();
+    const capture = displayCaptureStream('window', ['Application Audio']);
+    native.getDisplayMedia.mockResolvedValue(capture.stream);
+    const host = createTauriNativeHost(native);
+
+    const stream = await host.captureDisplayMedia({ audio: true, video: true });
+
+    expect(stream.getAudioTracks()).toEqual(capture.audioTracks);
+    expect(capture.audioTracks[0].stop).not.toHaveBeenCalled();
+    expect(capture.removeTrack).not.toHaveBeenCalled();
+  });
+
+  it('stops and removes system audio from a window capture', async () => {
+    const native = bindings();
+    const capture = displayCaptureStream('window', ['System Audio']);
+    native.getDisplayMedia.mockResolvedValue(capture.stream);
+    const host = createTauriNativeHost(native);
+
+    const stream = await host.captureDisplayMedia({ audio: true, video: true });
+
+    expect(capture.audioTracks[0].stop).toHaveBeenCalledOnce();
+    expect(capture.removeTrack).toHaveBeenCalledWith(capture.audioTracks[0]);
+    expect(stream.getAudioTracks()).toEqual([]);
+  });
+
+  it('retains system audio for a monitor capture', async () => {
+    const native = bindings();
+    const capture = displayCaptureStream('monitor', ['System Audio']);
+    native.getDisplayMedia.mockResolvedValue(capture.stream);
+    const host = createTauriNativeHost(native);
+
+    const stream = await host.captureDisplayMedia({ audio: true, video: true });
+
+    expect(stream.getAudioTracks()).toEqual(capture.audioTracks);
+    expect(capture.audioTracks[0].stop).not.toHaveBeenCalled();
+    expect(capture.removeTrack).not.toHaveBeenCalled();
+  });
+
+  it('retains tab audio for a browser-surface capture', async () => {
+    const native = bindings();
+    const capture = displayCaptureStream('browser', ['Tab Audio']);
+    native.getDisplayMedia.mockResolvedValue(capture.stream);
+    const host = createTauriNativeHost(native);
+
+    const stream = await host.captureDisplayMedia({ audio: true, video: true });
+
+    expect(stream.getAudioTracks()).toEqual(capture.audioTracks);
+    expect(capture.audioTracks[0].stop).not.toHaveBeenCalled();
+    expect(capture.removeTrack).not.toHaveBeenCalled();
+  });
+
+  it('removes non-application audio when display-surface metadata is unavailable', async () => {
+    const native = bindings();
+    const capture = displayCaptureStream(undefined, ['System Audio']);
+    native.getDisplayMedia.mockResolvedValue(capture.stream);
+    const host = createTauriNativeHost(native);
+
+    const stream = await host.captureDisplayMedia({ audio: true, video: true });
+
+    expect(capture.audioTracks[0].stop).toHaveBeenCalledOnce();
+    expect(capture.removeTrack).toHaveBeenCalledWith(capture.audioTracks[0]);
+    expect(stream.getAudioTracks()).toEqual([]);
+  });
+
+  it('excludes window audio when capture audio is false or omitted', async () => {
+    const native = bindings();
+    const host = createTauriNativeHost(native);
+
+    await host.captureDisplayMedia({ audio: false, video: true });
+    await host.captureDisplayMedia({ video: true });
+
+    expect(native.getDisplayMedia).toHaveBeenNthCalledWith(1, {
+      audio: false,
+      video: true,
+      windowAudio: 'exclude'
+    });
+    expect(native.getDisplayMedia).toHaveBeenNthCalledWith(2, {
+      video: true,
+      windowAudio: 'exclude'
     });
   });
 
