@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { RegisteredServer } from '$lib/state/server/registry.svelte';
+import type { ServerRegistrationMetadataPatch } from '$lib/state/server/catalog.svelte';
 import {
   completeServerOAuth,
   parseServerOAuthTokenResponse,
@@ -9,6 +10,7 @@ import {
 function server(overrides: Partial<RegisteredServer> = {}): RegisteredServer {
   return {
     id: 'chatto-example',
+    source: 'local',
     url: 'https://chatto.example',
     name: 'Existing Chatto',
     iconUrl: 'https://chatto.example/old-icon.png',
@@ -34,11 +36,8 @@ class FakeRegistry implements ServerOAuthRegistry {
     this.servers.push(value);
   }
 
-  updateServer(id: string, data: Partial<Omit<RegisteredServer, 'id'>>): boolean {
-    const value = this.servers.find((candidate) => candidate.id === id);
-    if (!value) return false;
-    Object.assign(value, data);
-    return true;
+  updateRegistration(id: string, data: ServerRegistrationMetadataPatch): boolean {
+    return this.#assign(id, data);
   }
 
   replaceServerAuthentication(
@@ -48,7 +47,16 @@ class FakeRegistry implements ServerOAuthRegistry {
       'token' | 'userId' | 'userLogin' | 'userDisplayName' | 'userAvatarUrl' | 'reauthRequiredAt'
     >
   ): boolean {
-    return this.updateServer(id, data);
+    return this.#assign(id, data);
+  }
+
+  // The real registry keeps catalogue metadata and the device-local session in
+  // separate stores; this fake flattens both onto the composed server row.
+  #assign(id: string, data: Partial<Omit<RegisteredServer, 'id'>>): boolean {
+    const value = this.servers.find((candidate) => candidate.id === id);
+    if (!value) return false;
+    Object.assign(value, data);
+    return true;
   }
 }
 

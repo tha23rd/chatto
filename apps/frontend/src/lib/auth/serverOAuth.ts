@@ -3,6 +3,7 @@ import {
   serverRegistry,
   type RegisteredServer
 } from '$lib/state/server/registry.svelte';
+import type { ServerRegistrationMetadataPatch } from '$lib/state/server/catalog.svelte';
 import type { NativeOAuthResult, NativeOAuthUser } from '$lib/native/types';
 
 export interface ServerOAuthFlowMetadata {
@@ -18,7 +19,7 @@ export interface ServerOAuthDestination {
 export interface ServerOAuthRegistry {
   readonly servers: RegisteredServer[];
   addServer(server: RegisteredServer): void;
-  updateServer(id: string, data: Partial<Omit<RegisteredServer, 'id'>>): boolean;
+  updateRegistration(id: string, data: ServerRegistrationMetadataPatch): boolean;
   replaceServerAuthentication(
     id: string,
     data: Pick<
@@ -88,7 +89,7 @@ export function completeServerOAuth(
   let registered: RegisteredServer;
 
   if (existing) {
-    registry.updateServer(existing.id, {
+    registry.updateRegistration(existing.id, {
       name: flow.serverName ?? existing.name,
       iconUrl: flow.serverIconUrl ?? existing.iconUrl
     });
@@ -108,6 +109,9 @@ export function completeServerOAuth(
     );
     registered = {
       id,
+      // Added on this device through the OAuth flow, not learned from an
+      // account-data sync.
+      source: 'local',
       url: flow.remoteUrl,
       name: flow.serverName ?? 'Chatto',
       iconUrl: flow.serverIconUrl ?? null,

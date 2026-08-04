@@ -127,14 +127,18 @@ function blockedUsernameEntries(text: string): string[] {
 }
 
 export async function getAuthenticatedServerState(
-  config: ServerStateAPIConfig
+  config: ServerStateAPIConfig,
+  options: { signal?: AbortSignal } = {}
 ): Promise<AuthenticatedServerState> {
   const { discovery, server, viewer, headers } = serverClients(config);
+  const authenticatedCallOptions = options.signal
+    ? { headers, signal: options.signal }
+    : { headers };
   const [discoveryResponse, motdResponse, runtimeResponse, viewerResponse] = await Promise.all([
-    discovery.getServer({}),
-    server.getMotd({}, { headers }),
-    server.getRuntimeConfig({}, { headers }),
-    viewer.getViewer({}, { headers })
+    options.signal ? discovery.getServer({}, { signal: options.signal }) : discovery.getServer({}),
+    server.getMotd({}, authenticatedCallOptions),
+    server.getRuntimeConfig({}, authenticatedCallOptions),
+    viewer.getViewer({}, authenticatedCallOptions)
   ]);
   const profile = mapServerProfile(discoveryResponse.profile);
   const runtime = runtimeResponse.runtime;
@@ -198,9 +202,15 @@ export async function getAuthenticatedServerState(
   };
 }
 
-export async function getServerConfig(config: ServerStateAPIConfig): Promise<EditableServerConfig> {
+export async function getServerConfig(
+  config: ServerStateAPIConfig,
+  options: { signal?: AbortSignal } = {}
+): Promise<EditableServerConfig> {
   const { adminServer, headers } = serverClients(config);
-  const response = await adminServer.getServerConfig({}, { headers });
+  const response = await adminServer.getServerConfig(
+    {},
+    { headers, ...(options.signal ? { signal: options.signal } : {}) }
+  );
   return mapEditableServerConfig(response.config);
 }
 
@@ -275,10 +285,14 @@ export async function deleteServerBanner(
 }
 
 export async function getServerSecurityConfig(
-  config: ServerStateAPIConfig
+  config: ServerStateAPIConfig,
+  options: { signal?: AbortSignal } = {}
 ): Promise<ServerSecurityConfig> {
   const { adminServer, headers } = serverClients(config);
-  const response = await adminServer.getServerSecurityConfig({}, { headers });
+  const response = await adminServer.getServerSecurityConfig(
+    {},
+    { headers, ...(options.signal ? { signal: options.signal } : {}) }
+  );
   return {
     blockedUsernames: blockedUsernamesText(response.blockedUsernames)
   };
