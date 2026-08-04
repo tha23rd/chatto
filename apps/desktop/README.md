@@ -1,238 +1,113 @@
-# Chatto for Windows
+# Chatto Desktop
 
-This package is a thin [Tauri 2](https://v2.tauri.app/) host around the shared
-SvelteKit client in `apps/frontend`. It deliberately owns only native transport,
-authentication, shortcuts, tray/window lifecycle, and future media capture
-integration. Product UI and domain behaviour remain in the shared frontend.
+This directory packages the official Chatto SvelteKit frontend as an
+experimental desktop app. It uses
+[Deno Desktop](https://docs.deno.com/runtime/desktop/) with the Chromium
+Embedded Framework (CEF) backend, so WebRTC and rendering use a bundled Chromium
+engine on every supported platform. The toolchain is pinned to Deno 2.9.4, the
+current stable release; Deno Desktop remains explicitly experimental in that
+release.
 
-## Desktop release channels
+Chatto Desktop has its own pre-1.0 version and release-please component. Tags
+use `chatto-desktop/vX.Y.Z`; desktop-only releases do not bump the Chatto server
+version. Each tagged build still embeds the official frontend revision from the
+same commit, whose version continues to govern client-server compatibility.
 
-Native development targets the downstream `main-native` branch so `main` can
-remain focused on the upstream web/server code. Merge `main` into
-`main-native` to pick up upstream changes; native feature pull requests should
-use `main-native` as their base.
+There is no desktop-specific frontend. The build embeds the unchanged static
+artifacts from `apps/frontend/build` and serves them from Deno Desktop's private
+loopback origin. Chatto's existing standalone-frontend behavior owns server
+registration, authentication, routing, and local browser state.
 
-Every successful push to `main-native` publishes a signed, immutable Nightly
-prerelease on the repository's
-[GitHub Releases page](https://github.com/tha23rd/chatto/releases). Nightly
-versions are monotonic and use a UTC timestamp plus the GitHub Actions run
-number:
+CEF does not return a browser popup from `window.open()`. The official frontend
+therefore detects a small binding installed by this shell and asks Deno Desktop
+to create a native `BrowserWindow` for Chatto OAuth. The remote server still
+owns the sign-in page, PKCE still protects the authorization code, and the
+same-origin callback returns to the main client through `BroadcastChannel`.
+Normal web builds continue to use the existing browser-popup path.
+
+## Run it
+
+From the repository root:
+
+```sh
+mise desktop-dev
+```
+
+The app opens Chatto's normal server registration screen. Servers and delegated
+access tokens use the same browser storage as the standalone web frontend.
+
+On macOS, the development task first builds `Chatto Desktop.app` and then makes
+an APFS copy-on-write clone for Deno's private HMR host. Deno 2.9.4 otherwise
+launches its generic cached `laufey.app`, whose `Info.plist` lacks the privacy
+descriptions required by macOS. Requesting a microphone or camera from that
+generic host makes macOS terminate the process instead of showing a permission
+prompt. The development task verifies Chatto's media descriptions before it
+starts HMR; the private clone also keeps Deno's HMR re-signing away from the
+normal build output.
+
+## Verify and build
+
+```sh
+mise test-desktop
+mise desktop-build
+```
+
+`mise desktop-build` first runs Chatto's existing `build-frontend` task, then
+embeds that output in the host-platform bundle beneath `apps/desktop/dist/`. CEF
+alone adds roughly 150 MB. Deno downloads the matching prebuilt backend on the
+first build; no C++ or platform CEF build is required.
+
+CI checks and builds the application on macOS, Windows, and Linux. Desktop
+release tags publish unsigned archives and SHA-256 checksums while the app is
+experimental. These artifacts are suitable for testing, but operating systems
+may warn about or block them until platform signing and notarisation are added.
+
+Deno Desktop's automatic SvelteKit detection does not support
+`@sveltejs/adapter-static`. `frontend_server.ts` therefore serves the static
+artifacts with the existing `200.html` SPA fallback, while `main.ts` owns the
+native window bindings. Neither contains application UI.
+
+Deno 2.9.4 writes a configured macOS icon after its internal ad-hoc signing
+pass. The build task therefore applies and verifies one final ad-hoc signature
+on macOS. Remove that workaround when upgrading to a Deno release that seals the
+icon itself, and replace it with the release signing/notarisation workflow
+before distribution.
+
+On first launch, the bundled Deno runtime writes its auto-update health marker
+next to the runtime library inside the macOS app. That changes a sealed bundle
+after signing. The build workaround removes a marker left by an earlier local
+launch before re-signing, but it cannot prevent the installed app from creating
+it again. Production macOS signing therefore remains blocked on an upstream fix
+or a supported external location for Laufey's update state.
+
+Homebrew distribution should use a Cask that installs the macOS application
+archive, rather than a Formula. The current ad-hoc signature checks local bundle
+integrity but is not a Developer ID signature and cannot satisfy Gatekeeper. An
+application also cannot make itself trusted by signing after launch because
+Gatekeeper evaluates it before it can run. Publish the Cask as a normal-user
+installation path only after the release archive is Developer ID-signed and
+notarised.
+
+The current CEF backend also uses CEF's generic browser profile rather than an
+app-specific path. On macOS the directory is:
 
 ```text
-desktop-v0.1.0-nightly.20260719091530.1234
-Chatto_0.1.0-nightly.20260719091530.1234_x64-setup.exe
-Chatto_0.1.0-nightly.20260719091530.1234_x64-setup.exe.sig
-Chatto_0.1.0-nightly.20260719091530.1234_x64-setup.exe.sha256
+~/Library/Application Support/CEF/User Data
 ```
 
-Stable releases are created only from an exact `desktop-vX.Y.Z` tag reachable
-from `main-native`. The tag, desktop package versions, installer version, and
-manifest version must all match. Stable is the default application channel;
-Nightly is opt-in.
+It contains Chromium-managed state such as cookies, registered servers, and
+delegated access tokens; the shell writes no separate settings file. Deno
+Desktop 2.9.4 does not expose a profile-path setting, so a release should wait
+for that support or add an upstream-compatible isolation mechanism.
 
-Both workflows build an unsigned beta installer and a Tauri updater signature.
-They upload exactly five assets to a draft GitHub release, download and
-reverify those stored bytes, publish the immutable release, then replace the
-manifest on the rolling `desktop-stable` or `desktop-nightly` GitHub release. A
-pull request never receives the updater private key, publishes a release, or
-changes a live channel.
+## Prototype boundaries
 
-An existing installation without updater support needs one final manual bridge
-install. After that, the native host downloads and verifies updates in the
-background and the frontend offers a user-controlled restart.
-
-### Maintainer release configuration
-
-The beta release path needs one repository Actions secret:
-
-- `TAURI_SIGNING_PRIVATE_KEY`
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (optional for an unencrypted CI key)
-
-The matching public key is intentionally checked in at
-`apps/desktop/updater-public-key.txt`. GitHub's built-in workflow token creates
-the immutable and rolling releases; no Azure account, external object store, or
-protected GitHub environment is required for beta publishing.
-
-Keep the updater private key outside GitHub as an access-controlled, tested
-backup. Record its custodians and recovery procedure. A public-key rotation
-requires a bridge release that trusts the replacement key before later releases
-are signed only by that key.
-
-Before creating a Stable tag, update every desktop version to the same `X.Y.Z`,
-merge the release commit to `main-native`, and create `desktop-vX.Y.Z` on that
-commit. Nightly publishing needs no tag: it follows each successful
-`main-native` build. Both routes intentionally publish draft-first and expose a
-channel only after the GitHub assets, checksum, and updater signature pass
-read-back verification.
-
-Beta installers are not Authenticode-signed. Windows can show **Unknown
-publisher** or a SmartScreen warning during the initial bridge installation and
-installer-driven updates. Do not tell testers to disable Windows security
-controls; document the warning and distribute installers only through the
-repository release page. Authenticode and a dedicated atomic manifest store are
-deferred until the desktop client moves beyond small beta testing.
-
-To withdraw a bad update, remove `windows-x86_64.json` from its rolling
-`desktop-stable` or `desktop-nightly` release, then publish a higher fixed
-version. Never repoint Stable or Nightly to a lower version. Immutable
-versioned manifests and GitHub assets remain as the audit record; an already
-installed release cannot be recalled.
-
-## Development
-
-Install the normal Chatto prerequisites plus the Windows Tauri prerequisites:
-
-- Windows 10 or Windows 11
-- Microsoft C++ Build Tools with the "Desktop development with C++" workload
-- WebView2 Evergreen Runtime
-- Rust's stable `x86_64-pc-windows-msvc` toolchain
-- `mise` and the repository-managed Node/pnpm toolchain
-
-From a Windows terminal in the repository:
-
-```powershell
-mise run desktop-dev
-```
-
-The command starts the frontend in desktop mode and launches the WebView2 host.
-Desktop mode produces a static client build and disables service-worker
-registration and web version polling; the ordinary web build is unchanged.
-
-Create the NSIS installer with:
-
-```powershell
-mise run desktop-build
-```
-
-By default, the installer is written under
-`apps/desktop/src-tauri/target/release/bundle/nsis`. If `CARGO_TARGET_DIR` is
-set, Tauri writes the executable and bundle beneath that directory instead.
-WSL can run frontend and platform-independent tests, but it cannot establish
-that a WebView2 executable or installer works. Run the native build and smoke
-test with the Windows toolchain before merging or releasing.
-
-### Working from WSL
-
-The source may remain in WSL, but the final Cargo compile and Tauri packaging
-must run as native Windows processes. Rust incremental compilation cannot use a
-UNC output directory reliably, so place Cargo's target directory on the Windows
-filesystem:
-
-```powershell
-$env:CARGO_TARGET_DIR = Join-Path $env:TEMP 'chatto-desktop-target'
-$env:CARGO_INCREMENTAL = '0'
-Set-Location '\\wsl.localhost\Ubuntu\home\your-user\path\to\chatto'
-cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
-```
-
-Windows Node tools reject a UNC current directory. Either keep a Windows clone
-for packaging or use `pushd` from `cmd.exe`, which temporarily maps the WSL path
-to a drive letter:
-
-```powershell
-cmd.exe /d /c "pushd \\wsl.localhost\Ubuntu\home\your-user\path\to\chatto && corepack pnpm --filter chatto-desktop tauri build"
-```
-
-Do not treat a Linux-target Cargo build as Windows verification. It exercises a
-different webview and platform implementation.
-
-Some Windows policies also treat `.ps1` files on the WSL UNC share as remote.
-Keep that policy enabled: copy the acceptance script to a unique file under
-`$env:TEMP`, run the local copy, and remove only that copy afterward. Pass
-`-PackagePath` explicitly when the verifier is no longer beside the repository.
-
-## First launch and server login
-
-The desktop renderer is the same client as the web application, so first-server
-onboarding remains familiar:
-
-1. Launch Chatto and add the URL of the self-hosted server.
-2. Use an `https://` server URL. Plain HTTP is accepted only for `localhost`,
-   `127.0.0.1`, or `[::1]` development servers.
-3. When OAuth is selected, Chatto opens the system browser. Complete login
-   there; the browser returns to a short-lived loopback callback owned by this
-   desktop process.
-
-The callback listener uses an ephemeral port and closes after one bounded
-response or a timeout. Tokens and callback query strings must not appear in
-logs, screenshots, or acceptance evidence.
-
-The desktop client leases native network access only for saved server origins
-and for the server currently being probed in the Add Server dialog. HTTP
-redirects are disabled and a response that reports another origin is rejected.
-The ordinary web client keeps its browser transports, including support for
-operator-approved non-loopback HTTP deployments; the desktop POC deliberately
-requires HTTPS except for local development.
-
-## Native call controls
-
-Open **Settings → Keybinds** to assign system-wide controls for push-to-talk,
-push-to-mute, mute, deafen, camera, screen sharing, and leaving a call.
-`Control+Shift+Space` remains the default push-to-talk binding. Hold actions
-restore the previous microphone state when released, never override deafen, and
-are released and unregistered when the call ends.
-
-Chatto has one process-wide keybinding owner and tray menu. If calls remain
-connected on multiple servers, the most recently started call owns those
-controls. Ending it returns ownership to the previously connected call. If
-another application already owns a configured key combination, choose a
-different binding; Chatto keeps the other available bindings active.
-
-Closing the window hides it to the notification area. The tray menu can show
-Chatto, mute/unmute, deafen/undeafen, or quit. Only **Quit** terminates the
-desktop process.
-
-While Chatto is running, a red dot overlays its Windows taskbar icon whenever
-the shared client has at least one pending notification. The dot clears after
-all pending notifications are handled. Ordinary unread rooms do not set it
-unless their notification level creates a notification.
-
-## Windows verification
-
-Build the package before running the read-only verifier:
-
-```powershell
-$evidence = Join-Path $env:TEMP 'chatto-desktop-evidence'
-./apps/desktop/scripts/verify-package.ps1 -OutputDirectory $evidence
-```
-
-During an idle, call, or screen-share scenario, record a resource sample using
-the PID of `chatto-desktop.exe`:
-
-```powershell
-./apps/desktop/scripts/measure-resources.ps1 `
-  -ProcessId 1234 `
-  -OutputDirectory $evidence `
-  -DurationSeconds 60 `
-  -IntervalSeconds 1
-```
-
-The sampler records only process identifiers/names, CPU, memory, and available
-GPU-engine utilisation for Chatto and its descendant WebView2 processes. It
-does not collect window titles, command lines, URLs, account data, or network
-payloads. Use [`tests/windows-acceptance.md`](tests/windows-acceptance.md) to
-keep manual evidence separate from unrun requirements.
-
-During a live screen share, open the quality gear on the local share tile and
-choose **Copy to clipboard**. The versioned JSON contains only a bounded set of
-normalized WebRTC sender statistics. Inspect it before attaching it to a PR and
-keep the acceptance record free of user or server data.
-
-## Troubleshooting
-
-Test only an installer built from a reviewed commit or downloaded from the
-project's GitHub Releases page. Do not disable Defender, SmartScreen, TLS
-validation, or browser security controls.
-
-- If the window cannot open, confirm the WebView2 Evergreen Runtime is installed
-  and current through normal Microsoft/Windows Update channels.
-- If native compilation fails, open a Developer PowerShell for Visual Studio and
-  confirm the MSVC desktop workload and Windows SDK are installed.
-- If pnpm reports that UNC paths are unsupported, use the `pushd` command above
-  or a Windows clone.
-- If OAuth times out, confirm the browser was allowed to reach the server and
-  that another local security product did not block the ephemeral loopback
-  callback. Do not make the callback externally reachable.
-- If the global shortcut is already owned by another application, close or
-  reconfigure that application for the test. The POC does not silently choose a
-  different accelerator.
+This scaffold proves the desktop runtime, WebRTC-compatible rendering path, and
+native-window Chatto OAuth flow. It does not yet provide Developer ID-signed or
+notarised packages, auto-update, OS deep-link handling, desktop-aware
+external-link handling, end-to-end desktop tests, or a system-browser OAuth
+handoff. Servers configured with an explicit restrictive
+`webserver.allowed_origins` list may also reject the desktop app's random
+loopback origin. Some identity providers reject authentication inside embedded
+user agents, so a system-browser handoff is required before treating this as a
+general release.

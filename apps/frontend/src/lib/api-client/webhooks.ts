@@ -48,11 +48,11 @@ export function createAdminWebhookAPI(config: ConnectAPIConfig) {
   const client = createChattoClient(AdminWebhookService, config);
   const headers = () => authHeaders(config);
   return {
-    async list(roomId?: string): Promise<WebhookView[]> {
+    async list(roomId?: string, options?: { signal?: AbortSignal }): Promise<WebhookView[]> {
       try {
         const response = await client.listWebhooks(
           roomId ? { roomId } : {},
-          { headers: headers() },
+          { headers: headers(), signal: options?.signal },
         );
         return response.webhooks.map(mapWebhook);
       } catch (err) {

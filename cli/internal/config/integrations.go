@@ -111,7 +111,9 @@ type LiveKitConfig struct {
 }
 
 // Default screen-share quality ceiling used when the corresponding config value
-// is unset (<= 0). Kept in sync with the client-side fallback.
+// is unset (<= 0). Deliberately higher than the client-side fallback
+// (1920x1080 at 6 Mbps), which only applies when a server publishes no
+// screen-share config at all and so has to stay conservative.
 const (
 	// 1440p, so clients offer a 1440p tier alongside 1080p. Discord's own cap is higher
 	// still (Nitro streams up to 4K60), and a self-hoster wanting a 4K tier can raise this

@@ -12,6 +12,8 @@ Entries within each section are ordered by **conceptual flow** — foundational 
 
 Names for visible surfaces and component groupings. When a name here disagrees with a file or component name in the codebase, the glossary wins — the file is the one that should rename.
 
+**Application Header** — Global bar across the top of the client. Client-wide navigation, notifications, and meta controls live on the left; the active server's message of the day occupies the centre; version and session controls live on the right. Implemented in `apps/frontend/src/lib/ui/AppHeader.svelte`.
+
 **Server Gutter** — Narrow leftmost column listing the user's servers, with the add-server button at the bottom. Metaphor borrowed from the gutter in a text editor: a thin marginal strip. Implemented in `apps/frontend/src/lib/ServerGutter.svelte`.
 
 **Server Sidebar** — The wider sidebar to the right of the Server Gutter, scoped to a single server. Owns the per-server pane's chrome (positioning, mobile slide, resize, current-user bar pinned to bottom). The actual contents are passed in by `Chrome.svelte` — typically the server banner + header + room list, or the settings/admin nav while those modes are active. Implemented in `apps/frontend/src/lib/components/ServerSidebar.svelte`.
@@ -89,6 +91,8 @@ Chatto's RBAC model. Read top-to-bottom — terms build on each other.
 **Role** — Named bundle of permissions, assignable to users. System roles are seeded; custom roles can be created. Role names share the message-mention namespace with user logins, and each role can be marked pingable to allow `@role` pings.
 
 **Permission** — Named capability gate, e.g. `message.post`, `role.assign`. Strings use hyphens, never underscores. The full list lives in `cli/internal/core/permission.go`.
+
+**Protocol capability** — Key a server advertises in `ServerCompatibility.protocol_capabilities` to state which wire contracts it implements, e.g. `chatto.role-colors.v1`. Describes protocol support only — never server configuration or a viewer's permissions. This distribution uses them for protocol features no upstream release carries; features that do exist upstream are gated on the server release version instead.
 
 **Position** — Numeric display/order value for a role. `everyone` = 0, `moderator` = 100, `admin` = 900, `owner` = 1000. Custom roles slot in the gaps. Position is not an authorization rank.
 

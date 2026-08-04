@@ -4,14 +4,21 @@ import { render } from 'vitest-browser-svelte';
 import { q } from '$lib/test-utils';
 import '../../../../app.css';
 import MessageMetaBar from './MessageMetaBar.svelte';
+import { buildMessageActionModel } from './messageActionModel';
 
 // 1x1 transparent PNG so the custom-emoji <img> resolves to a real element.
 const CUSTOM_EMOJI_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
 
 const mocks = vi.hoisted(() => ({
-  reactionActions: {
-    toggleReaction: vi.fn()
+  actions: {
+    addReaction: vi.fn(),
+    removeReaction: vi.fn(),
+    toggleReaction: vi.fn(),
+    startEdit: vi.fn(),
+    openDeleteConfirmation: vi.fn(),
+    copyMessageText: vi.fn(),
+    copyMessageLink: vi.fn()
   }
 }));
 
@@ -24,9 +31,12 @@ vi.mock('$lib/state/customEmojis.svelte', () => ({
   notifyCustomEmojis: vi.fn()
 }));
 
+// The component ensures this server's custom-emoji catalog is loaded, which
+// needs a real server scope. Reaction behavior comes from `action` instead.
 vi.mock('$lib/hooks', () => ({
-  useReactionActions: () => mocks.reactionActions
+  useEnsureCustomEmojis: () => {}
 }));
+
 
 vi.mock('$app/paths', () => ({
   assets: '',
@@ -53,12 +63,41 @@ vi.mock('$lib/state/server/scope.svelte', () => ({
 
 const baseProps = {
   roomId: 'room-1',
-  messageEventId: 'thread-1',
   serverSegment: '-',
   threadRootEventId: 'thread-1',
   reactions: [],
+  action: buildAction(),
   onOpenThread: vi.fn()
 };
+
+function buildAction({
+  canReact = false,
+  reactions = [],
+  messageStore
+}: {
+  canReact?: boolean;
+  reactions?: { emoji: string; hasReacted: boolean }[];
+  messageStore?: never;
+} = {}) {
+  return buildMessageActionModel({
+    actions: mocks.actions,
+    params: {
+      serverId: 'server-1',
+      roomId: 'room-1',
+      messageEventId: 'thread-1',
+      eventId: 'thread-1',
+      messageBody: '',
+      threadRootEventId: 'thread-1',
+      messageStore
+    },
+    reactions,
+    canReact,
+    canEdit: false,
+    canDelete: false,
+    replyInRoomLabel: 'Reply',
+    replyThreadLabel: 'Reply in thread'
+  });
+}
 
 function reaction(
   overrides: Partial<{
@@ -308,7 +347,7 @@ describe('MessageMetaBar', () => {
         reactions: [
           reaction({ emoji: 'heart', count: 1, users: [{ id: 'user-1', displayName: 'Alice' }] })
         ],
-        canReact: false
+        action: buildAction()
       }
     });
 
@@ -371,15 +410,18 @@ describe('MessageMetaBar', () => {
       props: {
         ...baseProps,
         reactions: [reaction({ hasReacted: true })],
-        canReact: true,
-        messageStore: messageStore as never
+        action: buildAction({
+          canReact: true,
+          reactions: [reaction({ hasReacted: true })],
+          messageStore: messageStore as never
+        })
       }
     });
 
     (q(container, 'button[aria-label="Remove 👍 reaction (2)"]') as HTMLButtonElement).click();
 
     await vi.waitFor(() => {
-      expect(mocks.reactionActions.toggleReaction).toHaveBeenCalledWith(
+      expect(mocks.actions.toggleReaction).toHaveBeenCalledWith(
         expect.objectContaining({
           roomId: 'room-1',
           messageEventId: 'thread-1',

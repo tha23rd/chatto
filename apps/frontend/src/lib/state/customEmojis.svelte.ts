@@ -104,6 +104,22 @@ export class CustomEmojisStore {
   }
 
   /**
+   * Drop the catalog because the viewer's authority over this server was
+   * withdrawn. Bumping {@link catalogVersion} is what makes this a purge rather
+   * than a blank: an in-flight `load` issued under the old authority resolves
+   * into a superseded version and is discarded, so it cannot repopulate the
+   * catalog after the boundary.
+   *
+   * `loaded` returns to false so the next authorized reader refetches instead
+   * of rendering an empty catalog as if it were authoritative.
+   */
+  clear(): void {
+    this.catalogVersion += 1;
+    this.emojis = [];
+    this.loaded = false;
+  }
+
+  /**
    * Fetch the server's custom emojis, replacing local state. Returns `true` on
    * success and `false` on failure; on failure existing state is left intact so
    * passive callers keep working, while the admin view can surface an error.
@@ -178,6 +194,17 @@ export function getCustomEmoji(serverId: string, name: string): CustomEmoji | un
  */
 export function notifyCustomEmojis(serverId: string, emojis: CustomEmojiProto[]): void {
   getCustomEmojis(serverId).replace(emojis.map(mapCustomEmoji));
+}
+
+/**
+ * Purge a server's custom-emoji catalog after projected authorization loss.
+ *
+ * Clears in place rather than dropping the store from the registry: consumers
+ * such as the recent-emoji store hold the instance directly, so replacing it
+ * would leave them reading an orphaned catalog forever.
+ */
+export function clearCustomEmojis(serverId: string): void {
+  stores.get(serverId)?.clear();
 }
 
 /** Test-only: clear the store cache so a fresh instance is built per test. */

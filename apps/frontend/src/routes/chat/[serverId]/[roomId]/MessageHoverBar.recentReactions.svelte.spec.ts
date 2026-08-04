@@ -10,34 +10,48 @@ import {
 } from '$lib/state/customEmojis.svelte';
 import { serverStorageKey } from '$lib/storage/serverStorage';
 import MessageHoverBar from './MessageHoverBar.svelte';
+import { buildMessageActionModel } from './messageActionModel';
 
 const SERVER_ID = 'recent-reactions-server';
 
 const mocks = vi.hoisted(() => ({
   actions: {
     toggleReaction: vi.fn(),
+    addReaction: vi.fn(),
+    removeReaction: vi.fn(),
     startEdit: vi.fn(),
-    openDeleteConfirmation: vi.fn()
+    openDeleteConfirmation: vi.fn(),
+    copyMessageText: vi.fn(),
+    copyMessageLink: vi.fn()
   }
 }));
 
+// The bar's custom-emoji load is a no-op here; these tests seed custom
+// emojis directly on the store, so nothing needs fetching.
 vi.mock('$lib/hooks', () => ({
-  useMessageActions: () => mocks.actions,
-  // The bar's custom-emoji load is a no-op here; these tests seed custom
-  // emojis directly on the store, so nothing needs fetching.
   useEnsureCustomEmojis: () => {}
 }));
 
 function renderBar() {
-  return render(MessageHoverBar, {
-    props: {
+  const action = buildMessageActionModel({
+    actions: mocks.actions,
+    params: {
       serverId: SERVER_ID,
       roomId: 'room-1',
       messageEventId: 'message-event-1',
       eventId: 'event-1',
-      messageBody: 'Hello',
-      canReact: true
-    }
+      messageBody: 'Hello'
+    },
+    reactions: [],
+    canReact: true,
+    canEdit: false,
+    canDelete: false,
+    replyInRoomLabel: 'Reply',
+    replyThreadLabel: 'Reply in thread'
+  });
+
+  return render(MessageHoverBar, {
+    props: { action }
   });
 }
 
@@ -90,7 +104,9 @@ describe('MessageHoverBar recent reactions integration', () => {
       }
     });
     await searchEmoji(picker.container, 'check');
-    (picker.container.querySelector('button[title="white_check_mark"]') as HTMLButtonElement).click();
+    (
+      picker.container.querySelector('button[title="white_check_mark"]') as HTMLButtonElement
+    ).click();
     flushSync();
     await tick();
 

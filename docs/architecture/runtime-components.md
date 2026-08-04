@@ -1,6 +1,6 @@
 # Runtime Component Inventory
 
-Key files: [`cli/cmd/run.go`](../../cli/cmd/run.go), [`cli/internal/embedded_nats/nats_server.go`](../../cli/internal/embedded_nats/nats_server.go), [`pkg/natsruntime/server.go`](../../pkg/natsruntime/server.go), [`cli/internal/runtimeunit/runtimeunit.go`](../../cli/internal/runtimeunit/runtimeunit.go), [`cli/internal/core/core.go`](../../cli/internal/core/core.go), [`cli/internal/core/core_infrastructure.go`](../../cli/internal/core/core_infrastructure.go), [`cli/internal/core/storage.go`](../../cli/internal/core/storage.go), [`cli/internal/core/core_services.go`](../../cli/internal/core/core_services.go)
+Key files: [`cli/cmd/run.go`](../../cli/cmd/run.go), [`cli/internal/embedded_nats/nats_server.go`](../../cli/internal/embedded_nats/nats_server.go), [`pkg/natsruntime/server.go`](../../pkg/natsruntime/server.go), [`cli/internal/runtimeunit/runtimeunit.go`](../../cli/internal/runtimeunit/runtimeunit.go), [`cli/internal/core/core.go`](../../cli/internal/core/core.go), [`cli/internal/core/nats_recovery.go`](../../cli/internal/core/nats_recovery.go), [`cli/internal/core/core_infrastructure.go`](../../cli/internal/core/core_infrastructure.go), [`cli/internal/core/storage.go`](../../cli/internal/core/storage.go), [`cli/internal/core/core_services.go`](../../cli/internal/core/core_services.go), [`apps/desktop/main.ts`](../../apps/desktop/main.ts), [`apps/frontend/src/lib/oauth/authorizationWindow.ts`](../../apps/frontend/src/lib/oauth/authorizationWindow.ts)
 
 The core runtime is process-local but must be safe under multiple Chatto replicas connected to the same NATS account. Correctness comes from JetStream/KV atomicity and projection catch-up, not in-process serialization.
 
@@ -19,6 +19,24 @@ stopping the core server, while the same failure still exits a standalone unit.
 Independently deployable providers use this catalogue rather than adding
 custom startup blocks.
 
+## Client runtimes
+
+The experimental Deno desktop shell is a Chatto client runtime using Deno
+Desktop 2.9.4 and its CEF backend. It embeds the official static SvelteKit build
+and serves it from Deno Desktop's private loopback origin; the existing
+standalone frontend owns server registration, authentication, and routing. The
+shell adopts the startup `BrowserWindow` and exposes per-window bindings that
+let the official frontend open, navigate, inspect, and close a second native CEF
+window for Chatto OAuth. The same-origin callback relays its result to the main
+window through `BroadcastChannel`; ordinary browser deployments retain the
+frontend's browser-popup path.
+
+The shell owns no Chatto backend, NATS resources, projections, or durable domain
+state. Chromium-managed client state remains owned by CEF; the current backend
+uses a generic CEF profile path rather than an app-specific directory. OAuth
+behavior remains specified by
+[FDR-023](../fdr/FDR-023-authentication-and-sessions.md).
+
 The core model inventory is a list of stable machine-readable keys such as `config_model`, `message_model`, and `my_events_model`. Per-process metrics expose these keys via `chatto_model_info`.
 
 ## Server runtime
@@ -26,6 +44,7 @@ The core model inventory is a list of stable machine-readable keys such as `conf
 | Model                            | Key files                                                                                                                                                   | Responsibility                                                                                                                                |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ChattoCore`                     | [`core.go`](../../cli/internal/core/core.go), [`core_infrastructure.go`](../../cli/internal/core/core_infrastructure.go), [`storage.go`](../../cli/internal/core/storage.go), [`projection_wiring.go`](../../cli/internal/core/projection_wiring.go), [`core_services.go`](../../cli/internal/core/core_services.go) | Application facade and composition root; staged resource initialization, projection registration and lifecycle, API-facing operations, and only production-consumed read models, projectors, and cross-package adapters |
+| NATS recovery gate              | [`nats_recovery.go`](../../cli/internal/core/nats_recovery.go), [`health.go`](../../cli/internal/http_server/health.go)                                               | Marks the replica unready across NATS continuity gaps, quarantines realtime sessions, restores volatile resources, refreshes KV watchers, waits for projection catch-up, and fails liveness after a five-minute recovery stall |
 | Embedded NATS runtime           | [`nats_server.go`](../../cli/internal/embedded_nats/nats_server.go), [`server.go`](../../pkg/natsruntime/server.go), [`restore.go`](../../cli/cmd/restore.go) | `chatto run` maps Chatto-owned listener, authentication, monitoring, logging, and storage policy into the shared server lifecycle; restore uses the same lifecycle with a temporary in-process-only server |
 | Runtime-unit catalogue          | [`run.go`](../../cli/cmd/run.go), [`runtimeunit.go`](../../cli/internal/runtimeunit/runtimeunit.go)                                                              | Validated composition of optional units under `chatto run` using the same unit implementations as standalone commands                          |
 | `exporter.Unit`                 | [`unit.go`](../../cli/internal/exporter/unit.go)                                                                                                                 | Optional export runtime started by `[exporter].enabled` under `chatto run` or directly by its standalone command                               |
@@ -69,4 +88,4 @@ Related decisions: [ADR-900](../adr/ADR-900-windows-desktop-client.md) and
 | --------- | --------- | -------------- |
 | Voice-call media and pop-out lifecycle | [`voiceCall.svelte.ts`](../../apps/frontend/src/lib/state/server/voiceCall.svelte.ts), [`pictureInPicture.ts`](../../apps/frontend/src/lib/voice/pictureInPicture.ts) | Owns each server-scoped LiveKit room, display-capture tracks, momentary push-to-talk/push-to-mute state, and viewer-local video pop-out. Audio-enabled desktop capture returns through the host boundary before video and optional application-, system-, or browser-scoped audio enter LiveKit's normal E2EE publication path. A selected-window video remains published and produces a presenter warning when application audio is absent. Call cleanup closes only the pop-out owned by that call. |
 | Call keybinding coordinator | [`callControls.ts`](../../apps/frontend/src/lib/native/callControls.ts), [`callKeybindings.ts`](../../apps/frontend/src/lib/callKeybindings.ts), [`userPreferences.svelte.ts`](../../apps/frontend/src/lib/state/userPreferences.svelte.ts) | Owns validated per-device call accelerators, focused-browser dispatch, native global registration, held-key release, and deterministic process-wide ownership. The most recently connected server call receives actions; browser text entry suppresses shortcuts, and a conflicting Windows registration does not disable other bindings. |
-| Windows desktop shell | [`shell.rs`](../../apps/desktop/src-tauri/src/shell.rs), [`tauriHost.ts`](../../apps/frontend/src/lib/native/tauriHost.ts), [`types.ts`](../../apps/frontend/src/lib/native/types.ts) | Owns main/tray window lifecycle and advertises typed native capabilities, including validated system-wide call accelerators. Its renderer adapter requests selected-window process-tree audio, then uses the capture surface and Chromium's exact `Application Audio` label to stop and remove broader system-audio fallback before LiveKit publication. Monitor system audio and browser-tab scoped audio remain intact; missing or unknown surfaces fail closed. The shell also owns the constrained video-pop-out lifecycle. |
+| Windows desktop shell | [`shell.rs`](../../apps/desktop-tauri/src-tauri/src/shell.rs), [`tauriHost.ts`](../../apps/frontend/src/lib/native/tauriHost.ts), [`types.ts`](../../apps/frontend/src/lib/native/types.ts) | Owns main/tray window lifecycle and advertises typed native capabilities, including validated system-wide call accelerators. Its renderer adapter requests selected-window process-tree audio, then uses the capture surface and Chromium's exact `Application Audio` label to stop and remove broader system-audio fallback before LiveKit publication. Monitor system audio and browser-tab scoped audio remain intact; missing or unknown surfaces fail closed. The shell also owns the constrained video-pop-out lifecycle. |

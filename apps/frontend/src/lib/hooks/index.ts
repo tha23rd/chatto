@@ -7,7 +7,7 @@ export {
 
 // Message actions
 export { useMessageActions, useReactionActions } from './useMessageActions.svelte';
-export type { MessageActionParams } from './useMessageActions.svelte';
+export type { MessageActionParams, MessageActions } from './useMessageActions.svelte';
 
 // Custom emoji loading
 export { useEnsureCustomEmojis } from './useEnsureCustomEmojis.svelte';
