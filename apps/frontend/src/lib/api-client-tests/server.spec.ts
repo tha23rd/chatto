@@ -84,6 +84,25 @@ describe('getPublicServerInfo', () => {
     });
   });
 
+  // The bundled client gates role colours on a declared capability, so the
+  // populated branch is the one carrying a feature. Nothing else exercises it:
+  // every other case here mocks an upstream server, which declares none.
+  it('copies declared protocol capabilities off the discovery response', async () => {
+    mocks.getServer.mockResolvedValue({
+      profile: { name: 'Chatto', version: '0.5.0' },
+      login: {},
+      compatibility: {
+        protocolCapabilities: ['chatto.role-colors.v1', 'chatto.admin.v1']
+      }
+    });
+
+    const info = await getPublicServerInfo('https://chat.example.test');
+
+    expect(info.compatibility).toEqual({
+      protocolCapabilities: ['chatto.role-colors.v1', 'chatto.admin.v1']
+    });
+  });
+
   it('uses profile defaults when optional public profile fields are absent', async () => {
     mocks.getServer.mockResolvedValue({
       profile: {

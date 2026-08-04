@@ -670,7 +670,13 @@ export class ServerStateStore {
     }
   }
 
-  /** Clear every mirror whose authority was invalidated by a reset frame. */
+  /**
+   * Clear every mirror whose authority was invalidated by a reset frame.
+   *
+   * Not the only purge site. The profile and presence caches live in component
+   * context, so `ChatRoot` clears those from the same `reset` operation. Check
+   * both before concluding a mirror is unpurged.
+   */
   private resetProjectionMirrors(): void {
     removeRegisteredAdminQueries(this.serverId);
     clearUserSummaryCache(this.serverId);

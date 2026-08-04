@@ -36,8 +36,13 @@ export class PresenceCache {
     });
   }
 
-  /** Atomically replace every cached presence entry for one server. */
-  replaceServer(serverId: string, statuses: ReadonlyMap<string, PresenceStatus>) {
+  /**
+   * Atomically replace every cached presence entry for one server.
+   *
+   * Takes user-id/status pairs rather than a map so callers with nothing to
+   * retain can pass an empty array; a `Map` satisfies it unchanged.
+   */
+  replaceServer(serverId: string, statuses: Iterable<readonly [string, PresenceStatus]>) {
     untrack(() => {
       const prefix = `${serverId}\u0000`;
       for (const key of this.#entries.keys()) {
@@ -48,6 +53,15 @@ export class PresenceCache {
       }
       this.#version++;
     });
+  }
+
+  /**
+   * Drop every cached entry for one server after projected authorization loss.
+   * Presence is copied server authority, so it must not outlive the grant that
+   * supplied it; other servers' entries are untouched.
+   */
+  clearServer(serverId: string) {
+    this.replaceServer(serverId, []);
   }
 
   get(scope: PresenceCacheScope, fallback: PresenceStatus): PresenceStatus {
