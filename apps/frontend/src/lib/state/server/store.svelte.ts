@@ -42,8 +42,8 @@ import {
   clearUserSummaryCache,
   removeUserSummaryCacheEntry
 } from '$lib/state/userSummaries.svelte';
-import { notifyCustomEmojis } from '$lib/state/customEmojis.svelte';
-import { notifySoundboard } from '$lib/state/soundboard.svelte';
+import { clearCustomEmojis, notifyCustomEmojis } from '$lib/state/customEmojis.svelte';
+import { clearSoundboard, notifySoundboard } from '$lib/state/soundboard.svelte';
 import { avatarUserFromDirectoryMember } from './rooms.svelte';
 import { mapNotificationPage } from '$lib/api-client/notifications';
 import { RealtimeProjectionSyncState } from './realtimeSync.svelte';
@@ -674,6 +674,10 @@ export class ServerStateStore {
   private resetProjectionMirrors(): void {
     removeRegisteredAdminQueries(this.serverId);
     clearUserSummaryCache(this.serverId);
+    // Server-authority catalogs mirrored outside the projection. Both are
+    // content-bearing and must not outlive the authority that supplied them.
+    clearCustomEmojis(this.serverId);
+    clearSoundboard(this.serverId);
     for (const store of Object.values(this.#roomMessages)) store.resetProjectionState();
     for (const store of Object.values(this.#threadMessages)) store.resetProjectionState();
     for (const store of Object.values(this.#roomFiles)) {

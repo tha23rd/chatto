@@ -87,6 +87,27 @@ describe('CustomEmojisStore', () => {
     expect(store.emojis.map((item) => item.id)).toEqual(['2']);
   });
 
+  it('clear during an in-flight load wins so a purged catalog cannot come back', async () => {
+    const store = new CustomEmojisStore();
+    let releaseList: (emojis: CustomEmoji[]) => void = () => {};
+    const listed = new Promise<CustomEmoji[]>((resolve) => {
+      releaseList = resolve;
+    });
+    listCustomEmojis.mockReturnValue(listed);
+
+    const load = store.load({} as Parameters<CustomEmojisStore['load']>[0]);
+    // Authority is withdrawn while the request is in flight. The response was
+    // issued under the old authority, so it must not repopulate the catalog.
+    store.clear();
+    releaseList([emoji('1', 'alpha'), emoji('2', 'beta')]);
+
+    await expect(load).resolves.toBe(true);
+    expect(store.emojis).toEqual([]);
+    // Still unloaded, so the next authorized reader refetches instead of
+    // treating the empty catalog as authoritative.
+    expect(store.loaded).toBe(false);
+  });
+
   it('notifyCustomEmojis applies a projection catalog to the shared store', () => {
     notifyCustomEmojis('server_abc', [
       {
