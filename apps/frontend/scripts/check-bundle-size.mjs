@@ -26,7 +26,6 @@ const routes = [
   {
     name: 'overview',
     budgetKiB: 378,
-    additionalEntries: ['src/routes/chat/AuthenticatedRoot.svelte'],
     components: [
       'src/routes/+layout.svelte',
       'src/routes/chat/+layout.svelte',
@@ -37,7 +36,6 @@ const routes = [
   {
     name: 'room',
     budgetKiB: 510,
-    additionalEntries: ['src/routes/chat/AuthenticatedRoot.svelte'],
     components: [
       'src/routes/+layout.svelte',
       'src/routes/chat/+layout.svelte',

@@ -9,6 +9,7 @@ import {
 function server(overrides: Partial<RegisteredServer> = {}): RegisteredServer {
   return {
     id: 'chatto-example',
+    source: 'local',
     url: 'https://chatto.example',
     name: 'Existing Chatto',
     iconUrl: 'https://chatto.example/old-icon.png',

@@ -68,6 +68,11 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
   `$lib/state/server/serverConnection.svelte.ts` for Connect base URLs,
   `/api/realtime` URLs, bearer tokens, auth-required handling, and
   reconnect/status UI state.
+- Keep the synchronized known-server catalogue, device-local per-server
+  sessions, and the Authling account-data session as separate state owners.
+  Server IDs and origins are immutable after registration. Never serialize
+  Chatto bearer tokens, user summaries, reauthentication state, or other
+  device-local session data into Authling/TinyBase account data.
 - Treat an intentionally dormant inactive-server transport as healthy retained
   state, not as a failed connection. Only actual transport/auth/protocol
   failures should dim its server-gutter entry.
@@ -170,8 +175,17 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
 ## Pagination, Lists, And Realtime UI
 
 - Use automatic "load more" pagination when a scroll/container edge is reached.
+- Use TanStack Query for snapshot-style ConnectRPC reads. Scope private query
+  keys by server and connection session, keep the cache memory-only, and purge
+  it at authentication and privacy boundaries. Keep realtime projections,
+  timelines, notifications, presence, calls, and message search in their
+  owning per-server stores; see ADR-062.
 - Use event-driven updates from the per-server event bus and explicit projected
   refetches rather than assuming a normalized client cache.
+- When a snapshot query also reconciles a realtime-owned store, do not replay a
+  cached mount snapshot into that store; wait for a successful fresh response.
+  If a mutation cancels an in-flight refresh, serialize related mutations and
+  resume authoritative reconciliation after both success and failure.
 - For paginated caches reconciled from realtime snapshots, queue relevant
   updates during first hydration instead of restarting it, fence and retry
   stale append reads, and version per-resource async refreshes so older

@@ -18,6 +18,7 @@ ADR-027 — only user-facing copy says "server".
   import { startServerOAuthFlow } from '$lib/auth/reauth';
   import { getNativeHost } from '$lib/native/host';
   import type { Unsubscribe } from '$lib/native/types';
+  import { findAuthlingServerProvider } from '$lib/authling/serverProvider';
   import { serverRegistry } from '$lib/state/server/registry.svelte';
   import { getPublicServerInfo, type PublicServerInfo } from '$lib/api-client/server';
   import * as m from '$lib/i18n/messages';
@@ -42,6 +43,7 @@ ADR-027 — only user-facing copy says "server".
   let probing = $state(false);
   let connecting = $state(false);
   let releaseProbedOrigin: Unsubscribe | null = null;
+  let authlingProviderId = $state<string | null>(null);
 
   function clearProbedOrigin() {
     releaseProbedOrigin?.();
@@ -57,6 +59,7 @@ ADR-027 — only user-facing copy says "server".
     formError = '';
     probing = false;
     connecting = false;
+    authlingProviderId = null;
   }
 
   onDestroy(clearProbedOrigin);
@@ -161,6 +164,8 @@ ADR-027 — only user-facing copy says "server".
       releaseProbedOrigin = releaseOrigin;
       probedUrl = probedFromUrl;
       probedInfo = info;
+      authlingProviderId =
+        (await findAuthlingServerProvider(info.authProviders).catch(() => null))?.id ?? null;
       stage = 'preview';
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -185,7 +190,7 @@ ADR-027 — only user-facing copy says "server".
       // Close before navigation starts. The destination can wait for its
       // server projection, so waiting for goto() before dismissing this modal
       // would leave stale blocking UI over that hydration boundary.
-      await startServerOAuthFlow(probedUrl, probedInfo, handleClose);
+      await startServerOAuthFlow(probedUrl, probedInfo, handleClose, authlingProviderId);
     } catch {
       connecting = false;
       formError = m['add_server.start_failed']();

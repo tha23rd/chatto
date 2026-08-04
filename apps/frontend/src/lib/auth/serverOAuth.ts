@@ -108,6 +108,9 @@ export function completeServerOAuth(
     );
     registered = {
       id,
+      // Added on this device through the OAuth flow, not learned from an
+      // account-data sync.
+      source: 'local',
       url: flow.remoteUrl,
       name: flow.serverName ?? 'Chatto',
       iconUrl: flow.serverIconUrl ?? null,

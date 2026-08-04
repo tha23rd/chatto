@@ -2,10 +2,15 @@ import type { Browser, BrowserContext, BrowserContextOptions, Page } from '@play
 import { test, expect } from './setup';
 import { createAndLoginTestUser } from './fixtures/testUser';
 import { withServerUser } from './fixtures/serverUser';
-import { startSecondServer, stopSecondServer, createUserOnRemote } from './fixtures/multiServer';
+import {
+  startSecondServer,
+  stopSecondServer,
+  createUserOnRemote,
+  getRoomOnRemote,
+  postMessageOnRemote
+} from './fixtures/multiServer';
 import { connectPost } from './fixtures/connectHelpers';
 import type { ServerInfo } from './fixtures/server';
-import { ChatPage } from './pages/ChatPage';
 import { DMPage } from './pages/DMPage';
 import * as routes from './routes';
 import { TIMEOUTS } from './constants';
@@ -338,7 +343,7 @@ test.describe('Add Server - Remote Auth Flow', () => {
     ).toBeVisible({ timeout: TIMEOUTS.UI_STANDARD });
   });
 
-  test('signing in to a remote server works while the origin is anonymous', async ({ page }) => {
+  test('a remote server stays live while the origin is signed out', async ({ page, chatPage }) => {
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
 
@@ -348,7 +353,9 @@ test.describe('Add Server - Remote Auth Flow', () => {
     const baseURL = remoteBaseURL(remoteServer);
     const hostname = new URL(baseURL).host;
     const remoteHostname = new URL(baseURL).hostname;
-    await createUserOnRemote(baseURL, 'remoteonlyuser', 'password123');
+    const remoteViewer = await createUserOnRemote(baseURL, 'remoteonlyuser', 'password123');
+    const remoteSender = await createUserOnRemote(baseURL, 'remoteonlysender', 'password123');
+    const generalRoomId = await getRoomOnRemote(baseURL, remoteViewer.token, 'general');
 
     const remoteLoginPage = await driveAddServerToOAuth(page, hostname);
     await expect(remoteLoginPage).toHaveURL(/\/login\?redirect=/, {
@@ -383,13 +390,20 @@ test.describe('Add Server - Remote Auth Flow', () => {
       timeout: TIMEOUTS.REALTIME_EVENT
     });
 
-    const remoteChatPage = new ChatPage(page);
-    const roomPage = await remoteChatPage.enterRoom('general');
+    const roomPage = await chatPage.enterRoom('general');
     await roomPage.expectMemberVisible('remoteonlyuser');
     await expect(roomPage.getMemberPresenceDot('remoteonlyuser')).toHaveClass(
       /bg-presence-online/,
       { timeout: TIMEOUTS.REALTIME_EVENT }
     );
+
+    // Presence proves the subscription is attached; this proves the remote
+    // server is still delivering timeline events to it.
+    const liveMessage = 'remote-only realtime delivery';
+    await postMessageOnRemote(baseURL, remoteSender.token, generalRoomId, liveMessage);
+    await expect(page.getByText(liveMessage, { exact: true })).toBeVisible({
+      timeout: TIMEOUTS.REALTIME_EVENT
+    });
     expect(pageErrors).toEqual([]);
   });
 
