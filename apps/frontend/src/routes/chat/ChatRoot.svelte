@@ -164,6 +164,11 @@
         for (const operation of event.operations) {
           if (operation.operation.case === 'reset') {
             rootProfileCache.clear();
+            // ADR-062 keeps presence out of the query cache, so nothing else
+            // purges it. Origin only, like the profile clear above: this is the
+            // origin session's subscription. Other registered servers keep
+            // stale entries after a reset; upstream has the same gap.
+            rootPresenceCache.clearServer(session.serverId);
           } else if (operation.operation.case === 'userUpsert') {
             const member = mapDirectoryMember(operation.operation.value);
             if (!member.id) continue;

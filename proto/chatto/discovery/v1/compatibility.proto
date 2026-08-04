@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package chatto.discovery.v1;
+
+// Protocol capability metadata specific to this distribution.
+//
+// Upstream Chatto gates features on the server release version and removed its
+// own compatibility message. This distribution keeps one because it ships
+// protocol features that no upstream release carries, which a version string
+// cannot distinguish from an upstream server reporting the same version.
+// Features that do exist upstream stay on the release-version table.
+//
+// Kept in its own file so upstream's edits to `server.proto` only ever meet a
+// one-line field in this fork's tree. See docs/FORK-MAINTENANCE.md.
+
+// Machine-readable compatibility metadata for clients connecting to this
+// server.
+//
+// Capability keys describe protocol contracts rather than server
+// configuration or the authenticated viewer's permissions. Clients should
+// ignore unknown keys.
+message ServerCompatibility {
+  // Field 2 held `minimum_web_client_version`. No server populated it and no
+  // client read the value, and ADR-045 records that the server reports its
+  // software version rather than declaring client requirements, so it is
+  // removed instead of left as a lower bound nothing could rely on.
+  reserved 2;
+  reserved "minimum_web_client_version";
+
+  // Stable protocol capability keys supported by this server. Current keys:
+  // `chatto.discovery.v1`, `chatto.auth.v1`, `chatto.api.v1`,
+  // `chatto.admin.v1`, `chatto.api.message-search.v1`,
+  // `chatto.api.room-manager-member-reads.v1`, `chatto.realtime.v1`,
+  // `chatto.realtime.projection.v1`, and `chatto.role-colors.v1`.
+  repeated string protocol_capabilities = 1;
+}

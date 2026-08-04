@@ -41,6 +41,12 @@ For public API packages:
 - Except for projection-owned snapshot payloads, do not remove fields from
   persisted messages. Reserving the old tag and name preserves wire safety but
   does not satisfy Chatto's source-compatibility or storage-contract policy.
+- Number fork-only fields added to upstream-owned messages from 1000 up, and
+  define fork-only messages in their own `.proto` file. Taking the next free
+  low tag claims the number upstream takes next, and upstream does not always
+  reserve tags it vacates — a collision then means two types on one tag, which
+  cannot be repaired by renumbering in persisted messages. See
+  docs/FORK-MAINTENANCE.md.
 - Projection-owned payload messages in
   `chatto/core/v1/projection_snapshots.proto` are disposable,
   contract-scoped caches. Their fields may be removed, renumbered, or retyped

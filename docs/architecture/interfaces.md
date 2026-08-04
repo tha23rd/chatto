@@ -104,14 +104,19 @@ protocol 2, the only accepted behavioral version. The
 `chatto.realtime.v1` suffix remains the protobuf namespace.
 
 The response also carries `ServerCompatibility`, which lists stable protocol
-capability keys and an optional minimum bundled-web-client version. Upstream
-Chatto removed this field in favour of release-version gating alone; this
-distribution keeps it because it ships protocol features no upstream release
-has, and a release version cannot distinguish those from an upstream server
-reporting the same version. The two mechanisms are complementary: release
-comparison gates features that exist upstream, and capability keys gate
-features specific to this distribution. `chatto.role-colors.v1` gates additive
-role-colour writes and the derived public user colour field.
+capability keys. Upstream Chatto removed this field in favour of
+release-version gating alone; this distribution keeps it because it ships
+protocol features no upstream release has, and a release version cannot
+distinguish those from an upstream server reporting the same version. The two
+mechanisms are complementary: release comparison gates features that exist
+upstream, and capability keys gate features specific to this distribution.
+`chatto.role-colors.v1` gates additive role-colour writes and the derived
+public user colour field.
+
+The message is defined in `proto/chatto/discovery/v1/compatibility.proto`, and
+the field is numbered 1000, outside the tag space upstream allocates, because
+upstream vacated its own field 3 without reserving it. Both choices keep fork
+schema out of the upstream-owned `server.proto`.
 
 Capability keys describe wire support, not enabled server features or the
 authenticated viewer's permission-derived capabilities. A server that omits

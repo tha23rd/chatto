@@ -27,7 +27,6 @@ export type PublicServerInfo = {
    */
   compatibility?: {
     protocolCapabilities: string[];
-    minimumWebClientVersion: string | null;
   } | null;
 };
 
@@ -59,11 +58,7 @@ export async function getPublicServerInfo(
       issuerUrl: provider.issuerUrl ?? null
     })),
     compatibility: response.compatibility
-      ? {
-          protocolCapabilities: [...response.compatibility.protocolCapabilities],
-          minimumWebClientVersion:
-            response.compatibility.minimumWebClientVersion ?? null,
-        }
+      ? { protocolCapabilities: [...response.compatibility.protocolCapabilities] }
       : null
   };
 }

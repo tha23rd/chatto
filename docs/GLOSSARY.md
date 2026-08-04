@@ -92,6 +92,8 @@ Chatto's RBAC model. Read top-to-bottom — terms build on each other.
 
 **Permission** — Named capability gate, e.g. `message.post`, `role.assign`. Strings use hyphens, never underscores. The full list lives in `cli/internal/core/permission.go`.
 
+**Protocol capability** — Key a server advertises in `ServerCompatibility.protocol_capabilities` to state which wire contracts it implements, e.g. `chatto.role-colors.v1`. Describes protocol support only — never server configuration or a viewer's permissions. This distribution uses them for protocol features no upstream release carries; features that do exist upstream are gated on the server release version instead.
+
 **Position** — Numeric display/order value for a role. `everyone` = 0, `moderator` = 100, `admin` = 900, `owner` = 1000. Custom roles slot in the gaps. Position is not an authorization rank.
 
 **Effective owner** — A user who either has the durable `owner` role or has a verified email listed in `owners.emails`. Effective owners receive every known RBAC permission virtually. DM contents remain protected by participation checks at the API boundary.

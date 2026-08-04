@@ -319,6 +319,10 @@ leave a dev stack running in a detached or yielded terminal session.
 ## Issues, Commits, And PRs
 
 - Use GitHub Issues for planning.
+- Run the `chatto-pr-checklist` skill before opening a pull request, and again
+  before asking for a merge. It owns the required PR body shape, the API
+  compatibility classification, and the docs/ADR/FDR/architecture sweep, so a
+  hand-written body will drift from house standard without it.
 - Use Conventional Commit format for commits and PR titles, for example
   `fix(api): ...` or `feat(frontend)!: ...`. Only mark breaking changes when
   they really are breaking.

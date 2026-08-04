@@ -72,15 +72,19 @@ missing-module errors.
   string was rewritten by the same sweep — so the suite stayed green across a
   broken Windows release build. Sweep with a boundary pattern
   (`apps/desktop([^/a-z-]|$)`) and read the remaining hits.
+- **Upstream's protobuf tag space is not ours.** A fork-only field on a low tag
+  in an upstream-owned message collides the moment upstream adds a field there,
+  and upstream does not always reserve tags it vacates. Number fork-only fields
+  from 1000 up; `GetServerResponse.compatibility` is the worked example.
 - **Upstream test files can encode fork-invalid assumptions.** New upstream
   specs mock only what upstream's components read. When a fork feature adds a
   read (a protocol capability, a store field), those specs fail on `undefined`
   rather than on an assertion. The fix belongs in the mock, not the component.
 
-## Two Habits Worth Keeping
+## Habits Worth Keeping
 
-The `chatto-sync-upstream` skill defines the procedure. Two things that are easy
-to skip and expensive to skip:
+The `chatto-sync-upstream` skill defines the procedure. These are the things
+that are easy to skip and expensive to skip:
 
 - **Prefer upstream's structure and re-seat the fork's behaviour into it.**
   Preserving the fork's shape by reverting upstream turns one merge into a
@@ -88,3 +92,12 @@ to skip and expensive to skip:
 - **Review with `git show --cc <merge>`.** The combined diff shows only the true
   resolutions and hides everything git merged cleanly, which is the only
   practical way to review a merge this size.
+- **Merge `origin/main` once, at the end.** Merging it opportunistically every
+  time a fork PR lands produces a merge commit per landing and buys nothing;
+  the conflicts are the same whenever they are resolved.
+- **Never trust a replayed merge — diff it.** If a merge is ever rebuilt, assert
+  the final tree against the verified original (`git diff <verified> HEAD` must
+  be empty) before pushing. Rebuilding this fork's catch-up silently dropped
+  fourteen files that `rerere` had no record of, including one already known to
+  have been lost the same way once before. The tree comparison is the only
+  check that catches it.

@@ -206,6 +206,39 @@ describe('ChatRoot', () => {
     vi.clearAllMocks();
   });
 
+  // Both caches live in component context, so this is the only place a reset
+  // frame can reach them — the store's own purge path cannot. The cache methods
+  // have their own tests; this covers the wiring.
+  it('purges the context caches when a projection reset withdraws authority', () => {
+    const clearServer = vi.fn();
+    const clear = vi.fn();
+    const presenceCache = {
+      update: mocks.presenceCacheUpdate,
+      clearServer
+    } as unknown as PresenceCache;
+    const profileCache = {
+      update: vi.fn(),
+      updateStatus: vi.fn(),
+      remove: vi.fn(),
+      clear
+    };
+
+    const { unmount } = render(ChatRoot, {
+      props: { user: originUser, profileCache, presenceCache, children }
+    });
+
+    const [[handleProjectionEvent]] = mocks.useProjectionEvent.mock.calls as [
+      [(event: { operations: { operation: { case: string } }[] }) => void]
+    ];
+    handleProjectionEvent({ operations: [{ operation: { case: 'reset' } }] });
+
+    expect(clear).toHaveBeenCalled();
+    // Scoped to the server that lost authority; other servers keep their entries.
+    expect(clearServer).toHaveBeenCalledWith('origin');
+
+    unmount();
+  });
+
   it('installs the origin viewer before the initial multi-server realtime reconciliation', () => {
     const presenceCache = {
       update: mocks.presenceCacheUpdate
