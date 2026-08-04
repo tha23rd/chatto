@@ -212,6 +212,10 @@ test("Nightly signed build runs in parallel and feeds the gated publisher", () =
   assert.match(download, /path: \.context\/release\/windows/);
   assert.match(buildCache, /shared-key: desktop-nightly-release/);
   assert.match(publishCache, /shared-key: desktop-nightly-release/);
+  // The app directory was renamed from apps/desktop; a stale path here only
+  // surfaces as a cache miss or a release-time build failure.
+  assert.match(buildCache, /workspaces: apps\/desktop-tauri\/src-tauri -> target/);
+  assert.match(publishCache, /workspaces: apps\/desktop-tauri\/src-tauri -> target/);
   assert.match(publishCache, /save-if: false/);
   assert.match(
     publish,
