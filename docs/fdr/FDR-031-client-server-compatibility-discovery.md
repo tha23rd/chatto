@@ -1,7 +1,7 @@
 # FDR-031: Client–Server Compatibility Discovery
 
 **Status:** Experimental
-**Last reviewed:** 2026-08-02
+**Last reviewed:** 2026-08-03
 
 ## Overview
 
@@ -80,7 +80,26 @@ feedback. ADR-045 requires intentional review and migration guidance for
 breaks without prematurely freezing the API.
 **Tradeoff:** Integrators must still pin server versions and read release notes.
 
+### 5. `ServerCompatibility` is numbered outside upstream's tag space
+
+**Decision:** `GetServerResponse.compatibility` uses field 1000, and
+`ServerCompatibility.minimum_web_client_version` is removed with its tag and
+name reserved.
+**Why:** Upstream vacated field 3 without reserving it, so a future upstream
+field would land on the tag this distribution still populates — a wire
+collision surfacing in a file that conflicts on most upstream merges. The
+removed minimum-version field was never populated or read, and ADR-045 records
+that the server reports its software version rather than declaring client
+requirements.
+**Tradeoff:** A client generated from an older schema reads no capabilities
+from a current server and falls back to version gating. Every such server
+predates the 0.5 baseline and is already reported unsupported, so no gated
+feature changes state. Moving the message into `compatibility.proto` also moves
+its generated TypeScript export to `discovery/v1/compatibility_pb`, which is
+wire-safe but a compile break for third-party TypeScript consumers. Generated
+Go is unaffected, since both files share one package.
+
 ## Related
 
-- **ADRs:** ADR-025 (multi-instance client architecture), ADR-042 (protobuf-first public API), ADR-045 (public API stability tiers), ADR-051 (server-scoped resumable client projection)
-- **FDRs:** FDR-023 (Authentication & Sessions), FDR-027 (PWA & Service Worker)
+- **ADRs:** ADR-025 (multi-instance client architecture), ADR-042 (protobuf-first public API), ADR-045 (public API stability tiers), ADR-051 (server-scoped resumable client projection), ADR-063 (Deno Desktop and CEF packaging)
+- **FDRs:** FDR-023 (Authentication & Sessions), FDR-027 (PWA & Service Worker), FDR-034 (Chatto Desktop)

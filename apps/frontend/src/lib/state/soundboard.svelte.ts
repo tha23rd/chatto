@@ -65,6 +65,22 @@ export class SoundboardStore {
   }
 
   /**
+   * Drop the catalog because the viewer's authority over this server was
+   * withdrawn. Bumping {@link catalogVersion} is what makes this a purge rather
+   * than a blank: an in-flight `load` issued under the old authority resolves
+   * into a superseded version and is discarded, so it cannot repopulate the
+   * catalog after the boundary.
+   *
+   * `loaded` returns to false so the next authorized reader refetches instead
+   * of rendering an empty catalog as if it were authoritative.
+   */
+  clear(): void {
+    this.catalogVersion += 1;
+    this.sounds = [];
+    this.loaded = false;
+  }
+
+  /**
    * Fetch the server's sounds, replacing local state. Returns `true` on
    * success and `false` on failure; on failure existing state is left intact so
    * passive callers keep working, while the admin view can surface an error.
@@ -145,6 +161,16 @@ export function getSoundboard(serverId: string): SoundboardStore {
  */
 export function notifySoundboard(serverId: string, sounds: SoundProto[]): void {
   getSoundboard(serverId).replace(sounds.map(mapSound));
+}
+
+/**
+ * Purge a server's soundboard catalog after projected authorization loss.
+ *
+ * Clears in place rather than dropping the store from the registry, so any
+ * consumer holding the instance keeps reading the live catalog.
+ */
+export function clearSoundboard(serverId: string): void {
+  stores.get(serverId)?.clear();
 }
 
 /** Test-only: clear the store cache so a fresh instance is built per test. */

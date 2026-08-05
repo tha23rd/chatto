@@ -12,7 +12,7 @@ importers:
         specifier: ^6.22.0
         version: 6.22.0
 
-  apps/desktop:
+  apps/desktop-tauri:
     devDependencies:
       '@tauri-apps/cli':
         specifier: 2.11.4
@@ -56,6 +56,9 @@ importers:
       '@connectrpc/connect-web':
         specifier: ^1.7.0
         version: 1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))
+      '@tanstack/svelte-query':
+        specifier: ^6.1.38
+        version: 6.1.38(svelte@5.56.8(@typescript-eslint/types@8.65.0))
       '@tauri-apps/api':
         specifier: ^2.11.1
         version: 2.11.1
@@ -89,6 +92,9 @@ importers:
       semver:
         specifier: ^7.8.5
         version: 7.8.5
+      tinybase:
+        specifier: 9.3.0
+        version: 9.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(svelte@5.56.8(@typescript-eslint/types@8.65.0))(ws@8.21.1)(zod@4.4.3)
       tlds:
         specifier: ^1.261.0
         version: 1.261.0
@@ -2098,6 +2104,14 @@ packages:
     resolution: {integrity: sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw==}
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
+
+  '@tanstack/query-core@5.101.4':
+    resolution: {integrity: sha512-gNwcvOJcRbLWPOLG/2OBm+zM+Yv+MKsXKEOWC57USuZDEsI71hEErQsiEGx5wX9rzWWkfwM0fVSPoiIFSsxfiw==}
+
+  '@tanstack/svelte-query@6.1.38':
+    resolution: {integrity: sha512-oV5S/+uAot23p3lJChLAHr82+8ApgQMyIgroWPpN0d6Y6TlThRbLSXnhx6CoUk6AkwlCPxf9vh4SOHa0eXHiWg==}
+    peerDependencies:
+      svelte: ^5.25.0
 
   '@tauri-apps/api@2.11.1':
     resolution: {integrity: sha512-M2FPuYND2m+wh5hfW9ZpSdxMPdEJovPBWwoHJmwUpysTYNHaOkVFN419m/K0LIgjb/7KU2vBgsUepJWugQCvAA==}
@@ -4490,6 +4504,95 @@ packages:
   tiny-invariant@1.3.3:
     resolution: {integrity: sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==}
 
+  tinybase@9.3.0:
+    resolution: {integrity: sha512-jJxoeuL1PSFroVjUBJCTEceAktzhylRyu4xpwvwGtT3yzKY0VKtOeFgxDj/5xereDGtOxzhEoDZ5lqEkk08HdQ==}
+    peerDependencies:
+      '@automerge/automerge-repo': ^2.5.6
+      '@cloudflare/workers-types': ^5.20260726.1
+      '@electric-sql/pglite': ^0.5.4
+      '@libsql/client': ^0.17.4
+      '@powersync/common': ^2.0.0
+      '@sinclair/typebox': ^0.34.52
+      '@sqlite.org/sqlite-wasm': ^3.53.0-build1
+      '@vlcn.io/crsqlite-wasm': ^0.16.0
+      arktype: ^2.2.3
+      bun: ^1.3.14
+      effect: ^3.22.0
+      electric-sql: ^0.12.1
+      expo: ^57.0.8
+      expo-sqlite: ^57.0.1
+      partykit: ^0.0.115
+      partysocket: ^1.3.0
+      postgres: ^3.4.9
+      react: ^19.2.8
+      react-dom: ^19.2.8
+      react-native-mmkv: 4.3.2
+      react-native-sqlite-storage: ^6.0.1
+      solid-js: ^1.9.14
+      sqlite3: ^5.1.7
+      svelte: ^5.56.8
+      valibot: ^1.4.2
+      ws: ^8.21.1
+      yjs: ^13.6.31
+      zod: ^4.4.3
+    peerDependenciesMeta:
+      '@automerge/automerge-repo':
+        optional: true
+      '@cloudflare/workers-types':
+        optional: true
+      '@electric-sql/pglite':
+        optional: true
+      '@libsql/client':
+        optional: true
+      '@powersync/common':
+        optional: true
+      '@sinclair/typebox':
+        optional: true
+      '@sqlite.org/sqlite-wasm':
+        optional: true
+      '@vlcn.io/crsqlite-wasm':
+        optional: true
+      arktype:
+        optional: true
+      bun:
+        optional: true
+      effect:
+        optional: true
+      electric-sql:
+        optional: true
+      expo:
+        optional: true
+      expo-sqlite:
+        optional: true
+      partykit:
+        optional: true
+      partysocket:
+        optional: true
+      postgres:
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      react-native-mmkv:
+        optional: true
+      react-native-sqlite-storage:
+        optional: true
+      solid-js:
+        optional: true
+      sqlite3:
+        optional: true
+      svelte:
+        optional: true
+      valibot:
+        optional: true
+      ws:
+        optional: true
+      yjs:
+        optional: true
+      zod:
+        optional: true
+
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
 
@@ -6469,6 +6572,13 @@ snapshots:
       '@tailwindcss/oxide': 4.3.3
       tailwindcss: 4.3.3
       vite: 7.3.6(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0)
+
+  '@tanstack/query-core@5.101.4': {}
+
+  '@tanstack/svelte-query@6.1.38(svelte@5.56.8(@typescript-eslint/types@8.65.0))':
+    dependencies:
+      '@tanstack/query-core': 5.101.4
+      svelte: 5.56.8(@typescript-eslint/types@8.65.0)
 
   '@tauri-apps/api@2.11.1': {}
 
@@ -9569,6 +9679,14 @@ snapshots:
   tiny-inflate@1.0.3: {}
 
   tiny-invariant@1.3.3: {}
+
+  tinybase@9.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(svelte@5.56.8(@typescript-eslint/types@8.65.0))(ws@8.21.1)(zod@4.4.3):
+    optionalDependencies:
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      svelte: 5.56.8(@typescript-eslint/types@8.65.0)
+      ws: 8.21.1
+      zod: 4.4.3
 
   tinybench@2.9.0: {}
 

@@ -157,4 +157,26 @@ describe('PresenceCache', () => {
       PresenceStatus.ONLINE
     );
   });
+
+  // Presence is copied server authority, so losing the grant that supplied it
+  // has to drop it. Other servers keep their entries: authorization is lost per
+  // server, not globally.
+  it('clearServer drops one server without touching the others', () => {
+    const cache = new PresenceCache();
+    cache.update({ serverId: 'origin', userId: 'user-1' }, PresenceStatus.ONLINE);
+    cache.update({ serverId: 'origin', userId: 'user-2' }, PresenceStatus.AWAY);
+    cache.update({ serverId: 'remote', userId: 'user-1' }, PresenceStatus.DO_NOT_DISTURB);
+
+    cache.clearServer('origin');
+
+    expect(cache.get({ serverId: 'origin', userId: 'user-1' }, PresenceStatus.OFFLINE)).toBe(
+      PresenceStatus.OFFLINE
+    );
+    expect(cache.get({ serverId: 'origin', userId: 'user-2' }, PresenceStatus.OFFLINE)).toBe(
+      PresenceStatus.OFFLINE
+    );
+    expect(cache.get({ serverId: 'remote', userId: 'user-1' }, PresenceStatus.OFFLINE)).toBe(
+      PresenceStatus.DO_NOT_DISTURB
+    );
+  });
 });

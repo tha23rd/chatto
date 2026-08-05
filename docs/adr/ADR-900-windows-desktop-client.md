@@ -1,7 +1,7 @@
 # ADR-900: Windows Desktop Client Reuses the Web Frontend
 
 **Date:** 2026-07-18
-**Status:** Proposed
+**Status:** Accepted
 
 ## Context
 
@@ -44,7 +44,7 @@ realtime WebSocket upgrade that the server rejected after checking `Origin`.
 
 ### Build a Windows-only Tauri/WebView2 proof of concept
 
-Create `apps/desktop` as a Tauri 2 application targeting Windows WebView2. The
+Create `apps/desktop-tauri` as a Tauri 2 application targeting Windows WebView2. The
 POC packages the existing static SvelteKit build and treats self-hosted Chatto
 servers as data and media endpoints only. It never loads a server's frontend
 code into the privileged application window.

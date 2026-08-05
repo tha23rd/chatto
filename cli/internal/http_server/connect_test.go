@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -282,7 +283,7 @@ func TestConnectServerDiscoveryServiceGetServer(t *testing.T) {
 	t.Run("returns public server metadata", func(t *testing.T) {
 		_, ts := setupConnectTestServer(t, config.AuthConfig{
 			Providers: []config.AuthProviderConfig{
-				{ID: "hub", Type: config.AuthProviderTypeOpenIDConnect, Label: "Chatto Hub"},
+				{ID: "hub", Type: config.AuthProviderTypeOpenIDConnect, Label: "Chatto Hub", IssuerURL: "https://id.example"},
 			},
 		})
 
@@ -311,6 +312,18 @@ func TestConnectServerDiscoveryServiceGetServer(t *testing.T) {
 		provider := msg.GetLogin().GetProviders()[0]
 		if provider.Id != "hub" || provider.Type != config.AuthProviderTypeOpenIDConnect || provider.Label != "Chatto Hub" || provider.LoginUrl != "/auth/providers/hub" {
 			t.Fatalf("AuthProviders[0] = %+v", provider)
+		}
+		if provider.GetIssuerUrl() != "https://id.example" {
+			t.Fatalf("AuthProviders[0].IssuerUrl = %q, want https://id.example", provider.GetIssuerUrl())
+		}
+		// The bundled client gates role colours on this key, and it is the only
+		// capability with no release-version fallback, so losing it silently
+		// removes the feature. Asserting it here rather than on the struct
+		// exercises the generated codec, and so the field number the message
+		// is carried on.
+		capabilities := msg.GetCompatibility().GetProtocolCapabilities()
+		if !slices.Contains(capabilities, "chatto.role-colors.v1") {
+			t.Fatalf("protocol capabilities = %q, want to include chatto.role-colors.v1", capabilities)
 		}
 	})
 

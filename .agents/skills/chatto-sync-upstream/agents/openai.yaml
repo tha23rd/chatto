@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sync Chatto Upstream"
+  short_description: "Integrate upstream through server and native rollout"
+  default_prompt: "Use $chatto-sync-upstream to integrate the latest Chatto upstream into this fork and carry it through production and the native nightly."

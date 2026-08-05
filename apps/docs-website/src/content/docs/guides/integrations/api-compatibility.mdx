@@ -95,10 +95,6 @@ string field but may show the bare name, and generated clients that enforce the
 older 16-character response bound may reject longer names. Deploy bundled
 client and server updates together when custom status markers matter.
 
-`compatibility.minimumWebClientVersion`, when present, applies only to Chatto's
-bundled web client. Third-party clients must not use it as their compatibility
-range.
-
 ### Discovery capabilities and upstream Chatto
 
 Upstream Chatto removed `compatibility.protocolCapabilities` and the containing
@@ -112,6 +108,16 @@ declared" rather than an error. That keeps a single client working against both
 this distribution and upstream servers. Regenerate protobuf clients from the
 schema of the server you target, and do not mix generated clients and servers
 across that difference.
+
+`compatibility` is field 1000, outside the tag range upstream allocates, so an
+upstream field addition cannot collide with it. Any client generated before
+this change carried the message on field 3 and reads no capabilities from a
+current server; regenerate to restore them.
+
+`ServerCompatibility` is defined in `chatto/discovery/v1/compatibility.proto`.
+Generated TypeScript therefore exports it from `discovery/v1/compatibility_pb`
+rather than `discovery/v1/server_pb`. Generated Go is unaffected, since both
+files share one package.
 
 ## Before upgrading
 

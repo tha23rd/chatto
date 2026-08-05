@@ -11,11 +11,16 @@ URL in a dismissable dialog with a copy-to-clipboard control and a clear
 warning, since it cannot be retrieved again afterwards.
 -->
 <script lang="ts">
+  import { createQuery } from '@tanstack/svelte-query';
   import { useServerScope } from '$lib/state/server/scope.svelte';
-  import { createAdminWebhookAPI, type WebhookImageUpload } from '$lib/api-client/webhooks';
+  import {
+    createAdminWebhookAPI,
+    type WebhookImageUpload,
+    type WebhookView
+  } from '$lib/api-client/webhooks';
   import type { ConnectAPIConfig } from '$lib/api-client/connect';
-  import { getActiveServer } from '$lib/state/activeServer.svelte';
-  import { getWebhooks, type WebhookView } from '$lib/state/webhooks.svelte';
+  import { adminQueryKeys } from '$lib/query/admin';
+  import { queryClient } from '$lib/query/client';
   import { RoomKind } from '$lib/api-client/roomDirectory';
   import { timeFormatSettingsFor } from '$lib/utils/formatTime';
   import { getLocale } from '$lib/i18n/runtime';
@@ -44,14 +49,49 @@ warning, since it cannot be retrieved again afterwards.
     };
   }
 
-  let loading = $state(true);
-  let error = $state<string | null>(null);
+  // Keyed by server and session scope, so the list survives remounts, refetches
+  // when stale, and is purged with the rest of the session cache when projected
+  // authorization is lost.
+  const webhooksQuery = createQuery(
+    () => {
+      const serverId = serverScope.serverId;
+      const connection = serverScope.connection;
+      return {
+        queryKey: adminQueryKeys.webhooks(serverId, connection),
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+          connection.getAPI(createAdminWebhookAPI).list(undefined, { signal })
+      };
+    },
+    () => queryClient
+  );
 
-  // The shared, per-server store is the single source of truth so this admin
-  // view survives remounts (e.g. navigating away and back) without refetching
-  // unnecessarily, while `load()` still force-refreshes on mount.
-  const store = getWebhooks(getActiveServer());
-  const webhooks = $derived(store.webhooks);
+  const webhooks = $derived(webhooksQuery.data ?? []);
+  const loading = $derived(webhooksQuery.isPending);
+  const error = $derived(
+    webhooksQuery.isError ? m['server_settings.webhooks.load_failed']() : null
+  );
+
+  const webhooksKey = $derived(
+    adminQueryKeys.webhooks(serverScope.serverId, serverScope.connection)
+  );
+
+  /**
+   * Write a created/updated webhook straight into the cache, newest-first, so
+   * the admin list reflects the change without a refetch. Mirrors the previous
+   * store's `upsert`.
+   */
+  function upsertWebhook(webhook: WebhookView): void {
+    queryClient.setQueryData<WebhookView[]>(webhooksKey, (current) => [
+      webhook,
+      ...(current ?? []).filter((existing) => existing.id !== webhook.id)
+    ]);
+  }
+
+  function removeWebhook(id: string): void {
+    queryClient.setQueryData<WebhookView[]>(webhooksKey, (current) =>
+      (current ?? []).filter((existing) => existing.id !== id)
+    );
+  }
 
   // Rooms this server has, for the "target room" picker and for resolving a
   // webhook's room id to a display name in the list. Webhooks only post into
@@ -99,19 +139,6 @@ warning, since it cannot be retrieved again afterwards.
   let confirmDelete = $state<WebhookView | null>(null);
   let deletingId = $state<string | null>(null);
 
-  async function loadWebhooks() {
-    loading = true;
-    error = null;
-    if (!(await store.load(apiConfig()))) {
-      error = m['server_settings.webhooks.load_failed']();
-    }
-    loading = false;
-  }
-
-  $effect(() => {
-    loadWebhooks();
-  });
-
   function acceptFile(file: File): boolean {
     if (!file.type.startsWith('image/')) {
       toast.error(m['server_settings.webhooks.invalid_image']());
@@ -158,7 +185,7 @@ warning, since it cannot be retrieved again afterwards.
         name: name.trim(),
         avatar
       });
-      store.upsert(created.webhook);
+      upsertWebhook(created.webhook);
       name = '';
       roomId = '';
       selectedFile = null;
@@ -182,7 +209,7 @@ warning, since it cannot be retrieved again afterwards.
         id: webhook.id,
         disabled: !webhook.disabled
       });
-      store.upsert(updated);
+      upsertWebhook(updated);
       toast.success(m['server_settings.webhooks.updated']());
     } catch (err) {
       toast.error(
@@ -198,7 +225,7 @@ warning, since it cannot be retrieved again afterwards.
     regeneratingId = webhook.id;
     try {
       const result = await createAdminWebhookAPI(apiConfig()).regenerateToken(webhook.id);
-      store.upsert(result.webhook);
+      upsertWebhook(result.webhook);
       confirmRegenerate = null;
       toast.success(m['server_settings.webhooks.regenerated']());
       revealed = {
@@ -219,7 +246,7 @@ warning, since it cannot be retrieved again afterwards.
     deletingId = webhook.id;
     try {
       await createAdminWebhookAPI(apiConfig()).remove(webhook.id);
-      store.remove(webhook.id);
+      removeWebhook(webhook.id);
       confirmDelete = null;
       toast.success(m['server_settings.webhooks.deleted']());
     } catch (err) {

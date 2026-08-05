@@ -47,6 +47,7 @@ connection that CI does not have.
     if (existingOrigin) return existingOrigin;
     const server: RegisteredServer = {
       id: serverId,
+      source: 'local',
       // Must match window.location.origin so the registry treats it as the
       // origin server, which is what getActiveServer() falls back to without a
       // route parameter.

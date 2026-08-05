@@ -17,6 +17,7 @@ type ChattoConfig struct {
 	General        GeneralConfig        `toml:"general"`
 	Owners         OwnersConfig         `toml:"owners" comment:"Email addresses that confer owner status."`
 	Webserver      WebserverConfig      `toml:"webserver"`
+	Frontend       FrontendConfig       `toml:"frontend,commented" comment:"Trusted configuration published to the bundled frontend."`
 	Metrics        MetricsConfig        `toml:"metrics,commented" comment:"Process-local Prometheus metrics endpoint."`
 	Exporter       ExporterConfig       `toml:"exporter,commented" comment:"Deployment-wide Prometheus metrics exporter."`
 	Search         SearchConfig         `toml:"search,commented" comment:"Consumer-facing message search configuration."`
@@ -214,6 +215,16 @@ func (c *ChattoConfig) Validate() error {
 			errs = append(errs, err.Error())
 		}
 	}
+	if c.Frontend.AuthlingIssuer != "" {
+		if err := validateFrontendAuthlingIssuer(c.Frontend.AuthlingIssuer); err != nil {
+			errs = append(errs, err.Error())
+		}
+		if c.Webserver.URL == "" {
+			errs = append(errs, "webserver.url is required when frontend.authling_issuer is configured")
+		} else if publicURL, err := url.Parse(c.Webserver.URL); err == nil && publicURL.Scheme != "https" {
+			errs = append(errs, "webserver.url must use https when frontend.authling_issuer is configured because CIMD client IDs require https")
+		}
+	}
 	if c.NATS.Client.URL != "" {
 		if _, err := url.Parse(c.NATS.Client.URL); err != nil {
 			errs = append(errs, fmt.Sprintf("nats.client.url is invalid: %v", err))
@@ -273,7 +284,7 @@ func (c *ChattoConfig) Validate() error {
 		if provider.ClientID == "" {
 			errs = append(errs, prefix+".client_id is required")
 		}
-		if provider.ClientSecret == "" {
+		if provider.ClientSecret == "" && provider.Type != AuthProviderTypeOpenIDConnect {
 			errs = append(errs, prefix+".client_secret is required")
 		}
 		if provider.Type == AuthProviderTypeOpenIDConnect && provider.IssuerURL == "" {
@@ -412,6 +423,20 @@ func (c *ChattoConfig) Validate() error {
 	return nil
 }
 
+func validateFrontendAuthlingIssuer(raw string) error {
+	issuer, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("frontend.authling_issuer is invalid: %w", err)
+	}
+	if issuer.Scheme != "https" && !(issuer.Scheme == "http" && isLoopbackHost(issuer.Hostname())) {
+		return fmt.Errorf("frontend.authling_issuer must use https except for loopback development")
+	}
+	if issuer.Host == "" || issuer.User != nil || (issuer.Path != "" && issuer.Path != "/") || issuer.RawQuery != "" || issuer.Fragment != "" {
+		return fmt.Errorf("frontend.authling_issuer must be an absolute origin without user info, path, query, or fragment")
+	}
+	return nil
+}
+
 // ReadConfig reads configuration from the specified file path (or "chatto.toml" if empty),
 // then overrides with environment variables, and validates the result.
 func ReadConfig(configPath string) (ChattoConfig, error) {
@@ -426,6 +451,9 @@ func ReadConfig(configPath string) (ChattoConfig, error) {
 	// Apply Chatto-specific compatibility environment variables that cannot be
 	// represented by fixed struct tags.
 	if err := applyAuthProviderEnv(&cfg); err != nil {
+		return cfg, err
+	}
+	if err := applyBootstrapEnv(&cfg); err != nil {
 		return cfg, err
 	}
 

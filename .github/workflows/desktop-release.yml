@@ -33,9 +33,9 @@ jobs:
             exit 1
           fi
           version="${BASH_REMATCH[1]}"
-          package_version="$(jq -r .version apps/desktop/package.json)"
-          cargo_version="$(awk -F ' *= *' '/^version = / { gsub(/"/, "", $2); print $2; exit }' apps/desktop/src-tauri/Cargo.toml)"
-          tauri_version="$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)"
+          package_version="$(jq -r .version apps/desktop-tauri/package.json)"
+          cargo_version="$(awk -F ' *= *' '/^version = / { gsub(/"/, "", $2); print $2; exit }' apps/desktop-tauri/src-tauri/Cargo.toml)"
+          tauri_version="$(jq -r .version apps/desktop-tauri/src-tauri/tauri.conf.json)"
           if [[ "$version" != "$package_version" || "$version" != "$cargo_version" || "$version" != "$tauri_version" ]]; then
             echo '::error::Desktop stable tag must match package.json, Cargo.toml, and tauri.conf.json.'
             exit 1
@@ -98,7 +98,7 @@ jobs:
       - name: Cache Rust build artifacts
         uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          workspaces: apps/desktop/src-tauri -> target
+          workspaces: apps/desktop-tauri/src-tauri -> target
 
       - name: Run desktop release tests and checks
         shell: pwsh
@@ -115,7 +115,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          & ./apps/desktop/scripts/build-release.ps1 `
+          & ./apps/desktop-tauri/scripts/build-release.ps1 `
               -Version '${{ needs.validate-desktop-release.outputs.version }}' `
               -CommitSha '${{ needs.validate-desktop-release.outputs.source_sha }}' `
               -Channel stable `
@@ -135,7 +135,7 @@ jobs:
           MANIFEST_NAME: ${{ steps.native_release.outputs.manifest_name }}
           METADATA_NAME: ${{ steps.native_release.outputs.metadata_name }}
           RELEASE_KIND: stable
-        run: bash apps/desktop/scripts/publish-prerelease.sh
+        run: bash apps/desktop-tauri/scripts/publish-prerelease.sh
 
       - name: Advance the Stable update channel
         shell: bash
@@ -143,4 +143,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_SHA: ${{ needs.validate-desktop-release.outputs.source_sha }}
           MANIFEST_NAME: ${{ steps.native_release.outputs.manifest_name }}
-        run: node apps/desktop/scripts/publish-update-channel.mjs stable ".context/release/windows/${MANIFEST_NAME}"
+        run: node apps/desktop-tauri/scripts/publish-update-channel.mjs stable ".context/release/windows/${MANIFEST_NAME}"

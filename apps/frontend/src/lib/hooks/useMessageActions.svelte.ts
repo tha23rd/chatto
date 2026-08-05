@@ -155,3 +155,5 @@ export function useMessageActions() {
     copyMessageLink
   };
 }
+
+export type MessageActions = ReturnType<typeof useMessageActions>;
