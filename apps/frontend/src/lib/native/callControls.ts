@@ -69,6 +69,7 @@ class NativeCallControlsCoordinator {
   readonly #owners = new Map<symbol, CallOwner>();
   readonly #shortcutUnsubscribes = new Map<string, Unsubscribe>();
   readonly #pressedAccelerators = new Map<string, CallKeybindingAction>();
+  readonly #browserFallbackAccelerators = new Set<string>();
   #trayUnsubscribe: Unsubscribe | null = null;
   #keybindingChangeUnsubscribe: Unsubscribe | null = null;
   #browserListenersInstalled = false;
@@ -145,9 +146,14 @@ class NativeCallControlsCoordinator {
             // A system shortcut can already belong to another app. Keep every
             // other binding active and retry this one after the user changes
             // preferences or reconnects the final call.
+            // Chords the plugin cannot register at all (bare modifier keys,
+            // international-layout codes) dispatch from focused-window key
+            // events while the window has focus.
+            this.#browserFallbackAccelerators.add(accelerator);
             reportNativeControlFailure(`register ${accelerator}`, error);
           }
         }
+        if (this.#browserFallbackAccelerators.size > 0) this.#installBrowserListeners();
       } else {
         this.#installBrowserListeners();
       }
@@ -180,6 +186,15 @@ class NativeCallControlsCoordinator {
     if (isCallKeybindingCaptureActive() || isEditableShortcutTarget(event.target)) return;
     const accelerator = callKeybindingAcceleratorFromEvent(event);
     if (!accelerator) return;
+    // Desktop hosts also receive the same key events the global shortcut
+    // hooks already dispatch; only act on chords the system could not
+    // register, or every chord would fire twice.
+    if (
+      this.#host.capabilities.globalCallKeybindings &&
+      !this.#browserFallbackAccelerators.has(accelerator)
+    ) {
+      return;
+    }
     const action = callKeybindingActionForAccelerator(
       userPreferences.callKeybindings,
       accelerator
@@ -328,6 +343,7 @@ class NativeCallControlsCoordinator {
       window.removeEventListener('blur', this.#handleBrowserBlur);
       this.#browserListenersInstalled = false;
     }
+    this.#browserFallbackAccelerators.clear();
     this.#registeredKeybindingSignature = null;
 
     if (failures.length > 0) {

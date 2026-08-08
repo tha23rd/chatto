@@ -73,6 +73,28 @@ describe('Keybind settings page', () => {
     expect(userPreferences.callKeybindings).toEqual(DEFAULT_CALL_KEYBINDINGS);
   });
 
+  it('records modifier keys and international-layout keys', () => {
+    const { container } = render(KeybindsPage);
+    const pushToTalk = q(
+      container,
+      '[data-testid="keybind-recorder-push-to-talk"]'
+    )!;
+    pushToTalk.click();
+    flushSync();
+    press('AltRight', { altKey: true });
+    expect(userPreferences.callKeybindings['push-to-talk']).toBe('AltRight');
+    expect(pushToTalk.textContent).toContain('Right Alt');
+
+    const toggleMute = q(
+      container,
+      '[data-testid="keybind-recorder-toggle-mute"]'
+    )!;
+    toggleMute.click();
+    flushSync();
+    press('IntlBackslash');
+    expect(userPreferences.callKeybindings['toggle-mute']).toBe('IntlBackslash');
+  });
+
   it('cancels recording with Escape without changing the current binding', () => {
     const { container } = render(KeybindsPage);
     const recorder = q(

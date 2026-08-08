@@ -3,7 +3,10 @@
  *
  * Accelerators use Tauri/global-hotkey's portable spelling so the same stored
  * value can be matched against browser `KeyboardEvent.code` values and
- * registered with the Windows desktop host.
+ * registered with the Windows desktop host. Modifier keys themselves (for
+ * example right Alt) and international-layout keys are valid base keys; the
+ * desktop host falls back to focused-window dispatch for chords its plugin
+ * cannot register system-wide.
  */
 
 export const CALL_KEYBINDING_ACTIONS = [
@@ -32,27 +35,37 @@ export const DEFAULT_CALL_KEYBINDINGS: CallKeybindings = {
   'push-to-talk': 'Control+Shift+Space'
 };
 
-const MODIFIER_CODES = new Set([
-  'AltLeft',
-  'AltRight',
-  'ControlLeft',
-  'ControlRight',
-  'MetaLeft',
-  'MetaRight',
-  'ShiftLeft',
-  'ShiftRight'
-]);
+/**
+ * A modifier key may itself be the base key of an accelerator (right Alt for
+ * push-to-talk is the canonical example). Its own flag is inherent to the
+ * press, not a chord, so it is dropped when canonicalising the event.
+ */
+const MODIFIER_KEY_FLAGS: Record<string, AcceleratorModifier> = {
+  AltLeft: 'Alt',
+  AltRight: 'Alt',
+  ControlLeft: 'Control',
+  ControlRight: 'Control',
+  MetaLeft: 'Super',
+  MetaRight: 'Super',
+  ShiftLeft: 'Shift',
+  ShiftRight: 'Shift'
+};
 
 const MODIFIERS = ['Control', 'Alt', 'Shift', 'Super'] as const;
 type AcceleratorModifier = (typeof MODIFIERS)[number];
 
 const SUPPORTED_CODES = new Set([
+  'AltLeft',
+  'AltRight',
   'Backquote',
   'Backslash',
   'BracketLeft',
   'BracketRight',
   'Pause',
   'Comma',
+  'ControlLeft',
+  'ControlRight',
+  'ContextMenu',
   'Digit0',
   'Digit1',
   'Digit2',
@@ -64,6 +77,10 @@ const SUPPORTED_CODES = new Set([
   'Digit8',
   'Digit9',
   'Equal',
+  'IntlBackslash',
+  'IntlHash',
+  'IntlRo',
+  'IntlYen',
   'KeyA',
   'KeyB',
   'KeyC',
@@ -90,10 +107,14 @@ const SUPPORTED_CODES = new Set([
   'KeyX',
   'KeyY',
   'KeyZ',
+  'MetaLeft',
+  'MetaRight',
   'Minus',
   'Period',
   'Quote',
   'Semicolon',
+  'ShiftLeft',
+  'ShiftRight',
   'Slash',
   'Backspace',
   'CapsLock',
@@ -167,16 +188,29 @@ const SUPPORTED_CODES = new Set([
 ]);
 
 const KEY_LABELS: Record<string, string> = {
+  AltLeft: 'Left Alt',
+  AltRight: 'Right Alt',
   Backquote: '`',
   Backslash: '\\',
   BracketLeft: '[',
   BracketRight: ']',
   Comma: ',',
+  ContextMenu: 'Menu',
+  ControlLeft: 'Left Ctrl',
+  ControlRight: 'Right Ctrl',
   Equal: '=',
+  IntlBackslash: 'Intl \\',
+  IntlHash: 'Intl #',
+  IntlRo: 'Intl Ro',
+  IntlYen: 'Intl Yen',
+  MetaLeft: 'Left Meta',
+  MetaRight: 'Right Meta',
   Minus: '-',
   Period: '.',
   Quote: "'",
   Semicolon: ';',
+  ShiftLeft: 'Left Shift',
+  ShiftRight: 'Right Shift',
   Slash: '/',
   ArrowDown: '↓',
   ArrowLeft: '←',
@@ -266,12 +300,16 @@ export function normalizeCallKeybindings(value: unknown): CallKeybindings {
 
 /** Build the canonical physical-key accelerator for a browser key event. */
 export function callKeybindingAcceleratorFromEvent(event: KeyboardEventLike): string | null {
-  if (MODIFIER_CODES.has(event.code) || !SUPPORTED_CODES.has(event.code)) return null;
+  if (!SUPPORTED_CODES.has(event.code)) return null;
   const modifiers = new Set<AcceleratorModifier>();
   if (event.ctrlKey) modifiers.add('Control');
   if (event.altKey) modifiers.add('Alt');
   if (event.shiftKey) modifiers.add('Shift');
   if (event.metaKey) modifiers.add('Super');
+  // Pressing a modifier key reports its own flag, so a bare right Alt must
+  // canonicalise to `AltRight`, not `Alt+AltRight`.
+  const ownFlag = MODIFIER_KEY_FLAGS[event.code];
+  if (ownFlag) modifiers.delete(ownFlag);
   return canonicalAccelerator(modifiers, event.code);
 }
 

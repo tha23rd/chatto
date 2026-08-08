@@ -254,6 +254,108 @@ describe('NativeCallControlsController', () => {
     controller.stop();
   });
 
+  it('dispatches unregisterable chords from focused-window keys without double-firing global ones', async () => {
+    const originalWindow = globalThis.window;
+    const originalElement = globalThis.Element;
+    // Node lacks DOM globals; `isEditableShortcutTarget` only needs the
+    // instanceof check to reject non-element targets.
+    class FakeElement {}
+    globalThis.Element = FakeElement as unknown as typeof Element;
+    const listeners = new Map<string, Set<(event: KeyboardEvent) => void>>();
+    const fakeWindow = {
+      addEventListener: (type: string, fn: (event: KeyboardEvent) => void) => {
+        let typed = listeners.get(type);
+        if (!typed) {
+          typed = new Set();
+          listeners.set(type, typed);
+        }
+        typed.add(fn);
+      },
+      removeEventListener: (type: string, fn: (event: KeyboardEvent) => void) => {
+        listeners.get(type)?.delete(fn);
+      }
+    } as unknown as Window & typeof globalThis;
+    globalThis.window = fakeWindow;
+
+    try {
+      const shortcutListeners = new Map<string, (state: NativeShortcutState) => void>();
+      const host: NativeHost = {
+        ...browserNativeHost,
+        kind: 'tauri',
+        capabilities: {
+          ...browserNativeHost.capabilities,
+          globalCallKeybindings: true
+        },
+        registerGlobalShortcut: vi.fn(async (accelerator, listener) => {
+          if (accelerator === 'AltRight') throw new Error('unsupported key');
+          shortcutListeners.set(accelerator, listener);
+          return () => {
+            shortcutListeners.delete(accelerator);
+          };
+        })
+      };
+      userPreferences.setCallKeybinding('toggle-mute', 'Control+KeyM');
+      userPreferences.setCallKeybinding('push-to-talk', 'AltRight');
+      const target = createTarget();
+      const controller = new NativeCallControlsController(host, target);
+
+      controller.start();
+      await vi.waitFor(() =>
+        expect(host.registerGlobalShortcut).toHaveBeenCalledWith(
+          'AltRight',
+          expect.any(Function)
+        )
+      );
+
+      const keydown = [...(listeners.get('keydown') ?? [])];
+      expect(keydown).toHaveLength(1);
+
+      const press = (event: KeyboardEvent) => keydown[0]?.(event);
+      // The same window key event must not duplicate the registered chord.
+      press({
+        code: 'KeyM',
+        ctrlKey: true,
+        altKey: false,
+        shiftKey: false,
+        metaKey: false,
+        preventDefault: vi.fn(),
+        target: null
+      } as unknown as KeyboardEvent);
+      expect(target.toggleMute).not.toHaveBeenCalled();
+      shortcutListeners.get('Control+KeyM')?.('pressed');
+      expect(target.toggleMute).toHaveBeenCalledOnce();
+
+      // A bare right Alt the system cannot register dispatches while focused.
+      press({
+        code: 'AltRight',
+        ctrlKey: false,
+        altKey: true,
+        shiftKey: false,
+        metaKey: false,
+        preventDefault: vi.fn(),
+        target: null
+      } as unknown as KeyboardEvent);
+      expect(target.setPushToTalkPressed).toHaveBeenLastCalledWith(true);
+      [...(listeners.get('keyup') ?? [])][0]?.({
+        code: 'AltRight',
+        ctrlKey: false,
+        altKey: false,
+        shiftKey: false,
+        metaKey: false,
+        preventDefault: vi.fn(),
+        target: null
+      } as unknown as KeyboardEvent);
+      expect(target.setPushToTalkPressed).toHaveBeenLastCalledWith(false);
+
+      controller.stop();
+      await vi.waitFor(() => expect(listeners.get('keydown')?.size).toBe(0));
+      expect(listeners.get('keyup')?.size).toBe(0);
+    } finally {
+      globalThis.window = originalWindow;
+      globalThis.Element = originalElement;
+    }
+  });
+
   it('gives shortcut ownership to the most recently started call', async () => {
     const harness = createHarness();
     const firstTarget = createTarget();

@@ -24,7 +24,14 @@ describe('call keybindings', () => {
     );
     expect(normalizeCallKeybindingAccelerator('Control+Control+KeyM')).toBeNull();
     expect(normalizeCallKeybindingAccelerator('Control')).toBeNull();
-    expect(normalizeCallKeybindingAccelerator('Control+IntlYen')).toBeNull();
+    expect(normalizeCallKeybindingAccelerator('Control+IntlYen')).toBe('Control+IntlYen');
+    expect(normalizeCallKeybindingAccelerator('AltRight')).toBe('AltRight');
+    expect(normalizeCallKeybindingAccelerator('Shift+Control+AltRight')).toBe(
+      'Control+Shift+AltRight'
+    );
+    expect(normalizeCallKeybindingAccelerator('Control+Control+AltRight')).toBeNull();
+    expect(normalizeCallKeybindingAccelerator('ContextMenu')).toBe('ContextMenu');
+    expect(normalizeCallKeybindingAccelerator('LaunchMail')).toBeNull();
     expect(normalizeCallKeybindingAccelerator(42)).toBeNull();
   });
 
@@ -61,6 +68,42 @@ describe('call keybindings', () => {
         metaKey: false,
         shiftKey: true
       })
+    ).toBe('ShiftLeft');
+    expect(
+      callKeybindingAcceleratorFromEvent({
+        altKey: true,
+        code: 'AltRight',
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false
+      })
+    ).toBe('AltRight');
+    expect(
+      callKeybindingAcceleratorFromEvent({
+        altKey: true,
+        code: 'AltRight',
+        ctrlKey: true,
+        metaKey: false,
+        shiftKey: false
+      })
+    ).toBe('Control+AltRight');
+    expect(
+      callKeybindingAcceleratorFromEvent({
+        altKey: false,
+        code: 'IntlBackslash',
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: true
+      })
+    ).toBe('Shift+IntlBackslash');
+    expect(
+      callKeybindingAcceleratorFromEvent({
+        altKey: false,
+        code: 'LaunchMail',
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false
+      })
     ).toBeNull();
   });
 
@@ -69,6 +112,8 @@ describe('call keybindings', () => {
       'Ctrl + Shift + Space'
     );
     expect(formatCallKeybindingAccelerator('Alt+Numpad7')).toBe('Alt + Numpad 7');
+    expect(formatCallKeybindingAccelerator('AltRight')).toBe('Right Alt');
+    expect(formatCallKeybindingAccelerator('Control+IntlBackslash')).toBe('Ctrl + Intl \\');
     expect(
       callKeybindingActionForAccelerator(
         { 'toggle-mute': 'Control+KeyM' },

@@ -225,7 +225,11 @@ The tray exposes mute/deafen toggles while the renderer has an active call.
 The native global-shortcut plugin supplies both pressed and released events for
 configured call keybinds while Chatto is unfocused. The initial POC accelerator,
 `Control+Shift+Space`, remains the push-to-talk default, while a shared settings
-surface can replace it and bind the other call actions. If calls remain
+surface can replace it and bind the other call actions. The assignable
+vocabulary includes modifier keys themselves (such as right Alt) and
+international-layout keys; chords the plugin cannot register system-wide fall
+back to focused-window key events and dispatch only while the Chatto window has
+focus. If calls remain
 connected to multiple servers, the most recently started call owns the
 process-wide keybinds and tray actions; ownership returns to the previous call
 when the newer call ends.

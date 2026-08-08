@@ -3,6 +3,7 @@ import { setCallKeybindingCaptureActive } from '$lib/callKeybindings';
 import { userPreferences } from '$lib/state/userPreferences.svelte';
 import { browserNativeHost } from './browserHost';
 import { NativeCallControlsController, type NativeCallControlTarget } from './callControls';
+import type { NativeHost, NativeShortcutState } from './types';
 
 function createTarget(): NativeCallControlTarget {
   return {
@@ -97,5 +98,48 @@ describe('browser call keybindings', () => {
     setCallKeybindingCaptureActive(true);
     window.dispatchEvent(keyboardEvent('keydown', 'F8', { ctrlKey: true }));
     expect(target.setPushToTalkPressed).toHaveBeenCalledTimes(6);
+  });
+
+  it('dispatches unregisterable chords from focused-window keys without double-firing global ones', async () => {
+    const shortcutListeners = new Map<string, (state: NativeShortcutState) => void>();
+    const host: NativeHost = {
+      ...browserNativeHost,
+      kind: 'tauri',
+      capabilities: {
+        ...browserNativeHost.capabilities,
+        globalCallKeybindings: true
+      },
+      registerGlobalShortcut: vi.fn(async (accelerator, listener) => {
+        if (accelerator === 'AltRight') throw new Error('unsupported key');
+        shortcutListeners.set(accelerator, listener);
+        return () => {
+          shortcutListeners.delete(accelerator);
+        };
+      })
+    };
+    userPreferences.setCallKeybinding('toggle-mute', 'Control+KeyM');
+    userPreferences.setCallKeybinding('push-to-talk', 'AltRight');
+    const target = createTarget();
+    controller = new NativeCallControlsController(host, target);
+    controller.start();
+    await vi.waitFor(() => {
+      expect(host.registerGlobalShortcut).toHaveBeenCalledWith(
+        'Control+KeyM',
+        expect.any(Function)
+      );
+      expect(host.registerGlobalShortcut).toHaveBeenCalledWith('AltRight', expect.any(Function));
+    });
+
+    // The same window key event must not duplicate the registered global chord.
+    window.dispatchEvent(keyboardEvent('keydown', 'KeyM', { ctrlKey: true }));
+    expect(target.toggleMute).not.toHaveBeenCalled();
+    shortcutListeners.get('Control+KeyM')?.('pressed');
+    expect(target.toggleMute).toHaveBeenCalledOnce();
+
+    // A bare right Alt the system cannot register dispatches while focused.
+    window.dispatchEvent(keyboardEvent('keydown', 'AltRight', { altKey: true }));
+    expect(target.setPushToTalkPressed).toHaveBeenLastCalledWith(true);
+    window.dispatchEvent(keyboardEvent('keyup', 'AltRight'));
+    expect(target.setPushToTalkPressed).toHaveBeenLastCalledWith(false);
   });
 });
