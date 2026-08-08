@@ -29,6 +29,9 @@ describe('call keybindings', () => {
     expect(normalizeCallKeybindingAccelerator('Shift+Control+AltRight')).toBe(
       'Control+Shift+AltRight'
     );
+    expect(normalizeCallKeybindingAccelerator('Alt+AltRight')).toBeNull();
+    expect(normalizeCallKeybindingAccelerator('Control+ControlLeft')).toBeNull();
+    expect(normalizeCallKeybindingAccelerator('Super+MetaRight')).toBeNull();
     expect(normalizeCallKeybindingAccelerator('Control+Control+AltRight')).toBeNull();
     expect(normalizeCallKeybindingAccelerator('ContextMenu')).toBe('ContextMenu');
     expect(normalizeCallKeybindingAccelerator('LaunchMail')).toBeNull();

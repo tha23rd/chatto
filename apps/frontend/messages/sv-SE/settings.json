@@ -207,7 +207,7 @@
       "subtitle": "Styr samtal utan att använda musen",
       "instructions": "Välj en bindning och tryck sedan på den tangentkombination du vill använda. Tryck på Escape för att avbryta.",
       "browser_note": "Kortkommandon i webbläsaren fungerar när den här Chatto-fliken är aktiv. De pausas när du skriver i ett fält eller meddelande.",
-      "desktop_note": "Kortkommandon i skrivbordsappen fungerar i hela systemet medan du är ansluten till ett samtal, även när Chatto inte är i fokus.",
+      "desktop_note": "Kortkommandon i skrivbordsappen fungerar i hela systemet medan du är ansluten till ett samtal, även när Chatto inte är i fokus. Tangenter som systemet inte kan registrera globalt (till exempel höger Alt) fungerar medan Chatto-fönstret är i fokus.",
       "unassigned": "Inte angivet",
       "recording": "Tryck på tangenter…",
       "record_for": "Spela in kortkommando för {action}",

@@ -207,7 +207,7 @@
       "subtitle": "Contrôlez les appels sans utiliser la souris",
       "instructions": "Choisissez une action, puis appuyez sur la combinaison de touches souhaitée. Appuyez sur Échap pour annuler.",
       "browser_note": "Les raccourcis du navigateur fonctionnent lorsque cet onglet Chatto est actif. Ils sont suspendus lorsque vous saisissez du texte dans un champ ou un message.",
-      "desktop_note": "Les raccourcis de l’application fonctionnent dans tout le système lorsque vous êtes connecté à un appel, même si Chatto n’est pas au premier plan.",
+      "desktop_note": "Les raccourcis de l’application fonctionnent dans tout le système lorsque vous êtes connecté à un appel, même si Chatto n’est pas au premier plan. Les touches que le système ne peut pas enregistrer globalement (comme Alt droite) fonctionnent lorsque la fenêtre de Chatto est au premier plan.",
       "unassigned": "Non défini",
       "recording": "Appuyez sur des touches…",
       "record_for": "Enregistrer un raccourci pour {action}",

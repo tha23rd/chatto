@@ -207,7 +207,7 @@
       "subtitle": "Styr samtaler uten å bruke musen",
       "instructions": "Velg en binding, og trykk deretter tastekombinasjonen du vil bruke. Trykk Escape for å avbryte.",
       "browser_note": "Hurtigtaster i nettleseren fungerer mens denne Chatto-fanen er aktiv. De settes på pause når du skriver i et felt eller en melding.",
-      "desktop_note": "Hurtigtaster i skrivebordsappen fungerer i hele systemet mens du er koblet til en samtale, selv når Chatto ikke er i fokus.",
+      "desktop_note": "Hurtigtaster i skrivebordsappen fungerer i hele systemet mens du er koblet til en samtale, selv når Chatto ikke er i fokus. Taster som systemet ikke kan registrere globalt (for eksempel høyre Alt) fungerer mens Chatto-vinduet er i fokus.",
       "unassigned": "Ikke angitt",
       "recording": "Trykk på taster…",
       "record_for": "Ta opp hurtigtast for {action}",

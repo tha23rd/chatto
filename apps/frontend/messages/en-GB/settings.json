@@ -207,7 +207,7 @@
       "subtitle": "Control calls without reaching for the mouse",
       "instructions": "Choose a binding, then press the key combination you want to use. Press Escape to cancel.",
       "browser_note": "Browser keybinds work while this Chatto tab is active. They pause while you type in a field or message.",
-      "desktop_note": "Desktop keybinds work system-wide while you are connected to a call, even when Chatto is not focused.",
+      "desktop_note": "Desktop keybinds work system-wide while you are connected to a call, even when Chatto is not focused. Keys the system cannot register globally, such as right Alt, work while the Chatto window is focused.",
       "unassigned": "Not set",
       "recording": "Press keys…",
       "record_for": "Record keybind for {action}",

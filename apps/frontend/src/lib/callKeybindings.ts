@@ -54,6 +54,11 @@ const MODIFIER_KEY_FLAGS: Record<string, AcceleratorModifier> = {
 const MODIFIERS = ['Control', 'Alt', 'Shift', 'Super'] as const;
 type AcceleratorModifier = (typeof MODIFIERS)[number];
 
+/** True when a physical key code is itself a modifier key. */
+export function isCallKeybindingModifierCode(code: string): boolean {
+  return code in MODIFIER_KEY_FLAGS;
+}
+
 const SUPPORTED_CODES = new Set([
   'AltLeft',
   'AltRight',
@@ -272,6 +277,11 @@ export function normalizeCallKeybindingAccelerator(value: unknown): string | nul
     if (modifiers.has(modifier)) return null;
     modifiers.add(modifier);
   }
+
+  // A modifier key's own flag is inherent to the press, never part of the
+  // chord, so `Alt+AltRight` could never be produced by a key event.
+  const ownFlag = MODIFIER_KEY_FLAGS[code];
+  if (ownFlag && modifiers.has(ownFlag)) return null;
 
   return canonicalAccelerator(modifiers, code);
 }

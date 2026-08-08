@@ -207,7 +207,7 @@
       "subtitle": "Controle chamadas sem usar o rato",
       "instructions": "Escolha uma ação e prima a combinação de teclas que pretende usar. Prima Escape para cancelar.",
       "browser_note": "Os atalhos do navegador funcionam enquanto este separador do Chatto estiver ativo. Ficam em pausa quando escreve num campo ou mensagem.",
-      "desktop_note": "Os atalhos da aplicação para computador funcionam em todo o sistema enquanto estiver ligado a uma chamada, mesmo quando o Chatto não estiver em foco.",
+      "desktop_note": "Os atalhos da aplicação para computador funcionam em todo o sistema enquanto estiver ligado a uma chamada, mesmo quando o Chatto não estiver em foco. Teclas que o sistema não consegue registar globalmente (como Alt direito) funcionam enquanto a janela do Chatto estiver em foco.",
       "unassigned": "Não definido",
       "recording": "Prima as teclas…",
       "record_for": "Gravar atalho para {action}",

@@ -207,7 +207,7 @@
       "subtitle": "Bedien gesprekken zonder naar de muis te grijpen",
       "instructions": "Kies een sneltoets en druk daarna op de gewenste toetsencombinatie. Druk op Escape om te annuleren.",
       "browser_note": "Browsersneltoetsen werken zolang dit Chatto-tabblad actief is. Tijdens het typen in een veld of bericht worden ze gepauzeerd.",
-      "desktop_note": "Desktopsneltoetsen werken systeembreed zolang je met een gesprek verbonden bent, ook als Chatto niet actief is.",
+      "desktop_note": "Desktopsneltoetsen werken systeembreed zolang je met een gesprek verbonden bent, ook als Chatto niet actief is. Toetsen die het systeem niet wereldwijd kan registreren (zoals rechter Alt) werken terwijl het Chatto-venster actief is.",
       "unassigned": "Niet ingesteld",
       "recording": "Druk op toetsen…",
       "record_for": "Sneltoets voor {action} opnemen",

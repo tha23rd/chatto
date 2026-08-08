@@ -207,7 +207,7 @@
       "subtitle": "Regu vokojn sen uzi la muson",
       "instructions": "Elektu agon, poste premu la klavkombinon kiun vi volas uzi. Premu Escape por nuligi.",
       "browser_note": "Retumilaj klavkombinoj funkcias dum ĉi tiu Chatto-langeto estas aktiva. Ili paŭzas kiam vi tajpas en kampo aŭ mesaĝo.",
-      "desktop_note": "Labortablaj klavkombinoj funkcias tra la tuta sistemo dum vi estas konektita al voko, eĉ kiam Chatto ne estas fokusita.",
+      "desktop_note": "Labortablaj klavkombinoj funkcias tra la tuta sistemo dum vi estas konektita al voko, eĉ kiam Chatto ne estas fokusita. Klavoj, kiujn la sistemo ne povas registri tutmonde (ekz. la dekstra Alt), funkcias dum la Chatto-fenestro estas enfokusigita.",
       "unassigned": "Ne agordita",
       "recording": "Premu klavojn…",
       "record_for": "Registri klavkombinon por {action}",

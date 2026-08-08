@@ -207,7 +207,7 @@
       "subtitle": "Controla las llamadas sin usar el ratón",
       "instructions": "Elige una acción y pulsa la combinación de teclas que quieras usar. Pulsa Escape para cancelar.",
       "browser_note": "Los atajos del navegador funcionan mientras esta pestaña de Chatto esté activa. Se pausan cuando escribes en un campo o mensaje.",
-      "desktop_note": "Los atajos de la aplicación de escritorio funcionan en todo el sistema mientras estés conectado a una llamada, aunque Chatto no esté en primer plano.",
+      "desktop_note": "Los atajos de la aplicación de escritorio funcionan en todo el sistema mientras estés conectado a una llamada, aunque Chatto no esté en primer plano. Las teclas que el sistema no puede registrar globalmente (como Alt derecha) funcionan mientras la ventana de Chatto esté enfocada.",
       "unassigned": "Sin asignar",
       "recording": "Pulsa las teclas…",
       "record_for": "Grabar atajo para {action}",

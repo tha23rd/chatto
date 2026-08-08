@@ -207,7 +207,7 @@
       "subtitle": "Steruj połączeniami bez używania myszy",
       "instructions": "Wybierz działanie, a następnie naciśnij kombinację klawiszy, której chcesz użyć. Naciśnij Escape, aby anulować.",
       "browser_note": "Skróty w przeglądarce działają, gdy ta karta Chatto jest aktywna. Są wstrzymywane podczas pisania w polu lub wiadomości.",
-      "desktop_note": "Skróty aplikacji komputerowej działają w całym systemie podczas połączenia, nawet gdy Chatto nie jest aktywne.",
+      "desktop_note": "Skróty aplikacji komputerowej działają w całym systemie podczas połączenia, nawet gdy Chatto nie jest aktywne. Klawisze, których system nie może zarejestrować globalnie (np. prawy Alt), działają, gdy okno Chatto jest aktywne.",
       "unassigned": "Nie ustawiono",
       "recording": "Naciśnij klawisze…",
       "record_for": "Nagraj skrót dla {action}",

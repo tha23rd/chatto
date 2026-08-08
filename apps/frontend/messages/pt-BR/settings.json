@@ -207,7 +207,7 @@
       "subtitle": "Controle chamadas sem usar o mouse",
       "instructions": "Escolha uma ação e pressione a combinação de teclas que deseja usar. Pressione Escape para cancelar.",
       "browser_note": "Os atalhos do navegador funcionam enquanto esta aba do Chatto estiver ativa. Eles ficam pausados quando você digita em um campo ou mensagem.",
-      "desktop_note": "Os atalhos do aplicativo para computador funcionam em todo o sistema enquanto você estiver conectado a uma chamada, mesmo quando o Chatto não estiver em foco.",
+      "desktop_note": "Os atalhos do aplicativo para computador funcionam em todo o sistema enquanto você estiver conectado a uma chamada, mesmo quando o Chatto não estiver em foco. Teclas que o sistema não consegue registrar globalmente (como Alt direito) funcionam enquanto a janela do Chatto estiver em foco.",
       "unassigned": "Não definido",
       "recording": "Pressione as teclas…",
       "record_for": "Gravar atalho para {action}",

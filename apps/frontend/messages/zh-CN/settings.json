@@ -207,7 +207,7 @@
       "subtitle": "无需移动鼠标即可控制通话",
       "instructions": "选择一个动作，然后按下要使用的按键组合。按 Escape 取消。",
       "browser_note": "浏览器按键绑定仅在此 Chatto 标签页处于活动状态时生效。当你在输入框或消息中输入文字时会暂停。",
-      "desktop_note": "只要你已连接到通话，桌面版按键绑定就能在整个系统中生效，即使 Chatto 未获得焦点也一样。",
+      "desktop_note": "只要你已连接到通话，桌面版按键绑定就能在整个系统中生效，即使 Chatto 未获得焦点也一样。 系统无法全局注册的按键（例如右侧 Alt）仅在 Chatto 窗口获得焦点时生效。",
       "unassigned": "未设置",
       "recording": "请按下按键…",
       "record_for": "录制“{action}”的按键绑定",

@@ -5,6 +5,7 @@
     callKeybindingAcceleratorFromEvent,
     callKeybindingActionForAccelerator,
     formatCallKeybindingAccelerator,
+    isCallKeybindingModifierCode,
     setCallKeybindingCaptureActive
   } from '$lib/callKeybindings';
   import * as m from '$lib/i18n/messages';
@@ -36,6 +37,11 @@
 
   const isDesktop = getNativeHost().capabilities.globalCallKeybindings;
   let recordingAction = $state<CallKeybindingAction | null>(null);
+  // The modifier key pressed most recently during this recording. A bare
+  // modifier is only committed on its key-up, so pressing Ctrl first while
+  // recording Ctrl+Shift+Space still captures the whole chord instead of
+  // stopping at ControlLeft.
+  let pendingModifierKey = $state<string | null>(null);
 
   function actionLabel(action: CallKeybindingAction): string {
     switch (action) {
@@ -74,6 +80,7 @@
 
   function stopRecording(): void {
     recordingAction = null;
+    pendingModifierKey = null;
     setCallKeybindingCaptureActive(false);
   }
 
@@ -83,23 +90,11 @@
       return;
     }
     recordingAction = action;
+    pendingModifierKey = null;
     setCallKeybindingCaptureActive(true);
   }
 
-  function handleKeydown(event: KeyboardEvent): void {
-    const action = recordingAction;
-    if (!action) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.code === 'Escape') {
-      stopRecording();
-      return;
-    }
-
-    const accelerator = callKeybindingAcceleratorFromEvent(event);
-    if (!accelerator) return;
-
+  function commitKeybind(action: CallKeybindingAction, accelerator: string): void {
     const previousAction = callKeybindingActionForAccelerator(
       userPreferences.callKeybindings,
       accelerator
@@ -117,6 +112,40 @@
     }
   }
 
+  function handleKeydown(event: KeyboardEvent): void {
+    const action = recordingAction;
+    if (!action) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.code === 'Escape') {
+      stopRecording();
+      return;
+    }
+
+    if (isCallKeybindingModifierCode(event.code)) {
+      // Wait for the key-up: the modifier may be part of a larger chord, and
+      // its own flag is always reported on its own key events.
+      pendingModifierKey = event.code;
+      return;
+    }
+
+    const accelerator = callKeybindingAcceleratorFromEvent(event);
+    if (!accelerator) return;
+    commitKeybind(action, accelerator);
+  }
+
+  function handleKeyup(event: KeyboardEvent): void {
+    const action = recordingAction;
+    if (!action || pendingModifierKey !== event.code) return;
+
+    // Commit the chord as released: the modifier that is the base key (right
+    // Alt, left Ctrl, ...) plus any modifiers still held at key-up.
+    const accelerator = callKeybindingAcceleratorFromEvent(event);
+    if (!accelerator) return;
+    commitKeybind(action, accelerator);
+  }
+
   function clearBinding(action: CallKeybindingAction): void {
     if (recordingAction === action) stopRecording();
     userPreferences.setCallKeybinding(action, null);
@@ -131,7 +160,7 @@
   onDestroy(stopRecording);
 </script>
 
-<svelte:window onkeydown={handleKeydown} onblur={stopRecording} />
+<svelte:window onkeydown={handleKeydown} onkeyup={handleKeyup} onblur={stopRecording} />
 
 {#snippet actionRows(actions: readonly CallKeybindingAction[])}
   <div class="selectable-list">
