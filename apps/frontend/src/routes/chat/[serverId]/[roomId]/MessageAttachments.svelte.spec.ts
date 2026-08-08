@@ -48,6 +48,16 @@ vi.mock('$lib/state/server/scope.svelte', () => ({
 
 const transparentGif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
+/**
+ * Expiry far enough out that the auto-refresh timer stays dormant during the
+ * test. Chromium fires setTimeout delays beyond ~24.8 days (2^31-1 ms)
+ * almost immediately, so far-future placeholder dates would trigger spurious
+ * refreshes and race the assertions below.
+ */
+function freshExpiresAt(): string {
+  return new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+}
+
 function emptyRefreshedUrls(): RefreshedAttachmentUrls {
   return {
     assetUrl: null,
@@ -66,11 +76,11 @@ function imageAttachment(overrides: Partial<MessageAttachmentView>): MessageAtta
     height: 600,
     assetUrl: {
       url: transparentGif,
-      expiresAt: '2027-05-29T15:00:00Z'
+      expiresAt: freshExpiresAt()
     },
     thumbnailAssetUrl: {
       url: `${transparentGif}#thumb`,
-      expiresAt: '2027-05-29T15:00:00Z'
+      expiresAt: freshExpiresAt()
     },
     videoProcessing: null,
     ...overrides
@@ -86,7 +96,7 @@ function fileAttachment(overrides: Partial<MessageAttachmentView>): MessageAttac
     height: 0,
     assetUrl: {
       url: 'https://chat.example.test/document.pdf',
-      expiresAt: '2027-05-29T15:00:00Z'
+      expiresAt: freshExpiresAt()
     },
     thumbnailAssetUrl: null,
     videoProcessing: null,
@@ -113,7 +123,7 @@ function hlsVideoAttachment(overrides: Partial<MessageAttachmentView> = {}): Mes
       variants: [],
       hlsMasterPlaylistUrl: {
         url: 'https://chat.example.test/assets/hls/video_1/master.m3u8?access=expired',
-        expiresAt: '2099-01-01T00:00:00Z'
+        expiresAt: freshExpiresAt()
       },
       reasonCode: null
     },
@@ -327,7 +337,7 @@ describe('MessageAttachments', () => {
               ...emptyRefreshedUrls(),
               hlsMasterPlaylistUrl: {
                 url: 'https://chat.example.test/assets/hls/video_1/master.m3u8?access=fresh',
-                expiresAt: '2099-01-02T00:00:00Z'
+                expiresAt: freshExpiresAt()
               }
             }
           ]
@@ -405,11 +415,11 @@ describe('MessageAttachments', () => {
           {
             assetUrl: {
               url: 'https://cdn.example.test/original.jpg',
-              expiresAt: '2027-05-29T15:00:00Z'
+              expiresAt: freshExpiresAt()
             },
             thumbnailAssetUrl: {
               url: 'https://cdn.example.test/lightbox.jpg',
-              expiresAt: '2027-05-29T15:00:00Z'
+              expiresAt: freshExpiresAt()
             },
             videoThumbnailAssetUrl: null,
             variantAssetUrls: new Map()
