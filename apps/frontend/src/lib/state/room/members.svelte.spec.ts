@@ -46,7 +46,7 @@ function user(id: string, login = id) {
     avatarUrl: null,
     presenceStatus: PresenceStatus.ONLINE,
     customStatus: null,
-    roles: [],
+    roles: [] as string[],
     createdAt: null
   };
 }
@@ -113,6 +113,17 @@ describe('RoomMembersStore', () => {
     expect(store.hasLoaded).toBe(true);
     expect(store.hasLoadedAll).toBe(true);
     expect(store.isBackgroundLoading).toBe(false);
+  });
+
+  it('maps member roles from the directory, excluding the virtual everyone role', async () => {
+    const store = createStore([
+      pageResult([{ ...user('u1', 'alice'), roles: ['everyone', 'moderator', 'support'] }])
+    ]);
+
+    store.setRoom('room-1');
+    await store.loadInitial();
+
+    expect(store.members[0].roles).toEqual(['moderator', 'support']);
   });
 
   it('filters loaded members locally without changing the canonical count', async () => {
