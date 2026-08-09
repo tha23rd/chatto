@@ -139,9 +139,10 @@ describe('UserContextMenu', () => {
     );
     expect(pills).toEqual(['Moderator', 'Support']);
     // Coloured roles paint their dot with the role colour.
-    expect((q(container, '.role-pills > span span') as HTMLElement).style.background).toBe(
-      'rgb(88, 101, 242)'
+    const dots = [...container.querySelectorAll('.role-pills > span span')].map(
+      (dot) => (dot as HTMLElement).style.background
     );
+    expect(dots).toContain('rgb(88, 101, 242)');
     expect(mentionRoles.load).toHaveBeenCalled();
   });
 

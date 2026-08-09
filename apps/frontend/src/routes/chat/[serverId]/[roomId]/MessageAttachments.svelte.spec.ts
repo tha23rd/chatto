@@ -317,22 +317,27 @@ describe('MessageAttachments', () => {
   });
 
   it('retries HLS URL recovery after an earlier refresh request fails', async () => {
-    attachmentMocks.refreshAssetUrls
-      .mockRejectedValueOnce(new Error('network failed'))
-      .mockResolvedValueOnce(
-        new Map([
-          [
-            'video_1',
-            {
-              ...emptyRefreshedUrls(),
-              hlsMasterPlaylistUrl: {
-                url: 'https://chat.example.test/assets/hls/video_1/master.m3u8?access=fresh',
-                expiresAt: '2099-01-02T00:00:00Z'
-              }
+    // Control the outcome per attempt instead of pinning exact call counts:
+    // the URL-refresh hook also reacts to browser focus/visibility events, so
+    // CI can observe extra ambient calls that shift a one-shot mock queue.
+    // The contract under test is player state: a failed refresh must not land
+    // a fresh ticket, and a later attempt must recover.
+    let refreshShouldFail = true;
+    attachmentMocks.refreshAssetUrls.mockImplementation(async () => {
+      if (refreshShouldFail) throw new Error('network failed');
+      return new Map([
+        [
+          'video_1',
+          {
+            ...emptyRefreshedUrls(),
+            hlsMasterPlaylistUrl: {
+              url: 'https://chat.example.test/assets/hls/video_1/master.m3u8?access=fresh',
+              expiresAt: '2099-01-02T00:00:00Z'
             }
-          ]
-        ])
-      );
+          }
+        ]
+      ]);
+    });
     const { container } = renderAttachment(hlsVideoAttachment());
 
     let player: HTMLButtonElement | null = null;
@@ -343,13 +348,18 @@ describe('MessageAttachments', () => {
       expect(player).not.toBeNull();
     });
 
+    // First recovery attempt fails; the player must stay on the stale ticket.
     player!.click();
-    await vi.waitFor(() => expect(attachmentMocks.refreshAssetUrls).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(attachmentMocks.refreshAssetUrls).toHaveBeenCalled());
     await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(player!.dataset.hlsUrl?.includes('access=fresh') ?? false).toBe(false);
 
+    // Retry after the earlier failure succeeds and lands the fresh ticket.
+    refreshShouldFail = false;
     player!.click();
-    await vi.waitFor(() => expect(attachmentMocks.refreshAssetUrls).toHaveBeenCalledTimes(2));
-    await expect.poll(() => player!.dataset.hlsUrl?.includes('access=fresh') ?? false).toBe(true);
+    await vi.waitFor(() =>
+      expect(player!.dataset.hlsUrl?.includes('access=fresh') ?? false).toBe(true)
+    );
   });
 
   it('clears stale image URLs when refresh returns null asset URLs', async () => {
