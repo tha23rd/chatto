@@ -465,6 +465,7 @@ calls, and similar room-specific panels can plug into the same shell. See the
         <UserContextMenu
           user={popoverMember}
           anchorRect={popoverAnchorRect}
+          roles={popoverMember.roles}
           canSendMessage={canStartDMs}
           canBanFromRoom={canRemovePopoverMember}
           banningFromRoom={banningMemberId === popoverMember.id}

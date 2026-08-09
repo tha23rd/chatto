@@ -58,3 +58,4 @@ to the table above without renumbering.
 | [FDR-902](FDR-902-channel-webhooks.md) | Channel Webhooks | Active | 2026-07-16 |
 | [FDR-903](FDR-903-soundboard.md) | Soundboard | Active | 2026-07-21 |
 | [FDR-904](FDR-904-anonymous-origin-clients.md) | Anonymous-Origin Clients | Active | 2026-08-03 |
+| [FDR-905](FDR-905-profile-popover.md) | Profile Popover | Active | 2026-08-09 |

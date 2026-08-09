@@ -42,6 +42,7 @@ Room sidebar panel for voice/video calls.
   import UserContextMenu from '$lib/components/menus/UserContextMenu.svelte';
   import { getVoiceCallJoinErrorMessage } from '$lib/state/server/voiceCall.svelte';
   import { getSoundboard } from '$lib/state/soundboard.svelte';
+  import { getRoomMembersStore } from '$lib/state/room';
   import type { Sound } from '$lib/api-client/soundboard';
   import type { Track } from 'livekit-client';
   import type { Attachment } from 'svelte/attachments';
@@ -395,6 +396,12 @@ Room sidebar panel for voice/video calls.
     if (!rect) return;
     popoverParticipant = participant;
     popoverAnchorRect = { top: rect.top, bottom: rect.bottom, left: rect.left };
+  }
+
+  /** Role names for a participant who is still a room member; guests get none. */
+  function memberRoles(userId: string | null | undefined): string[] {
+    if (!userId) return [];
+    return getRoomMembersStore().members.find((member) => member.id === userId)?.roles ?? [];
   }
 
   function closeUserMenu() {
@@ -1218,6 +1225,7 @@ Room sidebar panel for voice/video calls.
   <UserContextMenu
     user={popoverParticipant.avatarUser}
     anchorRect={popoverAnchorRect}
+    roles={memberRoles(popoverParticipant.avatarUser.id)}
     canSendMessage={canStartDMs}
     onSendMessage={() => startDMWith(activeServerId, popoverParticipant!.avatarUser.id)}
     onClose={closeUserMenu}
