@@ -24,6 +24,12 @@ export type RoomMember = {
   deleted?: boolean;
   avatarUrl?: string | null;
   roleColor?: number | null;
+  /**
+   * Explicit role names (excluding the virtual `everyone` role), when known.
+   * Absent for members resolved outside the member directory, e.g. a message
+   * author who left the room.
+   */
+  roles?: string[];
   customStatus?: CustomUserStatus | null;
   presenceStatus: PresenceStatus;
 };
@@ -366,6 +372,9 @@ function memberFromDirectory(member: DirectoryMember): RoomMember {
     deleted: member.deleted,
     avatarUrl: member.avatarUrl,
     roleColor: member.roleColor,
+    // The directory includes the virtual `everyone` role for permission-model
+    // parity; UI surfaces show only explicit roles.
+    roles: member.roles.filter((roleName) => roleName !== 'everyone'),
     customStatus: member.customStatus,
     presenceStatus: member.presenceStatus
   };

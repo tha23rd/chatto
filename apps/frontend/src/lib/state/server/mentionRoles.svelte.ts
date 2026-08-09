@@ -5,7 +5,7 @@ type MentionRoleAPI = Pick<RoleAPI, 'listRoles'>;
 
 export type MentionRolesStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
-/** Shared public role catalogue used by message rendering and composers. */
+/** Shared public role catalogue used by message rendering, composers, and profile popovers. */
 export class MentionRolesStore {
   roles = $state.raw<MentionRole[]>([]);
   status = $state<MentionRolesStatus>('idle');
@@ -33,11 +33,13 @@ export class MentionRolesStore {
       .then(({ roles }) => {
         this.roles = roles
           .filter(({ name }) => name !== 'everyone')
-          .map(({ name, isSystem, position, pingable }) => ({
+          .map(({ name, displayName, isSystem, position, pingable, color }) => ({
             name,
+            displayName,
             isSystem,
             position,
-            pingable
+            pingable,
+            color
           }));
         this.status = 'ready';
         return true;

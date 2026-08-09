@@ -3,7 +3,17 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 
 import { q } from '$lib/test-utils';
+import type { MentionRole } from '$lib/state/room';
 import UserContextMenu from './UserContextMenu.svelte';
+
+const mentionRoles = vi.hoisted(() => ({
+  roles: [] as MentionRole[],
+  load: vi.fn(() => Promise.resolve(true))
+}));
+
+vi.mock('$lib/state/server/scope.svelte', () => ({
+  useServerScope: () => ({ store: { mentionRoles } })
+}));
 
 vi.mock('$lib/state/userProfiles.svelte', () => ({
   getLiveDisplayName: (_userId: string, fallback: string) => fallback,
@@ -107,5 +117,55 @@ describe('UserContextMenu', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('renders the member roles as pills, highest role first', async () => {
+    mentionRoles.roles = [
+      { name: 'moderator', displayName: 'Moderator', isSystem: false, position: 100, pingable: false },
+      {
+        name: 'support',
+        displayName: 'Support',
+        isSystem: false,
+        position: 50,
+        pingable: false,
+        color: 0x5865f2
+      }
+    ];
+    const { container } = renderMenu({ roles: ['support', 'moderator'] });
+
+    await expect.element(q(container, '[role="dialog"]')).toBeInTheDocument();
+    const pills = [...container.querySelectorAll('.role-pills > span')].map((el) =>
+      el.textContent?.trim()
+    );
+    expect(pills).toEqual(['Moderator', 'Support']);
+    // Coloured roles paint their dot with the role colour.
+    const dots = [...container.querySelectorAll('.role-pills > span span')].map(
+      (dot) => (dot as HTMLElement).style.background
+    );
+    expect(dots).toContain('rgb(88, 101, 242)');
+    expect(mentionRoles.load).toHaveBeenCalled();
+  });
+
+  it('hides the roles section when the member has no explicit roles', async () => {
+    mentionRoles.roles = [
+      { name: 'moderator', displayName: 'Moderator', isSystem: false, position: 100, pingable: false }
+    ];
+    const { container } = renderMenu();
+
+    await expect.element(q(container, '[role="dialog"]')).toBeInTheDocument();
+    expect(container.querySelector('.role-pills')).toBeNull();
+  });
+
+  it('skips role names missing from the catalogue', async () => {
+    mentionRoles.roles = [
+      { name: 'moderator', displayName: 'Moderator', isSystem: false, position: 100, pingable: false }
+    ];
+    const { container } = renderMenu({ roles: ['moderator', 'deleted-role'] });
+
+    await expect.element(q(container, '[role="dialog"]')).toBeInTheDocument();
+    const pills = [...container.querySelectorAll('.role-pills > span')].map((el) =>
+      el.textContent?.trim()
+    );
+    expect(pills).toEqual(['Moderator']);
   });
 });
