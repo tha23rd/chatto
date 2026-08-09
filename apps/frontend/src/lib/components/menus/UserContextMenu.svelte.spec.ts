@@ -134,7 +134,9 @@ describe('UserContextMenu', () => {
     const { container } = renderMenu({ roles: ['support', 'moderator'] });
 
     await expect.element(q(container, '[role="dialog"]')).toBeInTheDocument();
-    const pills = [...container.querySelectorAll('.role-pills > span')].map((el) => el.textContent);
+    const pills = [...container.querySelectorAll('.role-pills > span')].map((el) =>
+      el.textContent?.trim()
+    );
     expect(pills).toEqual(['Moderator', 'Support']);
     // Coloured roles paint their dot with the role colour.
     expect((q(container, '.role-pills > span span') as HTMLElement).style.background).toBe(
@@ -160,7 +162,9 @@ describe('UserContextMenu', () => {
     const { container } = renderMenu({ roles: ['moderator', 'deleted-role'] });
 
     await expect.element(q(container, '[role="dialog"]')).toBeInTheDocument();
-    const pills = [...container.querySelectorAll('.role-pills > span')].map((el) => el.textContent);
+    const pills = [...container.querySelectorAll('.role-pills > span')].map((el) =>
+      el.textContent?.trim()
+    );
     expect(pills).toEqual(['Moderator']);
   });
 });
