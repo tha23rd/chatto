@@ -364,7 +364,12 @@ export function getMemberPresence(member: RoomMember): PresenceStatus {
   return state.livePresence.get(member.id) ?? member.presenceStatus;
 }
 
-function memberFromDirectory(member: DirectoryMember): RoomMember {
+/**
+ * Maps a public directory row to a room member, filtering the virtual
+ * `everyone` role. Used by both the paged directory fallback and the realtime
+ * projection path so member role names reach the profile popover everywhere.
+ */
+export function memberFromDirectory(member: DirectoryMember): RoomMember {
   return {
     id: member.id,
     login: member.login,
