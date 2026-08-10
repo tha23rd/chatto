@@ -44,7 +44,7 @@ import {
 } from '$lib/state/userSummaries.svelte';
 import { clearCustomEmojis, notifyCustomEmojis } from '$lib/state/customEmojis.svelte';
 import { clearSoundboard, notifySoundboard } from '$lib/state/soundboard.svelte';
-import { memberFromDirectory } from '$lib/state/room/members.svelte';
+import { memberFromDirectory } from '$lib/state/room/memberMapping';
 import { mapNotificationPage } from '$lib/api-client/notifications';
 import { RealtimeProjectionSyncState } from './realtimeSync.svelte';
 import type { ActiveCall } from '@chatto/api-types/api/v1/voice_calls_pb';
