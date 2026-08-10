@@ -138,6 +138,7 @@
       {serverId}
       user={interactions.user}
       anchorRect={interactions.anchorRect}
+      roles={interactions.user.roles}
       canSendMessage={canStartDMs && !interactions.user.deleted}
       canBanFromRoom={canBanPopoverUser}
       banningFromRoom={banningMemberId === interactions.user.id}
