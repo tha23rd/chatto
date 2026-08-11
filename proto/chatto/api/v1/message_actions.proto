@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package chatto.api.v1;
+
+import "buf/validate/validate.proto";
+import "chatto/api/v1/pagination.proto";
+import "google/protobuf/descriptor.proto";
+import "google/protobuf/timestamp.proto";
+
+// Visual treatment for a message action button.
+enum MessageActionStyle {
+  // Uses the normal secondary button treatment.
+  MESSAGE_ACTION_STYLE_UNSPECIFIED = 0;
+  // Emphasises the primary action.
+  MESSAGE_ACTION_STYLE_PRIMARY = 1;
+  // Uses the normal secondary button treatment.
+  MESSAGE_ACTION_STYLE_SECONDARY = 2;
+  // Indicates a successful or affirmative action.
+  MESSAGE_ACTION_STYLE_SUCCESS = 3;
+  // Indicates a destructive or dangerous action.
+  MESSAGE_ACTION_STYLE_DANGER = 4;
+}
+
+// Author-defined button attached to a message.
+//
+// The action ID is opaque integration data visible to room members and
+// returned to the message author when a member invokes the button. Chatto does
+// not interpret it.
+message MessageAction {
+  // Stable integration-defined ID within this message.
+  string id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+    pattern: "^[A-Za-z0-9_-]+$"
+  }];
+  // Visible button label.
+  string label = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_bytes: 80
+  }];
+  // Visual treatment. Unspecified uses the secondary treatment.
+  MessageActionStyle style = 3 [(buf.validate.field).enum = {defined_only: true}];
+  // Whether the button is visible but cannot currently be invoked.
+  bool disabled = 4;
+}
+
+// Complete replacement set used when creating or updating a message.
+message MessageActionSet {
+  // Ordered action buttons. IDs must be unique within the set.
+  repeated MessageAction actions = 1 [(buf.validate.field).repeated = {
+    max_items: 5
+  }];
+}
+
+// One pending action invocation delivered privately to the message author.
+message MessageActionInvocation {
+  // Caller-supplied idempotency key and stable invocation ID.
+  string id = 1;
+  // Room containing the message.
+  string room_id = 2;
+  // Canonical message event ID. Invocations made from a thread echo refer to
+  // the original message event.
+  string message_event_id = 3;
+  // Integration-defined action ID from the message.
+  string action_id = 4;
+  // User who invoked the action.
+  string actor_id = 5;
+  // Time when Chatto accepted the invocation.
+  google.protobuf.Timestamp created_at = 6;
+}
+
+// Request to invoke one enabled action on a visible message.
+message InvokeMessageActionRequest {
+  // Required. Room containing the message.
+  string room_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Required. Message event ID as rendered to the caller.
+  string message_event_id = 2 [(buf.validate.field).string.min_len = 1];
+  // Required. Action ID attached to the message.
+  string action_id = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+    pattern: "^[A-Za-z0-9_-]+$"
+  }];
+  // Required. Random client-generated idempotency key. Retrying the same
+  // request with this key returns the original invocation.
+  string request_id = 4 [(buf.validate.field).string = {
+    min_len: 16
+    max_len: 64
+    pattern: "^[A-Za-z0-9_-]+$"
+  }];
+}
+
+// Result of invoking a message action.
+message InvokeMessageActionResponse {
+  // Accepted pending invocation.
+  MessageActionInvocation invocation = 1;
+}
+
+// Request for pending invocations owned by the authenticated message author.
+message ListMessageActionInvocationsRequest {
+  // Page request. Defaults to 50 results when absent or limit is zero.
+  PageRequest page = 1;
+}
+
+// Page of pending action invocations.
+message ListMessageActionInvocationsResponse {
+  // Pending invocations, oldest first.
+  repeated MessageActionInvocation invocations = 1;
+  // Page metadata.
+  PageInfo page = 2;
+}
+
+// Request to acknowledge one pending action invocation.
+message AcknowledgeMessageActionInvocationRequest {
+  // Required. Invocation owned by the authenticated message author.
+  string invocation_id = 1 [(buf.validate.field).string = {
+    min_len: 16
+    max_len: 64
+    pattern: "^[A-Za-z0-9_-]+$"
+  }];
+}
+
+// Result of acknowledging an action invocation.
+message AcknowledgeMessageActionInvocationResponse {
+  // True when the invocation is no longer pending.
+  bool acknowledged = 1;
+}
+
+// Invokes message buttons and exposes the private pending-invocation inbox
+// owned by each message author.
+service MessageActionService {
+  // Invokes one enabled action. The caller must be able to view the message.
+  // A successful invocation remains pending for up to 24 hours or until its
+  // message author acknowledges it.
+  rpc InvokeMessageAction(InvokeMessageActionRequest) returns (InvokeMessageActionResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  // Lists pending invocations for messages authored by the current user.
+  rpc ListMessageActionInvocations(ListMessageActionInvocationsRequest) returns (ListMessageActionInvocationsResponse);
+  // Acknowledges an invocation owned by the current user. Unknown or already
+  // acknowledged IDs are treated as idempotent success.
+  rpc AcknowledgeMessageActionInvocation(AcknowledgeMessageActionInvocationRequest) returns (AcknowledgeMessageActionInvocationResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+}

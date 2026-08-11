@@ -773,8 +773,11 @@ type Message struct {
 	// per-message username and/or avatar. When present, clients render this
 	// name/avatar instead of the author's profile.
 	WebhookOverride *MessageWebhookOverride `protobuf:"bytes,22,opt,name=webhook_override,json=webhookOverride,proto3" json:"webhook_override,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Author-defined buttons that can send a named invocation back to the
+	// message author.
+	Actions       []*MessageAction `protobuf:"bytes,23,rep,name=actions,proto3" json:"actions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Message) Reset() {
@@ -926,6 +929,13 @@ func (x *Message) GetWebhookOverride() *MessageWebhookOverride {
 	return nil
 }
 
+func (x *Message) GetActions() []*MessageAction {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
 // MessageWebhookOverride is the per-message display identity a channel webhook
 // set on an individual post (FDR-902).
 type MessageWebhookOverride struct {
@@ -986,7 +996,7 @@ var File_chatto_api_v1_message_types_proto protoreflect.FileDescriptor
 
 const file_chatto_api_v1_message_types_proto_rawDesc = "" +
 	"\n" +
-	"!chatto/api/v1/message_types.proto\x12\rchatto.api.v1\x1a!chatto/api/v1/link_previews.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"^\n" +
+	"!chatto/api/v1/message_types.proto\x12\rchatto.api.v1\x1a!chatto/api/v1/link_previews.proto\x1a#chatto/api/v1/message_actions.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"^\n" +
 	"\x0fMessageAssetUrl\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x129\n" +
 	"\n" +
@@ -1039,7 +1049,7 @@ const file_chatto_api_v1_message_types_proto_rawDesc = "" +
 	"\rlast_reply_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vlastReplyAt\x12?\n" +
 	"\x1cparticipant_preview_user_ids\x18\x04 \x03(\tR\x19participantPreviewUserIds\x12+\n" +
 	"\x11participant_count\x18\x05 \x01(\x05R\x10participantCount\x12C\n" +
-	"\fviewer_state\x18\x06 \x01(\v2 .chatto.api.v1.ThreadViewerStateR\vviewerState\"\xd6\a\n" +
+	"\fviewer_state\x18\x06 \x01(\v2 .chatto.api.v1.ThreadViewerStateR\vviewerState\"\x8e\b\n" +
 	"\aMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\aroom_id\x18\x02 \x01(\tR\x06roomId\x129\n" +
@@ -1061,7 +1071,8 @@ const file_chatto_api_v1_message_types_proto_rawDesc = "" +
 	"\x06thread\x18\x14 \x01(\v2\x1c.chatto.api.v1.ThreadSummaryR\x06thread\x129\n" +
 	"\n" +
 	"deleted_at\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt\x12P\n" +
-	"\x10webhook_override\x18\x16 \x01(\v2%.chatto.api.v1.MessageWebhookOverrideR\x0fwebhookOverrideB\a\n" +
+	"\x10webhook_override\x18\x16 \x01(\v2%.chatto.api.v1.MessageWebhookOverrideR\x0fwebhookOverride\x126\n" +
+	"\aactions\x18\x17 \x03(\v2\x1c.chatto.api.v1.MessageActionR\aactionsB\a\n" +
 	"\x05_bodyJ\x04\b\x0e\x10\x13R\vreply_countR\rlast_reply_atR#thread_participant_preview_user_idsR\x18thread_participant_countR\x1aviewer_is_following_thread\"\x84\x01\n" +
 	"\x16MessageWebhookOverride\x12&\n" +
 	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12\"\n" +
@@ -1104,6 +1115,7 @@ var file_chatto_api_v1_message_types_proto_goTypes = []any{
 	(*MessageWebhookOverride)(nil),    // 10: chatto.api.v1.MessageWebhookOverride
 	(*timestamppb.Timestamp)(nil),     // 11: google.protobuf.Timestamp
 	(*LinkPreview)(nil),               // 12: chatto.api.v1.LinkPreview
+	(*MessageAction)(nil),             // 13: chatto.api.v1.MessageAction
 }
 var file_chatto_api_v1_message_types_proto_depIdxs = []int32{
 	11, // 0: chatto.api.v1.MessageAssetUrl.expires_at:type_name -> google.protobuf.Timestamp
@@ -1126,11 +1138,12 @@ var file_chatto_api_v1_message_types_proto_depIdxs = []int32{
 	8,  // 17: chatto.api.v1.Message.thread:type_name -> chatto.api.v1.ThreadSummary
 	11, // 18: chatto.api.v1.Message.deleted_at:type_name -> google.protobuf.Timestamp
 	10, // 19: chatto.api.v1.Message.webhook_override:type_name -> chatto.api.v1.MessageWebhookOverride
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	13, // 20: chatto.api.v1.Message.actions:type_name -> chatto.api.v1.MessageAction
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_chatto_api_v1_message_types_proto_init() }
@@ -1139,6 +1152,7 @@ func file_chatto_api_v1_message_types_proto_init() {
 		return
 	}
 	file_chatto_api_v1_link_previews_proto_init()
+	file_chatto_api_v1_message_actions_proto_init()
 	file_chatto_api_v1_message_types_proto_msgTypes[6].OneofWrappers = []any{}
 	file_chatto_api_v1_message_types_proto_msgTypes[8].OneofWrappers = []any{}
 	file_chatto_api_v1_message_types_proto_msgTypes[9].OneofWrappers = []any{}

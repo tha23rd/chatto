@@ -6,6 +6,7 @@
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message as Message$1, proto3, protoInt64, Timestamp } from "@bufbuild/protobuf";
 import { LinkPreview } from "./link_previews_pb.js";
+import { MessageAction } from "./message_actions_pb.js";
 
 /**
  * Processing state for a video attachment.
@@ -762,6 +763,14 @@ export class Message extends Message$1<Message> {
    */
   webhookOverride?: MessageWebhookOverride;
 
+  /**
+   * Author-defined buttons that can send a named invocation back to the
+   * message author.
+   *
+   * @generated from field: repeated chatto.api.v1.MessageAction actions = 23;
+   */
+  actions: MessageAction[] = [];
+
   constructor(data?: PartialMessage<Message>) {
     super();
     proto3.util.initPartial(data, this);
@@ -787,6 +796,7 @@ export class Message extends Message$1<Message> {
     { no: 20, name: "thread", kind: "message", T: ThreadSummary },
     { no: 21, name: "deleted_at", kind: "message", T: Timestamp },
     { no: 22, name: "webhook_override", kind: "message", T: MessageWebhookOverride },
+    { no: 23, name: "actions", kind: "message", T: MessageAction, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Message {

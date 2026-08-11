@@ -17,6 +17,7 @@ import { createUserAPI } from './users.js';
 import { RoomTimelinePage } from '@chatto/api-types/api/v1/room_timeline_pb';
 import type { LinkPreview } from '@chatto/api-types/api/v1/link_previews_pb';
 import { MessageVideoProcessingStatus } from '@chatto/api-types/api/v1/message_types_pb';
+import { MessageActionStyle } from '@chatto/api-types/api/v1/message_actions_pb';
 import type {
   Message,
   MessageAssetUrl,
@@ -372,6 +373,12 @@ export function messagePostedPayload(
           avatarUrl: message.webhookOverride.avatarUrl ?? null
         }
       : null,
+    actions: message.actions.map((action) => ({
+      id: action.id,
+      label: action.label,
+      style: messageActionStyleView(action.style),
+      disabled: action.disabled
+    })),
     reactions: message.reactions.map((reaction) => ({
       emoji: reaction.emoji,
       count: reaction.count,
@@ -381,6 +388,19 @@ export function messagePostedPayload(
         .filter((user): user is NonNullable<ReturnType<typeof userView>> => user !== null)
     }))
   };
+}
+
+function messageActionStyleView(style: MessageActionStyle) {
+  switch (style) {
+    case MessageActionStyle.PRIMARY:
+      return 'primary' as const;
+    case MessageActionStyle.SUCCESS:
+      return 'success' as const;
+    case MessageActionStyle.DANGER:
+      return 'danger' as const;
+    default:
+      return 'secondary' as const;
+  }
 }
 
 function userView(userId: string, users: Record<string, User>) {

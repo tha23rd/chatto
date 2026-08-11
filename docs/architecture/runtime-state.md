@@ -4,7 +4,8 @@ Key files: [`cli/internal/core/storage.go`](../../cli/internal/core/storage.go),
 [`cli/internal/core/read_state_index.go`](../../cli/internal/core/read_state_index.go),
 [`cli/internal/core/runtime_token_keys.go`](../../cli/internal/core/runtime_token_keys.go),
 [`cli/internal/core/external_identities.go`](../../cli/internal/core/external_identities.go),
-[`cli/internal/core/asset_uploads.go`](../../cli/internal/core/asset_uploads.go), and
+[`cli/internal/core/asset_uploads.go`](../../cli/internal/core/asset_uploads.go),
+[`cli/internal/core/message_actions.go`](../../cli/internal/core/message_actions.go), and
 [`cli/internal/kms/builtin.go`](../../cli/internal/kms/builtin.go)
 
 Related decision: [ADR-036](../adr/ADR-036-runtime-state-kv-boundary.md).
@@ -62,6 +63,7 @@ survives restart but is not content/domain history. See
 | `push_subscription.{userId}.{endpointHash}` | Web Push subscription record (protobuf `PushSubscription`) for a user's browser/device. The endpoint hash keeps multiple devices per user while deduplicating the same browser subscription. A record is deliverable only while its revision matches the endpoint's active owner claim. |
 | `push_endpoint_owner.{sha256(endpoint)}` | JSON Web Push endpoint owner claim containing the active user ID and exact `push_subscription` KV revision. Saves transfer the claim with KV OCC; revision-matched deletes prevent stale logout, expiry cleanup, and subscription rotation races from releasing a newer claim. Legacy subscription records without a claim remain inert until the browser re-registers. |
 | `asset_upload.{uploadId}` | JSON room-scoped attachment upload session with actor, declared size/SHA-256, committed offset, chunk keys, status, and expiry. Open sessions use a 15-minute TTL; completed sessions expire with the 24-hour pending-attachment claim window. |
+| `message_action_invocation.{recipientId}.{invocationId}` | Pending protobuf `MessageActionInvocation` delivered privately to the author of an interactive message. A caller-supplied random invocation ID is also the create-only idempotency key. Records expire after 24 hours or are revision-matched deleted when the author acknowledges them. |
 | `projection_snapshot_pointer.{opaqueLocator}` | Encrypted current/previous generation IDs for one projection and snapshot contract. The opaque locator is derived from both, so different contracts cannot read or overwrite each other. Uses KV revision OCC so stale writers cannot regress newer history within one contract. |
 | `email_otp.{hmac(subject)}.{hmac(code)}` | Shared registration and email-verification OTP code JSON. Registration values carry normalized email; authenticated email-verification values carry user ID and email. The subject hash scopes registration by email and authenticated verification by user/email, the code hash verifies the submitted six-digit code, and the raw code is never stored. Uses per-key 15-minute TTL. |
 | `email_otp.{hmac(subject)}.challenge` | Shared OTP challenge JSON with failed-attempt and issued-code counters. Wrong-code attempts update this record revision-safely, five wrong guesses exhaust the challenge until TTL, and at most ten codes can be issued for one challenge window. Uses per-key 15-minute TTL. |

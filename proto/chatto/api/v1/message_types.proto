@@ -3,6 +3,7 @@ syntax = "proto3";
 package chatto.api.v1;
 
 import "chatto/api/v1/link_previews.proto";
+import "chatto/api/v1/message_actions.proto";
 import "google/protobuf/timestamp.proto";
 
 // Time-limited URL for an asset attached to a message.
@@ -190,6 +191,9 @@ message Message {
   // per-message username and/or avatar. When present, clients render this
   // name/avatar instead of the author's profile.
   MessageWebhookOverride webhook_override = 22;
+  // Author-defined buttons that can send a named invocation back to the
+  // message author.
+  repeated MessageAction actions = 23;
 }
 
 // MessageWebhookOverride is the per-message display identity a channel webhook

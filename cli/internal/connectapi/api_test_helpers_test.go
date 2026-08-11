@@ -112,6 +112,7 @@ type connectAPITestEnv struct {
 	directory        *roomDirectoryService
 	externalAuth     *externalIdentityAuthService
 	messages         *messageService
+	messageActions   *messageActionService
 	notifications    *notificationService
 	permissions      *permissionService
 	prefs            *notificationPreferencesService
@@ -165,6 +166,7 @@ func newConnectAPITestEnv(t *testing.T) *connectAPITestEnv {
 		directory:        &roomDirectoryService{api: api},
 		externalAuth:     &externalIdentityAuthService{api: api},
 		messages:         &messageService{api: api},
+		messageActions:   &messageActionService{api: api},
 		notifications:    &notificationService{api: api},
 		permissions:      &permissionService{api: api},
 		prefs:            &notificationPreferencesService{api: api},

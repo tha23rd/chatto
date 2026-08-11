@@ -13,6 +13,7 @@ import {
 } from '@chatto/api-types/api/v1/asset_uploads_pb';
 import { Asset } from '@chatto/api-types/api/v1/attachments_pb';
 import { Message } from '@chatto/api-types/api/v1/message_types_pb';
+import { MessageActionStyle } from '@chatto/api-types/api/v1/message_actions_pb';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   deleteMessage: vi.fn(),
   deleteAttachment: vi.fn(),
   deleteLinkPreview: vi.fn(),
+  invokeMessageAction: vi.fn(),
   batchGetUsers: vi.fn(),
   createUpload: vi.fn(),
   uploadChunk: vi.fn(),
@@ -54,6 +56,7 @@ describe('createMessageAPI', () => {
     mocks.deleteMessage.mockReset();
     mocks.deleteAttachment.mockReset();
     mocks.deleteLinkPreview.mockReset();
+    mocks.invokeMessageAction.mockReset();
     mocks.batchGetUsers.mockReset();
     mocks.batchGetUsers.mockResolvedValue({ users: [] });
     mocks.createUpload.mockReset();
@@ -73,6 +76,11 @@ describe('createMessageAPI', () => {
       if (service?.typeName === 'chatto.api.v1.UserService') {
         return {
           batchGetUsers: mocks.batchGetUsers
+        };
+      }
+      if (service?.typeName === 'chatto.api.v1.MessageActionService') {
+        return {
+          invokeMessageAction: mocks.invokeMessageAction
         };
       }
       return {
@@ -358,6 +366,56 @@ describe('createMessageAPI', () => {
         alsoSendToChannel: true
       },
       { headers: undefined }
+    );
+  });
+
+  it('creates and invokes generic message actions', async () => {
+    mocks.createMessage.mockResolvedValue(new CreateMessageResponse());
+    mocks.invokeMessageAction.mockResolvedValue({});
+    const api = createMessageAPI({
+      baseUrl: 'https://remote.example.test/api/connect',
+      bearerToken: 'remote-token'
+    });
+
+    await api.createMessage({
+      roomId: 'room-1',
+      body: 'Choose',
+      actions: [
+        { id: 'accept', label: 'Accept', style: MessageActionStyle.SUCCESS },
+        { id: 'decline', label: 'Decline', disabled: true }
+      ]
+    });
+    await api.invokeMessageAction({
+      roomId: 'room-1',
+      messageEventId: 'event-1',
+      actionId: 'accept',
+      requestId: 'request_12345678'
+    });
+
+    expect(mocks.createMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actions: {
+          actions: [
+            { id: 'accept', label: 'Accept', style: MessageActionStyle.SUCCESS, disabled: false },
+            {
+              id: 'decline',
+              label: 'Decline',
+              style: MessageActionStyle.UNSPECIFIED,
+              disabled: true
+            }
+          ]
+        }
+      }),
+      { headers: { Authorization: 'Bearer remote-token' } }
+    );
+    expect(mocks.invokeMessageAction).toHaveBeenCalledWith(
+      {
+        roomId: 'room-1',
+        messageEventId: 'event-1',
+        actionId: 'accept',
+        requestId: 'request_12345678'
+      },
+      { headers: { Authorization: 'Bearer remote-token' } }
     );
   });
 

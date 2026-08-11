@@ -619,6 +619,116 @@ Result of deleting the authenticated account.
 | `deleted` | `bool` | True when the account was deleted. |
 
 
+<a id="chatto-api-v1-MessageActionService"></a>
+
+## MessageActionService
+
+Invokes message buttons and exposes the private pending-invocation inbox
+owned by each message author.
+
+<a id="chatto-api-v1-MessageActionService-InvokeMessageAction"></a>
+
+### InvokeMessageAction
+
+Invokes one enabled action. The caller must be able to view the message.
+A successful invocation remains pending for up to 24 hours or until its
+message author acknowledges it.
+
+```http
+POST /api/connect/chatto.api.v1.MessageActionService/InvokeMessageAction
+```
+
+<a id="chatto-api-v1-InvokeMessageActionRequest"></a>
+
+#### Input: InvokeMessageActionRequest
+
+Request to invoke one enabled action on a visible message.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `room_id` | `string` | Required. Room containing the message. |
+| `message_event_id` | `string` | Required. Message event ID as rendered to the caller. |
+| `action_id` | `string` | Required. Action ID attached to the message. |
+| `request_id` | `string` | Required. Random client-generated idempotency key. Retrying the same request with this key returns the original invocation. |
+
+
+<a id="chatto-api-v1-InvokeMessageActionResponse"></a>
+
+#### Result: InvokeMessageActionResponse
+
+Result of invoking a message action.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `invocation` | [`MessageActionInvocation`](#chatto-api-v1-MessageActionInvocation) | Accepted pending invocation. |
+
+
+<a id="chatto-api-v1-MessageActionService-ListMessageActionInvocations"></a>
+
+### ListMessageActionInvocations
+
+Lists pending invocations for messages authored by the current user.
+
+```http
+POST /api/connect/chatto.api.v1.MessageActionService/ListMessageActionInvocations
+```
+
+<a id="chatto-api-v1-ListMessageActionInvocationsRequest"></a>
+
+#### Input: ListMessageActionInvocationsRequest
+
+Request for pending invocations owned by the authenticated message author.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `page` | [`PageRequest`](#chatto-api-v1-PageRequest) | Page request. Defaults to 50 results when absent or limit is zero. |
+
+
+<a id="chatto-api-v1-ListMessageActionInvocationsResponse"></a>
+
+#### Result: ListMessageActionInvocationsResponse
+
+Page of pending action invocations.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `invocations` | repeated [`MessageActionInvocation`](#chatto-api-v1-MessageActionInvocation) | Pending invocations, oldest first. |
+| `page` | [`PageInfo`](#chatto-api-v1-PageInfo) | Page metadata. |
+
+
+<a id="chatto-api-v1-MessageActionService-AcknowledgeMessageActionInvocation"></a>
+
+### AcknowledgeMessageActionInvocation
+
+Acknowledges an invocation owned by the current user. Unknown or already
+acknowledged IDs are treated as idempotent success.
+
+```http
+POST /api/connect/chatto.api.v1.MessageActionService/AcknowledgeMessageActionInvocation
+```
+
+<a id="chatto-api-v1-AcknowledgeMessageActionInvocationRequest"></a>
+
+#### Input: AcknowledgeMessageActionInvocationRequest
+
+Request to acknowledge one pending action invocation.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `invocation_id` | `string` | Required. Invocation owned by the authenticated message author. |
+
+
+<a id="chatto-api-v1-AcknowledgeMessageActionInvocationResponse"></a>
+
+#### Result: AcknowledgeMessageActionInvocationResponse
+
+Result of acknowledging an action invocation.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `acknowledged` | `bool` | True when the invocation is no longer pending. |
+
+
 <a id="chatto-api-v1-AssetService"></a>
 
 ## AssetService
@@ -1166,6 +1276,7 @@ Request to create a message in a room or thread.
 | `in_reply_to` | `string` | Event ID this message replies to for attribution. |
 | `also_send_to_channel` | `bool` | True to also echo a thread reply into the main room timeline. |
 | `link_preview_token` | `string` | Short-lived token returned by FetchLinkPreview for the selected URL. The server resolves the token to cached, server-fetched metadata during post. |
+| `actions` | [`MessageActionSet`](#chatto-api-v1-MessageActionSet) | Optional author-defined action buttons. |
 
 
 <a id="chatto-api-v1-CreateMessageResponse"></a>
@@ -1203,6 +1314,7 @@ Request to patch a message.
 | `event_id` | `string` | Required. Event ID of the message to edit. |
 | `body` | `optional string` | New message body text. Omit to preserve the current body. |
 | `also_send_to_channel` | `optional bool` | For thread replies, whether a channel echo should exist after saving. Omit to preserve the current echo state. |
+| `actions` | [`MessageActionSet`](#chatto-api-v1-MessageActionSet) | Complete replacement action set. Omit to preserve current actions; send an empty set to remove all actions. Only the message author may change it. |
 
 
 <a id="chatto-api-v1-UpdateMessageResponse"></a>
@@ -3831,6 +3943,81 @@ Bounded, provider-neutral social-post data used for native preview cards.
 
 
 
+<a id="chatto-api-v1-PageInfo"></a>
+
+### PageInfo
+
+Offset-based page metadata returned by list RPCs.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `total_count` | `int64` | Total matching item count before pagination. |
+| `has_more` | `bool` | True when another page exists after this response. |
+
+
+
+<a id="chatto-api-v1-PageRequest"></a>
+
+### PageRequest
+
+Offset-based page request for list RPCs whose result order is stable enough
+for simple list browsing.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `limit` | `int32` | Maximum number of items to request. Each RPC defines its default and effective maximum; this shared request shape accepts values up to 500. |
+| `offset` | `int32` | Zero-based number of matching items to skip. |
+
+
+
+<a id="chatto-api-v1-MessageAction"></a>
+
+### MessageAction
+
+Author-defined button attached to a message.
+
+The action ID is opaque integration data visible to room members and
+returned to the message author when a member invokes the button. Chatto does
+not interpret it.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Stable integration-defined ID within this message. |
+| `label` | `string` | Visible button label. |
+| `style` | [`MessageActionStyle`](#chatto-api-v1-MessageActionStyle) | Visual treatment. Unspecified uses the secondary treatment. |
+| `disabled` | `bool` | Whether the button is visible but cannot currently be invoked. |
+
+
+
+<a id="chatto-api-v1-MessageActionInvocation"></a>
+
+### MessageActionInvocation
+
+One pending action invocation delivered privately to the message author.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Caller-supplied idempotency key and stable invocation ID. |
+| `room_id` | `string` | Room containing the message. |
+| `message_event_id` | `string` | Canonical message event ID. Invocations made from a thread echo refer to the original message event. |
+| `action_id` | `string` | Integration-defined action ID from the message. |
+| `actor_id` | `string` | User who invoked the action. |
+| `created_at` | `google.protobuf.Timestamp` | Time when Chatto accepted the invocation. |
+
+
+
+<a id="chatto-api-v1-MessageActionSet"></a>
+
+### MessageActionSet
+
+Complete replacement set used when creating or updating a message.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `actions` | repeated [`MessageAction`](#chatto-api-v1-MessageAction) | Ordered action buttons. IDs must be unique within the set. |
+
+
+
 <a id="chatto-api-v1-Message"></a>
 
 ### Message
@@ -3861,6 +4048,7 @@ requests.
 | `thread` | [`ThreadSummary`](#chatto-api-v1-ThreadSummary) | Aggregated thread state, when known for a thread root message. |
 | `deleted_at` | `google.protobuf.Timestamp` | Time when the message content was deleted through retraction or account crypto-shredding. Absent when unavailable body content is not a deletion. |
 | `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-902). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile. |
+| `actions` | repeated [`MessageAction`](#chatto-api-v1-MessageAction) | Author-defined buttons that can send a named invocation back to the message author. |
 
 
 
@@ -4087,33 +4275,6 @@ unknown reaction shortcode to a custom emoji by name.
 | `url` | `string` | Absolute or root-relative URL that renders the emoji image. |
 | `created_by` | `string` | User ID of the admin who created the emoji. |
 | `created_at_ms` | `int64` | Creation time in Unix milliseconds. |
-
-
-
-<a id="chatto-api-v1-PageInfo"></a>
-
-### PageInfo
-
-Offset-based page metadata returned by list RPCs.
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `total_count` | `int64` | Total matching item count before pagination. |
-| `has_more` | `bool` | True when another page exists after this response. |
-
-
-
-<a id="chatto-api-v1-PageRequest"></a>
-
-### PageRequest
-
-Offset-based page request for list RPCs whose result order is stable enough
-for simple list browsing.
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `limit` | `int32` | Maximum number of items to request. Each RPC defines its default and effective maximum; this shared request shape accepts values up to 500. |
-| `offset` | `int32` | Zero-based number of matching items to skip. |
 
 
 
@@ -4730,6 +4891,21 @@ User preference for rendering times in clients.
 | `TIME_FORMAT_AUTO` | `1` | Let the client choose based on locale and browser settings. |
 | `TIME_FORMAT_12_HOUR` | `2` | Render times using a 12-hour clock. |
 | `TIME_FORMAT_24_HOUR` | `3` | Render times using a 24-hour clock. |
+
+
+<a id="chatto-api-v1-MessageActionStyle"></a>
+
+### MessageActionStyle
+
+Visual treatment for a message action button.
+
+| Name | Number | Description |
+| --- | --- | --- |
+| `MESSAGE_ACTION_STYLE_UNSPECIFIED` | `0` | Uses the normal secondary button treatment. |
+| `MESSAGE_ACTION_STYLE_PRIMARY` | `1` | Emphasises the primary action. |
+| `MESSAGE_ACTION_STYLE_SECONDARY` | `2` | Uses the normal secondary button treatment. |
+| `MESSAGE_ACTION_STYLE_SUCCESS` | `3` | Indicates a successful or affirmative action. |
+| `MESSAGE_ACTION_STYLE_DANGER` | `4` | Indicates a destructive or dangerous action. |
 
 
 <a id="chatto-api-v1-MessageVideoProcessingStatus"></a>
