@@ -90,6 +90,18 @@ var (
 	// the requested link preview.
 	ErrMessageLinkPreviewNotFound = errors.New("message link preview not found")
 
+	// ErrMessageActionNotFound is returned when a message does not contain the
+	// requested action.
+	ErrMessageActionNotFound = errors.New("message action not found")
+
+	// ErrMessageActionDisabled is returned when an action is present but cannot
+	// currently be invoked.
+	ErrMessageActionDisabled = errors.New("message action is disabled")
+
+	// ErrMessageActionRequestIDExists is returned when an idempotency key was
+	// already used for a different invocation.
+	ErrMessageActionRequestIDExists = errors.New("message action request ID already exists")
+
 	// ErrMessageTooLong is returned when a message body exceeds the maximum length.
 	ErrMessageTooLong = errors.New("message body exceeds maximum length")
 
@@ -336,4 +348,13 @@ const (
 
 	// MaxMessageAttachmentAssetIDLength is the maximum length of a message attachment asset ID in bytes.
 	MaxMessageAttachmentAssetIDLength = 15
+
+	// MaxMessageActions is the maximum number of buttons attached to one message.
+	MaxMessageActions = 5
+
+	// MaxMessageActionIDLength bounds an integration-defined action ID.
+	MaxMessageActionIDLength = 64
+
+	// MaxMessageActionLabelLength bounds a visible action label in bytes.
+	MaxMessageActionLabelLength = 80
 )

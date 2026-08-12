@@ -51,6 +51,12 @@ message CreateMessageRequest {
   // both message.post and message.post-in-thread. Channel rooms only; cannot
   // be combined with thread_root_event_id.
   bool create_thread = 11;
+  // Optional author-defined action buttons.
+  //
+  // Fork-owned field. Upstream owns tags below 1000; this field was shipped
+  // at tag 11 in the fork's own main and is renumbered here to avoid the
+  // upstream tag space.
+  MessageActionSet actions = 1000;
 }
 
 // Result of creating a message.
@@ -80,6 +86,9 @@ message UpdateMessageRequest {
   // For thread replies, whether a channel echo should exist after saving.
   // Omit to preserve the current echo state.
   optional bool also_send_to_channel = 4;
+  // Complete replacement action set. Omit to preserve current actions; send
+  // an empty set to remove all actions. Only the message author may change it.
+  MessageActionSet actions = 5;
 }
 
 // Result of editing a message.

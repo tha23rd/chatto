@@ -266,6 +266,7 @@ func (h *timelineHydrator) messagePosted(ctx context.Context, event *core.RoomEv
 			message.UpdatedAt = timestamppb.New(*body.UpdatedAt)
 		}
 		message.WebhookOverride = webhookOverrideToAPI(body.WebhookOverride)
+		message.Actions = messageActionsToAPI(body.Actions)
 	}
 
 	if payload.GetInThread() == "" {

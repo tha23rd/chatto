@@ -74,6 +74,12 @@ const categories = [
         description: 'Message creation, editing, deletion, composer link-preview, reaction, and attachment RPCs.'
       },
       {
+        name: 'MessageActionService',
+        slug: 'message-actions',
+        title: 'Message Actions',
+        description: 'Message action invocation and author-owned pending-invocation RPCs.'
+      },
+      {
         name: 'MessageSearchService',
         slug: 'message-search',
         title: 'Message Search',

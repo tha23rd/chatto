@@ -3,7 +3,7 @@
   import { resolve } from '$app/paths';
   import MessageView from '$lib/components/messages/MessageView.svelte';
   import LinkPreviewCard from '$lib/components/LinkPreviewCard.svelte';
-  import type { TimelineEventView } from '$lib/render/timelineEvents';
+  import type { MessageActionStyleView, TimelineEventView } from '$lib/render/timelineEvents';
   import {
     getRoomPermissions,
     getRoomMembers,
@@ -52,6 +52,7 @@
   } from './messageEventModel';
   import { ThreadFollowState } from './threadFollowState.svelte';
   import { buildMessageActionModel } from './messageActionModel';
+  import { createMessageAPI } from '$lib/api-client/messages';
 
   let {
     event,
@@ -151,8 +152,38 @@
   const userInteractions = new MessageUserInteractionState(() => members);
   let messageBodySelectionRoot = $state<HTMLElement>();
   let selectedReplyQuoteSnapshot = $state<QuoteInsertionContent | null>(null);
+  let invokingActionId = $state<string | null>(null);
 
   const messageActions = useMessageActions();
+
+  function messageActionButtonClass(style: MessageActionStyleView) {
+    switch (style) {
+      case 'primary':
+        return 'btn-action';
+      case 'success':
+        return 'btn-success';
+      case 'danger':
+        return 'btn-danger';
+      default:
+        return 'btn-secondary';
+    }
+  }
+
+  async function invokeMessageAction(actionId: string) {
+    if (invokingActionId) return;
+    invokingActionId = actionId;
+    try {
+      await serverScope.connection.getAPI(createMessageAPI).invokeMessageAction({
+        roomId,
+        messageEventId: event.id,
+        actionId
+      });
+    } catch {
+      toast.error(m('common.error.generic'));
+    } finally {
+      invokingActionId = null;
+    }
+  }
 
   // Touch handlers for mobile
   function handleTouchStart() {
@@ -347,10 +378,13 @@
 
   const hasAttachments = $derived((msg?.attachments?.length ?? 0) > 0);
   const hasVisualEmbed = $derived(
-    hasAttachments || !!messageEvent?.linkPreview || messageLinks.length > 0
+    hasAttachments ||
+      !!messageEvent?.linkPreview ||
+      messageLinks.length > 0 ||
+      (msg?.actions?.length ?? 0) > 0
   );
 
-  // Message is "deleted" if it has no body AND no attachments.
+  // A message is deleted when none of its user-visible content remains.
   // Deleted messages always render as a tombstone — hiding them entirely opened up
   // moderation-evading and inconsistency vectors (e.g. event numbering gaps, lost
   // reply-attribution context, deleted-then-reacted-to messages disappearing).
@@ -642,6 +676,34 @@
           <MessagePreviewCard {link} />
         </div>
       {/each}
+
+      {#if msg.actions?.length}
+        <div
+          class="mt-2 flex flex-wrap gap-2"
+          role="group"
+          aria-label={m('room.message.actions.toolbar')}
+        >
+          {#each msg.actions as action (action.id)}
+            <button
+              type="button"
+              class={['btn-sm', messageActionButtonClass(action.style)]}
+              disabled={action.disabled || invokingActionId !== null}
+              aria-busy={invokingActionId === action.id}
+              onmousedown={(event) => event.stopPropagation()}
+              onpointerdown={(event) => event.stopPropagation()}
+              ontouchstart={(event) => event.stopPropagation()}
+              ontouchend={(event) => event.stopPropagation()}
+              oncontextmenu={(event) => event.stopPropagation()}
+              onclick={(clickEvent) => {
+                clickEvent.stopPropagation();
+                void invokeMessageAction(action.id);
+              }}
+            >
+              {action.label}
+            </button>
+          {/each}
+        </div>
+      {/if}
 
       {#if hasMessageFooter}
         <MessageMetaBar

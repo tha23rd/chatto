@@ -84,6 +84,9 @@ Request to create a message in a room or thread.
 | `also_send_to_channel` | `bool` | True to also echo a thread reply into the main room timeline. |
 | `link_preview_token` | `string` | Short-lived token returned by FetchLinkPreview for the selected URL. The server resolves the token to cached, server-fetched metadata during post. |
 | `create_thread` | `bool` | True to establish the new root message as a thread immediately. Requires both message.post and message.post-in-thread. Channel rooms only; cannot be combined with thread_root_event_id. |
+| `actions` | [`MessageActionSet`](/reference/connectrpc-api/types/#chatto-api-v1-MessageActionSet) | Optional author-defined action buttons.
+
+Fork-owned field. Upstream owns tags below 1000; this field was shipped at tag 11 in the fork's own main and is renumbered here to avoid the upstream tag space. |
 
 
 <a id="chatto-api-v1-CreateMessageResponse"></a>
@@ -121,6 +124,7 @@ Request to patch a message.
 | `event_id` | `string` | Required. Event ID of the message to edit. |
 | `body` | `optional string` | New message body text. Omit to preserve the current body. |
 | `also_send_to_channel` | `optional bool` | For thread replies, whether a channel echo should exist after saving. Omit to preserve the current echo state. |
+| `actions` | [`MessageActionSet`](/reference/connectrpc-api/types/#chatto-api-v1-MessageActionSet) | Complete replacement action set. Omit to preserve current actions; send an empty set to remove all actions. Only the message author may change it. |
 
 
 <a id="chatto-api-v1-UpdateMessageResponse"></a>

@@ -133,6 +133,7 @@ func (a *API) Handlers() []Handler {
 	externalAuthPath, externalAuthHandler := authv1connect.NewExternalIdentityAuthServiceHandler(&externalIdentityAuthService{api: a}, options...)
 	permissionPath, permissionHandler := adminv1connect.NewAdminPermissionServiceHandler(&permissionService{api: a}, options...)
 	messagePath, messageHandler := apiv1connect.NewMessageServiceHandler(&messageService{api: a}, options...)
+	messageActionPath, messageActionHandler := apiv1connect.NewMessageActionServiceHandler(&messageActionService{api: a}, options...)
 	messageSearchPath, messageSearchHandler := apiv1connect.NewMessageSearchServiceHandler(&messageSearchService{api: a}, options...)
 	notificationPath, notificationHandler := apiv1connect.NewNotificationServiceHandler(&notificationService{api: a}, options...)
 	prefsPath, prefsHandler := apiv1connect.NewNotificationPreferencesServiceHandler(&notificationPreferencesService{api: a}, options...)
@@ -161,6 +162,7 @@ func (a *API) Handlers() []Handler {
 		{ServicePath: adminMemberPath, Handler: adminMemberHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
 		{ServicePath: externalAuthPath, Handler: externalAuthHandler, AuthPolicy: AuthPolicyPublic},
 		{ServicePath: messagePath, Handler: messageHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
+		{ServicePath: messageActionPath, Handler: messageActionHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
 		{ServicePath: messageSearchPath, Handler: messageSearchHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
 		{ServicePath: notificationPath, Handler: notificationHandler, AuthPolicy: AuthPolicyAuthenticatedUser},
 		{ServicePath: serverDiscoveryPath, Handler: serverDiscoveryHandler, AuthPolicy: AuthPolicyPublic},

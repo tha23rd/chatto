@@ -22,6 +22,7 @@ type MessagePostInput struct {
 	AlsoSendToChannel       bool
 	CreateThread            bool
 	LinkPreview             *corev1.LinkPreview
+	Actions                 []*corev1.MessageAction
 }
 
 // MessagePostAuthorizationInput describes the authorization preflight for a
@@ -32,6 +33,7 @@ type MessagePostAuthorizationInput struct {
 	RoomID            string
 	Body              string
 	HasAttachments    bool
+	HasActions        bool
 	ThreadRootEventID string
 	AlsoSendToChannel bool
 	CreateThread      bool
@@ -43,6 +45,7 @@ func authorizationInputForPost(input MessagePostInput, threadRootEventID string)
 		RoomID:            input.RoomID,
 		Body:              input.Body,
 		HasAttachments:    input.HasPendingAttachments || len(input.AttachmentAssetIDs) > 0,
+		HasActions:        len(input.Actions) > 0,
 		ThreadRootEventID: threadRootEventID,
 		AlsoSendToChannel: input.AlsoSendToChannel,
 		CreateThread:      input.CreateThread,
@@ -62,6 +65,7 @@ type MessageUpdateInput struct {
 	EventID           string
 	Body              *string
 	AlsoSendToChannel *bool
+	Actions           []*corev1.MessageAction
 }
 
 // MessageDeleteInput describes one user-facing message retraction operation.
@@ -133,7 +137,10 @@ func (s *MessageModel) PostMessage(ctx context.Context, input MessagePostInput) 
 	room := preflight.Authorization.Room
 	kind := preflight.Authorization.Kind
 
-	options := make([]PostMessageOption, 0, 2)
+	options := make([]PostMessageOption, 0, 3)
+	if input.Actions != nil {
+		options = append(options, WithMessageActions(input.Actions))
+	}
 	if videoProcessingAssetIDs := s.videoProcessingAssetIDsForPost(input); len(videoProcessingAssetIDs) > 0 {
 		options = append(options, WithVideoProcessingAssets(videoProcessingAssetIDs...))
 	}
@@ -157,7 +164,15 @@ func (s *MessageModel) PostMessage(ctx context.Context, input MessagePostInput) 
 // PreflightPost checks authorization and request validity before a transport
 // uploads binary attachments.
 func (s *MessageModel) PreflightPost(ctx context.Context, input MessagePostInput) (*MessagePostPreflight, error) {
-	authorization, err := s.AuthorizePost(ctx, authorizationInputForPost(input, input.ThreadRootEventID))
+	authorization, err := s.AuthorizePost(ctx, MessagePostAuthorizationInput{
+		ActorID:           input.ActorID,
+		RoomID:            input.RoomID,
+		Body:              input.Body,
+		HasAttachments:    input.HasPendingAttachments || len(input.AttachmentAssetIDs) > 0,
+		HasActions:        len(input.Actions) > 0,
+		ThreadRootEventID: input.ThreadRootEventID,
+		AlsoSendToChannel: input.AlsoSendToChannel,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +188,9 @@ func (s *MessageModel) PreflightPost(ctx context.Context, input MessagePostInput
 func (s *MessageModel) validatePostBeforeUpload(ctx context.Context, input MessagePostInput, authorization *MessagePostAuthorization) error {
 	if len(input.Body) > MaxMessageBodyLength {
 		return ErrMessageTooLong
+	}
+	if err := validateMessageActions(input.Actions); err != nil {
+		return err
 	}
 	if inReplyTo := strings.TrimSpace(input.InReplyTo); inReplyTo != "" {
 		targetEvent, err := s.core.GetRoomEventByEventID(ctx, authorization.Kind, authorization.Room.Id, inReplyTo)
@@ -230,8 +248,8 @@ func (s *MessageModel) AuthorizePost(ctx context.Context, input MessagePostAutho
 	if strings.TrimSpace(input.RoomID) == "" {
 		return nil, invalidArgument("room_id is required")
 	}
-	if !HasVisibleContent(input.Body) && !input.HasAttachments {
-		return nil, invalidArgument("message must have either body or attachments")
+	if !HasVisibleContent(input.Body) && !input.HasAttachments && !input.HasActions {
+		return nil, invalidArgument("message must have body, attachments, or actions")
 	}
 	if input.AlsoSendToChannel && strings.TrimSpace(input.ThreadRootEventID) == "" {
 		return nil, invalidArgument("also_send_to_channel requires thread_root_event_id")
@@ -373,8 +391,8 @@ func (s *MessageModel) UpdateMessage(ctx context.Context, input MessageUpdateInp
 	if err != nil {
 		return nil, kind, err
 	}
-	if input.Body == nil && input.AlsoSendToChannel == nil {
-		return nil, kind, invalidArgument("body or also_send_to_channel is required")
+	if input.Body == nil && input.AlsoSendToChannel == nil && input.Actions == nil {
+		return nil, kind, invalidArgument("body, also_send_to_channel, or actions is required")
 	}
 
 	body, err := s.core.GetFullMessageBody(ctx, input.EventID)
@@ -396,6 +414,15 @@ func (s *MessageModel) UpdateMessage(ctx context.Context, input MessageUpdateInp
 
 	var editOptions []EditMessageOption
 	editOptions = append(editOptions, withEditMessageAuthorization())
+	if input.Actions != nil {
+		if body.AuthorId != input.ActorID {
+			return nil, kind, ErrNotMessageAuthor
+		}
+		if err := validateMessageActions(input.Actions); err != nil {
+			return nil, kind, err
+		}
+		editOptions = append(editOptions, WithEditedMessageActions(input.Actions))
+	}
 	if input.Body == nil {
 		editOptions = append(editOptions, withPreservedMessageBody())
 	}

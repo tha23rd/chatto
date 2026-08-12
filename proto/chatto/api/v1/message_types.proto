@@ -2,8 +2,54 @@ syntax = "proto3";
 
 package chatto.api.v1;
 
+import "buf/validate/validate.proto";
 import "chatto/api/v1/link_previews.proto";
 import "google/protobuf/timestamp.proto";
+
+// Visual treatment for a message action button.
+enum MessageActionStyle {
+  // Uses the normal secondary button treatment.
+  MESSAGE_ACTION_STYLE_UNSPECIFIED = 0;
+  // Emphasises the primary action.
+  MESSAGE_ACTION_STYLE_PRIMARY = 1;
+  // Uses the normal secondary button treatment.
+  MESSAGE_ACTION_STYLE_SECONDARY = 2;
+  // Indicates a successful or affirmative action.
+  MESSAGE_ACTION_STYLE_SUCCESS = 3;
+  // Indicates a destructive or dangerous action.
+  MESSAGE_ACTION_STYLE_DANGER = 4;
+}
+
+// Author-defined button attached to a message.
+//
+// The action ID is opaque integration data visible to room members and
+// returned to the message author when a member invokes the button. Chatto does
+// not interpret it.
+message MessageAction {
+  // Stable integration-defined ID within this message.
+  string id = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+    pattern: "^[A-Za-z0-9_-]+$"
+  }];
+  // Visible button label.
+  string label = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_bytes: 80
+  }];
+  // Visual treatment. Unspecified uses the secondary treatment.
+  MessageActionStyle style = 3 [(buf.validate.field).enum = {defined_only: true}];
+  // Whether the button is visible but cannot currently be invoked.
+  bool disabled = 4;
+}
+
+// Complete replacement set used when creating or updating a message.
+message MessageActionSet {
+  // Ordered action buttons. IDs must be unique within the set.
+  repeated MessageAction actions = 1 [(buf.validate.field).repeated = {
+    max_items: 5
+  }];
+}
 
 // Time-limited URL for an asset attached to a message.
 //
@@ -197,6 +243,13 @@ message Message {
   // Fork-owned field. Upstream owns tags below 1000 and took tag 22 for
   // `pinned`, so this field is numbered from the fork range.
   MessageWebhookOverride webhook_override = 1000;
+  // Author-defined buttons that can send a named invocation back to the
+  // message author.
+  //
+  // Fork-owned field. Upstream owns tags below 1000; this field was shipped
+  // at tag 23 in the fork's own main and is renumbered here to avoid the
+  // upstream tag space.
+  repeated MessageAction actions = 1001;
 }
 
 // MessageWebhookOverride is the per-message display identity a channel webhook

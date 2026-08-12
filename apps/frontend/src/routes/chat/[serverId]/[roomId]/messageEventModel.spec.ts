@@ -110,13 +110,21 @@ describe('embeddedMessageLinks', () => {
 });
 
 describe('isDeletedMessage', () => {
-  it('keeps attachment-only messages visible and tombstones empty messages', () => {
+  it('keeps attachment-only and action-only messages visible and tombstones empty messages', () => {
     expect(isDeletedMessage(message({ body: null }))).toBe(true);
     expect(
       isDeletedMessage(
         message({
           body: null,
           attachments: [{ id: 'attachment-1' } as MessagePostedPayload['attachments'][number]]
+        })
+      )
+    ).toBe(false);
+    expect(
+      isDeletedMessage(
+        message({
+          body: null,
+          actions: [{ id: 'hit', label: 'Hit', style: 'primary', disabled: false }]
         })
       )
     ).toBe(false);

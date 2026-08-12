@@ -1616,8 +1616,11 @@ type MessageBody struct {
 	// username and/or avatar. Stored plaintext, like link preview metadata, not
 	// inside the encrypted body. Empty for human-authored messages.
 	WebhookOverride *WebhookMessageOverride `protobuf:"bytes,41,opt,name=webhook_override,json=webhookOverride,proto3" json:"webhook_override,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Author-defined action buttons. Stored with the deletable message body so
+	// editing and deletion follow the same lifecycle as the visible message.
+	Actions       []*MessageAction `protobuf:"bytes,42,rep,name=actions,proto3" json:"actions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *MessageBody) Reset() {
@@ -1730,6 +1733,13 @@ func (x *MessageBody) GetLinkPreview() *LinkPreview {
 func (x *MessageBody) GetWebhookOverride() *WebhookMessageOverride {
 	if x != nil {
 		return x.WebhookOverride
+	}
+	return nil
+}
+
+func (x *MessageBody) GetActions() []*MessageAction {
+	if x != nil {
+		return x.Actions
 	}
 	return nil
 }
@@ -2817,7 +2827,7 @@ var File_chatto_core_v1_models_proto protoreflect.FileDescriptor
 
 const file_chatto_core_v1_models_proto_rawDesc = "" +
 	"\n" +
-	"\x1bchatto/core/v1/models.proto\x12\x0echatto.core.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\x02\n" +
+	"\x1bchatto/core/v1/models.proto\x12\x0echatto.core.v1\x1a$chatto/core/v1/message_actions.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9c\x02\n" +
 	"\x04Room\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
@@ -2919,7 +2929,7 @@ const file_chatto_core_v1_models_proto_rawDesc = "" +
 	"\x06height\x18\b \x01(\x05R\x06height\x129\n" +
 	"\astorage\x18\t \x01(\v2\x1f.chatto.core.v1.DeprecatedAssetR\astorage\x12&\n" +
 	"\x0fmessage_body_id\x18\n" +
-	" \x01(\tR\rmessageBodyIdJ\x04\b\x02\x10\x03R\bspace_id\"\xdf\x04\n" +
+	" \x01(\tR\rmessageBodyIdJ\x04\b\x02\x10\x03R\bspace_id\"\x98\x05\n" +
 	"\vMessageBody\x12\x1b\n" +
 	"\tauthor_id\x18\x01 \x01(\tR\bauthorId\x129\n" +
 	"\n" +
@@ -2934,7 +2944,8 @@ const file_chatto_core_v1_models_proto_rawDesc = "" +
 	"\vattachments\x18\x1e \x03(\v2\x1a.chatto.core.v1.AttachmentR\vattachments\x12\x1b\n" +
 	"\tasset_ids\x18\x1f \x03(\tR\bassetIds\x12>\n" +
 	"\flink_preview\x18( \x01(\v2\x1b.chatto.core.v1.LinkPreviewR\vlinkPreview\x12Q\n" +
-	"\x10webhook_override\x18) \x01(\v2&.chatto.core.v1.WebhookMessageOverrideR\x0fwebhookOverride\"Z\n" +
+	"\x10webhook_override\x18) \x01(\v2&.chatto.core.v1.WebhookMessageOverrideR\x0fwebhookOverride\x127\n" +
+	"\aactions\x18* \x03(\v2\x1d.chatto.core.v1.MessageActionR\aactions\"Z\n" +
 	"\x16WebhookMessageOverride\x12!\n" +
 	"\fdisplay_name\x18\x01 \x01(\tR\vdisplayName\x12\x1d\n" +
 	"\n" +
@@ -3101,6 +3112,7 @@ var file_chatto_core_v1_models_proto_goTypes = []any{
 	(*VideoProcessingState)(nil),   // 33: chatto.core.v1.VideoProcessingState
 	(*VideoVariant)(nil),           // 34: chatto.core.v1.VideoVariant
 	(*timestamppb.Timestamp)(nil),  // 35: google.protobuf.Timestamp
+	(*MessageAction)(nil),          // 36: chatto.core.v1.MessageAction
 }
 var file_chatto_core_v1_models_proto_depIdxs = []int32{
 	0,  // 0: chatto.core.v1.Room.kind:type_name -> chatto.core.v1.RoomKind
@@ -3125,30 +3137,31 @@ var file_chatto_core_v1_models_proto_depIdxs = []int32{
 	20, // 19: chatto.core.v1.MessageBody.attachments:type_name -> chatto.core.v1.Attachment
 	23, // 20: chatto.core.v1.MessageBody.link_preview:type_name -> chatto.core.v1.LinkPreview
 	22, // 21: chatto.core.v1.MessageBody.webhook_override:type_name -> chatto.core.v1.WebhookMessageOverride
-	14, // 22: chatto.core.v1.LinkPreview.image_asset:type_name -> chatto.core.v1.AssetRecord
-	24, // 23: chatto.core.v1.LinkPreview.social_post:type_name -> chatto.core.v1.SocialPostPreview
-	25, // 24: chatto.core.v1.SocialPostPreview.author:type_name -> chatto.core.v1.SocialPostAuthor
-	35, // 25: chatto.core.v1.SocialPostPreview.published_at:type_name -> google.protobuf.Timestamp
-	26, // 26: chatto.core.v1.SocialPostPreview.images:type_name -> chatto.core.v1.SocialPostImage
-	27, // 27: chatto.core.v1.SocialPostPreview.external_link:type_name -> chatto.core.v1.SocialPostExternalLink
-	24, // 28: chatto.core.v1.SocialPostPreview.quoted_post:type_name -> chatto.core.v1.SocialPostPreview
-	14, // 29: chatto.core.v1.SocialPostAuthor.avatar_asset:type_name -> chatto.core.v1.AssetRecord
-	14, // 30: chatto.core.v1.SocialPostImage.asset:type_name -> chatto.core.v1.AssetRecord
-	14, // 31: chatto.core.v1.SocialPostExternalLink.image_asset:type_name -> chatto.core.v1.AssetRecord
-	23, // 32: chatto.core.v1.CachedLinkPreview.preview:type_name -> chatto.core.v1.LinkPreview
-	32, // 33: chatto.core.v1.RoomLayout.legacy_sections:type_name -> chatto.core.v1.RoomGroup
-	4,  // 34: chatto.core.v1.SidebarGroupEntry.kind:type_name -> chatto.core.v1.SidebarGroupEntry.Kind
-	31, // 35: chatto.core.v1.RoomGroup.entries:type_name -> chatto.core.v1.SidebarGroupEntry
-	30, // 36: chatto.core.v1.RoomGroup.sidebar_links:type_name -> chatto.core.v1.SidebarLink
-	3,  // 37: chatto.core.v1.VideoProcessingState.status:type_name -> chatto.core.v1.VideoStatus
-	34, // 38: chatto.core.v1.VideoProcessingState.variants:type_name -> chatto.core.v1.VideoVariant
-	20, // 39: chatto.core.v1.VideoProcessingState.thumbnail_attachment:type_name -> chatto.core.v1.Attachment
-	20, // 40: chatto.core.v1.VideoVariant.attachment:type_name -> chatto.core.v1.Attachment
-	41, // [41:41] is the sub-list for method output_type
-	41, // [41:41] is the sub-list for method input_type
-	41, // [41:41] is the sub-list for extension type_name
-	41, // [41:41] is the sub-list for extension extendee
-	0,  // [0:41] is the sub-list for field type_name
+	36, // 22: chatto.core.v1.MessageBody.actions:type_name -> chatto.core.v1.MessageAction
+	14, // 23: chatto.core.v1.LinkPreview.image_asset:type_name -> chatto.core.v1.AssetRecord
+	24, // 24: chatto.core.v1.LinkPreview.social_post:type_name -> chatto.core.v1.SocialPostPreview
+	25, // 25: chatto.core.v1.SocialPostPreview.author:type_name -> chatto.core.v1.SocialPostAuthor
+	35, // 26: chatto.core.v1.SocialPostPreview.published_at:type_name -> google.protobuf.Timestamp
+	26, // 27: chatto.core.v1.SocialPostPreview.images:type_name -> chatto.core.v1.SocialPostImage
+	27, // 28: chatto.core.v1.SocialPostPreview.external_link:type_name -> chatto.core.v1.SocialPostExternalLink
+	24, // 29: chatto.core.v1.SocialPostPreview.quoted_post:type_name -> chatto.core.v1.SocialPostPreview
+	14, // 30: chatto.core.v1.SocialPostAuthor.avatar_asset:type_name -> chatto.core.v1.AssetRecord
+	14, // 31: chatto.core.v1.SocialPostImage.asset:type_name -> chatto.core.v1.AssetRecord
+	14, // 32: chatto.core.v1.SocialPostExternalLink.image_asset:type_name -> chatto.core.v1.AssetRecord
+	23, // 33: chatto.core.v1.CachedLinkPreview.preview:type_name -> chatto.core.v1.LinkPreview
+	32, // 34: chatto.core.v1.RoomLayout.legacy_sections:type_name -> chatto.core.v1.RoomGroup
+	4,  // 35: chatto.core.v1.SidebarGroupEntry.kind:type_name -> chatto.core.v1.SidebarGroupEntry.Kind
+	31, // 36: chatto.core.v1.RoomGroup.entries:type_name -> chatto.core.v1.SidebarGroupEntry
+	30, // 37: chatto.core.v1.RoomGroup.sidebar_links:type_name -> chatto.core.v1.SidebarLink
+	3,  // 38: chatto.core.v1.VideoProcessingState.status:type_name -> chatto.core.v1.VideoStatus
+	34, // 39: chatto.core.v1.VideoProcessingState.variants:type_name -> chatto.core.v1.VideoVariant
+	20, // 40: chatto.core.v1.VideoProcessingState.thumbnail_attachment:type_name -> chatto.core.v1.Attachment
+	20, // 41: chatto.core.v1.VideoVariant.attachment:type_name -> chatto.core.v1.Attachment
+	42, // [42:42] is the sub-list for method output_type
+	42, // [42:42] is the sub-list for method input_type
+	42, // [42:42] is the sub-list for extension type_name
+	42, // [42:42] is the sub-list for extension extendee
+	0,  // [0:42] is the sub-list for field type_name
 }
 
 func init() { file_chatto_core_v1_models_proto_init() }
@@ -3156,6 +3169,7 @@ func file_chatto_core_v1_models_proto_init() {
 	if File_chatto_core_v1_models_proto != nil {
 		return
 	}
+	file_chatto_core_v1_message_actions_proto_init()
 	file_chatto_core_v1_models_proto_msgTypes[6].OneofWrappers = []any{
 		(*DeprecatedAsset_Nats)(nil),
 		(*DeprecatedAsset_S3)(nil),

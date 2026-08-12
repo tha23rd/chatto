@@ -54,7 +54,7 @@ socket.
 | ------- | --------------- | ----------- |
 | `chatto.auth.v1` | `ExternalIdentityAuthService` | Public capability-token flows |
 | `chatto.discovery.v1` | `ServerDiscoveryService` | Public discovery |
-| `chatto.api.v1` | `AssetService`, `AssetUploadService`, `CustomEmojiService`, `MessageSearchService`, `MessageService`, `MyAccountService`, `NotificationPreferencesService`, `NotificationService`, `PushNotificationService`, `RoleService`, `RoomDirectoryService`, `RoomService`, `ServerService`, `SoundboardService`, `ThreadService`, `UserService`, `ViewerService`, `VoiceCallService` | Authenticated user |
+| `chatto.api.v1` | `AssetService`, `AssetUploadService`, `CustomEmojiService`, `MessageActionService`, `MessageSearchService`, `MessageService`, `MyAccountService`, `NotificationPreferencesService`, `NotificationService`, `PushNotificationService`, `RoleService`, `RoomDirectoryService`, `RoomService`, `ServerService`, `SoundboardService`, `ThreadService`, `UserService`, `ViewerService`, `VoiceCallService` | Authenticated user |
 | `chatto.admin.v1` | `AdminCustomEmojiService`, `AdminDiagnosticsService`, `AdminEventLogService`, `AdminInviteLinkService`, `AdminPermissionService`, `AdminRoleService`, `AdminRoomLayoutService`, `AdminServerService`, `AdminSoundboardService`, `AdminUserService`, `AdminWebhookService` | Authenticated user; methods enforce administrative permissions |
 
 `AdminInviteLinkService` requires `user.invite`. Its resource includes the

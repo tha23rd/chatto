@@ -5,7 +5,7 @@
 
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
-import { Message as Message$1 } from "./message_types_pb.js";
+import { Message as Message$1, MessageActionSet } from "./message_types_pb.js";
 
 /**
  * Request to create a message in a room or thread.
@@ -73,6 +73,17 @@ export class CreateMessageRequest extends Message<CreateMessageRequest> {
    */
   createThread = false;
 
+  /**
+   * Optional author-defined action buttons.
+   *
+   * Fork-owned field. Upstream owns tags below 1000; this field was shipped
+   * at tag 11 in the fork's own main and is renumbered here to avoid the
+   * upstream tag space.
+   *
+   * @generated from field: chatto.api.v1.MessageActionSet actions = 1000;
+   */
+  actions?: MessageActionSet;
+
   constructor(data?: PartialMessage<CreateMessageRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -89,6 +100,7 @@ export class CreateMessageRequest extends Message<CreateMessageRequest> {
     { no: 6, name: "also_send_to_channel", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 10, name: "link_preview_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 11, name: "create_thread", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 1000, name: "actions", kind: "message", T: MessageActionSet },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateMessageRequest {
@@ -184,6 +196,14 @@ export class UpdateMessageRequest extends Message<UpdateMessageRequest> {
    */
   alsoSendToChannel?: boolean;
 
+  /**
+   * Complete replacement action set. Omit to preserve current actions; send
+   * an empty set to remove all actions. Only the message author may change it.
+   *
+   * @generated from field: chatto.api.v1.MessageActionSet actions = 5;
+   */
+  actions?: MessageActionSet;
+
   constructor(data?: PartialMessage<UpdateMessageRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -196,6 +216,7 @@ export class UpdateMessageRequest extends Message<UpdateMessageRequest> {
     { no: 2, name: "event_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "body", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 4, name: "also_send_to_channel", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    { no: 5, name: "actions", kind: "message", T: MessageActionSet },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UpdateMessageRequest {

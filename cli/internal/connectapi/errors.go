@@ -48,7 +48,8 @@ func connectError(err error) error {
 	if errors.Is(err, core.ErrLoginAlreadyTaken) ||
 		errors.Is(err, core.ErrEmailAlreadyVerified) ||
 		errors.Is(err, core.ErrExternalIdentityAlreadyClaimed) ||
-		errors.Is(err, core.ErrRoleAlreadyExists) {
+		errors.Is(err, core.ErrRoleAlreadyExists) ||
+		errors.Is(err, core.ErrMessageActionRequestIDExists) {
 		return connect.NewError(connect.CodeAlreadyExists, err)
 	}
 	if errors.Is(err, core.ErrCustomStatusEmojiRequired) ||
@@ -91,6 +92,7 @@ func connectError(err error) error {
 		errors.Is(err, core.ErrMessageNotFound) ||
 		errors.Is(err, core.ErrMessageAttachmentNotFound) ||
 		errors.Is(err, core.ErrMessageLinkPreviewNotFound) ||
+		errors.Is(err, core.ErrMessageActionNotFound) ||
 		errors.Is(err, core.ErrRoleNotFound) ||
 		errors.Is(err, jetstream.ErrKeyNotFound) {
 		return connect.NewError(connect.CodeNotFound, err)
@@ -104,6 +106,7 @@ func connectError(err error) error {
 		return connect.NewError(connect.CodeResourceExhausted, err)
 	}
 	if errors.Is(err, core.ErrRoomArchived) ||
+		errors.Is(err, core.ErrMessageActionDisabled) ||
 		errors.Is(err, core.ErrLimitExceeded) ||
 		errors.Is(err, core.ErrFreshAuthRequired) ||
 		errors.Is(err, core.ErrPasswordAlreadySet) ||

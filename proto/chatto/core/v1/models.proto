@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package chatto.core.v1;
 
+import "chatto/core/v1/message_actions.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "hmans.de/chatto/internal/pb/chatto/core/v1;corev1";
@@ -328,6 +329,10 @@ message MessageBody {
   // username and/or avatar. Stored plaintext, like link preview metadata, not
   // inside the encrypted body. Empty for human-authored messages.
   WebhookMessageOverride webhook_override = 41;
+
+  // Author-defined action buttons. Stored with the deletable message body so
+  // editing and deletion follow the same lifecycle as the visible message.
+  repeated MessageAction actions = 42;
 }
 
 // WebhookMessageOverride carries the per-message display identity a channel

@@ -387,6 +387,36 @@ requests.
 | `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-902). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile.
 
 Fork-owned field. Upstream owns tags below 1000 and took tag 22 for `pinned`, so this field is numbered from the fork range. |
+| `actions` | repeated [`MessageAction`](#chatto-api-v1-MessageAction) | Author-defined buttons that can send a named invocation back to the message author.
+
+Fork-owned field. Upstream owns tags below 1000; this field was shipped at tag 23 in the fork's own main and is renumbered here to avoid the upstream tag space. |
+
+<a id="chatto-api-v1-MessageAction"></a>
+
+### MessageAction
+
+Author-defined button attached to a message.
+
+The action ID is opaque integration data visible to room members and
+returned to the message author when a member invokes the button. Chatto does
+not interpret it.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Stable integration-defined ID within this message. |
+| `label` | `string` | Visible button label. |
+| `style` | [`MessageActionStyle`](#chatto-api-v1-MessageActionStyle) | Visual treatment. Unspecified uses the secondary treatment. |
+| `disabled` | `bool` | Whether the button is visible but cannot currently be invoked. |
+
+<a id="chatto-api-v1-MessageActionSet"></a>
+
+### MessageActionSet
+
+Complete replacement set used when creating or updating a message.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `actions` | repeated [`MessageAction`](#chatto-api-v1-MessageAction) | Ordered action buttons. IDs must be unique within the set. |
 
 <a id="chatto-api-v1-MessageAssetUrl"></a>
 
@@ -623,6 +653,21 @@ surfaces.
 | `user` | [`User`](#chatto-api-v1-User) | Public user fields. |
 | `roles` | `repeated string` | Explicit roles assigned to the user. Member listings include the virtual `everyone` role for parity with Chatto's permission model. |
 | `created_at` | `google.protobuf.Timestamp` | Account creation time when known. |
+
+<a id="chatto-api-v1-MessageActionInvocation"></a>
+
+### MessageActionInvocation
+
+One pending action invocation delivered privately to the message author.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Caller-supplied idempotency key and stable invocation ID. |
+| `room_id` | `string` | Room containing the message. |
+| `message_event_id` | `string` | Canonical message event ID. Invocations made from a thread echo refer to the original message event. |
+| `action_id` | `string` | Integration-defined action ID from the message. |
+| `actor_id` | `string` | User who invoked the action. |
+| `created_at` | `google.protobuf.Timestamp` | Time when Chatto accepted the invocation. |
 
 <a id="chatto-api-v1-MessageSearchResult"></a>
 
@@ -1673,6 +1718,20 @@ User preference for rendering times in clients.
 | `TIME_FORMAT_AUTO` | `1` | Let the client choose based on locale and browser settings. |
 | `TIME_FORMAT_12_HOUR` | `2` | Render times using a 12-hour clock. |
 | `TIME_FORMAT_24_HOUR` | `3` | Render times using a 24-hour clock. |
+
+<a id="chatto-api-v1-MessageActionStyle"></a>
+
+### MessageActionStyle
+
+Visual treatment for a message action button.
+
+| Name | Number | Description |
+| --- | --- | --- |
+| `MESSAGE_ACTION_STYLE_UNSPECIFIED` | `0` | Uses the normal secondary button treatment. |
+| `MESSAGE_ACTION_STYLE_PRIMARY` | `1` | Emphasises the primary action. |
+| `MESSAGE_ACTION_STYLE_SECONDARY` | `2` | Uses the normal secondary button treatment. |
+| `MESSAGE_ACTION_STYLE_SUCCESS` | `3` | Indicates a successful or affirmative action. |
+| `MESSAGE_ACTION_STYLE_DANGER` | `4` | Indicates a destructive or dangerous action. |
 
 <a id="chatto-api-v1-MessageVideoProcessingStatus"></a>
 

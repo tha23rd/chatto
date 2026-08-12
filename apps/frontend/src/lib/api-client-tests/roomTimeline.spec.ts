@@ -17,6 +17,10 @@ import {
 } from '@chatto/api-types/api/v1/message_types_pb';
 import { User } from '@chatto/api-types/api/v1/users_pb';
 import {
+  MessageAction,
+  MessageActionStyle
+} from '@chatto/api-types/api/v1/message_types_pb';
+import {
   __resetUserSummaryCachesForTests,
   primeUserSummaryCache
 } from '$lib/state/userSummaries.svelte';
@@ -250,6 +254,19 @@ describe('roomTimelinePageToEventConnectionPage', () => {
                 actorId: 'u1',
                 createdAt: Timestamp.fromDate(new Date('2026-06-01T12:00:00Z')),
                 body: 'hello',
+                actions: [
+                  new MessageAction({
+                    id: 'hit',
+                    label: 'Hit',
+                    style: MessageActionStyle.PRIMARY
+                  }),
+                  new MessageAction({
+                    id: 'stand',
+                    label: 'Stand',
+                    style: MessageActionStyle.DANGER,
+                    disabled: true
+                  })
+                ],
                 attachments: [
                   new MessageAttachment({
                     id: 'a-video',
@@ -366,6 +383,10 @@ describe('roomTimelinePageToEventConnectionPage', () => {
               { id: 'u2', displayName: 'Bob' }
             ]
           }
+        ],
+        actions: [
+          { id: 'hit', label: 'Hit', style: 'primary', disabled: false },
+          { id: 'stand', label: 'Stand', style: 'danger', disabled: true }
         ],
         threadParticipants: [{ id: 'u2', displayName: 'Bob' }],
         viewerIsFollowingThread: true
