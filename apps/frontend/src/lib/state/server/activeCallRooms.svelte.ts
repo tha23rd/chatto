@@ -53,6 +53,14 @@ export class ActiveCallRoomsState {
     return this.serverRooms.get(roomId)?.participants ?? [];
   }
 
+  /**
+   * Server-observed rooms with an active call. Reactive: reads inside
+   * `$derived`/`$effect` track subsequent projection replacements.
+   */
+  get activeRoomIds(): string[] {
+    return [...this.serverRooms.keys()];
+  }
+
   /** Return the projected call ID for transition reconciliation. */
   getCallId(roomId: string): string | null {
     return this.serverRooms.get(roomId)?.callId ?? null;

@@ -237,6 +237,9 @@ export function getVoiceCallMediaDeviceErrorMessage(
 const CALL_VOLUMES_SUFFIX = 'callParticipantVolumes';
 const CALL_SCREEN_SHARE_VOLUMES_SUFFIX = 'callScreenShareVolumes';
 const SCREEN_SHARE_QUALITY_SUFFIX = 'screenShareQuality';
+// Remembers which room call the viewer was connected to when the page closed,
+// so a reload can rejoin automatically while the call is still active.
+const CALL_AUTO_REJOIN_ROOM_SUFFIX = 'autoRejoinRoom';
 
 const screenShareQualityCodec = Codecs.json<ScreenShareQualityPrefs>(isScreenShareQualityPrefs);
 
@@ -257,6 +260,10 @@ export const DEFAULT_SCREEN_SHARE_CEILING: ScreenShareCeiling = {
 // Codec only checks "is an object"; individual entries are clamped on read.
 const volumeMapCodec = Codecs.json<Record<string, number>>(
   (v): v is Record<string, number> => typeof v === 'object' && v !== null
+);
+
+const rejoinRoomCodec = Codecs.json<string | null>(
+  (v): v is string | null => v === null || typeof v === 'string'
 );
 
 function sanitizeVolumeMap(raw: Record<string, number>): Record<string, number> {
@@ -362,6 +369,10 @@ export class VoiceCallState {
 
   // Persistence slot for screenShareQuality; null when no serverId was provided.
   #screenShareQualitySlot: StorageSlot<ScreenShareQualityPrefs> | null = null;
+
+  // Persistence slot for the auto-rejoin marker (room ID of the call the viewer
+  // was connected to when the page closed); null when no serverId was provided.
+  #rejoinSlot: StorageSlot<string | null> | null = null;
 
   // True when the last quality change could not be applied to the live share and will only
   // take effect on the next one. Lets the UI be honest instead of silently doing nothing.
@@ -538,6 +549,8 @@ export class VoiceCallState {
         this.#screenShareQualitySlot.get(),
         this.screenShareCeiling
       );
+
+      this.#rejoinSlot = serverSlot(serverId, CALL_AUTO_REJOIN_ROOM_SUFFIX, null, rejoinRoomCodec);
     }
   }
 
@@ -794,6 +807,47 @@ export class VoiceCallState {
   }
 
   /**
+   * Discord-style call resume after a page reload: rejoin the call the viewer
+   * was connected to when the page closed, once the server's active-calls
+   * snapshot confirms the call is still running.
+   *
+   * Called by the per-server store whenever the active-calls projection
+   * snapshot or the server's LiveKit URL changes. The marker is reconciled
+   * against the first authoritative snapshot: a marked room with no active
+   * call means the call ended while the page was closed, and the marker is
+   * dropped instead of auto-starting a call later.
+   */
+  autoRejoin(
+    livekitUrl: string | null,
+    activeRoomIds: readonly string[],
+    snapshotReceived: boolean
+  ): void {
+    const roomId = this.#rejoinSlot?.get() ?? null;
+    if (!roomId || !snapshotReceived) return;
+
+    if (!activeRoomIds.includes(roomId)) {
+      // Authoritative replacement snapshot — the room's call is gone. Only
+      // clear while not connected: a live disconnect already clears the marker
+      // via cleanup(), and this guard keeps a transient empty snapshot from
+      // erasing the resume obligation of a connected call.
+      if (!this.connected) this.#rejoinSlot?.remove();
+      return;
+    }
+
+    // Never yank the viewer out of a call they joined deliberately after the
+    // reload, and never fight an in-flight join.
+    if (this.connected || this.connecting || !livekitUrl) return;
+    void this.join(livekitUrl, roomId).catch((err) => {
+      console.error('Auto-rejoin of voice call failed:', summarizeJoinError(err));
+    });
+  }
+
+  /** Drop the auto-rejoin marker, e.g. when this server's session is torn down. */
+  clearAutoRejoinMarker(): void {
+    this.#rejoinSlot?.remove();
+  }
+
+  /**
    * Join a voice call in a room.
    */
   async join(livekitUrl: string, roomId: string): Promise<void> {
@@ -838,6 +892,9 @@ export class VoiceCallState {
 
       await this.#api.joinCall(roomId);
       joinIntentRecorded = true;
+      // The server now counts the viewer as in this room's call. Remember it so
+      // a page reload can rejoin automatically while the call is still active.
+      this.#rejoinSlot?.set(roomId);
 
       // Get token from server (pure query, no side effects)
       const tokenResponse = await this.#api.getCallToken(roomId);
@@ -2449,7 +2506,9 @@ export class VoiceCallState {
     this.participants = [];
     this.locallyMutedParticipantIds = {};
     // participantVolumes and screenShareVolumes intentionally persist across leave/rejoin
-    // (see serverSlot).
+    // (see serverSlot). The auto-rejoin marker is the opposite: any disconnect — hang-up,
+    // call ended, membership revoked, failed join — ends the resume obligation.
+    this.#rejoinSlot?.remove();
     this.audioDevices = [];
     this.selectedDeviceId = null;
     this.audioOutputDevices = [];

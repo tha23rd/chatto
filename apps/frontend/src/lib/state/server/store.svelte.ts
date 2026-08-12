@@ -114,6 +114,9 @@ export class ServerStateStore {
   /** Per-server viewer permissions (loaded by ServerSidebarEntry). */
   permissions = $state<ServerPermissions>(EMPTY_PERMISSIONS);
 
+  /** Whether the first authoritative active-calls projection snapshot has arrived. */
+  #activeCallsSnapshotReceived = $state(false);
+
   /**
    * Live reference to the registered server. Reads pick up `updateServer`
    * mutations (e.g. token refresh, name change) because the registry stores
@@ -203,6 +206,19 @@ export class ServerStateStore {
         return () => {
           bus.projectionHandlers.delete(projectionHandler);
         };
+      });
+
+      // Discord-style call resume after a page reload: rejoin the call the
+      // viewer was in when the page closed, once the server's active-calls
+      // snapshot confirms the call is still active and LiveKit is configured.
+      // Re-runs when either input changes, so it also covers a snapshot that
+      // arrives before the server runtime config has loaded.
+      $effect(() => {
+        this.voiceCall.autoRejoin(
+          this.serverInfo.livekitUrl,
+          this.activeCallRooms.activeRoomIds,
+          this.#activeCallsSnapshotReceived
+        );
       });
     });
   }
@@ -596,6 +612,9 @@ export class ServerStateStore {
           const calls = operation.operation.value.calls;
           this.reconcileActiveCallTransition(event, calls);
           this.activeCallRooms.replaceProjection(calls);
+          // The first replacement is the full authoritative snapshot; it
+          // reconciles the auto-rejoin marker against server reality.
+          this.#activeCallsSnapshotReceived = true;
           break;
         }
         case 'presencesReplace': {
@@ -943,6 +962,10 @@ export class ServerStateStore {
     this.notificationLevels.clear();
     this.pendingHighlights.clear();
     this.activeCallRooms.clear();
+    // Session teardown (sign-out, server removal) ends the resume obligation:
+    // the marker must not carry the previous session's call into a new account
+    // on the same device.
+    this.voiceCall.clearAutoRejoinMarker();
     this.messageSearch.reset();
   }
 }
