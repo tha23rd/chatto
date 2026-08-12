@@ -19,7 +19,7 @@ so turning the stream down must not also turn the person down.
 -->
 <script lang="ts">
   import FloatingPopover from '$lib/ui/FloatingPopover.svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
 
   let {
     anchor,
@@ -52,15 +52,15 @@ so turning the stream down must not also turn the person down.
   {anchor}
   {onclose}
   role="dialog"
-  ariaLabel={m['voice.participant_volume']()}
+  ariaLabel={m('voice.participant_volume')}
   class="menu w-56 p-3"
 >
   <div {onkeydown} role="presentation" class="flex flex-col gap-3">
     <label class="flex flex-col gap-2">
       <span class="flex items-center justify-between gap-3 text-sm">
         <span class="flex min-w-0 items-center gap-2 font-medium">
-          <span class="iconify shrink-0 text-base text-muted uil--volume" aria-hidden="true"></span>
-          <span class="truncate">{m['voice.participant_volume']()}</span>
+          <span class="shrink-0 text-base text-muted icon-[uil--volume]" aria-hidden="true"></span>
+          <span class="truncate">{m('voice.participant_volume')}</span>
         </span>
         <span class="text-muted tabular-nums">{Math.round(participant.volume)}%</span>
       </span>
@@ -72,7 +72,7 @@ so turning the stream down must not also turn the person down.
         step="1"
         value={participant.volume}
         {oninput}
-        aria-label={m['voice.participant_volume_value']({ percent: Math.round(participant.volume) })}
+        aria-label={m('voice.participant_volume_value', { percent: Math.round(participant.volume) })}
         class="w-full cursor-pointer accent-accent"
       />
     </label>
@@ -82,10 +82,10 @@ so turning the stream down must not also turn the person down.
         <span class="flex items-center justify-between gap-3 text-sm">
           <span class="flex min-w-0 items-center gap-2 font-medium">
             <span
-              class="iconify shrink-0 text-base text-muted uil--desktop"
+              class="shrink-0 text-base text-muted icon-[uil--desktop]"
               aria-hidden="true"
             ></span>
-            <span class="truncate">{m['voice.stream_volume']()}</span>
+            <span class="truncate">{m('voice.stream_volume')}</span>
           </span>
           <span class="text-muted tabular-nums">{Math.round(participant.screenShareVolume)}%</span>
         </span>
@@ -97,7 +97,7 @@ so turning the stream down must not also turn the person down.
           step="1"
           value={participant.screenShareVolume}
           oninput={onscreensharinput}
-          aria-label={m['voice.stream_volume_value']({
+          aria-label={m('voice.stream_volume_value', {
             percent: Math.round(participant.screenShareVolume)
           })}
           class="w-full cursor-pointer accent-accent"
@@ -106,7 +106,7 @@ so turning the stream down must not also turn the person down.
     {/if}
 
     {#if participant.isLocallyMuted}
-      <span class="text-xs text-muted">{m['voice.participant_volume_muted_hint']()}</span>
+      <span class="text-xs text-muted">{m('voice.participant_volume_muted_hint')}</span>
     {/if}
   </div>
 </FloatingPopover>

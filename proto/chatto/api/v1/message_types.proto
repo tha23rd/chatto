@@ -180,16 +180,23 @@ message Message {
   string channel_echo_event_id = 13;
   // Reaction summaries for this message.
   repeated MessageReaction reactions = 19;
-  // Aggregated thread state, when known for a thread root message.
+  // Aggregated thread state. Present only when a durable thread has been
+  // established for this root message, including an empty thread.
   ThreadSummary thread = 20;
   // Time when the message content was deleted through retraction or account
   // crypto-shredding. Absent when unavailable body content is not a deletion.
   google.protobuf.Timestamp deleted_at = 21;
+  // True when this message's canonical message is currently pinned in its
+  // channel room. Always false for direct-message rooms.
+  bool pinned = 22;
   // Per-message webhook identity override (FDR-902). Present only when this
   // message was posted through a channel webhook whose caller supplied a
   // per-message username and/or avatar. When present, clients render this
   // name/avatar instead of the author's profile.
-  MessageWebhookOverride webhook_override = 22;
+  //
+  // Fork-owned field. Upstream owns tags below 1000 and took tag 22 for
+  // `pinned`, so this field is numbered from the fork range.
+  MessageWebhookOverride webhook_override = 1000;
 }
 
 // MessageWebhookOverride is the per-message display identity a channel webhook

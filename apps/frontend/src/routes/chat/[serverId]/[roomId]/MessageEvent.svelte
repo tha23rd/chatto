@@ -36,7 +36,7 @@
   import { selectedQuoteTextForMessageBody } from './selectedReplyQuote';
   import type { OpenThreadHandler } from './threadOpenOptions';
   import { isMessagePostedEvent } from '$lib/render/timelineEvents';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import { roleColorToCSS } from '$lib/roleColors';
   import MessageReplyAttribution from './MessageReplyAttribution.svelte';
   import MessageEventActionOverlays from './MessageEventActionOverlays.svelte';
@@ -107,7 +107,7 @@
     webhookOverride?.displayName ||
       (!deletedActor && actor
         ? getLiveDisplayName(actor.id, actor.displayName || actor.login)
-        : m['common.deleted_user']())
+        : m('common.deleted_user'))
   );
   const displayNameColor = $derived(webhookOverride ? undefined : roleColorToCSS(actor?.roleColor));
 
@@ -229,6 +229,13 @@
   const editThreadRootEventId = $derived(eventReferences?.editThreadRootEventId ?? null);
   const editChannelEchoEventId = $derived(eventReferences?.editChannelEchoEventId ?? null);
   const threadRootEventId = $derived(eventReferences?.threadRootEventId ?? null);
+  const pinsStore = $derived(
+    roomPermissions.canViewPinnedMessages ? stores.pinsForRoom(roomId) : null
+  );
+  const canPin = $derived(roomPermissions.canPinMessages && Boolean(pinsStore));
+  const isPinned = $derived(
+    pinsStore?.isPinned(editEventId, messageEvent?.pinned ?? false) ?? messageEvent?.pinned ?? false
+  );
   const canReconcileChannelEcho = $derived(
     isAuthor &&
       !!editThreadRootEventId &&
@@ -259,11 +266,14 @@
   // Uses threadRootEventId (thread membership), not inReplyTo (attribution)
   const isRootMessage = $derived(!isEcho && messageEvent?.threadRootEventId == null);
   const hasReplies = $derived(isRootMessage && (messageEvent?.replyCount ?? 0) > 0);
+  const hasThread = $derived(
+    isRootMessage && ((messageEvent?.threadExists ?? false) || (messageEvent?.replyCount ?? 0) > 0)
+  );
   const replyInRoomActionLabel = $derived(
-    isEcho ? m['room.message.actions.reply_thread']() : m['room.message.actions.reply']()
+    isEcho ? m('room.message.actions.reply_thread') : m('room.message.actions.reply')
   );
   const replyThreadActionLabel = $derived(
-    isEcho ? m['room.message.actions.open_thread']() : m['room.message.actions.reply_thread']()
+    isEcho ? m('room.message.actions.open_thread') : m('room.message.actions.reply_thread')
   );
   const canUseReplyAction = $derived(
     isEcho
@@ -297,6 +307,19 @@
       canReact: roomPermissions.canReact,
       canEdit,
       canDelete,
+      canPin,
+      isPinned,
+      togglePin: async () => {
+        const pins = pinsStore;
+        if (!pins) return;
+        try {
+          if (pins.isPinned(editEventId, messageEvent?.pinned ?? false))
+            await pins.remove(editEventId);
+          else await pins.create(editEventId);
+        } catch {
+          toast.error(m('room.pins.update_failed'));
+        }
+      },
       replyInRoomLabel: replyInRoomActionLabel,
       replyThreadLabel: replyThreadActionLabel,
       replyInRoom: canUseReplyAction ? handleReplyInRoom : undefined,
@@ -355,7 +378,7 @@
     return buildMessageReplyPreview({
       target: replyTarget,
       missingName: 'a message',
-      deletedName: m['common.deleted_user'](),
+      deletedName: m('common.deleted_user'),
       getDisplayName: (member) => getLiveDisplayName(member.id, member.displayName || member.login)
     });
   });
@@ -366,8 +389,9 @@
   );
   const hasMessageFooter = $derived(
     (isEcho && !!onOpenThread) ||
-      (hasReplies && !!onOpenThread) ||
-      (msg?.reactions?.length ?? 0) > 0
+      (hasThread && !!onOpenThread) ||
+      (msg?.reactions?.length ?? 0) > 0 ||
+      isPinned
   );
 
   // Check if current user is mentioned (but not by themselves)
@@ -484,7 +508,7 @@
     <span
       class={[
         'iconify shrink-0 text-xs leading-none text-action',
-        kind === 'video' ? 'uil--video' : 'uil--phone'
+        kind === 'video' ? 'icon-[uil--video]' : 'icon-[uil--phone]'
       ]}
       title={kind === 'video' ? 'In a video call' : 'In a voice call'}
       aria-label={kind === 'video' ? 'In a video call' : 'In a voice call'}
@@ -542,7 +566,7 @@
         })}
         onclick={copyMessageLink}
         oncontextmenu={(e) => e.stopPropagation()}
-        title={m['room.message.meta.copy_link_title']()}
+        title={m('room.message.meta.copy_link_title')}
         class="text-xs whitespace-nowrap text-muted opacity-0 group-hover:opacity-100 hover:underline"
       >
         {timestamp}
@@ -568,9 +592,9 @@
       {#if isWebhookMessage}
         <span
           class="meta-badge shrink-0 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-muted uppercase"
-          title={m['common.automated']()}
+          title={m('common.automated')}
         >
-          {m['common.automated']()}
+          {m('common.automated')}
         </span>
       {/if}
     {/snippet}
@@ -584,7 +608,7 @@
         })}
         onclick={copyMessageLink}
         oncontextmenu={(e) => e.stopPropagation()}
-        title={m['room.message.meta.copy_link_title']()}
+        title={m('room.message.meta.copy_link_title')}
         class="shrink-0 text-xs leading-none text-muted hover:underline"
       >
         {timestamp}
@@ -627,11 +651,12 @@
           reactions={msg?.reactions ?? []}
           action={actionModel}
           replyCount={messageEvent?.replyCount}
+          threadExists={messageEvent?.threadExists}
           threadParticipants={messageEvent?.threadParticipants}
           {hasThreadNotification}
           isFollowingThread={threadFollow.following}
           isThreadFollowPending={threadFollow.pending}
-          onToggleThreadFollow={hasReplies ? toggleThreadFollow : undefined}
+          onToggleThreadFollow={hasThread ? toggleThreadFollow : undefined}
           onOpenThread={onOpenThread ? handleOpenThread : undefined}
           onOpenEmojiPicker={roomPermissions.canReact
             ? (event) => interactions.openEmojiPickerFromEvent(event)

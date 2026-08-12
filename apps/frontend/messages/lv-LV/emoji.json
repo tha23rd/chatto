@@ -1,0 +1,9 @@
+{
+  "emoji": {
+    "search_placeholder": "Meklēt emocijzīmes...",
+    "no_results": "Emocijas netika atrastas",
+    "custom_emoji": {
+      "category": "Custom"
+    }
+  }
+}

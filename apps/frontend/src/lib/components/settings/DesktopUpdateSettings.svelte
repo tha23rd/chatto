@@ -7,7 +7,7 @@ current snapshot and explicit user actions.
 -->
 <script lang="ts">
   import { getLocale } from '$lib/i18n/runtime';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import { desktopUpdates } from '$lib/native/desktopUpdates.svelte';
   import type { DesktopUpdateSnapshot } from '$lib/native/types';
   import { idleState } from '$lib/state/idle.svelte';
@@ -58,19 +58,19 @@ current snapshot and explicit user actions.
   function updateStatus(snapshot: DesktopUpdateSnapshot): string {
     if (snapshot.phase !== 'downloading') {
       return {
-        idle: m['ui.desktop_updates.status.idle'](),
-        checking: m['ui.desktop_updates.status.checking'](),
-        ready: m['ui.desktop_updates.status.ready'](),
-        failed: m['ui.desktop_updates.status.failed']()
+        idle: m('ui.desktop_updates.status.idle'),
+        checking: m('ui.desktop_updates.status.checking'),
+        ready: m('ui.desktop_updates.status.ready'),
+        failed: m('ui.desktop_updates.status.failed')
       }[snapshot.phase];
     }
 
     const total = snapshot.totalBytes;
     const downloaded = snapshot.downloadedBytes ?? 0;
-    if (total === undefined || total <= 0) return m['ui.desktop_updates.status.downloading']();
+    if (total === undefined || total <= 0) return m('ui.desktop_updates.status.downloading');
 
     const percent = Math.min(100, Math.max(0, Math.round((downloaded / total) * 100)));
-    return m['ui.desktop_updates.status.downloading_progress_bytes']({
+    return m('ui.desktop_updates.status.downloading_progress_bytes', {
       percent,
       downloaded: formatBytes(downloaded),
       total: formatBytes(total)
@@ -79,7 +79,7 @@ current snapshot and explicit user actions.
 
   function liveUpdateStatus(snapshot: DesktopUpdateSnapshot): string {
     return snapshot.phase === 'downloading'
-      ? m['ui.desktop_updates.status.downloading']()
+      ? m('ui.desktop_updates.status.downloading')
       : updateStatus(snapshot);
   }
 
@@ -98,20 +98,20 @@ current snapshot and explicit user actions.
   function updateError(errorCode: DesktopUpdateSnapshot['errorCode']): string | null {
     if (!errorCode) return null;
     return {
-      network: m['ui.desktop_updates.error.network'](),
-      metadata: m['ui.desktop_updates.error.metadata'](),
-      signature: m['ui.desktop_updates.error.signature'](),
-      download: m['ui.desktop_updates.error.download'](),
-      install: m['ui.desktop_updates.error.install'](),
-      unavailable: m['ui.desktop_updates.error.unavailable']()
+      network: m('ui.desktop_updates.error.network'),
+      metadata: m('ui.desktop_updates.error.metadata'),
+      signature: m('ui.desktop_updates.error.signature'),
+      download: m('ui.desktop_updates.error.download'),
+      install: m('ui.desktop_updates.error.install'),
+      unavailable: m('ui.desktop_updates.error.unavailable')
     }[errorCode];
   }
 
   function lastChecked(snapshot: DesktopUpdateSnapshot): string {
     if (snapshot.lastCheckedAt === undefined) {
-      return m['settings.preferences.desktop_updates.last_checked_unavailable']();
+      return m('settings.preferences.desktop_updates.last_checked_unavailable');
     }
-    return m['settings.preferences.desktop_updates.last_checked']({
+    return m('settings.preferences.desktop_updates.last_checked', {
       time: formatDateTime(new Date(snapshot.lastCheckedAt), userSettings, activeLocale)
     });
   }
@@ -146,12 +146,12 @@ current snapshot and explicit user actions.
     try {
       const snapshot = await desktopUpdates.checkNow();
       if (snapshot.phase === 'failed') {
-        toast.error(m['ui.desktop_updates.toast.check_failed']());
+        toast.error(m('ui.desktop_updates.toast.check_failed'));
       } else if (snapshot.phase === 'idle') {
-        toast.success(m['ui.desktop_updates.toast.up_to_date']());
+        toast.success(m('ui.desktop_updates.toast.up_to_date'));
       }
     } catch {
-      toast.error(m['ui.desktop_updates.toast.check_failed']());
+      toast.error(m('ui.desktop_updates.toast.check_failed'));
     } finally {
       manualCheckPending = false;
     }
@@ -161,7 +161,7 @@ current snapshot and explicit user actions.
     try {
       await desktopUpdates.installNow();
     } catch {
-      toast.error(m['ui.desktop_updates.error.install']());
+      toast.error(m('ui.desktop_updates.error.install'));
     }
   }
 
@@ -182,14 +182,14 @@ current snapshot and explicit user actions.
 
 {#if desktopUpdates.snapshot.supported}
   <FormSection
-    title={m['settings.preferences.desktop_updates.title']()}
+    title={m('settings.preferences.desktop_updates.title')}
     maxWidth="max-w-md"
     bordered
   >
     <div class="flex flex-col gap-4">
-      <p class="text-sm text-muted">{m['settings.preferences.desktop_updates.description']()}</p>
+      <p class="text-sm text-muted">{m('settings.preferences.desktop_updates.description')}</p>
       <p class="text-muted">
-        {m['settings.preferences.desktop_updates.current_version']({
+        {m('settings.preferences.desktop_updates.current_version', {
           version: desktopUpdates.snapshot.currentVersion
         })}
       </p>
@@ -197,18 +197,18 @@ current snapshot and explicit user actions.
       <div
         class="flex flex-col gap-2"
         role="radiogroup"
-        aria-label={m['settings.preferences.desktop_updates.channel.label']()}
+        aria-label={m('settings.preferences.desktop_updates.channel.label')}
       >
         <ChoiceRow
-          label={m['settings.preferences.desktop_updates.channel.stable.label']()}
-          description={m['settings.preferences.desktop_updates.channel.stable.description']()}
+          label={m('settings.preferences.desktop_updates.channel.stable.label')}
+          description={m('settings.preferences.desktop_updates.channel.stable.description')}
           selected={desktopUpdates.snapshot.channel === 'stable'}
           disabled={channelPending}
           onclick={chooseStable}
         />
         <ChoiceRow
-          label={m['settings.preferences.desktop_updates.channel.nightly.label']()}
-          description={m['settings.preferences.desktop_updates.channel.nightly.description']()}
+          label={m('settings.preferences.desktop_updates.channel.nightly.label')}
+          description={m('settings.preferences.desktop_updates.channel.nightly.description')}
           selected={desktopUpdates.snapshot.channel === 'nightly'}
           disabled={channelPending}
           onclick={chooseNightly}
@@ -218,10 +218,10 @@ current snapshot and explicit user actions.
       {#if waitingForStable}
         <Hint>
           <p class="font-medium">
-            {m['settings.preferences.desktop_updates.waiting_for_stable.title']()}
+            {m('settings.preferences.desktop_updates.waiting_for_stable.title')}
           </p>
           <p class="mt-1">
-            {m['settings.preferences.desktop_updates.waiting_for_stable.body']()}
+            {m('settings.preferences.desktop_updates.waiting_for_stable.body')}
           </p>
         </Hint>
       {/if}
@@ -242,7 +242,7 @@ current snapshot and explicit user actions.
       <div class="flex flex-col gap-2 surface-box">
         <p aria-hidden={desktopUpdates.snapshot.phase === 'downloading'}>
           <span class="font-medium"
-            >{m['settings.preferences.desktop_updates.status_label']()}:</span
+            >{m('settings.preferences.desktop_updates.status_label')}:</span
           >
           {updateStatus(desktopUpdates.snapshot)}
         </p>
@@ -251,12 +251,12 @@ current snapshot and explicit user actions.
           {#if progress}
             <progress
               class="w-full"
-              aria-label={m['ui.desktop_updates.status.downloading']()}
+              aria-label={m('ui.desktop_updates.status.downloading')}
               value={progress.value}
               max={progress.max}
             ></progress>
           {:else}
-            <progress class="w-full" aria-label={m['ui.desktop_updates.status.downloading']()}
+            <progress class="w-full" aria-label={m('ui.desktop_updates.status.downloading')}
             ></progress>
           {/if}
         {/if}
@@ -267,13 +267,13 @@ current snapshot and explicit user actions.
         {/if}
         {#if desktopUpdates.snapshot.phase === 'ready' && desktopUpdates.snapshot.candidateVersion}
           <p>
-            {m['ui.desktop_updates.ready_version']({
+            {m('ui.desktop_updates.ready_version', {
               version: desktopUpdates.snapshot.candidateVersion
             })}
           </p>
           <div>
             <Button onclick={restartNow} loading={desktopUpdates.installing}>
-              {m['ui.desktop_updates.restart_now']()}
+              {m('ui.desktop_updates.restart_now')}
             </Button>
           </div>
         {/if}
@@ -284,9 +284,9 @@ current snapshot and explicit user actions.
           variant="secondary"
           onclick={() => void checkNow()}
           loading={manualCheckPending || desktopUpdates.snapshot.phase === 'checking'}
-          loadingText={m['settings.preferences.desktop_updates.checking']()}
+          loadingText={m('settings.preferences.desktop_updates.checking')}
         >
-          {m['settings.preferences.desktop_updates.check_now']()}
+          {m('settings.preferences.desktop_updates.check_now')}
         </Button>
       </div>
     </div>
@@ -294,25 +294,25 @@ current snapshot and explicit user actions.
 
   <ConfirmDialog
     visible={nightlyConfirmationVisible}
-    title={m['settings.preferences.desktop_updates.nightly_confirmation.title']()}
+    title={m('settings.preferences.desktop_updates.nightly_confirmation.title')}
     tone="warning"
-    actionLabel={m['settings.preferences.desktop_updates.nightly_confirmation.confirm']()}
+    actionLabel={m('settings.preferences.desktop_updates.nightly_confirmation.confirm')}
     loading={channelPending}
     onconfirm={() => void confirmNightly()}
     onclose={() => (nightlyConfirmationVisible = false)}
   >
-    {m['settings.preferences.desktop_updates.nightly_confirmation.body']()}
+    {m('settings.preferences.desktop_updates.nightly_confirmation.body')}
   </ConfirmDialog>
 
   <ConfirmDialog
     visible={activeCallConfirmationVisible}
-    title={m['settings.preferences.desktop_updates.active_call.title']()}
+    title={m('settings.preferences.desktop_updates.active_call.title')}
     tone="warning"
-    actionLabel={m['settings.preferences.desktop_updates.active_call.confirm']()}
+    actionLabel={m('settings.preferences.desktop_updates.active_call.confirm')}
     loading={desktopUpdates.installing}
     onconfirm={confirmActiveCallRestart}
     onclose={() => (activeCallConfirmationVisible = false)}
   >
-    {m['settings.preferences.desktop_updates.active_call.body']()}
+    {m('settings.preferences.desktop_updates.active_call.body')}
   </ConfirmDialog>
 {/if}

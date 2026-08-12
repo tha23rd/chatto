@@ -54,7 +54,7 @@ replace part of their original design.
 | [ADR-040](ADR-040-permission-only-rbac-with-owner-override.md) | Permission-Only RBAC with Owner Override | Accepted | 2026-06-15 |
 | [ADR-041](ADR-041-runtime-units.md) | Runtime Units for Optional Chatto Processes | Accepted | 2026-06-21 |
 | [ADR-042](ADR-042-protobuf-first-public-api.md) | Protobuf-First Public API with ConnectRPC and Realtime WebSocket | Accepted | 2026-06-22 |
-| [ADR-043](ADR-043-client-shell-internationalization.md) | Client-Shell Internationalization | Accepted | 2026-06-22 |
+| [ADR-043](ADR-043-client-shell-internationalization.md) | Client-Shell Internationalization | Superseded | 2026-06-22 |
 | [ADR-044](ADR-044-connectrpc-service-conventions.md) | ConnectRPC Service Conventions | Accepted | 2026-06-25 |
 | [ADR-045](ADR-045-public-api-stability-tiers.md) | Public API Stability Tiers | Accepted | 2026-06-28 |
 | [ADR-046](ADR-046-typed-runtime-credentials.md) | Typed Runtime Credentials | Accepted | 2026-06-30 |
@@ -74,8 +74,15 @@ replace part of their original design.
 | [ADR-060](ADR-060-application-neutral-data-cryptography.md) | Extract Application-Neutral Data Cryptography | Accepted | 2026-07-31 |
 | [ADR-061](ADR-061-application-neutral-configuration-loading.md) | Extract Application-Neutral Configuration Loading | Accepted | 2026-07-31 |
 | [ADR-062](ADR-062-tanstack-query-for-snapshot-reads.md) | TanStack Query for Snapshot-Style Frontend Reads | Accepted | 2026-07-31 |
-| [ADR-063](ADR-063-deno-desktop-cef-client.md) | Package Chatto Desktop with Deno Desktop and CEF | Accepted | 2026-08-02 |
+| [ADR-063](ADR-063-deno-desktop-cef-client.md) | Package Chatto Desktop with Deno Desktop and CEF | Superseded | 2026-08-02 |
 | [ADR-064](ADR-064-separate-server-catalog-and-sessions.md) | Separate the Frontend Server Catalogue from Device Sessions | Accepted | 2026-08-02 |
+
+| [ADR-065](ADR-065-runtime-json-client-internationalization.md) | Runtime JSON Client Internationalization | Accepted | 2026-08-05 |
+| [ADR-066](ADR-066-durable-asset-processing-runtime-unit.md) | Durable Asset Processing as a Runtime Unit | Accepted | 2026-08-08 |
+| [ADR-067](ADR-067-electron-desktop-client.md) | Package Chatto Desktop with Electron | Accepted | 2026-08-08 |
+| [ADR-068](ADR-068-selectable-event-mutation-consistency-boundaries.md) | Select Event Mutation Consistency Boundaries Explicitly | Accepted | 2026-08-10 |
+| [ADR-069](ADR-069-explicit-durable-consumer-lifecycle.md) | Manage Durable Consumer Lifecycles Explicitly | Accepted | 2026-08-11 |
+| [ADR-070](ADR-070-deterministic-invite-link-capabilities.md) | Derive Invite-Link Capabilities from Durable EVT Identity | Accepted | 2026-08-11 |
 
 ## Distribution-Specific Decisions
 

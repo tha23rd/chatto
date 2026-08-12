@@ -31,7 +31,7 @@ common cause of "why is my stream blocky" — showing the number makes the trade
 -->
 <script lang="ts">
   import FloatingPopover from '$lib/ui/FloatingPopover.svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import {
     availableFramerates,
     availableResolutions,
@@ -91,14 +91,14 @@ common cause of "why is my stream blocky" — showing the number makes the trade
   {anchor}
   {onclose}
   role="dialog"
-  ariaLabel={m['voice.stream_quality']()}
+  ariaLabel={m('voice.stream_quality')}
   class="menu w-64 p-3"
 >
   <div {onkeydown} role="presentation" class="flex flex-col gap-3">
-    <div class="text-sm font-medium">{m['voice.stream_quality']()}</div>
+    <div class="text-sm font-medium">{m('voice.stream_quality')}</div>
 
     <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-muted">{m['voice.stream_resolution']()}</span>
+      <span class="text-xs font-medium text-muted">{m('voice.stream_resolution')}</span>
       <select
         data-testid="stream-quality-resolution"
         class="input w-full cursor-pointer"
@@ -116,7 +116,7 @@ common cause of "why is my stream blocky" — showing the number makes the trade
     </label>
 
     <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-muted">{m['voice.stream_framerate']()}</span>
+      <span class="text-xs font-medium text-muted">{m('voice.stream_framerate')}</span>
       <select
         data-testid="stream-quality-framerate"
         class="input w-full cursor-pointer"
@@ -128,18 +128,18 @@ common cause of "why is my stream blocky" — showing the number makes the trade
           })}
       >
         {#each framerates as framerate (framerate)}
-          <option value={String(framerate)}>{m['voice.stream_fps']({ fps: framerate })}</option>
+          <option value={String(framerate)}>{m('voice.stream_fps', { fps: framerate })}</option>
         {/each}
       </select>
     </label>
 
     <p class="text-xs text-muted tabular-nums" data-testid="stream-quality-bitrate">
-      {m['voice.stream_bitrate_estimate']({ mbps: formatBitrateMbps(effective) })}
+      {m('voice.stream_bitrate_estimate', { mbps: formatBitrateMbps(effective) })}
     </p>
 
     {#if clampedByCeiling}
       <p class="text-xs text-warning" data-testid="stream-quality-ceiling-notice">
-        {m['voice.stream_bitrate_capped']({
+        {m('voice.stream_bitrate_capped', {
           mbps: formatBitrateMbps(ceiling.maxBitrate)
         })}
       </p>
@@ -153,12 +153,12 @@ common cause of "why is my stream blocky" — showing the number makes the trade
         checked={quality.shareAudio}
         onchange={(event) => onchange({ ...quality, shareAudio: event.currentTarget.checked })}
       />
-      <span>{m['voice.stream_share_audio']()}</span>
+      <span>{m('voice.stream_share_audio')}</span>
     </label>
 
     {#if retuneFailed}
       <p class="text-xs text-muted" data-testid="stream-quality-retune-failed">
-        {m['voice.stream_quality_next_share']()}
+        {m('voice.stream_quality_next_share')}
       </p>
     {/if}
 
@@ -170,8 +170,8 @@ common cause of "why is my stream blocky" — showing the number makes the trade
         disabled={!diagnosticsAvailable}
         onclick={() => oncopydiagnostics?.()}
       >
-        <span class="iconify uil--clipboard-notes" aria-hidden="true"></span>
-        {m['common.copy_to_clipboard']()}
+        <span class="icon-[uil--clipboard-notes]" aria-hidden="true"></span>
+        {m('common.copy_to_clipboard')}
       </button>
     {/if}
 
@@ -185,7 +185,7 @@ common cause of "why is my stream blocky" — showing the number makes the trade
         data-testid="stream-quality-go-live"
         onclick={() => ongolive?.()}
       >
-        {m['voice.stream_go_live']()}
+        {m('voice.stream_go_live')}
       </button>
     {:else}
       <button
@@ -194,7 +194,7 @@ common cause of "why is my stream blocky" — showing the number makes the trade
         data-testid="stream-quality-stop"
         onclick={() => onstop?.()}
       >
-        {m['voice.stop_share_screen']()}
+        {m('voice.stop_share_screen')}
       </button>
     {/if}
   </div>

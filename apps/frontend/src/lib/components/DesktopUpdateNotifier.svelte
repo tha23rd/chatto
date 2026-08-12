@@ -6,7 +6,7 @@ only the current candidate for this component lifetime; installation is never
 started by navigation, a timer, or a state transition.
 -->
 <script lang="ts">
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import { desktopUpdates } from '$lib/native/desktopUpdates.svelte';
   import { idleState } from '$lib/state/idle.svelte';
   import { Dialog } from '$lib/ui';
@@ -32,24 +32,24 @@ started by navigation, a timer, or a state transition.
     try {
       await desktopUpdates.installNow();
     } catch {
-      toast.error(m['ui.desktop_updates.error.install']());
+      toast.error(m('ui.desktop_updates.error.install'));
     }
   }
 </script>
 
 {#if promptVisible && readyCandidate}
-  <Dialog visible size="sm" title={m['ui.desktop_updates.prompt.title']()} onclose={deferCandidate}>
+  <Dialog visible size="sm" title={m('ui.desktop_updates.prompt.title')} onclose={deferCandidate}>
     <p class="text-muted">
-      {m['ui.desktop_updates.prompt.body']({ version: readyCandidate })}
+      {m('ui.desktop_updates.prompt.body', { version: readyCandidate })}
     </p>
 
     {#snippet footer()}
       <div class="flex justify-end gap-2 border-t border-text/10 pt-3">
         <Button variant="secondary" onclick={deferCandidate} disabled={desktopUpdates.installing}>
-          {m['ui.desktop_updates.later']()}
+          {m('ui.desktop_updates.later')}
         </Button>
         <Button onclick={() => void restartNow()} loading={desktopUpdates.installing}>
-          {m['ui.desktop_updates.restart_now']()}
+          {m('ui.desktop_updates.restart_now')}
         </Button>
       </div>
     {/snippet}

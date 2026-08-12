@@ -1,7 +1,6 @@
 [tools]
 actionlint = "latest"
 buf = "latest"
-deno = "2.9.4"
 go = "1.26.2"
 goreleaser = "latest"
 node = "22"
@@ -25,6 +24,7 @@ run = [
     { task = "setup-natsruntime" },
     { task = "setup-frontend" },
     { task = "build-api-types" },
+    { task = "build-lingua" },
 ]
 
 # =============================================================================
@@ -156,7 +156,7 @@ run = [{ task = "build-*" }, "ls -lah cli/bin/*"]
 description = "Build the experimental Chatto desktop app for the host platform"
 depends = ["build-frontend"]
 dir = "apps/desktop"
-run = "deno task build"
+run = "pnpm build"
 
 [tasks.build-api-types]
 description = "Build the generated TypeScript API package"
@@ -165,9 +165,16 @@ dir = "packages/api-types"
 run = "pnpm build"
 sources = ["package.json", "tsconfig.json", "src/**/*"]
 
+[tasks.build-lingua]
+description = "Build the JSON internationalisation runtime package"
+depends = ["setup-frontend"]
+dir = "packages/lingua"
+run = "pnpm build"
+sources = ["package.json", "tsconfig.json", "src/**/*"]
+
 [tasks.build-frontend]
 description = "Build the frontend application"
-depends = ["setup-frontend", "build-api-types"]
+depends = ["setup-frontend", "build-api-types", "build-lingua"]
 dir = "apps/frontend"
 run = [
     "pnpm svelte-kit sync",
@@ -181,9 +188,9 @@ sources = [
     "../../pnpm-lock.yaml",
     "../../pnpm-workspace.yaml",
     "../../packages/api-types/dist/**/*",
+    "../../packages/lingua/dist/**/*",
     "package.json",
     "messages/**/*",
-    "project.inlang/**/*",
     "scripts/**/*",
     "../../tools/prepare-embedded-frontend.sh",
     "src/**/*",
@@ -298,7 +305,7 @@ run = "exec ./node_modules/.bin/vite dev"
 description = "Run the experimental Chatto desktop app with the latest frontend build"
 depends = ["build-frontend"]
 dir = "apps/desktop"
-run = "deno task dev"
+run = "pnpm dev"
 
 [tasks.dev-livekit]
 description = "Run a local LiveKit server with workspace-safe ports"
@@ -491,14 +498,20 @@ sources = ["**/*.go", "cmd/embedded/LICENSE", "cmd/embedded/NOTICE"]
 
 [tasks.knip]
 description = "Find unused frontend/docs files, dependencies, and exports"
-depends = ["setup-frontend", "build-api-types"]
+depends = ["setup-frontend", "build-api-types", "build-lingua"]
 run = "pnpm knip"
 
 [tasks.lint-frontend]
 description = "Run TypeScript and ESLint checks on frontend"
-depends = ["setup-frontend", "build-api-types"]
+depends = ["setup-frontend", "build-api-types", "build-lingua"]
 dir = "apps/frontend"
 run = ["pnpm check", "pnpm lint"]
+
+[tasks.lint-lingua]
+description = "Type-check the JSON internationalisation runtime package"
+depends = ["setup-frontend"]
+dir = "packages/lingua"
+run = "pnpm check"
 
 [tasks.lint]
 description = "Run linters"
@@ -506,20 +519,44 @@ run = [{ task = "lint-*" }]
 
 [tasks.test-frontend]
 description = "Run frontend unit tests"
-depends = ["setup-frontend", "build-api-types"]
+depends = ["setup-frontend", "build-api-types", "build-lingua"]
 dir = "apps/frontend"
-run = "pnpm vitest --run"
+run = "pnpm test:unit:run"
+
+[tasks.test-lingua]
+description = "Test the JSON internationalisation runtime package"
+depends = ["setup-frontend"]
+dir = "packages/lingua"
+run = "pnpm test"
+
+[tasks.test-workspace]
+description = "Run all pnpm workspace package tests"
+depends = ["setup-frontend"]
+run = "pnpm test"
 
 [tasks.test-desktop-cef]
 description = "Check and test the experimental Chatto desktop app"
+depends = ["setup-frontend"]
 dir = "apps/desktop"
-run = "deno task check"
+run = "pnpm check"
 
 [tasks.test-e2e]
 description = "Run E2E tests"
 depends = ["setup-frontend", "build-e2e-server"]
 dir = "apps/frontend"
 run = "pnpm exec playwright test"
+
+[tasks.test-e2e-performance]
+description = "Run the large synthetic-server E2E performance suite"
+depends = ["setup-frontend", "build-e2e-server"]
+dir = "apps/frontend"
+run = "pnpm exec playwright test --config playwright.performance.config.ts"
+
+[tasks.compare-e2e-performance]
+description = "Compare two large-server E2E performance result files"
+depends = ["setup-frontend"]
+dir = "apps/frontend"
+run = "node scripts/compare-e2e-performance.mjs"
 
 [tasks.test]
 description = "Run all tests"
@@ -530,7 +567,7 @@ run = [
     { task = "test-natsruntime" },
     { task = "test-cli" },
     { task = "test-desktop" },
-    { task = "test-frontend" },
+    { task = "test-workspace" },
     { task = "test-e2e" },
 ]
 
@@ -552,6 +589,7 @@ run = [
     "rm -rf cli/internal/http_server/.client",
     "rm -rf apps/frontend/build",
     "rm -rf apps/desktop/dist",
+    "rm -rf packages/lingua/dist",
 ]
 
 [tasks.reset-config]

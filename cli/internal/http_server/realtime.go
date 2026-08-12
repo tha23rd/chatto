@@ -5,12 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -313,16 +313,19 @@ func (s *HTTPServer) serveRealtimeWebSocket(parent context.Context, conn *websoc
 
 	hydrateRooms := make(chan string, 16)
 	go s.readRealtimeControlFrames(ctx, cancel, conn, writeFrame, hydrateRooms)
+	var roomMarkerFence *uint64
 	if replayPlan.Reset {
 		retainedRoomIDs := make([]string, 0, len(retainedRooms))
 		for roomID := range retainedRooms {
 			retainedRoomIDs = append(retainedRoomIDs, roomID)
 		}
 		slices.Sort(retainedRoomIDs)
-		if err := s.writeRealtimeProjectionSnapshot(catchUpCtx, user.Id, retainedRoomIDs, writeCatchUpFrame); err != nil {
+		revision, err := s.writeRealtimeProjectionSnapshot(catchUpCtx, user.Id, retainedRoomIDs, writeCatchUpFrame)
+		if err != nil {
 			failCatchUp("Realtime compacted projection replay failed", err)
 			return
 		}
+		roomMarkerFence = &revision
 	}
 	for _, event := range replayPlan.Events {
 		frame, handled, err := s.realtimeProjectionFrameForEventWithRooms(catchUpCtx, user.Id, event, retainedRooms)
@@ -340,7 +343,7 @@ func (s *HTTPServer) serveRealtimeWebSocket(parent context.Context, conn *websoc
 			return
 		}
 	}
-	reconciliation, err := s.realtimeProjectionReconciliationFrame(catchUpCtx, user.Id)
+	reconciliation, err := s.realtimeProjectionReconciliationFrame(catchUpCtx, user.Id, roomMarkerFence)
 	if err != nil {
 		failCatchUp("Realtime latest-value reconciliation failed", err)
 		return
@@ -349,6 +352,13 @@ func (s *HTTPServer) serveRealtimeWebSocket(parent context.Context, conn *websoc
 		handleCatchUpWriteError(err)
 		return
 	}
+	// Release the catch-up admission before announcing CaughtUp: the client
+	// may immediately subscribe another socket once it sees the frame, and the
+	// slot must be free for that catch-up. The live phase uses the separate
+	// hydration slot, so nothing below depends on this one. The catch-up
+	// context stays live until after the frame so writeCatchUpFrame can
+	// deliver it.
+	finishCatchUp()
 	if err := writeCatchUpFrame(&realtimev1.RealtimeServerFrame{Frame: &realtimev1.RealtimeServerFrame_CaughtUp{
 		CaughtUp: &realtimev1.RealtimeCaughtUp{Cursor: replayPlan.BoundaryCursor},
 	}}); err != nil {
@@ -356,7 +366,6 @@ func (s *HTTPServer) serveRealtimeWebSocket(parent context.Context, conn *websoc
 		return
 	}
 	cancelCatchUp()
-	finishCatchUp()
 
 	for {
 		select {
