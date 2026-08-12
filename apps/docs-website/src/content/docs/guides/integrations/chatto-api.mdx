@@ -58,6 +58,7 @@ Realtime delivery uses the same room membership, RBAC, projection readiness, and
 | Render room navigation | `RoomDirectoryService` |
 | Read room history | `RoomService.GetRoomEvents` and `RoomService.GetRoomEventsAround` |
 | Post, edit, or delete messages | `MessageService` |
+| Add buttons to messages and consume invocations | `MessageService` and `MessageActionService` |
 | React to messages | `ReactionService` |
 | Track unread state | `RoomService.MarkRoomAsRead` and `ThreadService.MarkThreadAsRead` |
 | Start DMs | `RoomService` |
@@ -94,5 +95,6 @@ support inline timestamps.
   <LinkCard title="Realtime API" href="/reference/connectrpc-api/realtime/" description="Protobuf realtime WebSocket frame reference." />
   <LinkCard title="Server Discovery" href="/reference/connectrpc-api/server-discovery/" description="Discovery endpoint for compatible clients." />
   <LinkCard title="API Compatibility" href="/guides/integrations/api-compatibility/" description="Experimental API posture and version-skew guidance." />
+  <LinkCard title="Message Actions" href="/guides/integrations/message-actions/" description="Add reusable buttons to bot and integration messages." />
   <LinkCard title="Operator CLI" href="/guides/operations/operator-cli/" description="Trusted local automation over the operator socket." />
 </CardGrid>

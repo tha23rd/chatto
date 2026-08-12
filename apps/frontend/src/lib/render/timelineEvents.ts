@@ -3,6 +3,15 @@ import type { MessageAttachmentView } from './messageAttachments';
 import type { ReactionSummaryView } from './reactions';
 import type { MessageWebhookOverrideView, UserAvatarUserView } from './users';
 
+export type MessageActionStyleView = 'primary' | 'secondary' | 'success' | 'danger';
+
+export type MessageActionView = {
+  id: string;
+  label: string;
+  style: MessageActionStyleView;
+  disabled: boolean;
+};
+
 /**
  * Renderable durable events returned by the room and thread timeline APIs.
  * These names intentionally match the generated RoomTimelineEvent oneof cases.
@@ -40,6 +49,7 @@ export type MessagePostedPayload = {
   threadParticipants: UserAvatarUserView[];
   viewerIsFollowingThread?: boolean | null;
   webhookOverride?: MessageWebhookOverrideView | null;
+  actions?: MessageActionView[];
 };
 
 export type TimelineEventPayload =

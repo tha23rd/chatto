@@ -7,6 +7,7 @@
 package apiv1
 
 import (
+	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -21,6 +22,67 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
+
+// Visual treatment for a message action button.
+type MessageActionStyle int32
+
+const (
+	// Uses the normal secondary button treatment.
+	MessageActionStyle_MESSAGE_ACTION_STYLE_UNSPECIFIED MessageActionStyle = 0
+	// Emphasises the primary action.
+	MessageActionStyle_MESSAGE_ACTION_STYLE_PRIMARY MessageActionStyle = 1
+	// Uses the normal secondary button treatment.
+	MessageActionStyle_MESSAGE_ACTION_STYLE_SECONDARY MessageActionStyle = 2
+	// Indicates a successful or affirmative action.
+	MessageActionStyle_MESSAGE_ACTION_STYLE_SUCCESS MessageActionStyle = 3
+	// Indicates a destructive or dangerous action.
+	MessageActionStyle_MESSAGE_ACTION_STYLE_DANGER MessageActionStyle = 4
+)
+
+// Enum value maps for MessageActionStyle.
+var (
+	MessageActionStyle_name = map[int32]string{
+		0: "MESSAGE_ACTION_STYLE_UNSPECIFIED",
+		1: "MESSAGE_ACTION_STYLE_PRIMARY",
+		2: "MESSAGE_ACTION_STYLE_SECONDARY",
+		3: "MESSAGE_ACTION_STYLE_SUCCESS",
+		4: "MESSAGE_ACTION_STYLE_DANGER",
+	}
+	MessageActionStyle_value = map[string]int32{
+		"MESSAGE_ACTION_STYLE_UNSPECIFIED": 0,
+		"MESSAGE_ACTION_STYLE_PRIMARY":     1,
+		"MESSAGE_ACTION_STYLE_SECONDARY":   2,
+		"MESSAGE_ACTION_STYLE_SUCCESS":     3,
+		"MESSAGE_ACTION_STYLE_DANGER":      4,
+	}
+)
+
+func (x MessageActionStyle) Enum() *MessageActionStyle {
+	p := new(MessageActionStyle)
+	*p = x
+	return p
+}
+
+func (x MessageActionStyle) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MessageActionStyle) Descriptor() protoreflect.EnumDescriptor {
+	return file_chatto_api_v1_message_types_proto_enumTypes[0].Descriptor()
+}
+
+func (MessageActionStyle) Type() protoreflect.EnumType {
+	return &file_chatto_api_v1_message_types_proto_enumTypes[0]
+}
+
+func (x MessageActionStyle) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MessageActionStyle.Descriptor instead.
+func (MessageActionStyle) EnumDescriptor() ([]byte, []int) {
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{0}
+}
 
 // Processing state for a video attachment.
 type MessageVideoProcessingStatus int32
@@ -63,11 +125,11 @@ func (x MessageVideoProcessingStatus) String() string {
 }
 
 func (MessageVideoProcessingStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_chatto_api_v1_message_types_proto_enumTypes[0].Descriptor()
+	return file_chatto_api_v1_message_types_proto_enumTypes[1].Descriptor()
 }
 
 func (MessageVideoProcessingStatus) Type() protoreflect.EnumType {
-	return &file_chatto_api_v1_message_types_proto_enumTypes[0]
+	return &file_chatto_api_v1_message_types_proto_enumTypes[1]
 }
 
 func (x MessageVideoProcessingStatus) Number() protoreflect.EnumNumber {
@@ -76,7 +138,130 @@ func (x MessageVideoProcessingStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MessageVideoProcessingStatus.Descriptor instead.
 func (MessageVideoProcessingStatus) EnumDescriptor() ([]byte, []int) {
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{1}
+}
+
+// Author-defined button attached to a message.
+//
+// The action ID is opaque integration data visible to room members and
+// returned to the message author when a member invokes the button. Chatto does
+// not interpret it.
+type MessageAction struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Stable integration-defined ID within this message.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Visible button label.
+	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	// Visual treatment. Unspecified uses the secondary treatment.
+	Style MessageActionStyle `protobuf:"varint,3,opt,name=style,proto3,enum=chatto.api.v1.MessageActionStyle" json:"style,omitempty"`
+	// Whether the button is visible but cannot currently be invoked.
+	Disabled      bool `protobuf:"varint,4,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MessageAction) Reset() {
+	*x = MessageAction{}
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MessageAction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MessageAction) ProtoMessage() {}
+
+func (x *MessageAction) ProtoReflect() protoreflect.Message {
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MessageAction.ProtoReflect.Descriptor instead.
+func (*MessageAction) Descriptor() ([]byte, []int) {
 	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *MessageAction) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *MessageAction) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *MessageAction) GetStyle() MessageActionStyle {
+	if x != nil {
+		return x.Style
+	}
+	return MessageActionStyle_MESSAGE_ACTION_STYLE_UNSPECIFIED
+}
+
+func (x *MessageAction) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
+}
+
+// Complete replacement set used when creating or updating a message.
+type MessageActionSet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Ordered action buttons. IDs must be unique within the set.
+	Actions       []*MessageAction `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MessageActionSet) Reset() {
+	*x = MessageActionSet{}
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MessageActionSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MessageActionSet) ProtoMessage() {}
+
+func (x *MessageActionSet) ProtoReflect() protoreflect.Message {
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MessageActionSet.ProtoReflect.Descriptor instead.
+func (*MessageActionSet) Descriptor() ([]byte, []int) {
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *MessageActionSet) GetActions() []*MessageAction {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
 }
 
 // Time-limited URL for an asset attached to a message.
@@ -95,7 +280,7 @@ type MessageAssetUrl struct {
 
 func (x *MessageAssetUrl) Reset() {
 	*x = MessageAssetUrl{}
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[0]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -107,7 +292,7 @@ func (x *MessageAssetUrl) String() string {
 func (*MessageAssetUrl) ProtoMessage() {}
 
 func (x *MessageAssetUrl) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[0]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -120,7 +305,7 @@ func (x *MessageAssetUrl) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageAssetUrl.ProtoReflect.Descriptor instead.
 func (*MessageAssetUrl) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{0}
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *MessageAssetUrl) GetUrl() string {
@@ -156,7 +341,7 @@ type MessageVideoVariant struct {
 
 func (x *MessageVideoVariant) Reset() {
 	*x = MessageVideoVariant{}
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[1]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -168,7 +353,7 @@ func (x *MessageVideoVariant) String() string {
 func (*MessageVideoVariant) ProtoMessage() {}
 
 func (x *MessageVideoVariant) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[1]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -181,7 +366,7 @@ func (x *MessageVideoVariant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageVideoVariant.ProtoReflect.Descriptor instead.
 func (*MessageVideoVariant) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{1}
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *MessageVideoVariant) GetQuality() string {
@@ -231,7 +416,7 @@ type MessageVideoHLS struct {
 
 func (x *MessageVideoHLS) Reset() {
 	*x = MessageVideoHLS{}
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[2]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -243,7 +428,7 @@ func (x *MessageVideoHLS) String() string {
 func (*MessageVideoHLS) ProtoMessage() {}
 
 func (x *MessageVideoHLS) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[2]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -256,7 +441,7 @@ func (x *MessageVideoHLS) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageVideoHLS.ProtoReflect.Descriptor instead.
 func (*MessageVideoHLS) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{2}
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *MessageVideoHLS) GetMasterPlaylistUrl() *MessageAssetUrl {
@@ -298,7 +483,7 @@ type MessageVideoProcessing struct {
 
 func (x *MessageVideoProcessing) Reset() {
 	*x = MessageVideoProcessing{}
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[3]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -310,7 +495,7 @@ func (x *MessageVideoProcessing) String() string {
 func (*MessageVideoProcessing) ProtoMessage() {}
 
 func (x *MessageVideoProcessing) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[3]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -323,7 +508,7 @@ func (x *MessageVideoProcessing) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageVideoProcessing.ProtoReflect.Descriptor instead.
 func (*MessageVideoProcessing) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{3}
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *MessageVideoProcessing) GetStatus() MessageVideoProcessingStatus {
@@ -417,7 +602,7 @@ type MessageAttachment struct {
 
 func (x *MessageAttachment) Reset() {
 	*x = MessageAttachment{}
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[4]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -429,7 +614,7 @@ func (x *MessageAttachment) String() string {
 func (*MessageAttachment) ProtoMessage() {}
 
 func (x *MessageAttachment) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[4]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -442,7 +627,7 @@ func (x *MessageAttachment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageAttachment.ProtoReflect.Descriptor instead.
 func (*MessageAttachment) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{4}
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *MessageAttachment) GetId() string {
@@ -521,7 +706,7 @@ type MessageReaction struct {
 
 func (x *MessageReaction) Reset() {
 	*x = MessageReaction{}
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[5]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -533,7 +718,7 @@ func (x *MessageReaction) String() string {
 func (*MessageReaction) ProtoMessage() {}
 
 func (x *MessageReaction) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[5]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -546,7 +731,7 @@ func (x *MessageReaction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageReaction.ProtoReflect.Descriptor instead.
 func (*MessageReaction) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{5}
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *MessageReaction) GetEmoji() string {
@@ -590,7 +775,7 @@ type ThreadViewerState struct {
 
 func (x *ThreadViewerState) Reset() {
 	*x = ThreadViewerState{}
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[6]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -602,7 +787,7 @@ func (x *ThreadViewerState) String() string {
 func (*ThreadViewerState) ProtoMessage() {}
 
 func (x *ThreadViewerState) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[6]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -615,7 +800,7 @@ func (x *ThreadViewerState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ThreadViewerState.ProtoReflect.Descriptor instead.
 func (*ThreadViewerState) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{6}
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ThreadViewerState) GetIsFollowing() bool {
@@ -655,7 +840,7 @@ type ThreadSummary struct {
 
 func (x *ThreadSummary) Reset() {
 	*x = ThreadSummary{}
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[7]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -667,7 +852,7 @@ func (x *ThreadSummary) String() string {
 func (*ThreadSummary) ProtoMessage() {}
 
 func (x *ThreadSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[7]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -680,7 +865,7 @@ func (x *ThreadSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ThreadSummary.ProtoReflect.Descriptor instead.
 func (*ThreadSummary) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{7}
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ThreadSummary) GetThreadRootEventId() string {
@@ -773,13 +958,16 @@ type Message struct {
 	// per-message username and/or avatar. When present, clients render this
 	// name/avatar instead of the author's profile.
 	WebhookOverride *MessageWebhookOverride `protobuf:"bytes,22,opt,name=webhook_override,json=webhookOverride,proto3" json:"webhook_override,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Author-defined buttons that can send a named invocation back to the
+	// message author.
+	Actions       []*MessageAction `protobuf:"bytes,23,rep,name=actions,proto3" json:"actions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Message) Reset() {
 	*x = Message{}
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[8]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -791,7 +979,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[8]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -804,7 +992,7 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Message.ProtoReflect.Descriptor instead.
 func (*Message) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{8}
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Message) GetId() string {
@@ -926,6 +1114,13 @@ func (x *Message) GetWebhookOverride() *MessageWebhookOverride {
 	return nil
 }
 
+func (x *Message) GetActions() []*MessageAction {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
 // MessageWebhookOverride is the per-message display identity a channel webhook
 // set on an individual post (FDR-902).
 type MessageWebhookOverride struct {
@@ -940,7 +1135,7 @@ type MessageWebhookOverride struct {
 
 func (x *MessageWebhookOverride) Reset() {
 	*x = MessageWebhookOverride{}
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[9]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -952,7 +1147,7 @@ func (x *MessageWebhookOverride) String() string {
 func (*MessageWebhookOverride) ProtoMessage() {}
 
 func (x *MessageWebhookOverride) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_types_proto_msgTypes[9]
+	mi := &file_chatto_api_v1_message_types_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -965,7 +1160,7 @@ func (x *MessageWebhookOverride) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageWebhookOverride.ProtoReflect.Descriptor instead.
 func (*MessageWebhookOverride) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{9}
+	return file_chatto_api_v1_message_types_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *MessageWebhookOverride) GetDisplayName() string {
@@ -986,7 +1181,14 @@ var File_chatto_api_v1_message_types_proto protoreflect.FileDescriptor
 
 const file_chatto_api_v1_message_types_proto_rawDesc = "" +
 	"\n" +
-	"!chatto/api/v1/message_types.proto\x12\rchatto.api.v1\x1a!chatto/api/v1/link_previews.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"^\n" +
+	"!chatto/api/v1/message_types.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\x1a!chatto/api/v1/link_previews.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbc\x01\n" +
+	"\rMessageAction\x12+\n" +
+	"\x02id\x18\x01 \x01(\tB\x1b\xbaH\x18r\x16\x10\x01\x18@2\x10^[A-Za-z0-9_-]+$R\x02id\x12\x1f\n" +
+	"\x05label\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01(PR\x05label\x12A\n" +
+	"\x05style\x18\x03 \x01(\x0e2!.chatto.api.v1.MessageActionStyleB\b\xbaH\x05\x82\x01\x02\x10\x01R\x05style\x12\x1a\n" +
+	"\bdisabled\x18\x04 \x01(\bR\bdisabled\"T\n" +
+	"\x10MessageActionSet\x12@\n" +
+	"\aactions\x18\x01 \x03(\v2\x1c.chatto.api.v1.MessageActionB\b\xbaH\x05\x92\x01\x02\x10\x05R\aactions\"^\n" +
 	"\x0fMessageAssetUrl\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x129\n" +
 	"\n" +
@@ -1039,7 +1241,7 @@ const file_chatto_api_v1_message_types_proto_rawDesc = "" +
 	"\rlast_reply_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vlastReplyAt\x12?\n" +
 	"\x1cparticipant_preview_user_ids\x18\x04 \x03(\tR\x19participantPreviewUserIds\x12+\n" +
 	"\x11participant_count\x18\x05 \x01(\x05R\x10participantCount\x12C\n" +
-	"\fviewer_state\x18\x06 \x01(\v2 .chatto.api.v1.ThreadViewerStateR\vviewerState\"\xd6\a\n" +
+	"\fviewer_state\x18\x06 \x01(\v2 .chatto.api.v1.ThreadViewerStateR\vviewerState\"\x8e\b\n" +
 	"\aMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\aroom_id\x18\x02 \x01(\tR\x06roomId\x129\n" +
@@ -1061,14 +1263,21 @@ const file_chatto_api_v1_message_types_proto_rawDesc = "" +
 	"\x06thread\x18\x14 \x01(\v2\x1c.chatto.api.v1.ThreadSummaryR\x06thread\x129\n" +
 	"\n" +
 	"deleted_at\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt\x12P\n" +
-	"\x10webhook_override\x18\x16 \x01(\v2%.chatto.api.v1.MessageWebhookOverrideR\x0fwebhookOverrideB\a\n" +
+	"\x10webhook_override\x18\x16 \x01(\v2%.chatto.api.v1.MessageWebhookOverrideR\x0fwebhookOverride\x126\n" +
+	"\aactions\x18\x17 \x03(\v2\x1c.chatto.api.v1.MessageActionR\aactionsB\a\n" +
 	"\x05_bodyJ\x04\b\x0e\x10\x13R\vreply_countR\rlast_reply_atR#thread_participant_preview_user_idsR\x18thread_participant_countR\x1aviewer_is_following_thread\"\x84\x01\n" +
 	"\x16MessageWebhookOverride\x12&\n" +
 	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12\"\n" +
 	"\n" +
 	"avatar_url\x18\x02 \x01(\tH\x01R\tavatarUrl\x88\x01\x01B\x0f\n" +
 	"\r_display_nameB\r\n" +
-	"\v_avatar_url*\xda\x01\n" +
+	"\v_avatar_url*\xc3\x01\n" +
+	"\x12MessageActionStyle\x12$\n" +
+	" MESSAGE_ACTION_STYLE_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cMESSAGE_ACTION_STYLE_PRIMARY\x10\x01\x12\"\n" +
+	"\x1eMESSAGE_ACTION_STYLE_SECONDARY\x10\x02\x12 \n" +
+	"\x1cMESSAGE_ACTION_STYLE_SUCCESS\x10\x03\x12\x1f\n" +
+	"\x1bMESSAGE_ACTION_STYLE_DANGER\x10\x04*\xda\x01\n" +
 	"\x1cMessageVideoProcessingStatus\x12/\n" +
 	"+MESSAGE_VIDEO_PROCESSING_STATUS_UNSPECIFIED\x10\x00\x12.\n" +
 	"*MESSAGE_VIDEO_PROCESSING_STATUS_PROCESSING\x10\x01\x12-\n" +
@@ -1088,49 +1297,55 @@ func file_chatto_api_v1_message_types_proto_rawDescGZIP() []byte {
 	return file_chatto_api_v1_message_types_proto_rawDescData
 }
 
-var file_chatto_api_v1_message_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_chatto_api_v1_message_types_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_chatto_api_v1_message_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_chatto_api_v1_message_types_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_chatto_api_v1_message_types_proto_goTypes = []any{
-	(MessageVideoProcessingStatus)(0), // 0: chatto.api.v1.MessageVideoProcessingStatus
-	(*MessageAssetUrl)(nil),           // 1: chatto.api.v1.MessageAssetUrl
-	(*MessageVideoVariant)(nil),       // 2: chatto.api.v1.MessageVideoVariant
-	(*MessageVideoHLS)(nil),           // 3: chatto.api.v1.MessageVideoHLS
-	(*MessageVideoProcessing)(nil),    // 4: chatto.api.v1.MessageVideoProcessing
-	(*MessageAttachment)(nil),         // 5: chatto.api.v1.MessageAttachment
-	(*MessageReaction)(nil),           // 6: chatto.api.v1.MessageReaction
-	(*ThreadViewerState)(nil),         // 7: chatto.api.v1.ThreadViewerState
-	(*ThreadSummary)(nil),             // 8: chatto.api.v1.ThreadSummary
-	(*Message)(nil),                   // 9: chatto.api.v1.Message
-	(*MessageWebhookOverride)(nil),    // 10: chatto.api.v1.MessageWebhookOverride
-	(*timestamppb.Timestamp)(nil),     // 11: google.protobuf.Timestamp
-	(*LinkPreview)(nil),               // 12: chatto.api.v1.LinkPreview
+	(MessageActionStyle)(0),           // 0: chatto.api.v1.MessageActionStyle
+	(MessageVideoProcessingStatus)(0), // 1: chatto.api.v1.MessageVideoProcessingStatus
+	(*MessageAction)(nil),             // 2: chatto.api.v1.MessageAction
+	(*MessageActionSet)(nil),          // 3: chatto.api.v1.MessageActionSet
+	(*MessageAssetUrl)(nil),           // 4: chatto.api.v1.MessageAssetUrl
+	(*MessageVideoVariant)(nil),       // 5: chatto.api.v1.MessageVideoVariant
+	(*MessageVideoHLS)(nil),           // 6: chatto.api.v1.MessageVideoHLS
+	(*MessageVideoProcessing)(nil),    // 7: chatto.api.v1.MessageVideoProcessing
+	(*MessageAttachment)(nil),         // 8: chatto.api.v1.MessageAttachment
+	(*MessageReaction)(nil),           // 9: chatto.api.v1.MessageReaction
+	(*ThreadViewerState)(nil),         // 10: chatto.api.v1.ThreadViewerState
+	(*ThreadSummary)(nil),             // 11: chatto.api.v1.ThreadSummary
+	(*Message)(nil),                   // 12: chatto.api.v1.Message
+	(*MessageWebhookOverride)(nil),    // 13: chatto.api.v1.MessageWebhookOverride
+	(*timestamppb.Timestamp)(nil),     // 14: google.protobuf.Timestamp
+	(*LinkPreview)(nil),               // 15: chatto.api.v1.LinkPreview
 }
 var file_chatto_api_v1_message_types_proto_depIdxs = []int32{
-	11, // 0: chatto.api.v1.MessageAssetUrl.expires_at:type_name -> google.protobuf.Timestamp
-	1,  // 1: chatto.api.v1.MessageVideoVariant.asset_url:type_name -> chatto.api.v1.MessageAssetUrl
-	1,  // 2: chatto.api.v1.MessageVideoHLS.master_playlist_url:type_name -> chatto.api.v1.MessageAssetUrl
-	0,  // 3: chatto.api.v1.MessageVideoProcessing.status:type_name -> chatto.api.v1.MessageVideoProcessingStatus
-	1,  // 4: chatto.api.v1.MessageVideoProcessing.thumbnail_asset_url:type_name -> chatto.api.v1.MessageAssetUrl
-	2,  // 5: chatto.api.v1.MessageVideoProcessing.variants:type_name -> chatto.api.v1.MessageVideoVariant
-	3,  // 6: chatto.api.v1.MessageVideoProcessing.hls:type_name -> chatto.api.v1.MessageVideoHLS
-	1,  // 7: chatto.api.v1.MessageAttachment.asset_url:type_name -> chatto.api.v1.MessageAssetUrl
-	1,  // 8: chatto.api.v1.MessageAttachment.thumbnail_asset_url:type_name -> chatto.api.v1.MessageAssetUrl
-	4,  // 9: chatto.api.v1.MessageAttachment.video_processing:type_name -> chatto.api.v1.MessageVideoProcessing
-	11, // 10: chatto.api.v1.ThreadSummary.last_reply_at:type_name -> google.protobuf.Timestamp
-	7,  // 11: chatto.api.v1.ThreadSummary.viewer_state:type_name -> chatto.api.v1.ThreadViewerState
-	11, // 12: chatto.api.v1.Message.created_at:type_name -> google.protobuf.Timestamp
-	5,  // 13: chatto.api.v1.Message.attachments:type_name -> chatto.api.v1.MessageAttachment
-	12, // 14: chatto.api.v1.Message.link_preview:type_name -> chatto.api.v1.LinkPreview
-	11, // 15: chatto.api.v1.Message.updated_at:type_name -> google.protobuf.Timestamp
-	6,  // 16: chatto.api.v1.Message.reactions:type_name -> chatto.api.v1.MessageReaction
-	8,  // 17: chatto.api.v1.Message.thread:type_name -> chatto.api.v1.ThreadSummary
-	11, // 18: chatto.api.v1.Message.deleted_at:type_name -> google.protobuf.Timestamp
-	10, // 19: chatto.api.v1.Message.webhook_override:type_name -> chatto.api.v1.MessageWebhookOverride
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	0,  // 0: chatto.api.v1.MessageAction.style:type_name -> chatto.api.v1.MessageActionStyle
+	2,  // 1: chatto.api.v1.MessageActionSet.actions:type_name -> chatto.api.v1.MessageAction
+	14, // 2: chatto.api.v1.MessageAssetUrl.expires_at:type_name -> google.protobuf.Timestamp
+	4,  // 3: chatto.api.v1.MessageVideoVariant.asset_url:type_name -> chatto.api.v1.MessageAssetUrl
+	4,  // 4: chatto.api.v1.MessageVideoHLS.master_playlist_url:type_name -> chatto.api.v1.MessageAssetUrl
+	1,  // 5: chatto.api.v1.MessageVideoProcessing.status:type_name -> chatto.api.v1.MessageVideoProcessingStatus
+	4,  // 6: chatto.api.v1.MessageVideoProcessing.thumbnail_asset_url:type_name -> chatto.api.v1.MessageAssetUrl
+	5,  // 7: chatto.api.v1.MessageVideoProcessing.variants:type_name -> chatto.api.v1.MessageVideoVariant
+	6,  // 8: chatto.api.v1.MessageVideoProcessing.hls:type_name -> chatto.api.v1.MessageVideoHLS
+	4,  // 9: chatto.api.v1.MessageAttachment.asset_url:type_name -> chatto.api.v1.MessageAssetUrl
+	4,  // 10: chatto.api.v1.MessageAttachment.thumbnail_asset_url:type_name -> chatto.api.v1.MessageAssetUrl
+	7,  // 11: chatto.api.v1.MessageAttachment.video_processing:type_name -> chatto.api.v1.MessageVideoProcessing
+	14, // 12: chatto.api.v1.ThreadSummary.last_reply_at:type_name -> google.protobuf.Timestamp
+	10, // 13: chatto.api.v1.ThreadSummary.viewer_state:type_name -> chatto.api.v1.ThreadViewerState
+	14, // 14: chatto.api.v1.Message.created_at:type_name -> google.protobuf.Timestamp
+	8,  // 15: chatto.api.v1.Message.attachments:type_name -> chatto.api.v1.MessageAttachment
+	15, // 16: chatto.api.v1.Message.link_preview:type_name -> chatto.api.v1.LinkPreview
+	14, // 17: chatto.api.v1.Message.updated_at:type_name -> google.protobuf.Timestamp
+	9,  // 18: chatto.api.v1.Message.reactions:type_name -> chatto.api.v1.MessageReaction
+	11, // 19: chatto.api.v1.Message.thread:type_name -> chatto.api.v1.ThreadSummary
+	14, // 20: chatto.api.v1.Message.deleted_at:type_name -> google.protobuf.Timestamp
+	13, // 21: chatto.api.v1.Message.webhook_override:type_name -> chatto.api.v1.MessageWebhookOverride
+	2,  // 22: chatto.api.v1.Message.actions:type_name -> chatto.api.v1.MessageAction
+	23, // [23:23] is the sub-list for method output_type
+	23, // [23:23] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_chatto_api_v1_message_types_proto_init() }
@@ -1139,16 +1354,16 @@ func file_chatto_api_v1_message_types_proto_init() {
 		return
 	}
 	file_chatto_api_v1_link_previews_proto_init()
-	file_chatto_api_v1_message_types_proto_msgTypes[6].OneofWrappers = []any{}
 	file_chatto_api_v1_message_types_proto_msgTypes[8].OneofWrappers = []any{}
-	file_chatto_api_v1_message_types_proto_msgTypes[9].OneofWrappers = []any{}
+	file_chatto_api_v1_message_types_proto_msgTypes[10].OneofWrappers = []any{}
+	file_chatto_api_v1_message_types_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chatto_api_v1_message_types_proto_rawDesc), len(file_chatto_api_v1_message_types_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   10,
+			NumEnums:      2,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

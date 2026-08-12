@@ -1,6 +1,8 @@
 import { authHeaders, createChattoClient, handleAuthError } from './connect.js';
 import type { TimelineEventView } from '$lib/render/timelineEvents';
 import { MessageService } from '@chatto/api-types/api/v1/messages_connect';
+import { MessageActionService } from '@chatto/api-types/api/v1/message_actions_connect';
+import { MessageActionStyle } from '@chatto/api-types/api/v1/message_types_pb';
 import { messageToTimelineEvent, timelineUsersForMessages } from './roomTimeline.js';
 import { createAssetUploadAPI } from './assetUploads.js';
 
@@ -21,6 +23,14 @@ export type CreateMessageInput = {
   alsoSendToChannel?: boolean;
   linkPreviewToken?: string | null;
   onAttachmentUploadUpdate?: (update: AttachmentUploadUpdate) => void;
+  actions?: MessageActionInput[];
+};
+
+export type MessageActionInput = {
+  id: string;
+  label: string;
+  style?: MessageActionStyle;
+  disabled?: boolean;
 };
 
 export type AttachmentUploadUpdate =
@@ -38,6 +48,14 @@ export type UpdateMessageInput = {
   eventId: string;
   body?: string;
   alsoSendToChannel?: boolean;
+  actions?: MessageActionInput[];
+};
+
+export type InvokeMessageActionInput = {
+  roomId: string;
+  messageEventId: string;
+  actionId: string;
+  requestId?: string;
 };
 
 export type CreateMessageResult = {
@@ -51,6 +69,7 @@ export type UpdateMessageResult = {
 
 export function createMessageAPI(config: MessageAPIConfig) {
   const client = createChattoClient(MessageService, config);
+  const actionClient = createChattoClient(MessageActionService, config);
   const headers = () => authHeaders(config);
   return {
     async createMessage(input: CreateMessageInput): Promise<CreateMessageResult> {
@@ -67,7 +86,17 @@ export function createMessageAPI(config: MessageAPIConfig) {
             threadRootEventId: input.threadRootEventId ?? '',
             inReplyTo: input.inReplyTo ?? '',
             alsoSendToChannel: input.alsoSendToChannel ?? false,
-            linkPreviewToken: input.linkPreviewToken ?? ''
+            linkPreviewToken: input.linkPreviewToken ?? '',
+            actions:
+              input.actions === undefined
+                ? undefined
+                : {
+                    actions: input.actions.map((action) => ({
+                      ...action,
+                      style: action.style ?? MessageActionStyle.UNSPECIFIED,
+                      disabled: action.disabled ?? false
+                    }))
+                  }
           },
           { headers: headers() }
         );
@@ -90,6 +119,7 @@ export function createMessageAPI(config: MessageAPIConfig) {
           eventId: string;
           body?: string;
           alsoSendToChannel?: boolean;
+          actions?: { actions: MessageActionInput[] };
         } = {
           roomId: input.roomId,
           eventId: input.eventId
@@ -99,6 +129,9 @@ export function createMessageAPI(config: MessageAPIConfig) {
         }
         if (input.alsoSendToChannel !== undefined) {
           request.alsoSendToChannel = input.alsoSendToChannel;
+        }
+        if (input.actions !== undefined) {
+          request.actions = { actions: input.actions };
         }
         const response = await client.updateMessage(request, {
           headers: headers()
@@ -147,6 +180,22 @@ export function createMessageAPI(config: MessageAPIConfig) {
           { headers: headers() }
         );
         return response.deleted;
+      } catch (err) {
+        return handleAuthError(config, err);
+      }
+    },
+
+    async invokeMessageAction(input: InvokeMessageActionInput): Promise<void> {
+      try {
+        await actionClient.invokeMessageAction(
+          {
+            roomId: input.roomId,
+            messageEventId: input.messageEventId,
+            actionId: input.actionId,
+            requestId: input.requestId ?? crypto.randomUUID()
+          },
+          { headers: headers() }
+        );
       } catch (err) {
         return handleAuthError(config, err);
       }

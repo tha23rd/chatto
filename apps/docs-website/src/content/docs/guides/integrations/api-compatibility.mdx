@@ -71,6 +71,12 @@ ConnectRPC namespace. It remains Chatto's resource-oriented public integrations
 API. Do not replace explicit resource reads, pagination, mutation responses, or
 read-your-writes handling with assumptions about projection internals.
 
+Message actions require Chatto 0.5.0 or newer. Older clients safely ignore the
+additive `Message.actions` field, but older servers can ignore action fields in
+`CreateMessage` and do not expose `MessageActionService`. An integration that
+creates interactive messages must check the server release before sending them
+rather than treating a successful action-less post as equivalent.
+
 Protocol 2 resume cursors are opaque, viewer-bound, and valid for up to 24
 hours. Retain a cursor only with the projection state produced before it, and
 replace it after each `caught_up` frame. A missing, expired, or unusable cursor
