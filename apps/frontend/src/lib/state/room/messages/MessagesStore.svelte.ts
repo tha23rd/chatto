@@ -962,7 +962,7 @@ export class MessagesStore {
 
       this.events[i] = {
         ...e,
-        event: { ...evt, body: null, attachments: [], linkPreview: null, deletedAt }
+        event: { ...evt, body: null, attachments: [], linkPreview: null, actions: [], deletedAt }
       };
     }
 
@@ -1105,7 +1105,7 @@ export class MessagesStore {
     if (!deletedAt) return event;
     return {
       ...event,
-      event: { ...payload, body: null, attachments: [], linkPreview: null, deletedAt }
+      event: { ...payload, body: null, attachments: [], linkPreview: null, actions: [], deletedAt }
     };
   }
 

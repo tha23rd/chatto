@@ -77,7 +77,8 @@ function threadMessageEvent(id: string, threadRootEventId: string | null = null)
       lastReplyAt: null,
       threadParticipants: [],
       viewerIsFollowingThread: null,
-      reactions: []
+      reactions: [],
+      actions: []
     }
   };
 }
@@ -1665,7 +1666,8 @@ describe('MessagesStore — room lifecycle ownership', () => {
                 replyCount: 0,
                 lastReplyAt: null,
                 threadParticipants: [],
-                viewerIsFollowingThread: null
+                viewerIsFollowingThread: null,
+                actions: [{ id: 'hit', label: 'Hit', style: 'primary', disabled: false }]
               }
             }
           ],
@@ -1760,7 +1762,7 @@ describe('MessagesStore — room lifecycle ownership', () => {
     store.applyLocalMessageDeletion('m1');
     const provisionalMessage = store.rootEvents[0].event;
     if (!provisionalMessage) throw new Error('expected provisional message payload');
-    expect(provisionalMessage).toMatchObject({ body: null, attachments: [] });
+    expect(provisionalMessage).toMatchObject({ body: null, attachments: [], actions: [] });
     expect(
       Number.isFinite(
         Date.parse('deletedAt' in provisionalMessage ? (provisionalMessage.deletedAt ?? '') : '')
@@ -1776,6 +1778,7 @@ describe('MessagesStore — room lifecycle ownership', () => {
     expect(store.rootEvents[0].event).toMatchObject({
       body: null,
       attachments: [],
+      actions: [],
       deletedAt: '2026-05-27T00:00:01.000Z'
     });
     expect(fake.queryMock).not.toHaveBeenCalled();
