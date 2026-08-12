@@ -646,7 +646,7 @@ jobs:
     needs:
       - license-check
       - codegen-proto-drift
-      - test-frontend-unit
+      - test-workspace
       - test-desktop-windows
       - test-cli
       - test-e2e
