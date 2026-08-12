@@ -1,7 +1,7 @@
 # FDR-018: Account Lifecycle
 
 **Status:** Active
-**Last reviewed:** 2026-08-11
+**Last reviewed:** 2026-08-12
 
 ## Overview
 
@@ -32,7 +32,7 @@ This FDR covers the user account from registration through deletion: signup, ema
 - Account deletion confirmation-token issuance is recorded in the EVT audit log with expiry and safe request metadata; the raw token is not recorded.
 - The account deletion confirmation token itself lives in `RUNTIME_STATE` under an HMAC-derived key with a 15-minute per-key TTL.
 - On deletion, the server: records `UserKeyShreddingRequestedEvent` with the complete opaque key coordinates, immediately tombstones the user's profile, authentication, search, and authored message state, then idempotently shreds app-owned DEK refs from `RUNTIME_STATE` and KMS wrapping-key refs from `ENCRYPTION_KEYS`. `UserKeyShreddedEvent` records physical completion. Durable workers retry unfinished key shredding and current message-owned asset deletion facts across crashes and replicas.
-- After deletion, all messages the user ever posted are tombstoned by projection before decryption and cryptographically unreadable. Timeline clients apply the normal deleted-message retention rule, so placeholders without current attachments, previews, reactions, or thread replies disappear after one hour.
+- After deletion, all messages the user ever posted are tombstoned by projection before decryption and cryptographically unreadable. Timeline clients apply the normal deleted-message retention rule, so rows without current attachments, previews, reactions, or thread replies disappear immediately.
 - Historical room join and leave facts remain stored, but timeline messages omit deleted users from membership activity. Grouped activity includes only visible actors, and the row is hidden when none remain.
 - New durable user events store login, display name, and verified email as encrypted PII payloads. Projections retain those encrypted envelopes, decrypt login/email transiently to derive in-memory lookup digests and decrypt fields for reads, and remove user-owned lookup entries when the account is crypto-shredded.
 - The login is freed up for re-use.
