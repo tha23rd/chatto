@@ -77,7 +77,7 @@ test.describe('Account Deletion', () => {
   });
 
   test.describe('Deleted User Effects', () => {
-    test('messages from deleted users show an italicized placeholder and unavailable content', async ({
+    test('messages from deleted users become unavailable', async ({
       page,
       chatPage,
       roomPage,
@@ -90,7 +90,9 @@ test.describe('Account Deletion', () => {
       await chatPage.enterRoom('general');
 
       const messageText = `Hello from ${userA.login} at ${Date.now()}`;
-      await roomPage.sendMessage(messageText);
+      const message = await roomPage.sendMessage(messageText);
+      const messageEventId = await message.getEventId();
+      expect(messageEventId).not.toBeNull();
 
       // User B opens the server
       await withServerUser(
@@ -121,13 +123,11 @@ test.describe('Account Deletion', () => {
           await page2.waitForURL(routes.patterns.chatRedirect, { timeout: TIMEOUTS.UI_STANDARD });
           await waitForRoomReady(page2, 'general');
 
-          // Body was crypto-shredded; the message is now rendered as a tombstone.
+          // Body was crypto-shredded, so the context-free row disappears.
           await expect(page2.getByText(messageText)).not.toBeVisible({
             timeout: TIMEOUTS.REALTIME_EVENT
           });
-          await expect(page2.getByText('This message has been deleted').first()).toBeVisible({
-            timeout: TIMEOUTS.REALTIME_EVENT
-          });
+          await expect(page2.locator(`[data-event-id="${messageEventId}"]`)).toHaveCount(0);
 
           // User A's clickable display-name button is gone (the actor is gone).
           await expect(
@@ -150,7 +150,9 @@ test.describe('Account Deletion', () => {
       await chatPage.enterRoom('general');
 
       const messageText = `Real-time test from ${userA.login} at ${Date.now()}`;
-      await roomPage.sendMessage(messageText);
+      const message = await roomPage.sendMessage(messageText);
+      const messageEventId = await message.getEventId();
+      expect(messageEventId).not.toBeNull();
 
       // User B opens the server
       await withServerUser(
@@ -172,22 +174,17 @@ test.describe('Account Deletion', () => {
           await accountPage.goto();
           await accountPage.deleteAccount();
 
-          // WITHOUT REFRESHING: User B should see the body replaced by the tombstone
-          // in real-time — ServerMemberDeletedEvent triggers a refetch and the body
-          // has been crypto-shredded.
+          // WITHOUT REFRESHING: User B should see the crypto-shredded,
+          // context-free row disappear in real-time.
           await expect(page2.getByText(messageText)).not.toBeVisible({
             timeout: TIMEOUTS.REALTIME_EVENT
           });
+          await expect(page2.locator(`[data-event-id="${messageEventId}"]`)).toHaveCount(0);
 
           // User A's clickable display-name button is gone (the actor is gone).
           await expect(
             page2.locator('[role="article"]').getByRole('button', { name: userA.displayName })
           ).not.toBeVisible();
-
-          // The message renders as a tombstone now that bodies are always replaced rather than hidden.
-          await expect(page2.getByText('This message has been deleted').first()).toBeVisible({
-            timeout: TIMEOUTS.REALTIME_EVENT
-          });
         }
       );
     });

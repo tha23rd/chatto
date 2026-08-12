@@ -362,9 +362,8 @@
   );
 
   // A message is deleted when none of its user-visible content remains.
-  // Deleted messages always render as a tombstone — hiding them entirely opened up
-  // moderation-evading and inconsistency vectors (e.g. event numbering gaps, lost
-  // reply-attribution context, deleted-then-reacted-to messages disappearing).
+  // Deleted messages that reach this component retain visible context such as
+  // reactions or thread replies, so render a tombstone for that context.
   const isDeleted = $derived(msg ? isDeletedMessage(msg) : true);
 
   const replyTarget = $derived.by(() => {
