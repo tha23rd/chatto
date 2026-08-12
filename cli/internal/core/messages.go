@@ -22,10 +22,13 @@ const (
 type postMessageOptions struct {
 	videoProcessingAssetIDs map[string]struct{}
 	webhookOverride         *corev1.WebhookMessageOverride
+	actions                 []*corev1.MessageAction
 }
 
 type editMessageOptions struct {
 	channelEcho *bool
+	actions     []*corev1.MessageAction
+	actionsSet  bool
 }
 
 // PostMessageOption customizes side effects owned by the message-post command.
@@ -65,11 +68,27 @@ func WithWebhookOverride(displayName, avatarURL string) PostMessageOption {
 	}
 }
 
+// WithMessageActions attaches the complete author-defined action set to a new
+// message.
+func WithMessageActions(actions []*corev1.MessageAction) PostMessageOption {
+	return func(options *postMessageOptions) {
+		options.actions = cloneMessageActions(actions)
+	}
+}
+
 // WithMessageChannelEcho reconciles whether a thread reply should have a
 // visible echo in the channel timeline after the edit is saved.
 func WithMessageChannelEcho(enabled bool) EditMessageOption {
 	return func(options *editMessageOptions) {
 		options.channelEcho = &enabled
+	}
+}
+
+// WithEditedMessageActions replaces the author-defined action set on a message.
+func WithEditedMessageActions(actions []*corev1.MessageAction) EditMessageOption {
+	return func(options *editMessageOptions) {
+		options.actions = cloneMessageActions(actions)
+		options.actionsSet = true
 	}
 }
 
@@ -425,6 +444,9 @@ func (c *ChattoCore) PostMessage(ctx context.Context, kind RoomKind, room_id, us
 	if err := validateMessageAttachmentAssetIDs(assetIDs); err != nil {
 		return nil, err
 	}
+	if err := validateMessageActions(options.actions); err != nil {
+		return nil, err
+	}
 
 	// Validate message body length to prevent DoS via oversized messages
 	if len(body) > MaxMessageBodyLength {
@@ -440,12 +462,12 @@ func (c *ChattoCore) PostMessage(ctx context.Context, kind RoomKind, room_id, us
 		return nil, err
 	}
 
-	// Validate that message has either body or attachments.
+	// Validate that the message has body, attachments, or actions.
 	// HasVisibleContent rejects messages with only invisible Unicode characters.
 	hasBody := HasVisibleContent(body)
 	hasAttachments := len(assetIDs) > 0
-	if !hasBody && !hasAttachments {
-		return nil, invalidArgument("message must have either body or attachments")
+	if !hasBody && !hasAttachments && len(options.actions) == 0 {
+		return nil, invalidArgument("message must have body, attachments, or actions")
 	}
 
 	// Resolve referenced assets from the projection. Each must already exist
@@ -484,8 +506,8 @@ func (c *ChattoCore) PostMessage(ctx context.Context, kind RoomKind, room_id, us
 		resolvedAssets = append(resolvedAssets, att)
 		resolvedAssetIDs = append(resolvedAssetIDs, id)
 	}
-	if !hasBody && len(resolvedAssetIDs) == 0 {
-		return nil, invalidArgument("message must have either body or attachments")
+	if !hasBody && len(resolvedAssetIDs) == 0 && len(options.actions) == 0 {
+		return nil, invalidArgument("message must have body, attachments, or actions")
 	}
 
 	// Verify room exists and isn't archived
@@ -566,6 +588,7 @@ func (c *ChattoCore) PostMessage(ctx context.Context, kind RoomKind, room_id, us
 		AuthorId:        user_id,
 		LinkPreview:     linkPreview,
 		WebhookOverride: options.webhookOverride,
+		Actions:         cloneMessageActions(options.actions),
 	}
 	if err := c.encryptMessageBody(ctx, messageBody, room_id, eventID, bodyEventID, body); err != nil {
 		return nil, err
@@ -945,6 +968,11 @@ func (c *ChattoCore) EditMessage(ctx context.Context, actorID string, kind RoomK
 	if len(newBody) > MaxMessageBodyLength {
 		return ErrMessageTooLong
 	}
+	if options.actionsSet {
+		if err := validateMessageActions(options.actions); err != nil {
+			return err
+		}
+	}
 
 	// Block edits in archived rooms.
 	room, err := c.GetRoom(ctx, kind, roomID)
@@ -1003,6 +1031,9 @@ func (c *ChattoCore) EditMessage(ctx context.Context, actorID string, kind RoomK
 
 	updated := proto.Clone(current).(*corev1.MessageBody)
 	updated.UpdatedAt = timestamppb.Now()
+	if options.actionsSet {
+		updated.Actions = cloneMessageActions(options.actions)
+	}
 	bodyEventID := NewEventID()
 	if err := c.encryptMessageBody(ctx, updated, roomID, eventID, bodyEventID, newBody); err != nil {
 		if updated.GetAuthorId() == "" {

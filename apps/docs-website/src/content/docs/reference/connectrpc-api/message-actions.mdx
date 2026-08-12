@@ -1,0 +1,124 @@
+---
+title: MessageActionService
+description: Message action invocation and author-owned pending-invocation RPCs.
+editUrl: false
+---
+
+{/* Generated from proto/chatto/{auth,discovery,api,admin,realtime}/v1/*.proto. Do not edit directly. */}
+
+Chatto exposes this service below `/api/connect`.
+
+
+
+Shared message and enum definitions are documented in [Shared Types And Enums](/reference/connectrpc-api/types/).
+
+
+
+<a id="chatto-api-v1-MessageActionService"></a>
+
+## MessageActionService
+
+Invokes message buttons and exposes the private pending-invocation inbox
+owned by each message author.
+
+<a id="chatto-api-v1-MessageActionService-InvokeMessageAction"></a>
+
+### InvokeMessageAction
+
+Invokes one enabled action. The caller must be able to view the message.
+A successful invocation remains pending for up to 24 hours or until its
+message author acknowledges it.
+
+```http
+POST /api/connect/chatto.api.v1.MessageActionService/InvokeMessageAction
+```
+
+<a id="chatto-api-v1-InvokeMessageActionRequest"></a>
+
+#### Input: InvokeMessageActionRequest
+
+Request to invoke one enabled action on a visible message.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `room_id` | `string` | Required. Room containing the message. |
+| `message_event_id` | `string` | Required. Message event ID as rendered to the caller. |
+| `action_id` | `string` | Required. Action ID attached to the message. |
+| `request_id` | `string` | Required. Random client-generated idempotency key. Retrying the same request with this key returns the original invocation. |
+
+
+<a id="chatto-api-v1-InvokeMessageActionResponse"></a>
+
+#### Result: InvokeMessageActionResponse
+
+Result of invoking a message action.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `invocation` | [`MessageActionInvocation`](/reference/connectrpc-api/types/#chatto-api-v1-MessageActionInvocation) | Accepted pending invocation. |
+
+
+<a id="chatto-api-v1-MessageActionService-ListMessageActionInvocations"></a>
+
+### ListMessageActionInvocations
+
+Lists pending invocations for messages authored by the current user.
+
+```http
+POST /api/connect/chatto.api.v1.MessageActionService/ListMessageActionInvocations
+```
+
+<a id="chatto-api-v1-ListMessageActionInvocationsRequest"></a>
+
+#### Input: ListMessageActionInvocationsRequest
+
+Request for pending invocations owned by the authenticated message author.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `page` | [`PageRequest`](/reference/connectrpc-api/types/#chatto-api-v1-PageRequest) | Page request. Defaults to 50 results when absent or limit is zero. |
+
+
+<a id="chatto-api-v1-ListMessageActionInvocationsResponse"></a>
+
+#### Result: ListMessageActionInvocationsResponse
+
+Page of pending action invocations.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `invocations` | repeated [`MessageActionInvocation`](/reference/connectrpc-api/types/#chatto-api-v1-MessageActionInvocation) | Pending invocations, oldest first. |
+| `page` | [`PageInfo`](/reference/connectrpc-api/types/#chatto-api-v1-PageInfo) | Page metadata. |
+
+
+<a id="chatto-api-v1-MessageActionService-AcknowledgeMessageActionInvocation"></a>
+
+### AcknowledgeMessageActionInvocation
+
+Acknowledges an invocation owned by the current user. Unknown or already
+acknowledged IDs are treated as idempotent success.
+
+```http
+POST /api/connect/chatto.api.v1.MessageActionService/AcknowledgeMessageActionInvocation
+```
+
+<a id="chatto-api-v1-AcknowledgeMessageActionInvocationRequest"></a>
+
+#### Input: AcknowledgeMessageActionInvocationRequest
+
+Request to acknowledge one pending action invocation.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `invocation_id` | `string` | Required. Invocation owned by the authenticated message author. |
+
+
+<a id="chatto-api-v1-AcknowledgeMessageActionInvocationResponse"></a>
+
+#### Result: AcknowledgeMessageActionInvocationResponse
+
+Result of acknowledging an action invocation.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `acknowledged` | `bool` | True when the invocation is no longer pending. |

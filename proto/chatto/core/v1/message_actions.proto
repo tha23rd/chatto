@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package chatto.core.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "hmans.de/chatto/internal/pb/chatto/core/v1;corev1";
+
+// MessageActionStyle is the persisted visual treatment for a message action.
+enum MessageActionStyle {
+  MESSAGE_ACTION_STYLE_UNSPECIFIED = 0;
+  MESSAGE_ACTION_STYLE_PRIMARY = 1;
+  MESSAGE_ACTION_STYLE_SECONDARY = 2;
+  MESSAGE_ACTION_STYLE_SUCCESS = 3;
+  MESSAGE_ACTION_STYLE_DANGER = 4;
+}
+
+// MessageAction is one author-defined action stored with a message body.
+message MessageAction {
+  string id = 1;
+  string label = 2;
+  MessageActionStyle style = 3;
+  bool disabled = 4;
+}
+
+// MessageActionInvocation is a pending runtime record for a message author.
+// Stored under message_action_invocation.{recipientId}.{id} in RUNTIME_STATE.
+message MessageActionInvocation {
+  string id = 1;
+  string recipient_id = 2;
+  string room_id = 3;
+  string message_event_id = 4;
+  string action_id = 5;
+  string actor_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+}

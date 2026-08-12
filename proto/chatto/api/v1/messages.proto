@@ -47,6 +47,8 @@ message CreateMessageRequest {
   // Short-lived token returned by FetchLinkPreview for the selected URL. The
   // server resolves the token to cached, server-fetched metadata during post.
   string link_preview_token = 10;
+  // Optional author-defined action buttons.
+  MessageActionSet actions = 11;
 }
 
 // Result of creating a message.
@@ -76,6 +78,9 @@ message UpdateMessageRequest {
   // For thread replies, whether a channel echo should exist after saving.
   // Omit to preserve the current echo state.
   optional bool also_send_to_channel = 4;
+  // Complete replacement action set. Omit to preserve current actions; send
+  // an empty set to remove all actions. Only the message author may change it.
+  MessageActionSet actions = 5;
 }
 
 // Result of editing a message.
