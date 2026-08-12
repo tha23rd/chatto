@@ -117,7 +117,7 @@ test('consecutive messages from same user are grouped', async ({ page, chatPage,
   await roomPage.expectMessageVisible(message3);
 });
 
-test('deleting first message in group leaves a tombstone as the group leader', async ({
+test('deleting first message in group regroups the remaining messages', async ({
   page,
   chatPage,
   roomPage
@@ -142,13 +142,11 @@ test('deleting first message in group leaves a tombstone as the group leader', a
   await roomPage.expectAvatarCount(1);
   await roomPage.expectUserHeaderCount(testUser.displayName, 1);
 
-  // Delete the first message (the group leader). The tombstone takes its place
-  // and remains the group leader — avatar/header stay attached to it, so the
-  // count is unchanged.
-  await installTombstoneClock(page);
+  // Delete the first message (the group leader). The context-free row
+  // disappears and the remaining rows regroup under one header.
   await msg1.delete();
   if (msg1EventId) {
-    await roomPage.getMessageByEventId(msg1EventId).expectDeleted();
+    await expect(roomPage.getMessageByEventId(msg1EventId).locator).toHaveCount(0);
   }
 
   await roomPage.expectAvatarCount(1);
@@ -157,15 +155,6 @@ test('deleting first message in group leaves a tombstone as the group leader', a
   // Both remaining messages should still be visible
   await roomPage.expectMessageVisible(message2);
   await roomPage.expectMessageVisible(message3);
-
-  // Natural timer expiry removes the old leader and recomputes grouping for
-  // the remaining rows instead of leaving duplicate/missing attribution.
-  await advancePastTombstoneGrace(page);
-  if (msg1EventId) {
-    await expect(roomPage.getMessageByEventId(msg1EventId).locator).toHaveCount(0);
-  }
-  await roomPage.expectAvatarCount(1);
-  await roomPage.expectUserHeaderCount(testUser.displayName, 1);
 });
 
 test('day separator appears for first message', async ({ page, chatPage, roomPage }) => {
@@ -443,20 +432,14 @@ test('user can delete their own message', async ({ page, chatPage, roomPage }) =
   const eventId = await message.getEventId();
 
   // Delete the message
-  await installTombstoneClock(page);
   await message.delete();
 
-  // Deleted message should show the tombstone (original text gone, placeholder in place)
+  // A context-free deleted row disappears immediately and stays absent after reload.
   await roomPage.expectMessageNotVisible(testMessage);
   if (eventId) {
     const deletedMessage = roomPage.getMessageByEventId(eventId);
-    await deletedMessage.expectDeleted();
-
-    // Reload proves the API/protobuf timestamp hydrates into the same timer
-    // behavior; no visibilitychange/resume signal is involved.
+    await expect(deletedMessage.locator).toHaveCount(0);
     await page.reload();
-    await deletedMessage.expectDeleted();
-    await advancePastTombstoneGrace(page);
     await expect(deletedMessage.locator).toHaveCount(0);
   }
 });
@@ -505,19 +488,17 @@ test('deleted message disappears for other connected clients in real-time', asyn
       // User 1: Delete the message
       await message1.delete();
 
-      // User 1: deleted message should show the tombstone
+      // User 1: the context-free row disappears immediately.
       await roomPage.expectMessageNotVisible(testMessage);
       if (eventId) {
         const message1AfterDelete = roomPage.getMessageByEventId(eventId);
-        await message1AfterDelete.expectDeleted();
+        await expect(message1AfterDelete.locator).toHaveCount(0);
       }
 
-      // User 2: should also see the tombstone arrive via LiveEvent
+      // User 2: should also see the row disappear via LiveEvent.
       if (eventId) {
         const message2AfterDelete = page2.locator(`[data-event-id="${eventId}"]`);
-        await expect(message2AfterDelete.getByText('This message has been deleted')).toBeVisible({
-          timeout: TIMEOUTS.UI_STANDARD
-        });
+        await expect(message2AfterDelete).toHaveCount(0);
         await expect(page2.getByText(testMessage)).not.toBeVisible({
           timeout: TIMEOUTS.UI_STANDARD
         });
@@ -527,7 +508,7 @@ test('deleted message disappears for other connected clients in real-time', asyn
   );
 });
 
-test('deleted attachment-only message shows placeholder', async ({ page, chatPage, roomPage }) => {
+test('deleted attachment-only message disappears', async ({ page, chatPage, roomPage }) => {
   await createAndLoginTestUser(page);
   await chatPage.goto();
   await chatPage.enterRoom('general');
@@ -537,14 +518,11 @@ test('deleted attachment-only message shows placeholder', async ({ page, chatPag
   const eventId = await message.getEventId();
 
   // Delete the message
-  await installTombstoneClock(page);
   await message.delete();
 
-  // Deleted attachment-only message should show the tombstone
+  // The attachment and its now-context-free row disappear together.
   if (eventId) {
     const messageAfterDelete = roomPage.getMessageByEventId(eventId);
-    await messageAfterDelete.expectDeleted();
-    await advancePastTombstoneGrace(page);
     await expect(messageAfterDelete.locator).toHaveCount(0);
   }
 });
@@ -571,10 +549,10 @@ test('deleting attachment-only message in group does not mark text message as ed
   // Delete the attachment-only message
   await attachmentMsg.delete();
 
-  // Deleted attachment-only message should show the tombstone
+  // Deleted attachment-only row disappears without affecting its group peer.
   if (attachmentEventId) {
     const messageAfterDelete = roomPage.getMessageByEventId(attachmentEventId);
-    await messageAfterDelete.expectDeleted();
+    await expect(messageAfterDelete.locator).toHaveCount(0);
   }
 
   // Verify the text message still exists and is NOT marked as edited
