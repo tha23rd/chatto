@@ -1984,3 +1984,80 @@ describe('ServerStateStore live server updates', () => {
     expect(shouldPlay).not.toHaveBeenCalled();
   });
 });
+
+describe('ServerStateStore auto-rejoin after page reload', () => {
+  const REJOIN_KEY = 'chatto:i:store-event-test:autoRejoinRoom';
+
+  function activeCalls(...calls: ActiveCall[]): RealtimeProjectionEvent {
+    return new RealtimeProjectionEvent({
+      operations: [
+        new RealtimeProjectionOperation({
+          operation: {
+            case: 'activeCallsReplace',
+            value: new RealtimeProjectionActiveCallsReplace({ calls })
+          }
+        })
+      ]
+    });
+  }
+
+  function dispatch(bus: NonNullable<ReturnType<typeof eventBusManager.getBus>>, event: RealtimeProjectionEvent): void {
+    for (const handler of bus.projectionHandlers) handler(event);
+  }
+
+  it('rejoins the call the viewer was in when the page reloaded once the projection confirms it', () => {
+    localStorage.setItem(REJOIN_KEY, '"R1"');
+    const fake = new FakeServerConnection([]);
+    const store = makeStore(fake);
+    const join = vi.spyOn(store.voiceCall, 'join').mockResolvedValue(undefined);
+    store.serverInfo.applyProjectionState(
+      new RealtimeProjectionServerState({
+        runtime: new ServerRuntimeConfig({ livekitUrl: 'wss://livekit' })
+      })
+    );
+
+    eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
+    flushSync();
+    const bus = eventBusManager.getBus(registered.id);
+    if (!bus) throw new Error('event bus did not start');
+    dispatch(bus, activeCalls(new ActiveCall({ room: new Room({ id: 'R1' }), callId: 'call-1' })));
+    flushSync();
+
+    expect(join).toHaveBeenCalledWith('wss://livekit', 'R1');
+  });
+
+  it('drops the marker without rejoining when the snapshot shows the call ended while away', () => {
+    localStorage.setItem(REJOIN_KEY, '"R1"');
+    const fake = new FakeServerConnection([]);
+    const store = makeStore(fake);
+    const join = vi.spyOn(store.voiceCall, 'join').mockResolvedValue(undefined);
+
+    eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
+    flushSync();
+    const bus = eventBusManager.getBus(registered.id);
+    if (!bus) throw new Error('event bus did not start');
+    dispatch(bus, activeCalls());
+    flushSync();
+
+    expect(join).not.toHaveBeenCalled();
+    expect(localStorage.getItem(REJOIN_KEY)).toBeNull();
+  });
+
+  it('keeps the marker until a snapshot arrives, even with LiveKit configured', () => {
+    localStorage.setItem(REJOIN_KEY, '"R1"');
+    const fake = new FakeServerConnection([]);
+    const store = makeStore(fake);
+    const join = vi.spyOn(store.voiceCall, 'join').mockResolvedValue(undefined);
+    store.serverInfo.applyProjectionState(
+      new RealtimeProjectionServerState({
+        runtime: new ServerRuntimeConfig({ livekitUrl: 'wss://livekit' })
+      })
+    );
+
+    eventBusManager.startBus(registered.id, fake as unknown as ServerConnection);
+    flushSync();
+
+    expect(join).not.toHaveBeenCalled();
+    expect(localStorage.getItem(REJOIN_KEY)).toBe('"R1"');
+  });
+});
