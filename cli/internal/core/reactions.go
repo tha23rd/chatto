@@ -285,7 +285,9 @@ func (s *ReactionModel) mutateAuthorizedReaction(ctx context.Context, input Reac
 	if err := validateReactionMutationInput(input); err != nil {
 		return false, err
 	}
-	emojiName, err := resolveEmojiInput(input.Emoji)
+	// Fork: accept server custom-emoji shortcodes in addition to built-in
+	// gemoji names (upstream's resolveEmojiInput only accepts gemoji).
+	emojiName, err := s.core.resolveReactionEmoji(input.Emoji)
 	if err != nil {
 		return false, err
 	}
@@ -372,6 +374,13 @@ func (s *ReactionModel) mutateAuthorizedReaction(ctx context.Context, input Reac
 		"mutation_attempts", result.Attempts,
 		"mutation_conflicts", result.Conflicts,
 	)
+
+	// Best-effort: tell the message author their message was reacted to. Only a
+	// genuinely new reaction notifies, so re-adding a removed reaction after a
+	// dismissal is the only way to notify twice for the same reactor and emoji.
+	if add {
+		s.core.notifyMessageReaction(ctx, committedKind, input.RoomID, committedMessageEventID, emojiName, input.ActorID)
+	}
 	return true, nil
 }
 
