@@ -1,19 +1,20 @@
 # FDR-004: Message Editing & Deletion
 
 **Status:** Active
-**Last reviewed:** 2026-07-21
+**Last reviewed:** 2026-08-12
 
 ## Overview
 
-Authors can edit and delete their own messages; users with `message.manage` can edit and delete others' messages. Edits replace the message body; deletes remove the body and attachments and initially leave a "[Message deleted]" placeholder.
+Authors can edit and delete their own messages; users with `message.manage` can edit and delete others' messages. Edits replace the message body; deletes remove the message's content and controls. A placeholder remains only when surviving conversation context depends on the deleted row.
 
 ## Behavior
 
 - Authors can edit their own messages at any time; there is no time limit. `Server.messageEditWindowSeconds` reports `0`, which means "no limit", and clients must treat any value `<= 0` that way rather than as "already expired".
 - Only the message body text can be edited. Attachments aren't editable as text but can be removed individually.
 - Edited message bodies are capped at the same 10,000-byte limit as newly posted message bodies.
-- Deletions remove the message body and all attachments and initially replace the rendered message with a "[Message deleted]" placeholder.
-- A deleted-message placeholder disappears after one hour when the message has no current attachments or link preview, reactions, or replies in its thread.
+- Deletions remove the message body, attachments, link preview, and author-defined actions.
+- A deleted message disappears immediately when it has no current attachments or link preview, reactions, or replies in its thread.
+- A "Message deleted" placeholder remains when reactions or thread replies need the deleted row for context.
 - Being a reply, a message inside a thread, or a channel echo does not by itself keep a deleted-message placeholder visible.
 - Deleting an already-deleted message is a no-op.
 - Editing a message does not re-resolve mentions. Mentions and mention notifications remain tied to the original posted message.
@@ -32,7 +33,7 @@ Authors can edit and delete their own messages; users with `message.manage` can 
 
 ### 2. Edit/delete changes are durable facts
 
-**Decision:** Edits and deletions append durable message facts. The room timeline projection exposes the latest body, or a retracted placeholder after deletion.
+**Decision:** Edits and deletions append durable message facts. The room timeline projection exposes the latest body or a retracted row after deletion; clients decide whether surviving context requires a placeholder.
 **Why:** Message state is now event-sourced, so connected clients and rebuilt projections consume the same committed facts. This keeps edit/delete behavior consistent with the room event log. See ADR-033 and ADR-034.
 **Tradeoff:** The user-facing timeline still exposes only the latest visible state. Showing prior versions would require a separate product decision and careful privacy handling.
 
@@ -56,15 +57,15 @@ Authors can edit and delete their own messages; users with `message.manage` can 
 
 ### 6. Delete physically removes the body payload, not just hides it
 
-**Decision:** Message body content is stored in private body payload events separate from public post/edit facts. Delete appends the public retraction fact, removes attachments from storage, and securely deletes body payload events where the storage backend supports it. Only the placeholder rendering remains.
+**Decision:** Message body content is stored in private body payload events separate from public post/edit facts. Delete appends the public retraction fact, removes attachments from storage, and securely deletes body payload events where the storage backend supports it. Only context needed to render a retained placeholder remains.
 **Why:** GDPR. Soft-delete leaves user-generated content in the database, which is the wrong default for an open-source chat app where users expect "delete" to mean delete. Separating public message facts from body payloads preserves the conversation audit trail while allowing body material to be removed. See ADR-007.
 **Tradeoff:** No undo. Moderators can't restore a deleted message. Older embedded-body EVT histories remain readable for compatibility but cannot be physically shredded at body granularity.
 
-### 7. Context-free tombstones expire after one hour
+### 7. Only contextual tombstones remain visible
 
-**Decision:** Deleted-message placeholders remain visible for one hour. After that, the client removes placeholders that no longer carry visible attachments, previews, reactions, or thread replies. The same rule applies to deleted replies, thread messages, and channel echoes.
-**Why:** A recent tombstone explains an abrupt gap to nearby readers, while a permanent placeholder adds noise when no surviving conversation depends on it.
-**Tradeoff:** Timeline clients need deletion timestamps, and older clients can display more tombstones than newer clients during mixed-version rollouts. Replies that merely point at a deleted message do not retain its placeholder unless they are represented by the message's existing thread summary.
+**Decision:** The client immediately removes deleted rows that no longer carry visible attachments, previews, reactions, or thread replies. The same rule applies to deleted replies, thread messages, and channel echoes.
+**Why:** A placeholder is useful when surviving interaction depends on it, but otherwise adds noise and makes short-lived interactive messages look active after deletion.
+**Tradeoff:** A deletion can create an immediate visual gap. Older clients can display more tombstones than newer clients during mixed-version rollouts. Replies that merely point at a deleted message do not retain its placeholder unless they are represented by the message's existing thread summary.
 
 ## Permissions
 
