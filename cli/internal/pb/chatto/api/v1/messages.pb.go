@@ -41,6 +41,11 @@ type CreateMessageRequest struct {
 	// Short-lived token returned by FetchLinkPreview for the selected URL. The
 	// server resolves the token to cached, server-fetched metadata during post.
 	LinkPreviewToken string `protobuf:"bytes,10,opt,name=link_preview_token,json=linkPreviewToken,proto3" json:"link_preview_token,omitempty"`
+	// True to establish the new root message as a thread immediately. Requires
+	// both message.post and message.post-in-thread. Channel rooms only; cannot
+	// be combined with thread_root_event_id. This distribution uses tag 1000
+	// because its released wire contract already uses tag 11.
+	CreateThread bool `protobuf:"varint,1000,opt,name=create_thread,json=createThread,proto3" json:"create_thread,omitempty"`
 	// Optional author-defined action buttons.
 	Actions       *MessageActionSet `protobuf:"bytes,11,opt,name=actions,proto3" json:"actions,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -124,6 +129,13 @@ func (x *CreateMessageRequest) GetLinkPreviewToken() string {
 		return x.LinkPreviewToken
 	}
 	return ""
+}
+
+func (x *CreateMessageRequest) GetCreateThread() bool {
+	if x != nil {
+		return x.CreateThread
+	}
+	return false
 }
 
 func (x *CreateMessageRequest) GetActions() *MessageActionSet {
@@ -837,7 +849,7 @@ var File_chatto_api_v1_messages_proto protoreflect.FileDescriptor
 
 const file_chatto_api_v1_messages_proto_rawDesc = "" +
 	"\n" +
-	"\x1cchatto/api/v1/messages.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\x1a!chatto/api/v1/link_previews.proto\x1a!chatto/api/v1/message_types.proto\x1a\x1dchatto/api/v1/reactions.proto\"\xc4\x03\n" +
+	"\x1cchatto/api/v1/messages.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\x1a!chatto/api/v1/link_previews.proto\x1a!chatto/api/v1/message_types.proto\x1a\x1dchatto/api/v1/reactions.proto\"\xea\x03\n" +
 	"\x14CreateMessageRequest\x12 \n" +
 	"\aroom_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06roomId\x12\x12\n" +
 	"\x04body\x18\x02 \x01(\tR\x04body\x12B\n" +
@@ -848,7 +860,8 @@ const file_chatto_api_v1_messages_proto_rawDesc = "" +
 	"\vin_reply_to\x18\x05 \x01(\tR\tinReplyTo\x12/\n" +
 	"\x14also_send_to_channel\x18\x06 \x01(\bR\x11alsoSendToChannel\x12,\n" +
 	"\x12link_preview_token\x18\n" +
-	" \x01(\tR\x10linkPreviewToken\x129\n" +
+	" \x01(\tR\x10linkPreviewToken\x12$\n" +
+	"\rcreate_thread\x18\xe8\a \x01(\bR\fcreateThread\x129\n" +
 	"\aactions\x18\v \x01(\v2\x1f.chatto.api.v1.MessageActionSetR\aactionsJ\x04\b\b\x10\tJ\x04\b\t\x10\n" +
 	"J\x04\b\a\x10\bR\flink_previewR\vattachmentsR\x1amention_confirmation_token\"u\n" +
 	"\x15CreateMessageResponse\x120\n" +

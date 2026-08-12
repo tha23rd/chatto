@@ -343,6 +343,7 @@ func TestPermissionConsistency(t *testing.T) {
 			PermServerManage,
 			PermEmojiManage,
 			PermSoundboardManage,
+			PermUserInvite,
 			PermRoomCreate,
 			PermRoomJoin,
 			PermRoomList,

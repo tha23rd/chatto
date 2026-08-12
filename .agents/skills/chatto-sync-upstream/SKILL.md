@@ -90,6 +90,8 @@ and verification result.
 - Preserve real merge ancestry. Never squash, rebase, cherry-pick, or
   force-push as a shortcut around the two integration merges.
 - Review the merge result, not just textual conflicts or upstream CI.
+- Treat every published fork client and server artifact as a compatibility
+  baseline even when it advertises an unreleased or unchanged software version.
 - Qualify the exact current head the user selects. Never silently substitute a
   newer or older SHA when a remote moves.
 - Require the selected and qualified `main` SHA's own push CI and exact
@@ -141,6 +143,7 @@ Stop if reasoning includes any of these:
 - “The nightly already exists, so deploying its server later completes the
   ordered sync.”
 - “The PR was green, so the image must be ready.”
+- “The version is unchanged, so the wire schema must be compatible.”
 - “Use whichever `main` is latest when the command runs.”
 - “The publisher was skipped, but the build passed.”
 - “The owner said finish, so another approval is unnecessary.”

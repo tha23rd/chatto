@@ -95,7 +95,6 @@
   afterNavigate(() => {
     if (sidebarNav.isMobile) sidebarNav.close();
   });
-
   const getFullTitle = usePageTitle();
   const fullTitle = $derived(getFullTitle());
 </script>

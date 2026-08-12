@@ -15,7 +15,7 @@ import (
 
 func (s *HTTPServer) realtimeProjectionSnapshotFrames(ctx context.Context, userID string, timelineRoomIDs []string) ([]*realtimev1.RealtimeServerFrame, error) {
 	frames := make([]*realtimev1.RealtimeServerFrame, 0)
-	err := s.writeRealtimeProjectionSnapshot(ctx, userID, timelineRoomIDs, func(frame *realtimev1.RealtimeServerFrame) error {
+	_, err := s.writeRealtimeProjectionSnapshot(ctx, userID, timelineRoomIDs, func(frame *realtimev1.RealtimeServerFrame) error {
 		frames = append(frames, frame)
 		return nil
 	})
@@ -25,13 +25,13 @@ func (s *HTTPServer) realtimeProjectionSnapshotFrames(ctx context.Context, userI
 // writeRealtimeProjectionSnapshot emits the compacted prefix incrementally so
 // the transport does not retain a second frame graph for every decrypted room
 // timeline while a reset is in flight.
-func (s *HTTPServer) writeRealtimeProjectionSnapshot(ctx context.Context, userID string, timelineRoomIDs []string, writeFrame func(*realtimev1.RealtimeServerFrame) error) error {
+func (s *HTTPServer) writeRealtimeProjectionSnapshot(ctx context.Context, userID string, timelineRoomIDs []string, writeFrame func(*realtimev1.RealtimeServerFrame) error) (uint64, error) {
 	if s.connectAPI == nil {
-		return errors.New("Connect API is unavailable")
+		return 0, errors.New("Connect API is unavailable")
 	}
 	snapshot, err := s.connectAPI.BuildRealtimeProjectionSnapshot(ctx, userID, timelineRoomIDs)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	var writeErr error
@@ -77,7 +77,7 @@ func (s *HTTPServer) writeRealtimeProjectionSnapshot(ctx context.Context, userID
 			RoomTimelineReplace: &realtimev1.RealtimeProjectionRoomTimelineReplace{RoomId: timeline.RoomID, Page: timeline.Page, EventCursors: timeline.EventCursors},
 		}})
 	}
-	return writeErr
+	return snapshot.RoomMarkerFence, writeErr
 }
 
 func realtimeProjectionServerFrame(event *realtimev1.RealtimeProjectionEvent) *realtimev1.RealtimeServerFrame {
@@ -114,14 +114,36 @@ func (s *HTTPServer) realtimeProjectionRoomTimelineFrame(ctx context.Context, vi
 // that is not fully represented by an EVT gap: room/thread read markers,
 // pending notifications, and presence. Viewer config is included as a cheap
 // authoritative replacement so all self-only fields converge together.
-func (s *HTTPServer) realtimeProjectionReconciliationFrame(ctx context.Context, userID string) (*realtimev1.RealtimeServerFrame, error) {
+// Room viewer state is needed after incremental replay. A compacted reset
+// supplies it in snapshot room upserts and repairs only markers that changed
+// while that snapshot was assembled.
+func (s *HTTPServer) realtimeProjectionReconciliationFrame(ctx context.Context, userID string, roomMarkerFence *uint64) (*realtimev1.RealtimeServerFrame, error) {
 	viewer, err := s.connectAPI.BuildRealtimeProjectionViewer(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("assemble viewer reconciliation: %w", err)
 	}
-	roomStates, err := s.connectAPI.BuildRealtimeProjectionRoomViewerStates(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("assemble room viewer-state reconciliation: %w", err)
+	var roomStates []*connectapi.RealtimeProjectionRoomViewerState
+	if roomMarkerFence == nil {
+		roomStates, err = s.connectAPI.BuildRealtimeProjectionRoomViewerStates(ctx, userID)
+		if err != nil {
+			return nil, fmt.Errorf("assemble room viewer-state reconciliation: %w", err)
+		}
+	} else {
+		roomIDs, changedErr := s.core.ReadState().RoomMarkerIDsChangedAfter(ctx, userID, *roomMarkerFence)
+		if changedErr != nil {
+			return nil, fmt.Errorf("identify concurrent room viewer-state changes: %w", changedErr)
+		}
+		roomStates = make([]*connectapi.RealtimeProjectionRoomViewerState, 0, len(roomIDs))
+		for _, roomID := range roomIDs {
+			viewerState, stateErr := s.connectAPI.BuildRealtimeProjectionRoomViewerState(ctx, userID, roomID)
+			if stateErr != nil {
+				if errors.Is(stateErr, core.ErrNotFound) || errors.Is(stateErr, core.ErrPermissionDenied) || errors.Is(stateErr, core.ErrNotRoomMember) {
+					continue
+				}
+				return nil, fmt.Errorf("assemble changed room %q viewer-state reconciliation: %w", roomID, stateErr)
+			}
+			roomStates = append(roomStates, &connectapi.RealtimeProjectionRoomViewerState{RoomID: roomID, ViewerState: viewerState})
+		}
 	}
 	threadStates, err := s.connectAPI.BuildRealtimeProjectionThreadViewerStates(ctx, userID)
 	if err != nil {
@@ -374,6 +396,13 @@ func (s *HTTPServer) realtimeProjectionFrameForEventWithRooms(ctx context.Contex
 		}})
 		return nil
 	}
+	appendPinnedMessageChange := func(action realtimev1.RealtimeProjectionPinnedMessageAction, roomID, messageEventID string) {
+		serverState := realtimeProjectionServerState(s.connectAPI.BuildRealtimeProjectionServerState())
+		serverState.PinnedMessageChange = &realtimev1.RealtimeProjectionPinnedMessageChange{
+			Action: action, RoomId: roomID, MessageEventId: messageEventID,
+		}
+		appendOperation(&realtimev1.RealtimeProjectionOperation{Operation: &realtimev1.RealtimeProjectionOperation_ServerStateUpsert{ServerStateUpsert: serverState}})
+	}
 	appendRoomViewerState := func(roomID string) error {
 		viewerState, err := s.connectAPI.BuildRealtimeProjectionRoomViewerState(ctx, viewerID, roomID)
 		if err != nil {
@@ -530,7 +559,8 @@ func (s *HTTPServer) realtimeProjectionFrameForEventWithRooms(ctx context.Contex
 		if err := appendSearchRefreshFence(roomID); err != nil {
 			return nil, false, err
 		}
-		if s.core.IsHiddenChannelEcho(eventID) {
+		hiddenChannelEcho := s.core.IsHiddenChannelEcho(eventID)
+		if hiddenChannelEcho {
 			// A directly retracted channel echo is a projection artifact, not a
 			// deleted-message tombstone. Its current authoritative state is absence.
 			appendTimelineRemove(roomID, eventID)
@@ -544,6 +574,16 @@ func (s *HTTPServer) realtimeProjectionFrameForEventWithRooms(ctx context.Contex
 				return nil, false, err
 			}
 		}
+		if !hiddenChannelEcho {
+			// Retraction removes the projected pin even when the message was not
+			// pinned. Emit the same idempotent deletion for clients that do not
+			// retain this room's timeline and therefore cannot infer the removal.
+			appendPinnedMessageChange(realtimev1.RealtimeProjectionPinnedMessageAction_REALTIME_PROJECTION_PINNED_MESSAGE_ACTION_DELETED, roomID, eventID)
+		}
+	case *corev1.Event_MessagePinned:
+		appendPinnedMessageChange(realtimev1.RealtimeProjectionPinnedMessageAction_REALTIME_PROJECTION_PINNED_MESSAGE_ACTION_CREATED, payload.MessagePinned.GetRoomId(), payload.MessagePinned.GetMessageEventId())
+	case *corev1.Event_MessageUnpinned:
+		appendPinnedMessageChange(realtimev1.RealtimeProjectionPinnedMessageAction_REALTIME_PROJECTION_PINNED_MESSAGE_ACTION_DELETED, payload.MessageUnpinned.GetRoomId(), payload.MessageUnpinned.GetMessageEventId())
 	case *corev1.Event_ReactionAdded:
 		reaction := payload.ReactionAdded
 		messageID := s.core.CanonicalReactionMessageEventID(reaction.GetRoomId(), reaction.GetMessageEventId())
@@ -668,6 +708,10 @@ func (s *HTTPServer) realtimeProjectionFrameForEventWithRooms(ctx context.Contex
 			if err := appendViewerSensitiveResources(); err != nil {
 				return nil, false, err
 			}
+		}
+	case *corev1.Event_RoomSlowModeChanged:
+		if err := appendRoom(payload.RoomSlowModeChanged.GetRoomId()); err != nil {
+			return nil, false, err
 		}
 	case *corev1.Event_UserJoinedRoom:
 		roomID := payload.UserJoinedRoom.GetRoomId()

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const frontendRoot = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const sourceRoot = resolve(frontendRoot, 'src');
+const appCssPath = resolve(sourceRoot, 'app.css');
 
 const styleBlockAllowlist = new Set([
   'src/lib/components/MobileSidebarChrome.svelte',
@@ -63,13 +64,13 @@ async function svelteFiles(directory) {
   return files.flat();
 }
 
-async function nativeImportFiles(directory) {
+async function sourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = await Promise.all(
     entries.map(async (entry) => {
       const path = resolve(directory, entry.name);
-      if (entry.isDirectory()) return nativeImportFiles(path);
-      if (!/\.(?:svelte|ts|js)$/.test(entry.name)) return [];
+      if (entry.isDirectory()) return sourceFiles(path);
+      if (!/\.(?:svelte|[cm]?[jt]s)$/.test(entry.name)) return [];
       return [path];
     })
   );
@@ -77,6 +78,32 @@ async function nativeImportFiles(directory) {
 }
 
 const failures = [];
+const appCss = await readFile(appCssPath, 'utf8');
+
+if (!/@import\s+['"]tailwindcss['"]\s+source\(['"]\.\/['"]\)/.test(appCss)) {
+  failures.push(
+    "src/app.css: scope Tailwind source detection to source('./') so production ignores sources outside src"
+  );
+}
+
+if (/\bprefixes\s*:/.test(appCss)) {
+  failures.push(
+    'src/app.css: Iconify prefixes eagerly expand complete icon collections; use dynamic utilities such as icon-[uil--check]'
+  );
+}
+
+for (const file of await sourceFiles(sourceRoot)) {
+  const path = relative(frontendRoot, file);
+  const source = await readFile(file, 'utf8');
+  const legacyIcon = /(?<!icon-\[)\b(?:uil|mdi|logos)--[a-z0-9-]+/g;
+
+  for (const match of source.matchAll(legacyIcon)) {
+    const line = source.slice(0, match.index).split('\n').length;
+    failures.push(
+      `${path}:${line}: legacy Iconify class eagerly requires complete collections; use icon-[${match[0]}]`
+    );
+  }
+}
 
 for (const file of await svelteFiles(sourceRoot)) {
   const path = relative(frontendRoot, file).split(sep).join('/');
@@ -101,7 +128,7 @@ for (const file of await svelteFiles(sourceRoot)) {
   }
 }
 
-for (const file of await nativeImportFiles(sourceRoot)) {
+for (const file of await sourceFiles(sourceRoot)) {
   const path = relative(frontendRoot, file).split(sep).join('/');
   if (path.startsWith('src/lib/native/')) continue;
   const source = await readFile(file, 'utf8');

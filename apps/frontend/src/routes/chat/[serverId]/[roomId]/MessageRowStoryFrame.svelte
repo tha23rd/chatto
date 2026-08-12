@@ -93,6 +93,8 @@
     canReact: true,
     canEdit: false,
     canDelete: false,
+    canPin: false,
+    isPinned: false,
     replyInRoomLabel: 'Reply',
     replyThreadLabel: 'Reply in thread',
     hasReacted: () => false,
@@ -100,7 +102,8 @@
     edit: noop,
     copyText: noopAsync,
     copyLink: noopAsync,
-    delete: noop
+    delete: noop,
+    togglePin: noopAsync
   };
 </script>
 
@@ -210,7 +213,7 @@
         {/snippet}
         {#snippet afterBody()}
           <span class="inline-flex items-center gap-1 text-sm text-muted">
-            <span class="iconify uil--paperclip" aria-hidden="true"></span>
+            <span class="iconify icon-[uil--paperclip]" aria-hidden="true"></span>
             2 attachments
           </span>
         {/snippet}

@@ -9,7 +9,7 @@ surface-specific sizing and menu semantics.
   import type { Snippet } from 'svelte';
 
   import { useEnsureCustomEmojis } from '$lib/hooks';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import { getRecentEmojis } from '$lib/state/recentEmojis.svelte';
   import EmojiToken from '$lib/components/EmojiToken.svelte';
   import type { MessageActionModel } from './messageActionModel';
@@ -69,6 +69,11 @@ surface-specific sizing and menu semantics.
     action.delete();
     onClose();
   }
+
+  async function handlePin() {
+    await action.togglePin();
+    onClose();
+  }
 </script>
 
 {#snippet reactionButtons()}
@@ -81,7 +86,7 @@ surface-specific sizing and menu semantics.
           : 'rounded text-base transition-[background-color,scale] hover:bg-surface active:scale-[0.96]'
       ]}
       onclick={() => handleReaction(emoji)}
-      aria-label={m['room.message.actions.react_with']({ emoji })}
+      aria-label={m('room.message.actions.react_with', { emoji })}
       role={isSheet ? undefined : 'menuitem'}
     >
       <EmojiToken
@@ -103,10 +108,10 @@ surface-specific sizing and menu semantics.
         onOpenEmojiPicker();
         onClose();
       }}
-      aria-label={m['room.message.actions.more_reactions']()}
+      aria-label={m('room.message.actions.more_reactions')}
       role={isSheet ? undefined : 'menuitem'}
     >
-      <span class={['iconify uil--smile', !isSheet && 'text-lg']}></span>
+      <span class={['iconify icon-[uil--smile]', !isSheet && 'text-lg']}></span>
     </button>
   {/if}
 {/snippet}
@@ -115,7 +120,8 @@ surface-specific sizing and menu semantics.
   label: string,
   icon: string,
   onclick: () => void | Promise<void>,
-  destructive = false
+  destructive = false,
+  mirrorInRtl = false
 )}
   <button
     class={[
@@ -126,7 +132,7 @@ surface-specific sizing and menu semantics.
     {onclick}
     role={isSheet ? undefined : 'menuitem'}
   >
-    <span class={['sidebar-icon iconify', icon]}></span>
+    <span class={['iconify sidebar-icon', icon, mirrorInRtl && 'rtl:-scale-x-100']}></span>
     {label}
   </button>
 {/snippet}
@@ -160,36 +166,54 @@ surface-specific sizing and menu semantics.
 
   {@render actionGroup(copyActions)}
 
+  {#if action.canPin}
+    {@render actionGroup(pinAction)}
+  {/if}
+
   {#if action.canDelete}
     {@render actionGroup(deleteAction)}
   {/if}
 {/snippet}
 
+{#snippet pinAction()}
+  {@render actionButton(
+    action.isPinned ? m('room.pins.unpin') : m('room.pins.pin'),
+    'icon-[mdi--pin]',
+    handlePin
+  )}
+{/snippet}
+
 {#snippet primaryActions()}
   {#if action.replyInRoom}
-    {@render actionButton(action.replyInRoomLabel, 'uil--corner-up-left', handleReplyInRoom)}
+    {@render actionButton(
+      action.replyInRoomLabel,
+      'icon-[uil--corner-up-left]',
+      handleReplyInRoom,
+      false,
+      true
+    )}
   {/if}
   {#if action.replyThread}
-    {@render actionButton(action.replyThreadLabel, 'uil--comment-alt-lines', handleReply)}
+    {@render actionButton(action.replyThreadLabel, 'icon-[uil--comment-alt-lines]', handleReply)}
   {/if}
   {#if action.canEdit}
-    {@render actionButton(m['room.message.actions.edit_short'](), 'uil--pen', handleEdit)}
+    {@render actionButton(m('room.message.actions.edit_short'), 'icon-[uil--pen]', handleEdit)}
   {/if}
 {/snippet}
 
 {#snippet copyActions()}
   {#if action.messageBody}
     {@render actionButton(
-      m['room.message.actions.copy_text'](),
-      'uil--clipboard-notes',
+      m('room.message.actions.copy_text'),
+      'icon-[uil--clipboard-notes]',
       handleCopyText
     )}
   {/if}
-  {@render actionButton(m['room.message.actions.copy_link'](), 'uil--link', handleCopyLink)}
+  {@render actionButton(m('room.message.actions.copy_link'), 'icon-[uil--link]', handleCopyLink)}
 {/snippet}
 
 {#snippet deleteAction()}
-  {@render actionButton(m['common.delete'](), 'uil--trash-alt', handleDelete, true)}
+  {@render actionButton(m('common.delete'), 'icon-[uil--trash-alt]', handleDelete, true)}
 {/snippet}
 
 {#if isSheet}

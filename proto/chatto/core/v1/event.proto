@@ -17,6 +17,7 @@ import "chatto/core/v1/config_events.proto";
 import "chatto/core/v1/custom_emoji_events.proto";
 import "chatto/core/v1/thread_events.proto";
 import "chatto/core/v1/user_events.proto";
+import "chatto/core/v1/invitation_events.proto";
 
 option go_package = "hmans.de/chatto/internal/pb/chatto/core/v1;corev1";
 
@@ -76,6 +77,7 @@ message Event {
     RoomUniversalChangedEvent room_universal_changed = 305;
     // Field 306 was RoomBecameRegularEvent. Removed alongside the auto-join
     // feature; oneof tags don't reserve, so don't reuse that number.
+    RoomSlowModeChangedEvent room_slow_mode_changed = 307;
 
     // ----- Room membership (310-329) -----
     UserJoinedRoomEvent user_joined_room = 310;
@@ -97,6 +99,8 @@ message Event {
     MessageRetractedEvent message_retracted = 402;
     // Field 403 was ThreadReplyEchoEvent, now folded into MessagePostedEvent.
     MessageBodyEvent message_body = 404;
+    MessagePinnedEvent message_pinned = 405;
+    MessageUnpinnedEvent message_unpinned = 406;
 
     // ----- Threads (425-449, durable, room-owned) -----
     ThreadCreatedEvent thread_created = 425;
@@ -188,6 +192,7 @@ message Event {
     UserCustomStatusSetEvent user_custom_status_set = 715;
     UserCustomStatusClearedEvent user_custom_status_cleared = 716;
     UserExternalIdentityUnlinkedEvent user_external_identity_unlinked = 717;
+    UserKeyShreddingRequestedEvent user_key_shredding_requested = 718;
 
     // ----- RBAC (800-839, durable, evt.rbac.>) -----
     RbacRoleCreatedEvent rbac_role_created = 800;
@@ -231,6 +236,11 @@ message Event {
     BearerTokenRevokedEvent bearer_token_revoked = 912;
     OAuthConsentGrantedEvent oauth_consent_granted = 913;
     OAuthConsentDeniedEvent oauth_consent_denied = 914;
+
+    // ----- Invite links (930-939, durable, evt.invitation.{id}) -----
+    InvitationCreatedEvent invitation_created = 930;
+    InvitationRedeemedEvent invitation_redeemed = 931;
+    InvitationRevokedEvent invitation_revoked = 932;
 
     // ----- Reactions (1050-1059) — durable legacy-tag exception -----
     // Reaction events are stored on EVT today. They kept the legacy
