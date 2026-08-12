@@ -21,6 +21,7 @@ type DecryptedMessageBody struct {
 	CreatedAt       time.Time
 	UpdatedAt       *time.Time
 	WebhookOverride *corev1.WebhookMessageOverride
+	Actions         []*corev1.MessageAction
 }
 
 // GetFullMessageBody returns the decrypted message body for a message event,
@@ -63,6 +64,7 @@ func (c *ChattoCore) GetFullMessageBody(ctx context.Context, eventID string) (*D
 		LinkPreview:     body.GetLinkPreview(),
 		CreatedAt:       entry.Event.GetCreatedAt().AsTime(),
 		WebhookOverride: body.GetWebhookOverride(),
+		Actions:         cloneMessageActions(body.GetActions()),
 	}
 	// UpdatedAt: if LatestBody returned a body different from the
 	// original post's body, the message has been edited. The body

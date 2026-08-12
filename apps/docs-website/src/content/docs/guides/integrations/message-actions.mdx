@@ -1,0 +1,138 @@
+---
+title: Message Actions
+description: Add reusable buttons to integration messages and consume their invocations.
+---
+
+import { Aside, CardGrid, LinkCard, Steps } from "@astrojs/starlight/components";
+
+Message actions let any integration attach up to five buttons to a message. A
+button has an integration-defined ID, a visible label, an optional visual
+style, and a disabled state. Chatto renders the buttons and delivers each click
+to the message author's private invocation inbox; it does not interpret the
+action ID or run application-specific logic.
+
+This is the general-purpose path for game controls, approvals, polls, workflow
+steps, and similar interactions. The integration runs as an ordinary Chatto
+user, so existing room membership and message permissions still apply.
+
+<Aside type="note">
+  Message actions require Chatto 0.5.0 or newer. Pin and test the server release
+  used by the integration; discovery does not advertise individual RPCs.
+</Aside>
+
+## Interaction flow
+
+<Steps>
+
+1. **Post a message with actions.** Use `MessageService.CreateMessage`. An
+   action-only message is valid, so the body may be empty.
+
+2. **Poll the author's inbox.** Call
+   `MessageActionService.ListMessageActionInvocations`. Pending invocations are
+   returned oldest first and remain available for up to 24 hours.
+
+3. **Apply the action in your integration.** Treat the invocation ID as the
+   deduplication key. The record includes the room, canonical message event,
+   action, invoking user, and acceptance time.
+
+4. **Acknowledge after processing succeeds.** Call
+   `AcknowledgeMessageActionInvocation`. Acknowledging an unknown or already
+   acknowledged ID succeeds, so retries are safe.
+
+5. **Refresh the message when its state changes.** Replace the complete action
+   set with `MessageService.UpdateMessage`; disable unavailable actions or send
+   an empty set to remove every button.
+
+</Steps>
+
+## Create an interactive message
+
+The following Connect JSON request creates a generic decision prompt. Replace
+the base URL, bearer token, and room ID with values for your server:
+
+```bash
+curl "https://chat.example.com/api/connect/chatto.api.v1.MessageService/CreateMessage" \
+  -H "Authorization: Bearer ${CHATTO_TOKEN}" \
+  -H "Content-Type: application/json" \
+  --data '{
+    "roomId": "room-id",
+    "body": "Choose the next step.",
+    "actions": {
+      "actions": [
+        {"id": "accept", "label": "Accept", "style": "MESSAGE_ACTION_STYLE_SUCCESS"},
+        {"id": "decline", "label": "Decline", "style": "MESSAGE_ACTION_STYLE_DANGER"}
+      ]
+    }
+  }'
+```
+
+Action IDs are visible to room members and must contain only ASCII letters,
+digits, underscores, or hyphens. They need only be unique within one message.
+Labels may be up to 80 bytes. Supported styles are primary, secondary, success,
+and danger; unspecified style renders as secondary.
+
+## Invoke an action
+
+Clients normally invoke actions through the rendered Chatto button. A custom
+client calls `InvokeMessageAction` with a random 16–64 character URL-safe
+request ID:
+
+```json
+{
+  "roomId": "room-id",
+  "messageEventId": "message-event-id",
+  "actionId": "accept",
+  "requestId": "52cd7965-9045-44f9-a038-516962d41087"
+}
+```
+
+The request ID is also the invocation ID. Retrying the same invocation with the
+same ID returns the original accepted record; reusing it for a different
+message or action is rejected. Chatto checks current room membership, message
+visibility, and the action's enabled state before accepting a new invocation.
+
+## Consume and acknowledge invocations
+
+Only the user who authored the message can list or acknowledge its pending
+invocations:
+
+```bash
+curl "https://chat.example.com/api/connect/chatto.api.v1.MessageActionService/ListMessageActionInvocations" \
+  -H "Authorization: Bearer ${CHATTO_TOKEN}" \
+  -H "Content-Type: application/json" \
+  --data '{}'
+```
+
+After durably processing one invocation, acknowledge it:
+
+```bash
+curl "https://chat.example.com/api/connect/chatto.api.v1.MessageActionService/AcknowledgeMessageActionInvocation" \
+  -H "Authorization: Bearer ${CHATTO_TOKEN}" \
+  -H "Content-Type: application/json" \
+  --data '{"invocationId":"52cd7965-9045-44f9-a038-516962d41087"}'
+```
+
+Do not acknowledge before the integration commits its own state. A crash before
+acknowledgement makes the same invocation appear again, which provides simple
+at-least-once processing. If several bot replicas consume one inbox, coordinate
+them or use the invocation ID to make the integration's state transition
+idempotent.
+
+## Update or remove buttons
+
+`UpdateMessage.actions` is a complete replacement. Omit the field to preserve
+the current actions, send revised actions to change their labels or disabled
+states, or send an empty set to remove all buttons. Only the message author may
+change actions, even when another member may moderate the message body.
+
+There is intentionally no callback URL, per-game schema, modal, or select-menu
+contract. The stable boundary is the small action ID delivered to the author;
+all application state stays in the integration.
+
+## Related reference
+
+<CardGrid>
+  <LinkCard title="Message Actions API" href="/reference/connectrpc-api/message-actions/" description="RPC and protobuf field reference." />
+  <LinkCard title="Messages API" href="/reference/connectrpc-api/messages/" description="Create and update messages containing actions." />
+  <LinkCard title="API Compatibility" href="/guides/integrations/api-compatibility/" description="Version-skew and pre-1.0 integration guidance." />
+</CardGrid>

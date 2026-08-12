@@ -68,7 +68,7 @@ export function embeddedMessageLinks(body: string | null | undefined): MessageLi
 }
 
 export function isDeletedMessage(message: MessagePostedPayload): boolean {
-  return !message.body && message.attachments.length === 0;
+  return !message.body && message.attachments.length === 0 && !message.actions?.length;
 }
 
 export function buildMessageReplyPreview({

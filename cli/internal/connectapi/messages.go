@@ -34,6 +34,7 @@ func (s *messageService) CreateMessage(ctx context.Context, req *connect.Request
 		InReplyTo:          req.Msg.InReplyTo,
 		AlsoSendToChannel:  req.Msg.AlsoSendToChannel,
 		LinkPreview:        linkPreview,
+		Actions:            messageActionsToCore(req.Msg.GetActions()),
 	})
 	if err != nil {
 		return nil, connectError(err)
@@ -71,6 +72,7 @@ func (s *messageService) UpdateMessage(ctx context.Context, req *connect.Request
 		EventID:           req.Msg.EventId,
 		Body:              req.Msg.Body,
 		AlsoSendToChannel: req.Msg.AlsoSendToChannel,
+		Actions:           messageActionsToCore(req.Msg.GetActions()),
 	})
 	if err != nil {
 		return nil, connectError(err)

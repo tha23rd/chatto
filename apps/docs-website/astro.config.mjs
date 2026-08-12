@@ -100,6 +100,7 @@ export default defineConfig({
           items: [
             "guides/integrations/chatto-api",
             "guides/integrations/api-compatibility",
+            "guides/integrations/message-actions",
             "guides/integrations/external-login-providers",
             "guides/integrations/community-shields",
             "guides/integrations/pocket-id",
@@ -134,6 +135,7 @@ export default defineConfig({
                 "reference/connectrpc-api/asset-uploads",
                 "reference/connectrpc-api/custom-emojis",
                 "reference/connectrpc-api/messages",
+                "reference/connectrpc-api/message-actions",
                 "reference/connectrpc-api/message-search",
                 "reference/connectrpc-api/soundboard",
                 "reference/connectrpc-api/account",
