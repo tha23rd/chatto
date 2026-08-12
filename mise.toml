@@ -207,7 +207,7 @@ outputs = ["build/.mise-build-stamp", "../../cli/internal/http_server/.client/.g
 
 [tasks.desktop-setup]
 description = "Install the Windows desktop client dependencies"
-depends = ["setup-frontend"]
+depends = ["setup-frontend", "build-lingua"]
 run = "cargo fetch --manifest-path apps/desktop-tauri/src-tauri/Cargo.toml"
 sources = ["apps/desktop-tauri/package.json", "apps/desktop-tauri/src-tauri/Cargo.toml", "apps/desktop-tauri/src-tauri/Cargo.lock", "pnpm-lock.yaml"]
 
