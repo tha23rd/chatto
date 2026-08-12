@@ -17,8 +17,6 @@ import {
 } from '$lib/oauth/popup';
 import {
   browserAuthorizationWindow,
-  hasDesktopOAuthWindowBridge,
-  openDesktopAuthorizationWindow,
   type AuthorizationWindow
 } from '$lib/oauth/authorizationWindow';
 import {
@@ -124,29 +122,18 @@ async function runServerOAuthFlow(
 
   const redirectUri = `${window.location.origin}/servers/callback?mode=popup`;
 
-  const usesDesktopWindow = hasDesktopOAuthWindowBridge();
-  let authorizationWindow: AuthorizationWindow;
-  if (usesDesktopWindow) {
-    try {
-      authorizationWindow = await openDesktopAuthorizationWindow();
-    } catch (error) {
-      loadAndClearFlowState();
-      throw error;
-    }
-  } else {
-    // Open synchronously from the user's click before hashing the PKCE verifier;
-    // otherwise browsers may treat the secondary window as an unsolicited popup.
-    const popup = window.open(
-      'about:blank',
-      `chatto-oauth-${state.slice(0, 12)}`,
-      popupFeatures(window)
-    );
-    if (!popup) {
-      loadAndClearFlowState();
-      throw new OAuthPopupError('The sign-in window could not be opened.');
-    }
-    authorizationWindow = browserAuthorizationWindow(popup);
+  // Open synchronously from the user's click before hashing the PKCE verifier;
+  // otherwise browsers may treat the secondary window as an unsolicited popup.
+  const popup = window.open(
+    'about:blank',
+    `chatto-oauth-${state.slice(0, 12)}`,
+    popupFeatures(window)
+  );
+  if (!popup) {
+    loadAndClearFlowState();
+    throw new OAuthPopupError('The sign-in window could not be opened.');
   }
+  const authorizationWindow: AuthorizationWindow = browserAuthorizationWindow(popup);
 
   const responseChannel = createResponseChannel(state);
   if (responseChannel) {

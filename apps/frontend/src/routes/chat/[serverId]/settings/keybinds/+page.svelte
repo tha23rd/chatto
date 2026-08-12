@@ -7,7 +7,7 @@
     formatCallKeybindingAccelerator,
     setCallKeybindingCaptureActive
   } from '$lib/callKeybindings';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import { getNativeHost } from '$lib/native/host';
   import { userPreferences } from '$lib/state/userPreferences.svelte';
   import { FormSection, Hint, PaneHeader } from '$lib/ui';
@@ -40,35 +40,35 @@
   function actionLabel(action: CallKeybindingAction): string {
     switch (action) {
       case 'push-to-talk':
-        return m['settings.keybinds.actions.push_to_talk']();
+        return m('settings.keybinds.actions.push_to_talk');
       case 'push-to-mute':
-        return m['settings.keybinds.actions.push_to_mute']();
+        return m('settings.keybinds.actions.push_to_mute');
       case 'toggle-mute':
-        return m['settings.keybinds.actions.toggle_mute']();
+        return m('settings.keybinds.actions.toggle_mute');
       case 'mute':
-        return m['settings.keybinds.actions.mute']();
+        return m('settings.keybinds.actions.mute');
       case 'unmute':
-        return m['settings.keybinds.actions.unmute']();
+        return m('settings.keybinds.actions.unmute');
       case 'toggle-deafen':
-        return m['settings.keybinds.actions.toggle_deafen']();
+        return m('settings.keybinds.actions.toggle_deafen');
       case 'deafen':
-        return m['settings.keybinds.actions.deafen']();
+        return m('settings.keybinds.actions.deafen');
       case 'undeafen':
-        return m['settings.keybinds.actions.undeafen']();
+        return m('settings.keybinds.actions.undeafen');
       case 'toggle-camera':
-        return m['settings.keybinds.actions.toggle_camera']();
+        return m('settings.keybinds.actions.toggle_camera');
       case 'camera-on':
-        return m['settings.keybinds.actions.camera_on']();
+        return m('settings.keybinds.actions.camera_on');
       case 'camera-off':
-        return m['settings.keybinds.actions.camera_off']();
+        return m('settings.keybinds.actions.camera_off');
       case 'toggle-screen-share':
-        return m['settings.keybinds.actions.toggle_screen_share']();
+        return m('settings.keybinds.actions.toggle_screen_share');
       case 'start-screen-share':
-        return m['settings.keybinds.actions.start_screen_share']();
+        return m('settings.keybinds.actions.start_screen_share');
       case 'stop-screen-share':
-        return m['settings.keybinds.actions.stop_screen_share']();
+        return m('settings.keybinds.actions.stop_screen_share');
       case 'leave-call':
-        return m['settings.keybinds.actions.leave_call']();
+        return m('settings.keybinds.actions.leave_call');
     }
   }
 
@@ -109,7 +109,7 @@
 
     if (previousAction && previousAction !== action) {
       toast.success(
-        m['settings.keybinds.reassigned']({
+        m('settings.keybinds.reassigned', {
           keybind: formatCallKeybindingAccelerator(accelerator),
           action: actionLabel(previousAction)
         })
@@ -125,7 +125,7 @@
   function resetBindings(): void {
     stopRecording();
     userPreferences.resetCallKeybindings();
-    toast.success(m['settings.keybinds.reset_success']());
+    toast.success(m('settings.keybinds.reset_success'));
   }
 
   onDestroy(stopRecording);
@@ -148,28 +148,28 @@
               ? 'border-action text-action'
               : 'border-input text-text hover:bg-surface hover:text-text-top'
           ]}
-          aria-label={m['settings.keybinds.record_for']({ action: actionLabel(action) })}
+          aria-label={m('settings.keybinds.record_for', { action: actionLabel(action) })}
           aria-pressed={isRecording}
           data-call-keybinding-recorder
           data-testid={`keybind-recorder-${action}`}
           onclick={() => startRecording(action)}
         >
           {isRecording
-            ? m['settings.keybinds.recording']()
+            ? m('settings.keybinds.recording')
             : accelerator
               ? formatCallKeybindingAccelerator(accelerator)
-              : m['settings.keybinds.unassigned']()}
+              : m('settings.keybinds.unassigned')}
         </button>
         <button
           type="button"
           class="icon-action"
-          aria-label={m['settings.keybinds.clear_for']({ action: actionLabel(action) })}
-          title={m['settings.keybinds.clear_for']({ action: actionLabel(action) })}
+          aria-label={m('settings.keybinds.clear_for', { action: actionLabel(action) })}
+          title={m('settings.keybinds.clear_for', { action: actionLabel(action) })}
           disabled={!accelerator}
           data-testid={`keybind-clear-${action}`}
           onclick={() => clearBinding(action)}
         >
-          <span class="iconify uil--times" aria-hidden="true"></span>
+          <span class="icon-[uil--times]" aria-hidden="true"></span>
         </button>
       </div>
     {/each}
@@ -177,42 +177,42 @@
 {/snippet}
 
 <PaneHeader
-  title={m['settings.keybinds.title']()}
-  subtitle={m['settings.keybinds.subtitle']()}
+  title={m('settings.keybinds.title')}
+  subtitle={m('settings.keybinds.subtitle')}
   showMobileNav
 />
 
 <div class="flex flex-col gap-6 overflow-y-auto p-6">
   <div class="max-w-2xl">
-    <Hint icon="uil--keyboard">
-      <p>{m['settings.keybinds.instructions']()}</p>
+    <Hint icon="icon-[uil--keyboard]">
+      <p>{m('settings.keybinds.instructions')}</p>
       <p class="mt-1">
         {isDesktop
-          ? m['settings.keybinds.desktop_note']()
-          : m['settings.keybinds.browser_note']()}
+          ? m('settings.keybinds.desktop_note')
+          : m('settings.keybinds.browser_note')}
       </p>
     </Hint>
   </div>
 
-  <FormSection title={m['settings.keybinds.groups.voice']()} maxWidth="max-w-2xl">
+  <FormSection title={m('settings.keybinds.groups.voice')} maxWidth="max-w-2xl">
     {@render actionRows(voiceActions)}
   </FormSection>
 
   <FormSection
-    title={m['settings.keybinds.groups.video_streaming']()}
+    title={m('settings.keybinds.groups.video_streaming')}
     maxWidth="max-w-2xl"
     bordered
   >
     {@render actionRows(videoActions)}
   </FormSection>
 
-  <FormSection title={m['settings.keybinds.groups.call']()} maxWidth="max-w-2xl" bordered>
+  <FormSection title={m('settings.keybinds.groups.call')} maxWidth="max-w-2xl" bordered>
     {@render actionRows(callActions)}
   </FormSection>
 
   <div class="max-w-2xl">
     <Button variant="secondary" onclick={resetBindings}>
-      {m['settings.keybinds.reset']()}
+      {m('settings.keybinds.reset')}
     </Button>
   </div>
 </div>

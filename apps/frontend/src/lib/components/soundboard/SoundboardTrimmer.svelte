@@ -14,7 +14,7 @@ band are exposed as ARIA sliders so they work with the keyboard as well as the
 pointer.
 -->
 <script lang="ts">
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import { Button } from '$lib/ui/form';
 
   interface Props {
@@ -333,7 +333,7 @@ pointer.
 
 <div class="flex flex-col gap-2">
   <div class="flex items-center justify-between text-sm text-muted">
-    <span>{m['soundboard.trim_help']()}</span>
+    <span>{m('soundboard.trim_help')}</span>
     <span class="tabular-nums">{formatSeconds(selectedSeconds)}</span>
   </div>
 
@@ -364,7 +364,7 @@ pointer.
       style:right={asPercent(duration - end)}
       role="slider"
       tabindex={disabled ? -1 : 0}
-      aria-label={m['soundboard.trim_range_handle']()}
+      aria-label={m('soundboard.trim_range_handle')}
       aria-valuemin={0}
       aria-valuemax={Math.max(0, duration - selectedSeconds)}
       aria-valuenow={start}
@@ -389,7 +389,7 @@ pointer.
       style:left={asPercent(start)}
       role="slider"
       tabindex={disabled ? -1 : 0}
-      aria-label={m['soundboard.trim_start_handle']()}
+      aria-label={m('soundboard.trim_start_handle')}
       aria-valuemin={0}
       aria-valuemax={duration}
       aria-valuenow={start}
@@ -408,7 +408,7 @@ pointer.
       style:left={asPercent(end)}
       role="slider"
       tabindex={disabled ? -1 : 0}
-      aria-label={m['soundboard.trim_end_handle']()}
+      aria-label={m('soundboard.trim_end_handle')}
       aria-valuemin={0}
       aria-valuemax={duration}
       aria-valuenow={end}
@@ -427,12 +427,12 @@ pointer.
     <div class="flex items-center gap-2">
       <Button variant="secondary" onclick={togglePreview} {disabled}>
         <span class="inline-flex items-center gap-2">
-          <span class="iconify {playing ? 'uil--square' : 'uil--play'}"></span>
-          {playing ? m['soundboard.trim_stop']() : m['soundboard.trim_preview']()}
+          <span class="{playing ? 'icon-[uil--square]' : 'icon-[uil--play]'}"></span>
+          {playing ? m('soundboard.trim_stop') : m('soundboard.trim_preview')}
         </span>
       </Button>
       <Button variant="ghost" onclick={reset} disabled={disabled || !isTrimmed}>
-        {m['soundboard.trim_reset']()}
+        {m('soundboard.trim_reset')}
       </Button>
     </div>
     <span class="tabular-nums">{formatSeconds(end)}</span>

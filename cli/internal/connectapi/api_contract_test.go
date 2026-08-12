@@ -26,7 +26,31 @@ import (
 	"hmans.de/chatto/internal/pb/chatto/auth/v1/authv1connect"
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
 	"hmans.de/chatto/internal/pb/chatto/discovery/v1/discoveryv1connect"
+	realtimev1 "hmans.de/chatto/internal/pb/chatto/realtime/v1"
 )
+
+func TestPublishedForkFieldNumbersRemainStable(t *testing.T) {
+	tests := []struct {
+		message protoreflect.MessageDescriptor
+		field   protoreflect.Name
+		want    protoreflect.FieldNumber
+	}{
+		{(&apiv1.Message{}).ProtoReflect().Descriptor(), "webhook_override", 22},
+		{(&apiv1.Message{}).ProtoReflect().Descriptor(), "actions", 23},
+		{(&apiv1.Message{}).ProtoReflect().Descriptor(), "pinned", 1000},
+		{(&apiv1.CreateMessageRequest{}).ProtoReflect().Descriptor(), "actions", 11},
+		{(&apiv1.CreateMessageRequest{}).ProtoReflect().Descriptor(), "create_thread", 1000},
+		{(&realtimev1.RealtimeProjectionServerState{}).ProtoReflect().Descriptor(), "soundboard", 3},
+		{(&realtimev1.RealtimeProjectionServerState{}).ProtoReflect().Descriptor(), "custom_emojis", 4},
+		{(&realtimev1.RealtimeProjectionServerState{}).ProtoReflect().Descriptor(), "pinned_message_change", 1000},
+	}
+	for _, test := range tests {
+		field := test.message.Fields().ByName(test.field)
+		if field == nil || field.Number() != test.want {
+			t.Errorf("%s.%s number = %v, want %d", test.message.FullName(), test.field, field, test.want)
+		}
+	}
+}
 
 func TestAPIHandlers(t *testing.T) {
 	api := New(nil, config.ChattoConfig{}, "test")
@@ -54,6 +78,7 @@ func TestAPIHandlers(t *testing.T) {
 		"/" + authv1connect.ExternalIdentityAuthServiceName + "/",
 		"/" + adminv1connect.AdminDiagnosticsServiceName + "/",
 		"/" + adminv1connect.AdminEventLogServiceName + "/",
+		"/" + adminv1connect.AdminInviteLinkServiceName + "/",
 		"/" + adminv1connect.AdminRoomLayoutServiceName + "/",
 		"/" + adminv1connect.AdminUserServiceName + "/",
 		"/" + grpcreflect.ReflectV1AlphaServiceName + "/",
@@ -105,6 +130,7 @@ func TestAPIHandlerAuthPolicies(t *testing.T) {
 		"/" + authv1connect.ExternalIdentityAuthServiceName + "/":   AuthPolicyPublic,
 		"/" + adminv1connect.AdminDiagnosticsServiceName + "/":      AuthPolicyAuthenticatedUser,
 		"/" + adminv1connect.AdminEventLogServiceName + "/":         AuthPolicyAuthenticatedUser,
+		"/" + adminv1connect.AdminInviteLinkServiceName + "/":       AuthPolicyAuthenticatedUser,
 		"/" + adminv1connect.AdminRoomLayoutServiceName + "/":       AuthPolicyAuthenticatedUser,
 		"/" + adminv1connect.AdminUserServiceName + "/":             AuthPolicyAuthenticatedUser,
 		"/" + grpcreflect.ReflectV1AlphaServiceName + "/":           AuthPolicyPublic,
@@ -518,6 +544,8 @@ func TestConnectErrorMapping(t *testing.T) {
 		{"message too long", core.ErrMessageTooLong, connect.CodeInvalidArgument},
 		{"invalid argument", core.ErrInvalidArgument, connect.CodeInvalidArgument},
 		{"limit exceeded", core.ErrLimitExceeded, connect.CodeResourceExhausted},
+		{"reaction limit exceeded", core.ErrReactionLimitExceeded, connect.CodeResourceExhausted},
+		{"slow mode active", &core.SlowModeActiveError{}, connect.CodeResourceExhausted},
 		{"string length", &core.StringLengthError{Field: "field", Max: 10}, connect.CodeInvalidArgument},
 		{"room archived", core.ErrRoomArchived, connect.CodeFailedPrecondition},
 		{"unknown", errors.New("boom"), connect.CodeInternal},
@@ -537,7 +565,7 @@ func TestConnectErrorMapping(t *testing.T) {
 }
 
 func TestSafeInternalErrorForLogRedactsSensitiveSubstrings(t *testing.T) {
-	err := errors.New("failed for email=person@example.test token=cht_ATabcdef123456 redirect=https://chat.example.test/callback?code=secret&state=s url=https://chat.example.test/path?code=secret&state=s and raw other@example.test")
+	err := errors.New("failed for email=person@example.test token=cht_ATabcdef123456 redirect=https://chat.example.test/callback?code=secret&state=s url=https://chat.example.test/path?code=secret&state=s and raw other@example.test with https://chat.example.test/invite/1Iabc123def4567abcdefghijklmnop")
 
 	got := safeInternalErrorForLog(err)
 	for _, forbidden := range []string{
@@ -546,12 +574,13 @@ func TestSafeInternalErrorForLogRedactsSensitiveSubstrings(t *testing.T) {
 		"cht_ATabcdef123456",
 		"code=secret",
 		"state=s",
+		"1Iabc123def4567abcdefghijklmnop",
 	} {
 		if strings.Contains(got, forbidden) {
 			t.Fatalf("safeInternalErrorForLog leaked %q in %q", forbidden, got)
 		}
 	}
-	for _, want := range []string{"email=[redacted]", "redirect=[redacted]", "token=[redacted]", "?[redacted]", "[redacted-email]"} {
+	for _, want := range []string{"email=[redacted]", "redirect=[redacted]", "token=[redacted]", "?[redacted]", "[redacted-email]", "/invite/[redacted]"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("safeInternalErrorForLog = %q, want redaction marker %q", got, want)
 		}

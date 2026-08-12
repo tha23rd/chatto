@@ -17,7 +17,7 @@ stable identity shown here alongside the rendered image.
   import type { ConnectAPIConfig } from '$lib/api-client/connect';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
   import { getCustomEmojis } from '$lib/state/customEmojis.svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
 
   import { Panel, DataTable } from '$lib/components/admin';
   import { TextInput, Button } from '$lib/ui/form';
@@ -70,7 +70,7 @@ stable identity shown here alongside the rendered image.
     // Force-refresh the shared store so this admin view shows the current
     // catalog and every other surface benefits from the refresh too.
     if (!(await store.load(apiConfig()))) {
-      error = m['server_settings.custom_emoji.load_failed']();
+      error = m('server_settings.custom_emoji.load_failed');
     }
     loading = false;
   }
@@ -81,11 +81,11 @@ stable identity shown here alongside the rendered image.
 
   function acceptFile(file: File): boolean {
     if (!file.type.startsWith('image/')) {
-      toast.error(m['server_settings.custom_emoji.invalid_image']());
+      toast.error(m('server_settings.custom_emoji.invalid_image'));
       return false;
     }
     if (file.size > 2 * 1024 * 1024) {
-      toast.error(m['server_settings.custom_emoji.image_too_large']());
+      toast.error(m('server_settings.custom_emoji.image_too_large'));
       return false;
     }
     return true;
@@ -122,10 +122,10 @@ stable identity shown here alongside the rendered image.
       name = '';
       selectedFile = null;
       if (fileInput) fileInput.value = '';
-      toast.success(m['server_settings.custom_emoji.uploaded']());
+      toast.success(m('server_settings.custom_emoji.uploaded'));
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : m['server_settings.custom_emoji.upload_failed']()
+        err instanceof Error ? err.message : m('server_settings.custom_emoji.upload_failed')
       );
     } finally {
       uploading = false;
@@ -136,10 +136,10 @@ stable identity shown here alongside the rendered image.
     try {
       await createAdminCustomEmojiAPI(apiConfig()).remove(emoji.id);
       store.remove(emoji.id);
-      toast.success(m['server_settings.custom_emoji.deleted']());
+      toast.success(m('server_settings.custom_emoji.deleted'));
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : m['server_settings.custom_emoji.delete_failed']()
+        err instanceof Error ? err.message : m('server_settings.custom_emoji.delete_failed')
       );
     }
   }
@@ -147,14 +147,14 @@ stable identity shown here alongside the rendered image.
 
 <div class="flex flex-col gap-6">
   <!-- Upload form -->
-  <Panel title={m['server_settings.custom_emoji.upload']()} icon="iconify uil--smile">
+  <Panel title={m('server_settings.custom_emoji.upload')} icon="icon-[uil--smile]">
     <form onsubmit={handleUpload} class="flex flex-col gap-4">
       <TextInput
         id="custom-emoji-name"
-        label={m['server_settings.custom_emoji.name_label']()}
+        label={m('server_settings.custom_emoji.name_label')}
         bind:value={name}
         disabled={uploading}
-        description={m['server_settings.custom_emoji.name_help']()}
+        description={m('server_settings.custom_emoji.name_help')}
       />
 
       <div
@@ -164,8 +164,8 @@ stable identity shown here alongside the rendered image.
       >
         <DropZoneOverlay
           visible={isDragging}
-          title={m['server_settings.custom_emoji.drop_image']()}
-          subtitle={m['server_settings.custom_emoji.drop_subtitle']()}
+          title={m('server_settings.custom_emoji.drop_image')}
+          subtitle={m('server_settings.custom_emoji.drop_subtitle')}
         />
         <div
           class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-emphasized text-muted"
@@ -173,11 +173,11 @@ stable identity shown here alongside the rendered image.
           {#if previewUrl}
             <img
               src={previewUrl}
-              alt={m['server_settings.custom_emoji.preview_alt']()}
+              alt={m('server_settings.custom_emoji.preview_alt')}
               class="h-full w-full object-contain"
             />
           {:else}
-            <span class="iconify text-2xl uil--image"></span>
+            <span class="text-2xl icon-[uil--image]"></span>
           {/if}
         </div>
         <div class="flex flex-col gap-2">
@@ -190,10 +190,10 @@ stable identity shown here alongside the rendered image.
           />
           <Button variant="secondary" onclick={() => fileInput?.click()} disabled={uploading}>
             <span class="inline-flex items-center gap-2">
-              <span class="iconify uil--image-upload"></span>
+              <span class="icon-[uil--image-upload]"></span>
               {selectedFile
-                ? m['server_settings.custom_emoji.change_image']()
-                : m['server_settings.custom_emoji.choose_image']()}
+                ? m('server_settings.custom_emoji.change_image')
+                : m('server_settings.custom_emoji.choose_image')}
             </span>
           </Button>
           {#if selectedFile}
@@ -207,10 +207,10 @@ stable identity shown here alongside the rendered image.
           type="submit"
           loading={uploading}
           disabled={!canSubmit}
-          loadingText={m['server_settings.custom_emoji.uploading']()}
+          loadingText={m('server_settings.custom_emoji.uploading')}
         >
-          <span class="iconify uil--plus"></span>
-          {m['server_settings.custom_emoji.add_button']()}
+          <span class="icon-[uil--plus]"></span>
+          {m('server_settings.custom_emoji.add_button')}
         </Button>
       </div>
     </form>
@@ -218,13 +218,13 @@ stable identity shown here alongside the rendered image.
 
   <!-- Existing emojis -->
   <Panel
-    title={m['server_settings.custom_emoji.list_title']()}
-    icon="iconify uil--grids"
+    title={m('server_settings.custom_emoji.list_title')}
+    icon="icon-[uil--grids]"
     count={emojis.length}
     noPadding
   >
     {#if loading}
-      <div class="p-6 text-muted">{m['server_settings.custom_emoji.loading']()}</div>
+      <div class="p-6 text-muted">{m('server_settings.custom_emoji.loading')}</div>
     {:else if error}
       <div class="p-6 text-danger">{error}</div>
     {:else}
@@ -232,11 +232,11 @@ stable identity shown here alongside the rendered image.
         items={emojis}
         columns={3}
         getKey={(emoji) => emoji.id}
-        emptyMessage={m['server_settings.custom_emoji.empty']()}
+        emptyMessage={m('server_settings.custom_emoji.empty')}
       >
         {#snippet header()}
-          <th class="px-4 py-2">{m['server_settings.custom_emoji.column_preview']()}</th>
-          <th class="px-4 py-2">{m['server_settings.custom_emoji.column_name']()}</th>
+          <th class="px-4 py-2">{m('server_settings.custom_emoji.column_preview')}</th>
+          <th class="px-4 py-2">{m('server_settings.custom_emoji.column_name')}</th>
           <th class="px-4 py-2"></th>
         {/snippet}
         {#snippet row(emoji)}
@@ -247,8 +247,8 @@ stable identity shown here alongside the rendered image.
           <td class="px-4 py-2 text-right">
             <Button variant="ghost" onclick={() => handleDelete(emoji)}>
               <span class="inline-flex items-center gap-2 text-error">
-                <span class="iconify uil--trash-alt"></span>
-                {m['server_settings.custom_emoji.delete']()}
+                <span class="icon-[uil--trash-alt]"></span>
+                {m('server_settings.custom_emoji.delete')}
               </span>
             </Button>
           </td>

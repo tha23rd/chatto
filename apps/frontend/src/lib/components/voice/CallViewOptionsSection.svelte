@@ -11,7 +11,7 @@ Rendered inside `AudioDeviceMenu`, which owns the in-call settings menu.
 -->
 <script lang="ts">
   import { userPreferences, type CallViewPreferenceKey } from '$lib/state/userPreferences.svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
 
   type ViewOption = {
     key: CallViewPreferenceKey;
@@ -20,27 +20,27 @@ Rendered inside `AudioDeviceMenu`, which owns the in-call settings menu.
   };
 
   const options = $derived<ViewOption[]>([
-    { key: 'grid', label: m['voice.grid_view'](), testId: 'call-view-option-grid' },
+    { key: 'grid', label: m('voice.grid_view'), testId: 'call-view-option-grid' },
     {
       key: 'showOwnCamera',
-      label: m['voice.show_own_camera'](),
+      label: m('voice.show_own_camera'),
       testId: 'call-view-option-own-camera'
     },
     {
       key: 'showNonVideoParticipants',
-      label: m['voice.show_non_video_participants'](),
+      label: m('voice.show_non_video_participants'),
       testId: 'call-view-option-non-video'
     },
     {
       key: 'showOwnScreenShare',
-      label: m['voice.show_own_screen_share'](),
+      label: m('voice.show_own_screen_share'),
       testId: 'call-view-option-own-screen-share'
     }
   ]);
 </script>
 
 <div class="menu-section">
-  <div class="px-3 py-1.5 text-xs font-medium text-muted">{m['voice.view_options']()}</div>
+  <div class="px-3 py-1.5 text-xs font-medium text-muted">{m('voice.view_options')}</div>
   <nav class="sidebar-nav">
     {#each options as option (option.key)}
       {@const checked = userPreferences.callView[option.key]}
@@ -57,7 +57,7 @@ Rendered inside `AudioDeviceMenu`, which owns the in-call settings menu.
         }}
       >
         {#if checked}
-          <span class="sidebar-icon iconify text-action uil--check"></span>
+          <span class="sidebar-icon text-action icon-[uil--check]"></span>
         {:else}
           <span class="sidebar-icon"></span>
         {/if}

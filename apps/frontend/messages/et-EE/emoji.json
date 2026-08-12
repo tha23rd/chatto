@@ -1,0 +1,9 @@
+{
+  "emoji": {
+    "search_placeholder": "Otsi emotikone...",
+    "no_results": "Emotikone ei leitud",
+    "custom_emoji": {
+      "category": "Custom"
+    }
+  }
+}

@@ -3,7 +3,7 @@
   import { SvelteSet } from 'svelte/reactivity';
   import { fade } from 'svelte/transition';
   import { Virtualizer, type VirtualizerHandle } from 'virtua/svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import { getLocale } from '$lib/i18n/runtime';
   import { isMessagePostedEvent, type TimelineEventView } from '$lib/render/timelineEvents';
   import type { MessagesStore, RoomMember } from '$lib/state/room';
@@ -50,7 +50,7 @@
     enableLastEditableFinder = false,
     // Loading states
     isLoading = false,
-    emptyMessage = m['room.message.empty'](),
+    emptyMessage = m('room.message.empty'),
     // Event ID of the first unread message (for showing the unread separator)
     unreadAfterEventId = null,
     // Typing indicator
@@ -135,9 +135,7 @@
   const stores = $derived(serverScope.store);
   const currentUser = $derived(stores.currentUser);
   const serverInfo = $derived(stores.serverInfo);
-  const userSettings = $derived(
-    timeFormatSettingsFor(currentUser.user?.settings)
-  );
+  const userSettings = $derived(timeFormatSettingsFor(currentUser.user?.settings));
   const activeLocale = $derived(getLocale());
   const firstVisibleDate = $derived(
     viewport.firstVisibleAt
@@ -662,7 +660,7 @@
               <!-- Stale virtualizer index during data transition, skip -->
             {:else if item.type === 'start-marker'}
               <div class="pt-10 pb-2 text-center text-sm text-muted">
-                {m['room.timeline.beginning']()}
+                {m('room.timeline.beginning')}
               </div>
             {:else if item.type === 'day-separator'}
               <DaySeparator label={item.label} />
@@ -723,10 +721,10 @@
         {/if}
         <span>
           {!reloadsTimelineOnReturn && viewport.hasNewMessages
-            ? m['room.unread_separator']()
-            : m['room.jump_to_present']()}
+            ? m('room.unread_separator')
+            : m('room.jump_to_present')}
         </span>
-        <span class="iconify uil--arrow-down"></span>
+        <span class="iconify icon-[uil--arrow-down]"></span>
       </div>
     </button>
   {/if}

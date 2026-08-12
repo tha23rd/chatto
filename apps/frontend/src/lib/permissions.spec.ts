@@ -24,6 +24,7 @@ describe('PERMISSION_METADATA', () => {
       'soundboard.manage',
       'user.delete-any',
       'user.delete-self',
+      'user.invite',
       'user.manage-accounts',
       'user.manage-permissions'
     ]);

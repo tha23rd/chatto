@@ -1,8 +1,8 @@
 <!--
 @component
 
-Meta bar shown beneath a message when it has thread replies or reactions.
-Contains the thread reply button, reaction pills, and an add-reaction button.
+Message meta bar shown beneath a message when it has thread replies, reactions,
+or a pin indicator. Contains compact message-state badges and actions.
 
 Reaction mutations use the same bound message-action model as the hover,
 context-menu, and touch surfaces. Thread navigation and tooltip state remain
@@ -18,7 +18,8 @@ local to the footer.
   import { getEmojiByName, getEmojiDisplayName } from '$lib/emoji';
   import { getCustomEmoji } from '$lib/state/customEmojis.svelte';
   import { useEnsureCustomEmojis } from '$lib/hooks';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
+  import ConfirmDialog from '$lib/ui/ConfirmDialog.svelte';
   import type { MessageActionModel } from './messageActionModel';
 
   // Extract the MessagePostedEvent type from the union
@@ -36,6 +37,7 @@ local to the footer.
     reactions,
     action,
     replyCount = 0,
+    threadExists = false,
     threadParticipants,
     hasThreadNotification = false,
     isFollowingThread = false,
@@ -49,8 +51,9 @@ local to the footer.
     serverSegment: string;
     threadRootEventId?: string | null;
     reactions: ReactionSummary[];
-    action: MessageActionModel;
+    action?: MessageActionModel;
     replyCount?: number;
+    threadExists?: boolean;
     threadParticipants?: MessagePostedPayload['threadParticipants'];
     hasThreadNotification?: boolean;
     isFollowingThread?: boolean;
@@ -66,14 +69,14 @@ local to the footer.
   //
   // `serverSegment` is the URL form and addresses routes only. Custom emojis are
   // keyed by raw registry id, which the action model already carries.
-  const emojiServerId = $derived(action.serverId);
-  useEnsureCustomEmojis(() => action.serverId);
+  const emojiServerId = $derived(action?.serverId ?? '');
+  useEnsureCustomEmojis(() => action?.serverId ?? '');
 
 
   const replyCountLabel = $derived(
     replyCount === 1
-      ? m['room.message.meta.reply_count_one']()
-      : m['room.message.meta.reply_count_many']({ count: replyCount })
+      ? m('room.message.meta.reply_count_one')
+      : m('room.message.meta.reply_count_many', { count: replyCount })
   );
   const reactionTooltipId = `reaction-tooltip-${crypto.randomUUID().slice(0, 8)}`;
   let tooltipReactionEmoji = $state<string | null>(null);
@@ -81,6 +84,8 @@ local to the footer.
   const tooltipReaction = $derived(
     tooltipReactionEmoji ? (reactions.find((r) => r.emoji === tooltipReactionEmoji) ?? null) : null
   );
+  let unpinConfirmationVisible = $state(false);
+  let unpinning = $state(false);
   const REACTION_TOOLTIP_USER_LIMIT = 5;
   function reactionTooltipUsers(reaction: ReactionSummary): {
     names: string[];
@@ -110,7 +115,31 @@ local to the footer.
   }
 
   async function toggleReaction(reaction: ReactionSummary) {
-    await action.toggleReaction(reaction.emoji);
+    await action?.toggleReaction(reaction.emoji);
+  }
+
+  function requestUnpin(event: MouseEvent): void {
+    event.stopPropagation();
+    unpinConfirmationVisible = true;
+  }
+
+  function closeUnpinConfirmation(): void {
+    unpinConfirmationVisible = false;
+  }
+
+  async function confirmUnpin(): Promise<void> {
+    if (!action?.canPin || !action.isPinned) {
+      closeUnpinConfirmation();
+      return;
+    }
+
+    unpinning = true;
+    try {
+      await action.togglePin();
+      closeUnpinConfirmation();
+    } finally {
+      unpinning = false;
+    }
   }
 
   function openThreadFromLink(e: MouseEvent) {
@@ -150,29 +179,29 @@ local to the footer.
         roomId,
         threadId: threadRootEventId
       })}
-      class="{baseButtonClass} gap-2 border-transparent px-2 text-xs"
+      class="{baseButtonClass} gap-2 border-transparent px-2 text-xs whitespace-nowrap"
       onclick={openThreadFromLink}
       {@attach threadLinkGestureBoundary}
     >
-      <span class="iconify uil--corner-up-right"></span>
-      <span>{m['room.message.meta.thread']()}</span>
+      <span class="iconify icon-[uil--corner-up-right] rtl:-scale-x-100"></span>
+      <span>{m('room.message.meta.thread')}</span>
     </a>
   {/if}
 
   <!-- Thread reply button -->
-  {#if replyCount > 0 && onOpenThread && threadRootEventId}
+  {#if (threadExists || replyCount > 0) && onOpenThread && threadRootEventId}
     <a
       href={resolve('/chat/[serverId]/[roomId]/[threadId]', {
         serverId: serverSegment,
         roomId,
         threadId: threadRootEventId
       })}
-      class="{baseButtonClass} gap-2 border-transparent px-2 text-xs"
+      class="{baseButtonClass} gap-2 border-transparent px-2 text-xs whitespace-nowrap"
       onclick={openThreadFromLink}
       {@attach threadLinkGestureBoundary}
     >
-      <span class="iconify uil--comment-alt-lines"></span>
-      {#if threadParticipants && threadParticipants.length > 0}
+      <span class="iconify icon-[uil--comment-alt-lines]"></span>
+      {#if replyCount > 0 && threadParticipants && threadParticipants.length > 0}
         <div class="flex -space-x-1.5">
           {#each threadParticipants.slice(0, 3) as participant, i (i)}
             {@const p = participant}
@@ -183,7 +212,7 @@ local to the footer.
         </div>
       {/if}
       <span>
-        {replyCountLabel}
+        {replyCount > 0 ? replyCountLabel : m('room.message.meta.thread')}
       </span>
       {#if hasThreadNotification}
         <UnreadDot testid="thread-notification-dot" />
@@ -199,12 +228,38 @@ local to the footer.
         onclick={onToggleThreadFollow}
         disabled={isThreadFollowPending}
         title={isFollowingThread
-          ? m['room.message.meta.unfollow_thread']()
-          : m['room.message.meta.follow_thread']()}
+          ? m('room.message.meta.unfollow_thread')
+          : m('room.message.meta.follow_thread')}
       >
-        <span class={['iconify text-base', isFollowingThread ? 'uil--bell' : 'uil--bell-slash']}
+        <span
+          class={[
+            'iconify text-base',
+            isFollowingThread ? 'icon-[uil--bell]' : 'icon-[uil--bell-slash]'
+          ]}
         ></span>
       </button>
+    {/if}
+  {/if}
+
+  {#if action?.isPinned}
+    {#if action.canPin}
+      <button
+        class="{baseButtonClass} justify-center border-transparent px-1.5"
+        onclick={requestUnpin}
+        aria-label={m('room.pins.unpin')}
+        title={m('room.pins.unpin')}
+      >
+        <span class="iconify icon-[mdi--pin-outline] text-base" aria-hidden="true"></span>
+      </button>
+    {:else}
+      <span
+        class="meta-badge h-[25px] cursor-default border-transparent px-1.5 text-muted"
+        role="img"
+        aria-label={m('room.message.meta.pinned')}
+        title={m('room.message.meta.pinned')}
+      >
+        <span class="iconify icon-[mdi--pin-outline] text-base" aria-hidden="true"></span>
+      </span>
     {/if}
   {/if}
 
@@ -228,20 +283,20 @@ local to the footer.
           // Custom emoji are images: give them a larger glyph and tighter left
           // padding so the pill hugs the emoji instead of boxing it in.
           customEmoji ? 'gap-0.5 pr-2 pl-1' : 'px-2',
-          action.canReact ? '' : '!cursor-default opacity-60',
+          action?.canReact ? '' : '!cursor-default opacity-60',
           reaction.hasReacted ? 'border-action/50' : 'border-transparent'
         ]}
-        onclick={() => action.canReact && toggleReaction(reaction)}
+        onclick={() => action?.canReact && toggleReaction(reaction)}
         onfocus={(e) => showReactionTooltip(e, reaction)}
         onblur={hideReactionTooltip}
-        disabled={!action.canReact}
+        disabled={!action?.canReact}
         aria-describedby={tooltipReactionEmoji === reaction.emoji ? reactionTooltipId : undefined}
         aria-label={reaction.hasReacted
-          ? m['room.message.meta.remove_reaction_label']({
+          ? m('room.message.meta.remove_reaction_label', {
               emoji: getEmojiByName(reaction.emoji) ?? reaction.emoji,
               count: reaction.count
             })
-          : m['room.message.meta.add_reaction_label']({
+          : m('room.message.meta.add_reaction_label', {
               emoji: getEmojiByName(reaction.emoji) ?? reaction.emoji,
               count: reaction.count
             })}
@@ -266,12 +321,27 @@ local to the footer.
     <button
       class="{baseButtonClass} justify-center border-transparent px-1.5"
       onclick={(e) => onOpenEmojiPicker(e)}
-      aria-label={m['room.message.actions.add_reaction']()}
+      aria-label={m('room.message.actions.add_reaction')}
     >
-      <span class="iconify text-base uil--smile"></span>
+      <span class="iconify icon-[uil--smile] text-base"></span>
     </button>
   {/if}
 </div>
+
+{#if action?.isPinned && action.canPin}
+  <ConfirmDialog
+    bind:visible={unpinConfirmationVisible}
+    title={m('room.pins.unpin')}
+    tone="warning"
+    actionLabel={m('room.pins.unpin')}
+    actionIcon="iconify icon-[mdi--pin-outline]"
+    loading={unpinning}
+    onconfirm={confirmUnpin}
+    onclose={closeUnpinConfirmation}
+  >
+    {m('room.pins.unpin_prompt')}
+  </ConfirmDialog>
+{/if}
 
 <FloatingPopover
   open={!!tooltipReaction && !!tooltipAnchor}
@@ -293,7 +363,7 @@ local to the footer.
         {/each}
         {#if tooltipUsers.remaining > 0}
           <span class="text-muted/80">
-            {m['room.message.meta.reaction_users_more']({ count: tooltipUsers.remaining })}
+            {m('room.message.meta.reaction_users_more', { count: tooltipUsers.remaining })}
           </span>
         {/if}
       </span>

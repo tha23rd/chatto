@@ -25,7 +25,7 @@ warning, since it cannot be retrieved again afterwards.
   import { timeFormatSettingsFor } from '$lib/utils/formatTime';
   import { getLocale } from '$lib/i18n/runtime';
   import { formatDate } from '$lib/utils/formatTime';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
 
   import { Panel, DataTable, CopyId } from '$lib/components/admin';
   import { TextInput, Select, Button } from '$lib/ui/form';
@@ -68,7 +68,7 @@ warning, since it cannot be retrieved again afterwards.
   const webhooks = $derived(webhooksQuery.data ?? []);
   const loading = $derived(webhooksQuery.isPending);
   const error = $derived(
-    webhooksQuery.isError ? m['server_settings.webhooks.load_failed']() : null
+    webhooksQuery.isError ? m('server_settings.webhooks.load_failed') : null
   );
 
   const webhooksKey = $derived(
@@ -141,11 +141,11 @@ warning, since it cannot be retrieved again afterwards.
 
   function acceptFile(file: File): boolean {
     if (!file.type.startsWith('image/')) {
-      toast.error(m['server_settings.webhooks.invalid_image']());
+      toast.error(m('server_settings.webhooks.invalid_image'));
       return false;
     }
     if (file.size > 2 * 1024 * 1024) {
-      toast.error(m['server_settings.webhooks.image_too_large']());
+      toast.error(m('server_settings.webhooks.image_too_large'));
       return false;
     }
     return true;
@@ -190,11 +190,11 @@ warning, since it cannot be retrieved again afterwards.
       roomId = '';
       selectedFile = null;
       if (fileInput) fileInput.value = '';
-      toast.success(m['server_settings.webhooks.created']());
-      revealed = { title: m['server_settings.webhooks.url_dialog_title'](), url: created.url };
+      toast.success(m('server_settings.webhooks.created'));
+      revealed = { title: m('server_settings.webhooks.url_dialog_title'), url: created.url };
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : m['server_settings.webhooks.create_failed']()
+        err instanceof Error ? err.message : m('server_settings.webhooks.create_failed')
       );
     } finally {
       creating = false;
@@ -210,10 +210,10 @@ warning, since it cannot be retrieved again afterwards.
         disabled: !webhook.disabled
       });
       upsertWebhook(updated);
-      toast.success(m['server_settings.webhooks.updated']());
+      toast.success(m('server_settings.webhooks.updated'));
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : m['server_settings.webhooks.update_failed']()
+        err instanceof Error ? err.message : m('server_settings.webhooks.update_failed')
       );
     } finally {
       togglingId = null;
@@ -227,14 +227,14 @@ warning, since it cannot be retrieved again afterwards.
       const result = await createAdminWebhookAPI(apiConfig()).regenerateToken(webhook.id);
       upsertWebhook(result.webhook);
       confirmRegenerate = null;
-      toast.success(m['server_settings.webhooks.regenerated']());
+      toast.success(m('server_settings.webhooks.regenerated'));
       revealed = {
-        title: m['server_settings.webhooks.regenerate_url_dialog_title'](),
+        title: m('server_settings.webhooks.regenerate_url_dialog_title'),
         url: result.url
       };
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : m['server_settings.webhooks.regenerate_failed']()
+        err instanceof Error ? err.message : m('server_settings.webhooks.regenerate_failed')
       );
     } finally {
       regeneratingId = null;
@@ -248,10 +248,10 @@ warning, since it cannot be retrieved again afterwards.
       await createAdminWebhookAPI(apiConfig()).remove(webhook.id);
       removeWebhook(webhook.id);
       confirmDelete = null;
-      toast.success(m['server_settings.webhooks.deleted']());
+      toast.success(m('server_settings.webhooks.deleted'));
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : m['server_settings.webhooks.delete_failed']()
+        err instanceof Error ? err.message : m('server_settings.webhooks.delete_failed')
       );
     } finally {
       deletingId = null;
@@ -261,23 +261,23 @@ warning, since it cannot be retrieved again afterwards.
 
 <div class="flex flex-col gap-6">
   <!-- Create form -->
-  <Panel title={m['server_settings.webhooks.create']()} icon="iconify uil--link-add">
+  <Panel title={m('server_settings.webhooks.create')} icon="icon-[uil--link-add]">
     <form onsubmit={handleCreate} class="flex flex-col gap-4">
       <Select
         id="webhook-room"
-        label={m['server_settings.webhooks.room_label']()}
+        label={m('server_settings.webhooks.room_label')}
         bind:value={roomId}
         options={roomOptions}
-        placeholder={m['server_settings.webhooks.room_placeholder']()}
+        placeholder={m('server_settings.webhooks.room_placeholder')}
         disabled={creating}
       />
 
       <TextInput
         id="webhook-name"
-        label={m['server_settings.webhooks.name_label']()}
+        label={m('server_settings.webhooks.name_label')}
         bind:value={name}
         disabled={creating}
-        description={m['server_settings.webhooks.name_help']()}
+        description={m('server_settings.webhooks.name_help')}
       />
 
       <div
@@ -287,8 +287,8 @@ warning, since it cannot be retrieved again afterwards.
       >
         <DropZoneOverlay
           visible={isDragging}
-          title={m['server_settings.webhooks.drop_image']()}
-          subtitle={m['server_settings.webhooks.drop_subtitle']()}
+          title={m('server_settings.webhooks.drop_image')}
+          subtitle={m('server_settings.webhooks.drop_subtitle')}
         />
         <div
           class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface-emphasized text-muted"
@@ -296,11 +296,11 @@ warning, since it cannot be retrieved again afterwards.
           {#if previewUrl}
             <img
               src={previewUrl}
-              alt={m['server_settings.webhooks.preview_alt']()}
+              alt={m('server_settings.webhooks.preview_alt')}
               class="h-full w-full object-cover"
             />
           {:else}
-            <span class="iconify text-2xl uil--robot"></span>
+            <span class="text-2xl icon-[uil--robot]"></span>
           {/if}
         </div>
         <div class="flex flex-col gap-2">
@@ -313,10 +313,10 @@ warning, since it cannot be retrieved again afterwards.
           />
           <Button variant="secondary" onclick={() => fileInput?.click()} disabled={creating}>
             <span class="inline-flex items-center gap-2">
-              <span class="iconify uil--image-upload"></span>
+              <span class="icon-[uil--image-upload]"></span>
               {selectedFile
-                ? m['server_settings.webhooks.change_image']()
-                : m['server_settings.webhooks.choose_image']()}
+                ? m('server_settings.webhooks.change_image')
+                : m('server_settings.webhooks.choose_image')}
             </span>
           </Button>
           {#if selectedFile}
@@ -330,10 +330,10 @@ warning, since it cannot be retrieved again afterwards.
           type="submit"
           loading={creating}
           disabled={!canSubmit}
-          loadingText={m['server_settings.webhooks.creating']()}
+          loadingText={m('server_settings.webhooks.creating')}
         >
-          <span class="iconify uil--plus"></span>
-          {m['server_settings.webhooks.create_button']()}
+          <span class="icon-[uil--plus]"></span>
+          {m('server_settings.webhooks.create_button')}
         </Button>
       </div>
     </form>
@@ -341,13 +341,13 @@ warning, since it cannot be retrieved again afterwards.
 
   <!-- Existing webhooks -->
   <Panel
-    title={m['server_settings.webhooks.list_title']()}
-    icon="iconify uil--link-add"
+    title={m('server_settings.webhooks.list_title')}
+    icon="icon-[uil--link-add]"
     count={webhooks.length}
     noPadding
   >
     {#if loading}
-      <div class="p-6 text-muted">{m['server_settings.webhooks.loading']()}</div>
+      <div class="p-6 text-muted">{m('server_settings.webhooks.loading')}</div>
     {:else if error}
       <div class="p-6 text-danger">{error}</div>
     {:else}
@@ -355,13 +355,13 @@ warning, since it cannot be retrieved again afterwards.
         items={webhooks}
         columns={5}
         getKey={(webhook) => webhook.id}
-        emptyMessage={m['server_settings.webhooks.empty']()}
+        emptyMessage={m('server_settings.webhooks.empty')}
       >
         {#snippet header()}
-          <th class="px-4 py-2">{m['server_settings.webhooks.column_name']()}</th>
-          <th class="px-4 py-2">{m['server_settings.webhooks.column_room']()}</th>
-          <th class="px-4 py-2">{m['server_settings.webhooks.column_created']()}</th>
-          <th class="px-4 py-2">{m['server_settings.webhooks.column_status']()}</th>
+          <th class="px-4 py-2">{m('server_settings.webhooks.column_name')}</th>
+          <th class="px-4 py-2">{m('server_settings.webhooks.column_room')}</th>
+          <th class="px-4 py-2">{m('server_settings.webhooks.column_created')}</th>
+          <th class="px-4 py-2">{m('server_settings.webhooks.column_status')}</th>
           <th class="px-4 py-2"></th>
         {/snippet}
         {#snippet row(webhook)}
@@ -377,7 +377,7 @@ warning, since it cannot be retrieved again afterwards.
                     class="h-full w-full object-cover"
                   />
                 {:else}
-                  <span class="iconify text-sm uil--robot"></span>
+                  <span class="text-sm icon-[uil--robot]"></span>
                 {/if}
               </span>
               {webhook.name}
@@ -387,9 +387,9 @@ warning, since it cannot be retrieved again afterwards.
           <td class="px-4 py-2 text-muted">{formatCreated(webhook.createdAtMs)}</td>
           <td class="px-4 py-2">
             {#if webhook.disabled}
-              <span class="text-muted">{m['server_settings.webhooks.disabled']()}</span>
+              <span class="text-muted">{m('server_settings.webhooks.disabled')}</span>
             {:else}
-              <span class="text-success">{m['server_settings.webhooks.enabled']()}</span>
+              <span class="text-success">{m('server_settings.webhooks.enabled')}</span>
             {/if}
           </td>
           <td class="px-4 py-2 text-right whitespace-nowrap">
@@ -398,8 +398,8 @@ warning, since it cannot be retrieved again afterwards.
               onclick={() => (confirmRegenerate = webhook)}
               disabled={regeneratingId === webhook.id}
             >
-              <span class="iconify uil--refresh"></span>
-              {m['server_settings.webhooks.regenerate_token']()}
+              <span class="icon-[uil--refresh]"></span>
+              {m('server_settings.webhooks.regenerate_token')}
             </Button>
             <Button
               variant="ghost"
@@ -407,17 +407,17 @@ warning, since it cannot be retrieved again afterwards.
               disabled={togglingId === webhook.id}
             >
               {#if webhook.disabled}
-                <span class="iconify uil--play"></span>
-                {m['server_settings.webhooks.enable']()}
+                <span class="icon-[uil--play]"></span>
+                {m('server_settings.webhooks.enable')}
               {:else}
-                <span class="iconify uil--pause"></span>
-                {m['server_settings.webhooks.disable']()}
+                <span class="icon-[uil--pause]"></span>
+                {m('server_settings.webhooks.disable')}
               {/if}
             </Button>
             <Button variant="ghost" onclick={() => (confirmDelete = webhook)}>
               <span class="inline-flex items-center gap-2 text-error">
-                <span class="iconify uil--trash-alt"></span>
-                {m['server_settings.webhooks.delete']()}
+                <span class="icon-[uil--trash-alt]"></span>
+                {m('server_settings.webhooks.delete')}
               </span>
             </Button>
           </td>
@@ -433,14 +433,14 @@ warning, since it cannot be retrieved again afterwards.
   <Dialog visible title={revealed.title} onclose={() => (revealed = null)}>
     <div class="flex flex-col gap-4">
       <p class="flex items-start gap-2 text-warning">
-        <span class="mt-0.5 iconify shrink-0 text-lg uil--exclamation-triangle"></span>
-        <span>{m['server_settings.webhooks.url_warning']()}</span>
+        <span class="mt-0.5 shrink-0 text-lg icon-[uil--exclamation-triangle]"></span>
+        <span>{m('server_settings.webhooks.url_warning')}</span>
       </p>
       <div class="rounded-md border border-border bg-surface-emphasized/40 p-3">
         <CopyId value={revealedUrl} />
       </div>
       <div class="flex justify-end">
-        <Button onclick={() => (revealed = null)}>{m['server_settings.webhooks.done']()}</Button>
+        <Button onclick={() => (revealed = null)}>{m('server_settings.webhooks.done')}</Button>
       </div>
     </div>
   </Dialog>
@@ -450,14 +450,14 @@ warning, since it cannot be retrieved again afterwards.
 {#if confirmRegenerate}
   {@const webhook = confirmRegenerate}
   <ConfirmDialog
-    title={m['server_settings.webhooks.regenerate_confirm_title']()}
+    title={m('server_settings.webhooks.regenerate_confirm_title')}
     tone="warning"
-    actionLabel={m['server_settings.webhooks.regenerate_confirm_action']()}
+    actionLabel={m('server_settings.webhooks.regenerate_confirm_action')}
     loading={regeneratingId === webhook.id}
     onconfirm={() => handleRegenerate(webhook)}
     onclose={() => (confirmRegenerate = null)}
   >
-    {m['server_settings.webhooks.regenerate_confirm_body']()}
+    {m('server_settings.webhooks.regenerate_confirm_body')}
   </ConfirmDialog>
 {/if}
 
@@ -465,13 +465,13 @@ warning, since it cannot be retrieved again afterwards.
 {#if confirmDelete}
   {@const webhook = confirmDelete}
   <ConfirmDialog
-    title={m['server_settings.webhooks.delete_confirm_title']()}
+    title={m('server_settings.webhooks.delete_confirm_title')}
     tone="danger"
-    actionLabel={m['server_settings.webhooks.delete_confirm_action']()}
+    actionLabel={m('server_settings.webhooks.delete_confirm_action')}
     loading={deletingId === webhook.id}
     onconfirm={() => handleDelete(webhook)}
     onclose={() => (confirmDelete = null)}
   >
-    {m['server_settings.webhooks.delete_confirm_body']()}
+    {m('server_settings.webhooks.delete_confirm_body')}
   </ConfirmDialog>
 {/if}

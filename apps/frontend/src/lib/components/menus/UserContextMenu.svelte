@@ -32,7 +32,7 @@ ContextMenu, which handles both modes automatically.
   } from '$lib/state/userProfiles.svelte';
   import { useServerScope } from '$lib/state/server/scope.svelte';
   import type { MentionRole } from '$lib/state/room';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import { roleColorToCSS } from '$lib/roleColors';
 
   let {
@@ -101,7 +101,7 @@ ContextMenu, which handles both modes automatically.
 <ContextMenu
   anchor={anchorRect}
   role="dialog"
-  ariaLabel={m['chat.user_menu.profile']()}
+  ariaLabel={m('chat.user_menu.profile')}
   class="w-64"
   onclose={() => onClose?.()}
 >
@@ -121,7 +121,7 @@ ContextMenu, which handles both modes automatically.
       <div class="border-t border-border p-1">
         {#if canSendMessage}
           <button type="button" class="sidebar-item" onclick={handleSendMessage}>
-            {m['chat.user_menu.send_message']()}
+            {m('chat.user_menu.send_message')}
           </button>
         {/if}
         {#if canBanFromRoom}
@@ -131,7 +131,7 @@ ContextMenu, which handles both modes automatically.
             onclick={handleBanFromRoom}
             disabled={banningFromRoom}
           >
-            {banningFromRoom ? m['admin.moderation.banning']() : m['admin.moderation.ban_action']()}
+            {banningFromRoom ? m('admin.moderation.banning') : m('admin.moderation.ban_action')}
           </button>
         {/if}
       </div>
