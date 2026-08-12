@@ -83,10 +83,8 @@ Request to create a message in a room or thread.
 | `in_reply_to` | `string` | Event ID this message replies to for attribution. |
 | `also_send_to_channel` | `bool` | True to also echo a thread reply into the main room timeline. |
 | `link_preview_token` | `string` | Short-lived token returned by FetchLinkPreview for the selected URL. The server resolves the token to cached, server-fetched metadata during post. |
-| `create_thread` | `bool` | True to establish the new root message as a thread immediately. Requires both message.post and message.post-in-thread. Channel rooms only; cannot be combined with thread_root_event_id. |
-| `actions` | [`MessageActionSet`](/reference/connectrpc-api/types/#chatto-api-v1-MessageActionSet) | Optional author-defined action buttons.
-
-Fork-owned field. Upstream owns tags below 1000; this field was shipped at tag 11 in the fork's own main and is renumbered here to avoid the upstream tag space. |
+| `create_thread` | `bool` | True to establish the new root message as a thread immediately. Requires both message.post and message.post-in-thread. Channel rooms only; cannot be combined with thread_root_event_id. This distribution uses tag 1000 because its released wire contract already uses tag 11. |
+| `actions` | [`MessageActionSet`](/reference/connectrpc-api/types/#chatto-api-v1-MessageActionSet) | Optional author-defined action buttons. |
 
 
 <a id="chatto-api-v1-CreateMessageResponse"></a>

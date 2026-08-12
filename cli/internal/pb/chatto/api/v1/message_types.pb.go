@@ -955,23 +955,17 @@ type Message struct {
 	// crypto-shredding. Absent when unavailable body content is not a deletion.
 	DeletedAt *timestamppb.Timestamp `protobuf:"bytes,21,opt,name=deleted_at,json=deletedAt,proto3" json:"deleted_at,omitempty"`
 	// True when this message's canonical message is currently pinned in its
-	// channel room. Always false for direct-message rooms.
-	Pinned bool `protobuf:"varint,22,opt,name=pinned,proto3" json:"pinned,omitempty"`
+	// channel room. Always false for direct-message rooms. This distribution
+	// uses tag 1000 because its released wire contract already uses tag 22.
+	Pinned bool `protobuf:"varint,1000,opt,name=pinned,proto3" json:"pinned,omitempty"`
 	// Per-message webhook identity override (FDR-902). Present only when this
 	// message was posted through a channel webhook whose caller supplied a
 	// per-message username and/or avatar. When present, clients render this
 	// name/avatar instead of the author's profile.
-	//
-	// Fork-owned field. Upstream owns tags below 1000 and took tag 22 for
-	// `pinned`, so this field is numbered from the fork range.
-	WebhookOverride *MessageWebhookOverride `protobuf:"bytes,1000,opt,name=webhook_override,json=webhookOverride,proto3" json:"webhook_override,omitempty"`
+	WebhookOverride *MessageWebhookOverride `protobuf:"bytes,22,opt,name=webhook_override,json=webhookOverride,proto3" json:"webhook_override,omitempty"`
 	// Author-defined buttons that can send a named invocation back to the
 	// message author.
-	//
-	// Fork-owned field. Upstream owns tags below 1000; this field was shipped
-	// at tag 23 in the fork's own main and is renumbered here to avoid the
-	// upstream tag space.
-	Actions       []*MessageAction `protobuf:"bytes,1001,rep,name=actions,proto3" json:"actions,omitempty"`
+	Actions       []*MessageAction `protobuf:"bytes,23,rep,name=actions,proto3" json:"actions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1259,7 +1253,7 @@ const file_chatto_api_v1_message_types_proto_rawDesc = "" +
 	"\rlast_reply_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vlastReplyAt\x12?\n" +
 	"\x1cparticipant_preview_user_ids\x18\x04 \x03(\tR\x19participantPreviewUserIds\x12+\n" +
 	"\x11participant_count\x18\x05 \x01(\x05R\x10participantCount\x12C\n" +
-	"\fviewer_state\x18\x06 \x01(\v2 .chatto.api.v1.ThreadViewerStateR\vviewerState\"\xa8\b\n" +
+	"\fviewer_state\x18\x06 \x01(\v2 .chatto.api.v1.ThreadViewerStateR\vviewerState\"\xa7\b\n" +
 	"\aMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\aroom_id\x18\x02 \x01(\tR\x06roomId\x129\n" +
@@ -1280,10 +1274,10 @@ const file_chatto_api_v1_message_types_proto_rawDesc = "" +
 	"\treactions\x18\x13 \x03(\v2\x1e.chatto.api.v1.MessageReactionR\treactions\x124\n" +
 	"\x06thread\x18\x14 \x01(\v2\x1c.chatto.api.v1.ThreadSummaryR\x06thread\x129\n" +
 	"\n" +
-	"deleted_at\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt\x12\x16\n" +
-	"\x06pinned\x18\x16 \x01(\bR\x06pinned\x12Q\n" +
-	"\x10webhook_override\x18\xe8\a \x01(\v2%.chatto.api.v1.MessageWebhookOverrideR\x0fwebhookOverride\x127\n" +
-	"\aactions\x18\xe9\a \x03(\v2\x1c.chatto.api.v1.MessageActionR\aactionsB\a\n" +
+	"deleted_at\x18\x15 \x01(\v2\x1a.google.protobuf.TimestampR\tdeletedAt\x12\x17\n" +
+	"\x06pinned\x18\xe8\a \x01(\bR\x06pinned\x12P\n" +
+	"\x10webhook_override\x18\x16 \x01(\v2%.chatto.api.v1.MessageWebhookOverrideR\x0fwebhookOverride\x126\n" +
+	"\aactions\x18\x17 \x03(\v2\x1c.chatto.api.v1.MessageActionR\aactionsB\a\n" +
 	"\x05_bodyJ\x04\b\x0e\x10\x13R\vreply_countR\rlast_reply_atR#thread_participant_preview_user_idsR\x18thread_participant_countR\x1aviewer_is_following_thread\"\x84\x01\n" +
 	"\x16MessageWebhookOverride\x12&\n" +
 	"\fdisplay_name\x18\x01 \x01(\tH\x00R\vdisplayName\x88\x01\x01\x12\"\n" +

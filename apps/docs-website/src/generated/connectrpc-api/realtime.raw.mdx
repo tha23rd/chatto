@@ -517,12 +517,10 @@ Authenticated server state required by every signed-in client.
 | --- | --- | --- |
 | `motd` | `optional string` | Optional message of the day shown to authenticated members. |
 | `runtime` | `chatto.api.v1.ServerRuntimeConfig` | Runtime capabilities and limits advertised to the client. |
-| `pinned_message_change` | optional [`RealtimeProjectionPinnedMessageChange`](#chatto-realtime-v1-RealtimeProjectionPinnedMessageChange) | Live pin transition that caused this replacement, when applicable. Bootstrap and replay reconciliation omit this field. |
+| `pinned_message_change` | optional [`RealtimeProjectionPinnedMessageChange`](#chatto-realtime-v1-RealtimeProjectionPinnedMessageChange) | Live pin transition that caused this replacement, when applicable. Bootstrap and replay reconciliation omit this field. This distribution uses tag 1000 because its released wire contract already uses tag 3. |
 | `soundboard` | optional [`RealtimeProjectionSoundboard`](#chatto-realtime-v1-RealtimeProjectionSoundboard) | Complete server soundboard catalog. Absent when the server does not implement it, which is deliberately distinguishable from a catalog that is present and empty: a client must leave its own catalog alone in the first case and clear it in the second.
 
-Carrying the catalog here instead of adding a new projection operation keeps older clients working, because an unknown operation is fatal for their subscription while an unknown field is not.
-
-Fork-owned fields. Upstream owns tags below 1000 and took tag 3 for `pinned_message_change`, so these fields are numbered from the fork range. |
+Carrying the catalog here instead of adding a new projection operation keeps older clients working, because an unknown operation is fatal for their subscription while an unknown field is not. |
 | `custom_emojis` | optional [`RealtimeProjectionCustomEmojis`](#chatto-realtime-v1-RealtimeProjectionCustomEmojis) | Complete server custom-emoji catalog. Absent when the server does not implement realtime custom-emoji convergence; present and empty means the client must clear its catalog.
 
 This is an optional field on an existing operation so older clients ignore it safely instead of treating a new projection operation as fatal. |

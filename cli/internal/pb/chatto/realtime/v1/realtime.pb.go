@@ -1353,8 +1353,9 @@ type RealtimeProjectionServerState struct {
 	// Runtime capabilities and limits advertised to the client.
 	Runtime *v1.ServerRuntimeConfig `protobuf:"bytes,2,opt,name=runtime,proto3" json:"runtime,omitempty"`
 	// Live pin transition that caused this replacement, when applicable.
-	// Bootstrap and replay reconciliation omit this field.
-	PinnedMessageChange *RealtimeProjectionPinnedMessageChange `protobuf:"bytes,3,opt,name=pinned_message_change,json=pinnedMessageChange,proto3,oneof" json:"pinned_message_change,omitempty"`
+	// Bootstrap and replay reconciliation omit this field. This distribution
+	// uses tag 1000 because its released wire contract already uses tag 3.
+	PinnedMessageChange *RealtimeProjectionPinnedMessageChange `protobuf:"bytes,1000,opt,name=pinned_message_change,json=pinnedMessageChange,proto3,oneof" json:"pinned_message_change,omitempty"`
 	// Complete server soundboard catalog. Absent when the server does not
 	// implement it, which is deliberately distinguishable from a catalog that is
 	// present and empty: a client must leave its own catalog alone in the first
@@ -1363,17 +1364,14 @@ type RealtimeProjectionServerState struct {
 	// Carrying the catalog here instead of adding a new projection operation
 	// keeps older clients working, because an unknown operation is fatal for
 	// their subscription while an unknown field is not.
-	//
-	// Fork-owned fields. Upstream owns tags below 1000 and took tag 3 for
-	// `pinned_message_change`, so these fields are numbered from the fork range.
-	Soundboard *RealtimeProjectionSoundboard `protobuf:"bytes,1000,opt,name=soundboard,proto3,oneof" json:"soundboard,omitempty"`
+	Soundboard *RealtimeProjectionSoundboard `protobuf:"bytes,3,opt,name=soundboard,proto3,oneof" json:"soundboard,omitempty"`
 	// Complete server custom-emoji catalog. Absent when the server does not
 	// implement realtime custom-emoji convergence; present and empty means the
 	// client must clear its catalog.
 	//
 	// This is an optional field on an existing operation so older clients ignore
 	// it safely instead of treating a new projection operation as fatal.
-	CustomEmojis  *RealtimeProjectionCustomEmojis `protobuf:"bytes,1001,opt,name=custom_emojis,json=customEmojis,proto3,oneof" json:"custom_emojis,omitempty"`
+	CustomEmojis  *RealtimeProjectionCustomEmojis `protobuf:"bytes,4,opt,name=custom_emojis,json=customEmojis,proto3,oneof" json:"custom_emojis,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3425,15 +3423,15 @@ const file_chatto_realtime_v1_realtime_proto_rawDesc = "" +
 	"\x1cthread_viewer_states_replace\x18\x11 \x01(\v2?.chatto.realtime.v1.RealtimeProjectionThreadViewerStatesReplaceH\x00R\x19threadViewerStatesReplace\x12Y\n" +
 	"\rroom_activity\x18\x12 \x01(\v22.chatto.realtime.v1.RealtimeProjectionRoomActivityH\x00R\froomActivityB\v\n" +
 	"\toperation\"\x19\n" +
-	"\x17RealtimeProjectionReset\"\xe5\x03\n" +
+	"\x17RealtimeProjectionReset\"\xe4\x03\n" +
 	"\x1dRealtimeProjectionServerState\x12\x17\n" +
 	"\x04motd\x18\x01 \x01(\tH\x00R\x04motd\x88\x01\x01\x12<\n" +
-	"\aruntime\x18\x02 \x01(\v2\".chatto.api.v1.ServerRuntimeConfigR\aruntime\x12r\n" +
-	"\x15pinned_message_change\x18\x03 \x01(\v29.chatto.realtime.v1.RealtimeProjectionPinnedMessageChangeH\x01R\x13pinnedMessageChange\x88\x01\x01\x12V\n" +
+	"\aruntime\x18\x02 \x01(\v2\".chatto.api.v1.ServerRuntimeConfigR\aruntime\x12s\n" +
+	"\x15pinned_message_change\x18\xe8\a \x01(\v29.chatto.realtime.v1.RealtimeProjectionPinnedMessageChangeH\x01R\x13pinnedMessageChange\x88\x01\x01\x12U\n" +
 	"\n" +
-	"soundboard\x18\xe8\a \x01(\v20.chatto.realtime.v1.RealtimeProjectionSoundboardH\x02R\n" +
-	"soundboard\x88\x01\x01\x12]\n" +
-	"\rcustom_emojis\x18\xe9\a \x01(\v22.chatto.realtime.v1.RealtimeProjectionCustomEmojisH\x03R\fcustomEmojis\x88\x01\x01B\a\n" +
+	"soundboard\x18\x03 \x01(\v20.chatto.realtime.v1.RealtimeProjectionSoundboardH\x02R\n" +
+	"soundboard\x88\x01\x01\x12\\\n" +
+	"\rcustom_emojis\x18\x04 \x01(\v22.chatto.realtime.v1.RealtimeProjectionCustomEmojisH\x03R\fcustomEmojis\x88\x01\x01B\a\n" +
 	"\x05_motdB\x18\n" +
 	"\x16_pinned_message_changeB\r\n" +
 	"\v_soundboardB\x10\n" +

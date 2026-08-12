@@ -233,23 +233,17 @@ message Message {
   // crypto-shredding. Absent when unavailable body content is not a deletion.
   google.protobuf.Timestamp deleted_at = 21;
   // True when this message's canonical message is currently pinned in its
-  // channel room. Always false for direct-message rooms.
-  bool pinned = 22;
+  // channel room. Always false for direct-message rooms. This distribution
+  // uses tag 1000 because its released wire contract already uses tag 22.
+  bool pinned = 1000;
   // Per-message webhook identity override (FDR-902). Present only when this
   // message was posted through a channel webhook whose caller supplied a
   // per-message username and/or avatar. When present, clients render this
   // name/avatar instead of the author's profile.
-  //
-  // Fork-owned field. Upstream owns tags below 1000 and took tag 22 for
-  // `pinned`, so this field is numbered from the fork range.
-  MessageWebhookOverride webhook_override = 1000;
+  MessageWebhookOverride webhook_override = 22;
   // Author-defined buttons that can send a named invocation back to the
   // message author.
-  //
-  // Fork-owned field. Upstream owns tags below 1000; this field was shipped
-  // at tag 23 in the fork's own main and is renumbered here to avoid the
-  // upstream tag space.
-  repeated MessageAction actions = 1001;
+  repeated MessageAction actions = 23;
 }
 
 // MessageWebhookOverride is the per-message display identity a channel webhook

@@ -49,14 +49,11 @@ message CreateMessageRequest {
   string link_preview_token = 10;
   // True to establish the new root message as a thread immediately. Requires
   // both message.post and message.post-in-thread. Channel rooms only; cannot
-  // be combined with thread_root_event_id.
-  bool create_thread = 11;
+  // be combined with thread_root_event_id. This distribution uses tag 1000
+  // because its released wire contract already uses tag 11.
+  bool create_thread = 1000;
   // Optional author-defined action buttons.
-  //
-  // Fork-owned field. Upstream owns tags below 1000; this field was shipped
-  // at tag 11 in the fork's own main and is renumbered here to avoid the
-  // upstream tag space.
-  MessageActionSet actions = 1000;
+  MessageActionSet actions = 11;
 }
 
 // Result of creating a message.

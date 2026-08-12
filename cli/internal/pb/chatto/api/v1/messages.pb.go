@@ -43,14 +43,11 @@ type CreateMessageRequest struct {
 	LinkPreviewToken string `protobuf:"bytes,10,opt,name=link_preview_token,json=linkPreviewToken,proto3" json:"link_preview_token,omitempty"`
 	// True to establish the new root message as a thread immediately. Requires
 	// both message.post and message.post-in-thread. Channel rooms only; cannot
-	// be combined with thread_root_event_id.
-	CreateThread bool `protobuf:"varint,11,opt,name=create_thread,json=createThread,proto3" json:"create_thread,omitempty"`
+	// be combined with thread_root_event_id. This distribution uses tag 1000
+	// because its released wire contract already uses tag 11.
+	CreateThread bool `protobuf:"varint,1000,opt,name=create_thread,json=createThread,proto3" json:"create_thread,omitempty"`
 	// Optional author-defined action buttons.
-	//
-	// Fork-owned field. Upstream owns tags below 1000; this field was shipped
-	// at tag 11 in the fork's own main and is renumbered here to avoid the
-	// upstream tag space.
-	Actions       *MessageActionSet `protobuf:"bytes,1000,opt,name=actions,proto3" json:"actions,omitempty"`
+	Actions       *MessageActionSet `protobuf:"bytes,11,opt,name=actions,proto3" json:"actions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -863,9 +860,9 @@ const file_chatto_api_v1_messages_proto_rawDesc = "" +
 	"\vin_reply_to\x18\x05 \x01(\tR\tinReplyTo\x12/\n" +
 	"\x14also_send_to_channel\x18\x06 \x01(\bR\x11alsoSendToChannel\x12,\n" +
 	"\x12link_preview_token\x18\n" +
-	" \x01(\tR\x10linkPreviewToken\x12#\n" +
-	"\rcreate_thread\x18\v \x01(\bR\fcreateThread\x12:\n" +
-	"\aactions\x18\xe8\a \x01(\v2\x1f.chatto.api.v1.MessageActionSetR\aactionsJ\x04\b\b\x10\tJ\x04\b\t\x10\n" +
+	" \x01(\tR\x10linkPreviewToken\x12$\n" +
+	"\rcreate_thread\x18\xe8\a \x01(\bR\fcreateThread\x129\n" +
+	"\aactions\x18\v \x01(\v2\x1f.chatto.api.v1.MessageActionSetR\aactionsJ\x04\b\b\x10\tJ\x04\b\t\x10\n" +
 	"J\x04\b\a\x10\bR\flink_previewR\vattachmentsR\x1amention_confirmation_token\"u\n" +
 	"\x15CreateMessageResponse\x120\n" +
 	"\amessage\x18\x01 \x01(\v2\x16.chatto.api.v1.MessageR\amessageJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\x14mention_confirmationR\bincludes\"\x92\x02\n" +

@@ -915,9 +915,10 @@ export class Message extends Message$1<Message> {
 
   /**
    * True when this message's canonical message is currently pinned in its
-   * channel room. Always false for direct-message rooms.
+   * channel room. Always false for direct-message rooms. This distribution
+   * uses tag 1000 because its released wire contract already uses tag 22.
    *
-   * @generated from field: bool pinned = 22;
+   * @generated from field: bool pinned = 1000;
    */
   pinned = false;
 
@@ -927,10 +928,7 @@ export class Message extends Message$1<Message> {
    * per-message username and/or avatar. When present, clients render this
    * name/avatar instead of the author's profile.
    *
-   * Fork-owned field. Upstream owns tags below 1000 and took tag 22 for
-   * `pinned`, so this field is numbered from the fork range.
-   *
-   * @generated from field: chatto.api.v1.MessageWebhookOverride webhook_override = 1000;
+   * @generated from field: chatto.api.v1.MessageWebhookOverride webhook_override = 22;
    */
   webhookOverride?: MessageWebhookOverride;
 
@@ -938,11 +936,7 @@ export class Message extends Message$1<Message> {
    * Author-defined buttons that can send a named invocation back to the
    * message author.
    *
-   * Fork-owned field. Upstream owns tags below 1000; this field was shipped
-   * at tag 23 in the fork's own main and is renumbered here to avoid the
-   * upstream tag space.
-   *
-   * @generated from field: repeated chatto.api.v1.MessageAction actions = 1001;
+   * @generated from field: repeated chatto.api.v1.MessageAction actions = 23;
    */
   actions: MessageAction[] = [];
 
@@ -970,9 +964,9 @@ export class Message extends Message$1<Message> {
     { no: 19, name: "reactions", kind: "message", T: MessageReaction, repeated: true },
     { no: 20, name: "thread", kind: "message", T: ThreadSummary },
     { no: 21, name: "deleted_at", kind: "message", T: Timestamp },
-    { no: 22, name: "pinned", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
-    { no: 1000, name: "webhook_override", kind: "message", T: MessageWebhookOverride },
-    { no: 1001, name: "actions", kind: "message", T: MessageAction, repeated: true },
+    { no: 1000, name: "pinned", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 22, name: "webhook_override", kind: "message", T: MessageWebhookOverride },
+    { no: 23, name: "actions", kind: "message", T: MessageAction, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Message {

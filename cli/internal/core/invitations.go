@@ -196,13 +196,19 @@ func (c *ChattoCore) CreateInvitation(ctx context.Context, actorID string, maxUs
 }
 
 func (c *ChattoCore) RevokeInvitation(ctx context.Context, actorID, id string) (InvitationState, error) {
-	if err := c.requireServerPermission(ctx, actorID, PermUserInvite); err != nil {
-		return InvitationState{}, err
-	}
+	return c.revokeInvitation(ctx, actorID, id, func(ctx context.Context) error {
+		return c.requireServerPermission(ctx, actorID, PermUserInvite)
+	})
+}
+
+func (c *ChattoCore) revokeInvitation(ctx context.Context, actorID, id string, authorize func(context.Context) error) (InvitationState, error) {
 	agg := evtstream.InvitationAggregate(id)
 	for attempt := 0; attempt < 5; attempt++ {
 		seq, err := c.EventPublisher.LastSubjectSeq(ctx, agg.AllEventsFilter())
 		if err != nil {
+			return InvitationState{}, err
+		}
+		if err := authorize(ctx); err != nil {
 			return InvitationState{}, err
 		}
 		if err := c.invitationModel.projection.Projector().WaitFor(ctx, events.SubjectPosition(agg.AllEventsFilter(), seq)); err != nil {

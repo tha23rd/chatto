@@ -959,9 +959,10 @@ export class RealtimeProjectionServerState extends Message<RealtimeProjectionSer
 
   /**
    * Live pin transition that caused this replacement, when applicable.
-   * Bootstrap and replay reconciliation omit this field.
+   * Bootstrap and replay reconciliation omit this field. This distribution
+   * uses tag 1000 because its released wire contract already uses tag 3.
    *
-   * @generated from field: optional chatto.realtime.v1.RealtimeProjectionPinnedMessageChange pinned_message_change = 3;
+   * @generated from field: optional chatto.realtime.v1.RealtimeProjectionPinnedMessageChange pinned_message_change = 1000;
    */
   pinnedMessageChange?: RealtimeProjectionPinnedMessageChange;
 
@@ -975,10 +976,7 @@ export class RealtimeProjectionServerState extends Message<RealtimeProjectionSer
    * keeps older clients working, because an unknown operation is fatal for
    * their subscription while an unknown field is not.
    *
-   * Fork-owned fields. Upstream owns tags below 1000 and took tag 3 for
-   * `pinned_message_change`, so these fields are numbered from the fork range.
-   *
-   * @generated from field: optional chatto.realtime.v1.RealtimeProjectionSoundboard soundboard = 1000;
+   * @generated from field: optional chatto.realtime.v1.RealtimeProjectionSoundboard soundboard = 3;
    */
   soundboard?: RealtimeProjectionSoundboard;
 
@@ -990,7 +988,7 @@ export class RealtimeProjectionServerState extends Message<RealtimeProjectionSer
    * This is an optional field on an existing operation so older clients ignore
    * it safely instead of treating a new projection operation as fatal.
    *
-   * @generated from field: optional chatto.realtime.v1.RealtimeProjectionCustomEmojis custom_emojis = 1001;
+   * @generated from field: optional chatto.realtime.v1.RealtimeProjectionCustomEmojis custom_emojis = 4;
    */
   customEmojis?: RealtimeProjectionCustomEmojis;
 
@@ -1004,9 +1002,9 @@ export class RealtimeProjectionServerState extends Message<RealtimeProjectionSer
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "motd", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
     { no: 2, name: "runtime", kind: "message", T: ServerRuntimeConfig },
-    { no: 3, name: "pinned_message_change", kind: "message", T: RealtimeProjectionPinnedMessageChange, opt: true },
-    { no: 1000, name: "soundboard", kind: "message", T: RealtimeProjectionSoundboard, opt: true },
-    { no: 1001, name: "custom_emojis", kind: "message", T: RealtimeProjectionCustomEmojis, opt: true },
+    { no: 1000, name: "pinned_message_change", kind: "message", T: RealtimeProjectionPinnedMessageChange, opt: true },
+    { no: 3, name: "soundboard", kind: "message", T: RealtimeProjectionSoundboard, opt: true },
+    { no: 4, name: "custom_emojis", kind: "message", T: RealtimeProjectionCustomEmojis, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RealtimeProjectionServerState {

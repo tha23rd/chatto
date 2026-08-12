@@ -1276,10 +1276,8 @@ Request to create a message in a room or thread.
 | `in_reply_to` | `string` | Event ID this message replies to for attribution. |
 | `also_send_to_channel` | `bool` | True to also echo a thread reply into the main room timeline. |
 | `link_preview_token` | `string` | Short-lived token returned by FetchLinkPreview for the selected URL. The server resolves the token to cached, server-fetched metadata during post. |
-| `create_thread` | `bool` | True to establish the new root message as a thread immediately. Requires both message.post and message.post-in-thread. Channel rooms only; cannot be combined with thread_root_event_id. |
-| `actions` | [`MessageActionSet`](#chatto-api-v1-MessageActionSet) | Optional author-defined action buttons.
-
-Fork-owned field. Upstream owns tags below 1000; this field was shipped at tag 11 in the fork's own main and is renumbered here to avoid the upstream tag space. |
+| `create_thread` | `bool` | True to establish the new root message as a thread immediately. Requires both message.post and message.post-in-thread. Channel rooms only; cannot be combined with thread_root_event_id. This distribution uses tag 1000 because its released wire contract already uses tag 11. |
+| `actions` | [`MessageActionSet`](#chatto-api-v1-MessageActionSet) | Optional author-defined action buttons. |
 
 
 <a id="chatto-api-v1-CreateMessageResponse"></a>
@@ -4084,13 +4082,9 @@ requests.
 | `reactions` | repeated [`MessageReaction`](#chatto-api-v1-MessageReaction) | Reaction summaries for this message. |
 | `thread` | [`ThreadSummary`](#chatto-api-v1-ThreadSummary) | Aggregated thread state. Present only when a durable thread has been established for this root message, including an empty thread. |
 | `deleted_at` | `google.protobuf.Timestamp` | Time when the message content was deleted through retraction or account crypto-shredding. Absent when unavailable body content is not a deletion. |
-| `pinned` | `bool` | True when this message's canonical message is currently pinned in its channel room. Always false for direct-message rooms. |
-| `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-902). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile.
-
-Fork-owned field. Upstream owns tags below 1000 and took tag 22 for `pinned`, so this field is numbered from the fork range. |
-| `actions` | repeated [`MessageAction`](#chatto-api-v1-MessageAction) | Author-defined buttons that can send a named invocation back to the message author.
-
-Fork-owned field. Upstream owns tags below 1000; this field was shipped at tag 23 in the fork's own main and is renumbered here to avoid the upstream tag space. |
+| `pinned` | `bool` | True when this message's canonical message is currently pinned in its channel room. Always false for direct-message rooms. This distribution uses tag 1000 because its released wire contract already uses tag 22. |
+| `webhook_override` | [`MessageWebhookOverride`](#chatto-api-v1-MessageWebhookOverride) | Per-message webhook identity override (FDR-902). Present only when this message was posted through a channel webhook whose caller supplied a per-message username and/or avatar. When present, clients render this name/avatar instead of the author's profile. |
+| `actions` | repeated [`MessageAction`](#chatto-api-v1-MessageAction) | Author-defined buttons that can send a named invocation back to the message author. |
 
 
 

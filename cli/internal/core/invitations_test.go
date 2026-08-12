@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -8,6 +9,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"hmans.de/chatto/internal/evtstream"
+	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
 )
 
 func invitationAdmin(t *testing.T, c *ChattoCore) string {
@@ -119,6 +123,45 @@ func TestInvitationManagementRequiresPermissionAndRetainsRevokedInvitation(t *te
 	token := strings.TrimPrefix(c.InvitationLinkPath(state.ID), "/invite/")
 	if _, err := c.ValidateInviteLinkToken(ctx, token); !errors.Is(err, ErrInvitationInvalid) {
 		t.Fatalf("revoked ValidateInviteLinkToken error = %v, want ErrInvitationInvalid", err)
+	}
+}
+
+func TestRevokeInvitationRechecksPermissionAfterOCCConflict(t *testing.T) {
+	c, _ := setupTestCore(t)
+	ctx := testContext(t)
+	adminID := invitationAdmin(t, c)
+	invitation, err := c.CreateInvitation(ctx, adminID, nil, nil)
+	if err != nil {
+		t.Fatalf("CreateInvitation: %v", err)
+	}
+
+	checks := 0
+	_, err = c.revokeInvitation(ctx, adminID, invitation.ID, func(ctx context.Context) error {
+		checks++
+		if checks > 1 {
+			return ErrPermissionDenied
+		}
+		concurrent := newEvent(SystemActorID, &corev1.Event{Event: &corev1.Event_InvitationRedeemed{
+			InvitationRedeemed: &corev1.InvitationRedeemedEvent{InvitationId: invitation.ID, UserId: "concurrent-user"},
+		}})
+		agg := evtstream.InvitationAggregate(invitation.ID)
+		_, appendErr := c.EventPublisher.Append(ctx, agg.SubjectFor(concurrent), concurrent)
+		return appendErr
+	})
+	if !errors.Is(err, ErrPermissionDenied) {
+		t.Fatalf("revokeInvitation error = %v, want ErrPermissionDenied", err)
+	}
+	if checks != 2 {
+		t.Fatalf("authorization checks = %d, want 2", checks)
+	}
+
+	agg := evtstream.InvitationAggregate(invitation.ID)
+	revocations, _, err := c.EventPublisher.SubjectEvents(ctx, agg.Subject(evtstream.EventInvitationRevoked))
+	if err != nil {
+		t.Fatalf("read invitation revocations: %v", err)
+	}
+	if len(revocations) != 0 {
+		t.Fatalf("revocations = %d, want 0", len(revocations))
 	}
 }
 

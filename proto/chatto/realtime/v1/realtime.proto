@@ -224,8 +224,9 @@ message RealtimeProjectionServerState {
   // Runtime capabilities and limits advertised to the client.
   chatto.api.v1.ServerRuntimeConfig runtime = 2;
   // Live pin transition that caused this replacement, when applicable.
-  // Bootstrap and replay reconciliation omit this field.
-  optional RealtimeProjectionPinnedMessageChange pinned_message_change = 3;
+  // Bootstrap and replay reconciliation omit this field. This distribution
+  // uses tag 1000 because its released wire contract already uses tag 3.
+  optional RealtimeProjectionPinnedMessageChange pinned_message_change = 1000;
   // Complete server soundboard catalog. Absent when the server does not
   // implement it, which is deliberately distinguishable from a catalog that is
   // present and empty: a client must leave its own catalog alone in the first
@@ -234,17 +235,14 @@ message RealtimeProjectionServerState {
   // Carrying the catalog here instead of adding a new projection operation
   // keeps older clients working, because an unknown operation is fatal for
   // their subscription while an unknown field is not.
-  //
-  // Fork-owned fields. Upstream owns tags below 1000 and took tag 3 for
-  // `pinned_message_change`, so these fields are numbered from the fork range.
-  optional RealtimeProjectionSoundboard soundboard = 1000;
+  optional RealtimeProjectionSoundboard soundboard = 3;
   // Complete server custom-emoji catalog. Absent when the server does not
   // implement realtime custom-emoji convergence; present and empty means the
   // client must clear its catalog.
   //
   // This is an optional field on an existing operation so older clients ignore
   // it safely instead of treating a new projection operation as fatal.
-  optional RealtimeProjectionCustomEmojis custom_emojis = 1001;
+  optional RealtimeProjectionCustomEmojis custom_emojis = 4;
 }
 
 // Complete server soundboard catalog for clients that render the in-call

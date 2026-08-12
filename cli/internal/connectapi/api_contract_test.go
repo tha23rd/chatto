@@ -26,7 +26,31 @@ import (
 	"hmans.de/chatto/internal/pb/chatto/auth/v1/authv1connect"
 	corev1 "hmans.de/chatto/internal/pb/chatto/core/v1"
 	"hmans.de/chatto/internal/pb/chatto/discovery/v1/discoveryv1connect"
+	realtimev1 "hmans.de/chatto/internal/pb/chatto/realtime/v1"
 )
+
+func TestPublishedForkFieldNumbersRemainStable(t *testing.T) {
+	tests := []struct {
+		message protoreflect.MessageDescriptor
+		field   protoreflect.Name
+		want    protoreflect.FieldNumber
+	}{
+		{(&apiv1.Message{}).ProtoReflect().Descriptor(), "webhook_override", 22},
+		{(&apiv1.Message{}).ProtoReflect().Descriptor(), "actions", 23},
+		{(&apiv1.Message{}).ProtoReflect().Descriptor(), "pinned", 1000},
+		{(&apiv1.CreateMessageRequest{}).ProtoReflect().Descriptor(), "actions", 11},
+		{(&apiv1.CreateMessageRequest{}).ProtoReflect().Descriptor(), "create_thread", 1000},
+		{(&realtimev1.RealtimeProjectionServerState{}).ProtoReflect().Descriptor(), "soundboard", 3},
+		{(&realtimev1.RealtimeProjectionServerState{}).ProtoReflect().Descriptor(), "custom_emojis", 4},
+		{(&realtimev1.RealtimeProjectionServerState{}).ProtoReflect().Descriptor(), "pinned_message_change", 1000},
+	}
+	for _, test := range tests {
+		field := test.message.Fields().ByName(test.field)
+		if field == nil || field.Number() != test.want {
+			t.Errorf("%s.%s number = %v, want %d", test.message.FullName(), test.field, field, test.want)
+		}
+	}
+}
 
 func TestAPIHandlers(t *testing.T) {
 	api := New(nil, config.ChattoConfig{}, "test")
