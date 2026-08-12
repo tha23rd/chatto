@@ -837,7 +837,7 @@ var File_chatto_api_v1_messages_proto protoreflect.FileDescriptor
 
 const file_chatto_api_v1_messages_proto_rawDesc = "" +
 	"\n" +
-	"\x1cchatto/api/v1/messages.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\x1a!chatto/api/v1/link_previews.proto\x1a#chatto/api/v1/message_actions.proto\x1a!chatto/api/v1/message_types.proto\x1a\x1dchatto/api/v1/reactions.proto\"\xc4\x03\n" +
+	"\x1cchatto/api/v1/messages.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\x1a!chatto/api/v1/link_previews.proto\x1a!chatto/api/v1/message_types.proto\x1a\x1dchatto/api/v1/reactions.proto\"\xc4\x03\n" +
 	"\x14CreateMessageRequest\x12 \n" +
 	"\aroom_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06roomId\x12\x12\n" +
 	"\x04body\x18\x02 \x01(\tR\x04body\x12B\n" +
@@ -982,7 +982,6 @@ func file_chatto_api_v1_messages_proto_init() {
 		return
 	}
 	file_chatto_api_v1_link_previews_proto_init()
-	file_chatto_api_v1_message_actions_proto_init()
 	file_chatto_api_v1_message_types_proto_init()
 	file_chatto_api_v1_reactions_proto_init()
 	file_chatto_api_v1_messages_proto_msgTypes[2].OneofWrappers = []any{}

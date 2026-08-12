@@ -19,7 +19,7 @@ import { User } from '@chatto/api-types/api/v1/users_pb';
 import {
   MessageAction,
   MessageActionStyle
-} from '@chatto/api-types/api/v1/message_actions_pb';
+} from '@chatto/api-types/api/v1/message_types_pb';
 import {
   __resetUserSummaryCachesForTests,
   primeUserSummaryCache

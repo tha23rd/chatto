@@ -6,7 +6,56 @@
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message as Message$1, proto3, protoInt64, Timestamp } from "@bufbuild/protobuf";
 import { LinkPreview } from "./link_previews_pb.js";
-import { MessageAction } from "./message_actions_pb.js";
+
+/**
+ * Visual treatment for a message action button.
+ *
+ * @generated from enum chatto.api.v1.MessageActionStyle
+ */
+export enum MessageActionStyle {
+  /**
+   * Uses the normal secondary button treatment.
+   *
+   * @generated from enum value: MESSAGE_ACTION_STYLE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Emphasises the primary action.
+   *
+   * @generated from enum value: MESSAGE_ACTION_STYLE_PRIMARY = 1;
+   */
+  PRIMARY = 1,
+
+  /**
+   * Uses the normal secondary button treatment.
+   *
+   * @generated from enum value: MESSAGE_ACTION_STYLE_SECONDARY = 2;
+   */
+  SECONDARY = 2,
+
+  /**
+   * Indicates a successful or affirmative action.
+   *
+   * @generated from enum value: MESSAGE_ACTION_STYLE_SUCCESS = 3;
+   */
+  SUCCESS = 3,
+
+  /**
+   * Indicates a destructive or dangerous action.
+   *
+   * @generated from enum value: MESSAGE_ACTION_STYLE_DANGER = 4;
+   */
+  DANGER = 4,
+}
+// Retrieve enum metadata with: proto3.getEnumType(MessageActionStyle)
+proto3.util.setEnumType(MessageActionStyle, "chatto.api.v1.MessageActionStyle", [
+  { no: 0, name: "MESSAGE_ACTION_STYLE_UNSPECIFIED" },
+  { no: 1, name: "MESSAGE_ACTION_STYLE_PRIMARY" },
+  { no: 2, name: "MESSAGE_ACTION_STYLE_SECONDARY" },
+  { no: 3, name: "MESSAGE_ACTION_STYLE_SUCCESS" },
+  { no: 4, name: "MESSAGE_ACTION_STYLE_DANGER" },
+]);
 
 /**
  * Processing state for a video attachment.
@@ -49,6 +98,116 @@ proto3.util.setEnumType(MessageVideoProcessingStatus, "chatto.api.v1.MessageVide
   { no: 2, name: "MESSAGE_VIDEO_PROCESSING_STATUS_COMPLETED" },
   { no: 3, name: "MESSAGE_VIDEO_PROCESSING_STATUS_FAILED" },
 ]);
+
+/**
+ * Author-defined button attached to a message.
+ *
+ * The action ID is opaque integration data visible to room members and
+ * returned to the message author when a member invokes the button. Chatto does
+ * not interpret it.
+ *
+ * @generated from message chatto.api.v1.MessageAction
+ */
+export class MessageAction extends Message$1<MessageAction> {
+  /**
+   * Stable integration-defined ID within this message.
+   *
+   * @generated from field: string id = 1;
+   */
+  id = "";
+
+  /**
+   * Visible button label.
+   *
+   * @generated from field: string label = 2;
+   */
+  label = "";
+
+  /**
+   * Visual treatment. Unspecified uses the secondary treatment.
+   *
+   * @generated from field: chatto.api.v1.MessageActionStyle style = 3;
+   */
+  style = MessageActionStyle.UNSPECIFIED;
+
+  /**
+   * Whether the button is visible but cannot currently be invoked.
+   *
+   * @generated from field: bool disabled = 4;
+   */
+  disabled = false;
+
+  constructor(data?: PartialMessage<MessageAction>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "chatto.api.v1.MessageAction";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "label", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "style", kind: "enum", T: proto3.getEnumType(MessageActionStyle) },
+    { no: 4, name: "disabled", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): MessageAction {
+    return new MessageAction().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): MessageAction {
+    return new MessageAction().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): MessageAction {
+    return new MessageAction().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: MessageAction | PlainMessage<MessageAction> | undefined, b: MessageAction | PlainMessage<MessageAction> | undefined): boolean {
+    return proto3.util.equals(MessageAction, a, b);
+  }
+}
+
+/**
+ * Complete replacement set used when creating or updating a message.
+ *
+ * @generated from message chatto.api.v1.MessageActionSet
+ */
+export class MessageActionSet extends Message$1<MessageActionSet> {
+  /**
+   * Ordered action buttons. IDs must be unique within the set.
+   *
+   * @generated from field: repeated chatto.api.v1.MessageAction actions = 1;
+   */
+  actions: MessageAction[] = [];
+
+  constructor(data?: PartialMessage<MessageActionSet>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "chatto.api.v1.MessageActionSet";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "actions", kind: "message", T: MessageAction, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): MessageActionSet {
+    return new MessageActionSet().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): MessageActionSet {
+    return new MessageActionSet().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): MessageActionSet {
+    return new MessageActionSet().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: MessageActionSet | PlainMessage<MessageActionSet> | undefined, b: MessageActionSet | PlainMessage<MessageActionSet> | undefined): boolean {
+    return proto3.util.equals(MessageActionSet, a, b);
+  }
+}
 
 /**
  * Time-limited URL for an asset attached to a message.

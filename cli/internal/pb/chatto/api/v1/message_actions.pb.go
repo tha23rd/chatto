@@ -24,190 +24,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Visual treatment for a message action button.
-type MessageActionStyle int32
-
-const (
-	// Uses the normal secondary button treatment.
-	MessageActionStyle_MESSAGE_ACTION_STYLE_UNSPECIFIED MessageActionStyle = 0
-	// Emphasises the primary action.
-	MessageActionStyle_MESSAGE_ACTION_STYLE_PRIMARY MessageActionStyle = 1
-	// Uses the normal secondary button treatment.
-	MessageActionStyle_MESSAGE_ACTION_STYLE_SECONDARY MessageActionStyle = 2
-	// Indicates a successful or affirmative action.
-	MessageActionStyle_MESSAGE_ACTION_STYLE_SUCCESS MessageActionStyle = 3
-	// Indicates a destructive or dangerous action.
-	MessageActionStyle_MESSAGE_ACTION_STYLE_DANGER MessageActionStyle = 4
-)
-
-// Enum value maps for MessageActionStyle.
-var (
-	MessageActionStyle_name = map[int32]string{
-		0: "MESSAGE_ACTION_STYLE_UNSPECIFIED",
-		1: "MESSAGE_ACTION_STYLE_PRIMARY",
-		2: "MESSAGE_ACTION_STYLE_SECONDARY",
-		3: "MESSAGE_ACTION_STYLE_SUCCESS",
-		4: "MESSAGE_ACTION_STYLE_DANGER",
-	}
-	MessageActionStyle_value = map[string]int32{
-		"MESSAGE_ACTION_STYLE_UNSPECIFIED": 0,
-		"MESSAGE_ACTION_STYLE_PRIMARY":     1,
-		"MESSAGE_ACTION_STYLE_SECONDARY":   2,
-		"MESSAGE_ACTION_STYLE_SUCCESS":     3,
-		"MESSAGE_ACTION_STYLE_DANGER":      4,
-	}
-)
-
-func (x MessageActionStyle) Enum() *MessageActionStyle {
-	p := new(MessageActionStyle)
-	*p = x
-	return p
-}
-
-func (x MessageActionStyle) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (MessageActionStyle) Descriptor() protoreflect.EnumDescriptor {
-	return file_chatto_api_v1_message_actions_proto_enumTypes[0].Descriptor()
-}
-
-func (MessageActionStyle) Type() protoreflect.EnumType {
-	return &file_chatto_api_v1_message_actions_proto_enumTypes[0]
-}
-
-func (x MessageActionStyle) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use MessageActionStyle.Descriptor instead.
-func (MessageActionStyle) EnumDescriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{0}
-}
-
-// Author-defined button attached to a message.
-//
-// The action ID is opaque integration data visible to room members and
-// returned to the message author when a member invokes the button. Chatto does
-// not interpret it.
-type MessageAction struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Stable integration-defined ID within this message.
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Visible button label.
-	Label string `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
-	// Visual treatment. Unspecified uses the secondary treatment.
-	Style MessageActionStyle `protobuf:"varint,3,opt,name=style,proto3,enum=chatto.api.v1.MessageActionStyle" json:"style,omitempty"`
-	// Whether the button is visible but cannot currently be invoked.
-	Disabled      bool `protobuf:"varint,4,opt,name=disabled,proto3" json:"disabled,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MessageAction) Reset() {
-	*x = MessageAction{}
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MessageAction) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MessageAction) ProtoMessage() {}
-
-func (x *MessageAction) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MessageAction.ProtoReflect.Descriptor instead.
-func (*MessageAction) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *MessageAction) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *MessageAction) GetLabel() string {
-	if x != nil {
-		return x.Label
-	}
-	return ""
-}
-
-func (x *MessageAction) GetStyle() MessageActionStyle {
-	if x != nil {
-		return x.Style
-	}
-	return MessageActionStyle_MESSAGE_ACTION_STYLE_UNSPECIFIED
-}
-
-func (x *MessageAction) GetDisabled() bool {
-	if x != nil {
-		return x.Disabled
-	}
-	return false
-}
-
-// Complete replacement set used when creating or updating a message.
-type MessageActionSet struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Ordered action buttons. IDs must be unique within the set.
-	Actions       []*MessageAction `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MessageActionSet) Reset() {
-	*x = MessageActionSet{}
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MessageActionSet) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MessageActionSet) ProtoMessage() {}
-
-func (x *MessageActionSet) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MessageActionSet.ProtoReflect.Descriptor instead.
-func (*MessageActionSet) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *MessageActionSet) GetActions() []*MessageAction {
-	if x != nil {
-		return x.Actions
-	}
-	return nil
-}
-
 // One pending action invocation delivered privately to the message author.
 type MessageActionInvocation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -230,7 +46,7 @@ type MessageActionInvocation struct {
 
 func (x *MessageActionInvocation) Reset() {
 	*x = MessageActionInvocation{}
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[2]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -242,7 +58,7 @@ func (x *MessageActionInvocation) String() string {
 func (*MessageActionInvocation) ProtoMessage() {}
 
 func (x *MessageActionInvocation) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[2]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -255,7 +71,7 @@ func (x *MessageActionInvocation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageActionInvocation.ProtoReflect.Descriptor instead.
 func (*MessageActionInvocation) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{2}
+	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *MessageActionInvocation) GetId() string {
@@ -318,7 +134,7 @@ type InvokeMessageActionRequest struct {
 
 func (x *InvokeMessageActionRequest) Reset() {
 	*x = InvokeMessageActionRequest{}
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[3]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -330,7 +146,7 @@ func (x *InvokeMessageActionRequest) String() string {
 func (*InvokeMessageActionRequest) ProtoMessage() {}
 
 func (x *InvokeMessageActionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[3]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -343,7 +159,7 @@ func (x *InvokeMessageActionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InvokeMessageActionRequest.ProtoReflect.Descriptor instead.
 func (*InvokeMessageActionRequest) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{3}
+	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *InvokeMessageActionRequest) GetRoomId() string {
@@ -385,7 +201,7 @@ type InvokeMessageActionResponse struct {
 
 func (x *InvokeMessageActionResponse) Reset() {
 	*x = InvokeMessageActionResponse{}
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[4]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -397,7 +213,7 @@ func (x *InvokeMessageActionResponse) String() string {
 func (*InvokeMessageActionResponse) ProtoMessage() {}
 
 func (x *InvokeMessageActionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[4]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -410,7 +226,7 @@ func (x *InvokeMessageActionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InvokeMessageActionResponse.ProtoReflect.Descriptor instead.
 func (*InvokeMessageActionResponse) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{4}
+	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *InvokeMessageActionResponse) GetInvocation() *MessageActionInvocation {
@@ -431,7 +247,7 @@ type ListMessageActionInvocationsRequest struct {
 
 func (x *ListMessageActionInvocationsRequest) Reset() {
 	*x = ListMessageActionInvocationsRequest{}
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[5]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -443,7 +259,7 @@ func (x *ListMessageActionInvocationsRequest) String() string {
 func (*ListMessageActionInvocationsRequest) ProtoMessage() {}
 
 func (x *ListMessageActionInvocationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[5]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -456,7 +272,7 @@ func (x *ListMessageActionInvocationsRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use ListMessageActionInvocationsRequest.ProtoReflect.Descriptor instead.
 func (*ListMessageActionInvocationsRequest) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{5}
+	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ListMessageActionInvocationsRequest) GetPage() *PageRequest {
@@ -479,7 +295,7 @@ type ListMessageActionInvocationsResponse struct {
 
 func (x *ListMessageActionInvocationsResponse) Reset() {
 	*x = ListMessageActionInvocationsResponse{}
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[6]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -491,7 +307,7 @@ func (x *ListMessageActionInvocationsResponse) String() string {
 func (*ListMessageActionInvocationsResponse) ProtoMessage() {}
 
 func (x *ListMessageActionInvocationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[6]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -504,7 +320,7 @@ func (x *ListMessageActionInvocationsResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use ListMessageActionInvocationsResponse.ProtoReflect.Descriptor instead.
 func (*ListMessageActionInvocationsResponse) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{6}
+	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListMessageActionInvocationsResponse) GetInvocations() []*MessageActionInvocation {
@@ -532,7 +348,7 @@ type AcknowledgeMessageActionInvocationRequest struct {
 
 func (x *AcknowledgeMessageActionInvocationRequest) Reset() {
 	*x = AcknowledgeMessageActionInvocationRequest{}
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[7]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -544,7 +360,7 @@ func (x *AcknowledgeMessageActionInvocationRequest) String() string {
 func (*AcknowledgeMessageActionInvocationRequest) ProtoMessage() {}
 
 func (x *AcknowledgeMessageActionInvocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[7]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -557,7 +373,7 @@ func (x *AcknowledgeMessageActionInvocationRequest) ProtoReflect() protoreflect.
 
 // Deprecated: Use AcknowledgeMessageActionInvocationRequest.ProtoReflect.Descriptor instead.
 func (*AcknowledgeMessageActionInvocationRequest) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{7}
+	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *AcknowledgeMessageActionInvocationRequest) GetInvocationId() string {
@@ -578,7 +394,7 @@ type AcknowledgeMessageActionInvocationResponse struct {
 
 func (x *AcknowledgeMessageActionInvocationResponse) Reset() {
 	*x = AcknowledgeMessageActionInvocationResponse{}
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[8]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -590,7 +406,7 @@ func (x *AcknowledgeMessageActionInvocationResponse) String() string {
 func (*AcknowledgeMessageActionInvocationResponse) ProtoMessage() {}
 
 func (x *AcknowledgeMessageActionInvocationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[8]
+	mi := &file_chatto_api_v1_message_actions_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -603,7 +419,7 @@ func (x *AcknowledgeMessageActionInvocationResponse) ProtoReflect() protoreflect
 
 // Deprecated: Use AcknowledgeMessageActionInvocationResponse.ProtoReflect.Descriptor instead.
 func (*AcknowledgeMessageActionInvocationResponse) Descriptor() ([]byte, []int) {
-	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{8}
+	return file_chatto_api_v1_message_actions_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *AcknowledgeMessageActionInvocationResponse) GetAcknowledged() bool {
@@ -617,14 +433,7 @@ var File_chatto_api_v1_message_actions_proto protoreflect.FileDescriptor
 
 const file_chatto_api_v1_message_actions_proto_rawDesc = "" +
 	"\n" +
-	"#chatto/api/v1/message_actions.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1echatto/api/v1/pagination.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbc\x01\n" +
-	"\rMessageAction\x12+\n" +
-	"\x02id\x18\x01 \x01(\tB\x1b\xbaH\x18r\x16\x10\x01\x18@2\x10^[A-Za-z0-9_-]+$R\x02id\x12\x1f\n" +
-	"\x05label\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01(PR\x05label\x12A\n" +
-	"\x05style\x18\x03 \x01(\x0e2!.chatto.api.v1.MessageActionStyleB\b\xbaH\x05\x82\x01\x02\x10\x01R\x05style\x12\x1a\n" +
-	"\bdisabled\x18\x04 \x01(\bR\bdisabled\"T\n" +
-	"\x10MessageActionSet\x12@\n" +
-	"\aactions\x18\x01 \x03(\v2\x1c.chatto.api.v1.MessageActionB\b\xbaH\x05\x92\x01\x02\x10\x05R\aactions\"\xdf\x01\n" +
+	"#chatto/api/v1/message_actions.proto\x12\rchatto.api.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1echatto/api/v1/pagination.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdf\x01\n" +
 	"\x17MessageActionInvocation\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\aroom_id\x18\x02 \x01(\tR\x06roomId\x12(\n" +
@@ -651,13 +460,7 @@ const file_chatto_api_v1_message_actions_proto_rawDesc = "" +
 	")AcknowledgeMessageActionInvocationRequest\x12@\n" +
 	"\rinvocation_id\x18\x01 \x01(\tB\x1b\xbaH\x18r\x16\x10\x10\x18@2\x10^[A-Za-z0-9_-]+$R\finvocationId\"P\n" +
 	"*AcknowledgeMessageActionInvocationResponse\x12\"\n" +
-	"\facknowledged\x18\x01 \x01(\bR\facknowledged*\xc3\x01\n" +
-	"\x12MessageActionStyle\x12$\n" +
-	" MESSAGE_ACTION_STYLE_UNSPECIFIED\x10\x00\x12 \n" +
-	"\x1cMESSAGE_ACTION_STYLE_PRIMARY\x10\x01\x12\"\n" +
-	"\x1eMESSAGE_ACTION_STYLE_SECONDARY\x10\x02\x12 \n" +
-	"\x1cMESSAGE_ACTION_STYLE_SUCCESS\x10\x03\x12\x1f\n" +
-	"\x1bMESSAGE_ACTION_STYLE_DANGER\x10\x042\xb4\x03\n" +
+	"\facknowledged\x18\x01 \x01(\bR\facknowledged2\xb4\x03\n" +
 	"\x14MessageActionService\x12q\n" +
 	"\x13InvokeMessageAction\x12).chatto.api.v1.InvokeMessageActionRequest\x1a*.chatto.api.v1.InvokeMessageActionResponse\"\x03\x90\x02\x02\x12\x87\x01\n" +
 	"\x1cListMessageActionInvocations\x122.chatto.api.v1.ListMessageActionInvocationsRequest\x1a3.chatto.api.v1.ListMessageActionInvocationsResponse\x12\x9e\x01\n" +
@@ -676,42 +479,36 @@ func file_chatto_api_v1_message_actions_proto_rawDescGZIP() []byte {
 	return file_chatto_api_v1_message_actions_proto_rawDescData
 }
 
-var file_chatto_api_v1_message_actions_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_chatto_api_v1_message_actions_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_chatto_api_v1_message_actions_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_chatto_api_v1_message_actions_proto_goTypes = []any{
-	(MessageActionStyle)(0),                            // 0: chatto.api.v1.MessageActionStyle
-	(*MessageAction)(nil),                              // 1: chatto.api.v1.MessageAction
-	(*MessageActionSet)(nil),                           // 2: chatto.api.v1.MessageActionSet
-	(*MessageActionInvocation)(nil),                    // 3: chatto.api.v1.MessageActionInvocation
-	(*InvokeMessageActionRequest)(nil),                 // 4: chatto.api.v1.InvokeMessageActionRequest
-	(*InvokeMessageActionResponse)(nil),                // 5: chatto.api.v1.InvokeMessageActionResponse
-	(*ListMessageActionInvocationsRequest)(nil),        // 6: chatto.api.v1.ListMessageActionInvocationsRequest
-	(*ListMessageActionInvocationsResponse)(nil),       // 7: chatto.api.v1.ListMessageActionInvocationsResponse
-	(*AcknowledgeMessageActionInvocationRequest)(nil),  // 8: chatto.api.v1.AcknowledgeMessageActionInvocationRequest
-	(*AcknowledgeMessageActionInvocationResponse)(nil), // 9: chatto.api.v1.AcknowledgeMessageActionInvocationResponse
-	(*timestamppb.Timestamp)(nil),                      // 10: google.protobuf.Timestamp
-	(*PageRequest)(nil),                                // 11: chatto.api.v1.PageRequest
-	(*PageInfo)(nil),                                   // 12: chatto.api.v1.PageInfo
+	(*MessageActionInvocation)(nil),                    // 0: chatto.api.v1.MessageActionInvocation
+	(*InvokeMessageActionRequest)(nil),                 // 1: chatto.api.v1.InvokeMessageActionRequest
+	(*InvokeMessageActionResponse)(nil),                // 2: chatto.api.v1.InvokeMessageActionResponse
+	(*ListMessageActionInvocationsRequest)(nil),        // 3: chatto.api.v1.ListMessageActionInvocationsRequest
+	(*ListMessageActionInvocationsResponse)(nil),       // 4: chatto.api.v1.ListMessageActionInvocationsResponse
+	(*AcknowledgeMessageActionInvocationRequest)(nil),  // 5: chatto.api.v1.AcknowledgeMessageActionInvocationRequest
+	(*AcknowledgeMessageActionInvocationResponse)(nil), // 6: chatto.api.v1.AcknowledgeMessageActionInvocationResponse
+	(*timestamppb.Timestamp)(nil),                      // 7: google.protobuf.Timestamp
+	(*PageRequest)(nil),                                // 8: chatto.api.v1.PageRequest
+	(*PageInfo)(nil),                                   // 9: chatto.api.v1.PageInfo
 }
 var file_chatto_api_v1_message_actions_proto_depIdxs = []int32{
-	0,  // 0: chatto.api.v1.MessageAction.style:type_name -> chatto.api.v1.MessageActionStyle
-	1,  // 1: chatto.api.v1.MessageActionSet.actions:type_name -> chatto.api.v1.MessageAction
-	10, // 2: chatto.api.v1.MessageActionInvocation.created_at:type_name -> google.protobuf.Timestamp
-	3,  // 3: chatto.api.v1.InvokeMessageActionResponse.invocation:type_name -> chatto.api.v1.MessageActionInvocation
-	11, // 4: chatto.api.v1.ListMessageActionInvocationsRequest.page:type_name -> chatto.api.v1.PageRequest
-	3,  // 5: chatto.api.v1.ListMessageActionInvocationsResponse.invocations:type_name -> chatto.api.v1.MessageActionInvocation
-	12, // 6: chatto.api.v1.ListMessageActionInvocationsResponse.page:type_name -> chatto.api.v1.PageInfo
-	4,  // 7: chatto.api.v1.MessageActionService.InvokeMessageAction:input_type -> chatto.api.v1.InvokeMessageActionRequest
-	6,  // 8: chatto.api.v1.MessageActionService.ListMessageActionInvocations:input_type -> chatto.api.v1.ListMessageActionInvocationsRequest
-	8,  // 9: chatto.api.v1.MessageActionService.AcknowledgeMessageActionInvocation:input_type -> chatto.api.v1.AcknowledgeMessageActionInvocationRequest
-	5,  // 10: chatto.api.v1.MessageActionService.InvokeMessageAction:output_type -> chatto.api.v1.InvokeMessageActionResponse
-	7,  // 11: chatto.api.v1.MessageActionService.ListMessageActionInvocations:output_type -> chatto.api.v1.ListMessageActionInvocationsResponse
-	9,  // 12: chatto.api.v1.MessageActionService.AcknowledgeMessageActionInvocation:output_type -> chatto.api.v1.AcknowledgeMessageActionInvocationResponse
-	10, // [10:13] is the sub-list for method output_type
-	7,  // [7:10] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	7, // 0: chatto.api.v1.MessageActionInvocation.created_at:type_name -> google.protobuf.Timestamp
+	0, // 1: chatto.api.v1.InvokeMessageActionResponse.invocation:type_name -> chatto.api.v1.MessageActionInvocation
+	8, // 2: chatto.api.v1.ListMessageActionInvocationsRequest.page:type_name -> chatto.api.v1.PageRequest
+	0, // 3: chatto.api.v1.ListMessageActionInvocationsResponse.invocations:type_name -> chatto.api.v1.MessageActionInvocation
+	9, // 4: chatto.api.v1.ListMessageActionInvocationsResponse.page:type_name -> chatto.api.v1.PageInfo
+	1, // 5: chatto.api.v1.MessageActionService.InvokeMessageAction:input_type -> chatto.api.v1.InvokeMessageActionRequest
+	3, // 6: chatto.api.v1.MessageActionService.ListMessageActionInvocations:input_type -> chatto.api.v1.ListMessageActionInvocationsRequest
+	5, // 7: chatto.api.v1.MessageActionService.AcknowledgeMessageActionInvocation:input_type -> chatto.api.v1.AcknowledgeMessageActionInvocationRequest
+	2, // 8: chatto.api.v1.MessageActionService.InvokeMessageAction:output_type -> chatto.api.v1.InvokeMessageActionResponse
+	4, // 9: chatto.api.v1.MessageActionService.ListMessageActionInvocations:output_type -> chatto.api.v1.ListMessageActionInvocationsResponse
+	6, // 10: chatto.api.v1.MessageActionService.AcknowledgeMessageActionInvocation:output_type -> chatto.api.v1.AcknowledgeMessageActionInvocationResponse
+	8, // [8:11] is the sub-list for method output_type
+	5, // [5:8] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_chatto_api_v1_message_actions_proto_init() }
@@ -725,14 +522,13 @@ func file_chatto_api_v1_message_actions_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chatto_api_v1_message_actions_proto_rawDesc), len(file_chatto_api_v1_message_actions_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   9,
+			NumEnums:      0,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_chatto_api_v1_message_actions_proto_goTypes,
 		DependencyIndexes: file_chatto_api_v1_message_actions_proto_depIdxs,
-		EnumInfos:         file_chatto_api_v1_message_actions_proto_enumTypes,
 		MessageInfos:      file_chatto_api_v1_message_actions_proto_msgTypes,
 	}.Build()
 	File_chatto_api_v1_message_actions_proto = out.File

@@ -13,7 +13,7 @@ import {
 } from '@chatto/api-types/api/v1/asset_uploads_pb';
 import { Asset } from '@chatto/api-types/api/v1/attachments_pb';
 import { Message } from '@chatto/api-types/api/v1/message_types_pb';
-import { MessageActionStyle } from '@chatto/api-types/api/v1/message_actions_pb';
+import { MessageActionStyle } from '@chatto/api-types/api/v1/message_types_pb';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),

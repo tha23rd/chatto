@@ -7,51 +7,6 @@ import "chatto/api/v1/pagination.proto";
 import "google/protobuf/descriptor.proto";
 import "google/protobuf/timestamp.proto";
 
-// Visual treatment for a message action button.
-enum MessageActionStyle {
-  // Uses the normal secondary button treatment.
-  MESSAGE_ACTION_STYLE_UNSPECIFIED = 0;
-  // Emphasises the primary action.
-  MESSAGE_ACTION_STYLE_PRIMARY = 1;
-  // Uses the normal secondary button treatment.
-  MESSAGE_ACTION_STYLE_SECONDARY = 2;
-  // Indicates a successful or affirmative action.
-  MESSAGE_ACTION_STYLE_SUCCESS = 3;
-  // Indicates a destructive or dangerous action.
-  MESSAGE_ACTION_STYLE_DANGER = 4;
-}
-
-// Author-defined button attached to a message.
-//
-// The action ID is opaque integration data visible to room members and
-// returned to the message author when a member invokes the button. Chatto does
-// not interpret it.
-message MessageAction {
-  // Stable integration-defined ID within this message.
-  string id = 1 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 64
-    pattern: "^[A-Za-z0-9_-]+$"
-  }];
-  // Visible button label.
-  string label = 2 [(buf.validate.field).string = {
-    min_len: 1
-    max_bytes: 80
-  }];
-  // Visual treatment. Unspecified uses the secondary treatment.
-  MessageActionStyle style = 3 [(buf.validate.field).enum = {defined_only: true}];
-  // Whether the button is visible but cannot currently be invoked.
-  bool disabled = 4;
-}
-
-// Complete replacement set used when creating or updating a message.
-message MessageActionSet {
-  // Ordered action buttons. IDs must be unique within the set.
-  repeated MessageAction actions = 1 [(buf.validate.field).repeated = {
-    max_items: 5
-  }];
-}
-
 // One pending action invocation delivered privately to the message author.
 message MessageActionInvocation {
   // Caller-supplied idempotency key and stable invocation ID.

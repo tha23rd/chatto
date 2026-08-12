@@ -5,8 +5,7 @@
 
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
-import { MessageActionSet } from "./message_actions_pb.js";
-import { Message as Message$1 } from "./message_types_pb.js";
+import { Message as Message$1, MessageActionSet } from "./message_types_pb.js";
 
 /**
  * Request to create a message in a room or thread.

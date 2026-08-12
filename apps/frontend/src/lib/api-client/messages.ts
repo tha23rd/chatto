@@ -2,7 +2,7 @@ import { authHeaders, createChattoClient, handleAuthError } from './connect.js';
 import type { TimelineEventView } from '$lib/render/timelineEvents';
 import { MessageService } from '@chatto/api-types/api/v1/messages_connect';
 import { MessageActionService } from '@chatto/api-types/api/v1/message_actions_connect';
-import { MessageActionStyle } from '@chatto/api-types/api/v1/message_actions_pb';
+import { MessageActionStyle } from '@chatto/api-types/api/v1/message_types_pb';
 import { messageToTimelineEvent, timelineUsersForMessages } from './roomTimeline.js';
 import { createAssetUploadAPI } from './assetUploads.js';
 

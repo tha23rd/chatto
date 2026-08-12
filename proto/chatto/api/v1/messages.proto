@@ -4,7 +4,6 @@ package chatto.api.v1;
 
 import "buf/validate/validate.proto";
 import "chatto/api/v1/link_previews.proto";
-import "chatto/api/v1/message_actions.proto";
 import "chatto/api/v1/message_types.proto";
 import "chatto/api/v1/reactions.proto";
 
