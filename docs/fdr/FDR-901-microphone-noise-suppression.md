@@ -30,17 +30,23 @@ and it is off by default so nobody's capture changes unless they opt in.
   becomes active.
 - The client preferences page carries a "Noise suppression" section with the
   same mode selector plus these controls:
-  - A **suppression strength** slider (0–100, default 80) mapping to
+  - A **suppression strength** slider (0–100, default 30) mapping to
     DeepFilterNet3's attenuation limit. Higher removes more background noise but
     can distort the voice. Enhanced-mode only (disabled otherwise). The value
     persists per client in `localStorage` and, when a call is in progress,
     retunes the live processor immediately (no rebuild). Untouched users keep the
-    previous fixed strength of 80.
+    previous fixed strength of 30.
   - An **input gain** slider (0–200%, default 100% = unity) that boosts or lowers
     the microphone level before suppression.
   - An **input sensitivity** slider (0–100, default 0 = off): a noise gate that
     mutes the microphone below the chosen level to cut background noise between
     speech. The mic-test meter shows a marker at the threshold. 0 disables it.
+    The gate runs on the audio thread in a fork-owned AudioWorklet
+    (`static/worklets/gate-processor.js`), so it keeps gating correctly while
+    the Chatto tab is hidden — the earlier main-thread
+    `requestAnimationFrame` implementation froze in whatever state it was in
+    for hidden tabs, which could leave the microphone muted for as long as the
+    tab stayed in the background.
   - Input gain and the gate are **independent of the suppression mode**: they
     apply in Standard and Enhanced. Because the composite processor cannot
     coexist with the experimental voice-isolation constraint (which restarts the
@@ -153,7 +159,11 @@ around it by a fork-owned composite `MicProcessor` (a single LiveKit
 `TrackProcessor`) that chains `input gain → noise gate → optional DeepFilterNet3`,
 reusing the package's LiveKit-independent `DeepFilterNet3Core` for the DFN3 stage so
 the proven worklet is unchanged. LiveKit allows only one processor per track, so a
-composite is the only way to add gain/gate to the outbound path. The DeepFilterNet3
+composite is the only way to add gain/gate to the outbound path. The noise gate
+runs in its own fork-owned AudioWorklet that stays in the graph whenever the
+processor is attached, keeping the gate decision sample-accurate on the audio
+thread; the preferences meter reads the same pre-gate signal through a
+display-only AnalyserNode. The DeepFilterNet3
 WASM/model is lazy-loaded only when suppression is first enabled, so gate-only users
 never download it. The mic test runs the **same** `MicProcessor` on a local
 `getUserMedia` stream in a `monitor` mode that plays the processed output straight

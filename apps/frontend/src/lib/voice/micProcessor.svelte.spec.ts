@@ -4,7 +4,8 @@ import {
   OVERLOAD_INTERVALS,
   OVERLOAD_MIN_UNDERRUNS,
   type DfnCore,
-  type DfnCoreFactory
+  type DfnCoreFactory,
+  type GateWorkletFactory
 } from './micProcessor';
 import type { DfnStats } from './dfnWorkletCore';
 
@@ -12,7 +13,8 @@ import type { DfnStats } from './dfnWorkletCore';
  * Builds a MicProcessor wired to a fake DFN core, capturing the `onStats`
  * callback the processor hands to the core loader so tests can inject
  * realtime-health reports. The core's worklet node is a plain GainNode —
- * structurally sufficient for the audio graph.
+ * structurally sufficient for the audio graph. The gate worklet is faked the
+ * same way, with a port spy so threshold changes are observable.
  */
 function makeHarness(overrides: { noiseSuppressionEnabled?: boolean } = {}) {
   let onStats: ((stats: DfnStats) => void) | undefined;
@@ -29,6 +31,12 @@ function makeHarness(overrides: { noiseSuppressionEnabled?: boolean } = {}) {
     onStats = opts.onStats;
     return core;
   };
+  const gatePort = { postMessage: vi.fn() };
+  const createGateWorklet: GateWorkletFactory = vi.fn(async (ctx) => {
+    const node = ctx.createGain();
+    (node as unknown as { port: unknown }).port = gatePort;
+    return node as unknown as AudioWorkletNode;
+  });
   const onSuppressionOverload = vi.fn();
   const processor = new MicProcessor({
     inputGain: 1,
@@ -37,11 +45,14 @@ function makeHarness(overrides: { noiseSuppressionEnabled?: boolean } = {}) {
     suppressionLevel: 30,
     assetPath: '/models/deepfilternet3',
     onSuppressionOverload,
-    loadCore
+    loadCore,
+    createGateWorklet
   });
   return {
     processor,
     core,
+    createGateWorklet,
+    gatePort,
     onSuppressionOverload,
     stats: (underruns: number) => onStats?.({ underruns, quanta: 750 })
   };
@@ -118,5 +129,18 @@ describe('MicProcessor overload watchdog', () => {
     expect(core.setNoiseSuppressionEnabled).toHaveBeenCalledWith(true);
     await processor.setNoiseSuppressionEnabled(false);
     expect(core.setNoiseSuppressionEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it('creates the gate worklet on the audio thread and applies thresholds live', async () => {
+    const { processor, createGateWorklet, gatePort } = await initialized();
+    expect(createGateWorklet).toHaveBeenCalledTimes(1);
+    expect(createGateWorklet).toHaveBeenCalledWith(expect.anything(), 0);
+
+    await processor.setGateThreshold(0.4);
+    expect(gatePort.postMessage).toHaveBeenCalledWith({ type: 'SET_THRESHOLD', value: 0.4 });
+
+    // Disabling pushes a 0 threshold; the worklet falls back to pass-through.
+    await processor.setGateThreshold(0);
+    expect(gatePort.postMessage).toHaveBeenLastCalledWith({ type: 'SET_THRESHOLD', value: 0 });
   });
 });

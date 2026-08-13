@@ -249,6 +249,11 @@ generated protobuf clients, Vitest browser tests, Playwright e2e, and Storybook.
   monitored voice into chunks.
 - Capture constraints are fixed at `getUserMedia` time; restart a running
   preview on mode changes instead of retuning it in place.
+- Audio-thread DSP that gates or mutes captured audio (the noise gate, future
+  level-based stages) must run in a fork-owned AudioWorklet
+  (`static/worklets/`), never a main-thread `requestAnimationFrame` loop:
+  browsers stop rAF for hidden tabs, which froze the old gate shut and left
+  the microphone muted while the tab was in the background.
 
 ## Testing
 
