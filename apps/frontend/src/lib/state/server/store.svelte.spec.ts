@@ -877,6 +877,41 @@ describe('ServerStateStore live server updates', () => {
     expect(cacheMocks.scrubRoomMemberUser).toHaveBeenCalledWith(registered.id, 'U2');
   });
 
+  it('carries member role names from the projection into room membership', () => {
+    const fake = new FakeServerConnection([]);
+    const store = makeStore(fake);
+    // mapDirectoryMember is identity-mocked, so the fixture is client-shaped.
+    store.projection.users.set(
+      'U1',
+      {
+        id: 'U1',
+        login: 'alice',
+        displayName: 'Alice',
+        deleted: false,
+        avatarUrl: null,
+        roleColor: null,
+        presenceStatus: 'PRESENCE_ONLINE',
+        customStatus: null,
+        // The server prepends the virtual `everyone` role to assigned roles.
+        roles: ['everyone', 'moderator'],
+        createdAt: null
+      } as unknown as DirectoryMember
+    );
+    store.projection.rooms.set(
+      'R1',
+      new RealtimeProjectionRoom({
+        room: new RoomWithViewerState({ room: new Room({ id: 'R1' }) }),
+        memberUserIds: ['U1']
+      })
+    );
+
+    const members = store.projectedMembersForRoom('R1');
+
+    expect(members).toHaveLength(1);
+    expect(members[0]?.id).toBe('U1');
+    expect(members[0]?.roles).toEqual(['moderator']);
+  });
+
   it('reconciles query-backed room snapshots from process-wide projection events', () => {
     const fake = new FakeServerConnection([]);
     makeStore(fake);

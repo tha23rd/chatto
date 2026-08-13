@@ -4,10 +4,10 @@ import { SvelteMap } from 'svelte/reactivity';
 
 import {
   createMemberDirectoryAPI,
-  type DirectoryMember,
   type MemberDirectoryAPI,
   type MemberDirectoryPage
 } from '$lib/api-client/memberDirectory';
+import { memberFromDirectory } from './memberMapping';
 import type { ServerConnection } from '$lib/state/server/serverConnection.svelte';
 import type { CustomUserStatus } from '$lib/state/userProfiles.svelte';
 
@@ -362,20 +362,4 @@ export function getRoomMembers(): RoomMember[] {
 export function getMemberPresence(member: RoomMember): PresenceStatus {
   const state = getRoomMembersStore();
   return state.livePresence.get(member.id) ?? member.presenceStatus;
-}
-
-function memberFromDirectory(member: DirectoryMember): RoomMember {
-  return {
-    id: member.id,
-    login: member.login,
-    displayName: member.displayName,
-    deleted: member.deleted,
-    avatarUrl: member.avatarUrl,
-    roleColor: member.roleColor,
-    // The directory includes the virtual `everyone` role for permission-model
-    // parity; UI surfaces show only explicit roles.
-    roles: member.roles.filter((roleName) => roleName !== 'everyone'),
-    customStatus: member.customStatus,
-    presenceStatus: member.presenceStatus
-  };
 }
