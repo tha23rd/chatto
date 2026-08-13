@@ -117,7 +117,6 @@
 			videoTrack: null,
 			isScreenShareEnabled: false,
 			screenShareTrack: null,
-			hasScreenShareAudio: false,
 			isLocallyMuted: false,
 			localVolume: 100,
 			localScreenShareVolume: 100,
@@ -164,8 +163,7 @@
 				participant('dana', 'Dana', {
 					isScreenShareEnabled: true,
 					screenShareTrack: screenTrack,
-					// Sharing game audio too, so the tile's volume popover offers both faders.
-					hasScreenShareAudio: true,
+					// Sharing a screen, so the tile's volume popover offers both faders.
 					localScreenShareVolume: 60
 				}),
 				viewer,

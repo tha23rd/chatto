@@ -2048,7 +2048,6 @@ describe('VoiceCallState', () => {
 
     expect(state.getParticipantScreenShareVolume('remote-user')).toBe(100);
     expect(state.participants.find((p) => p.identity === 'remote-user')).toMatchObject({
-      hasScreenShareAudio: true,
       localScreenShareVolume: 100
     });
 
@@ -2084,31 +2083,6 @@ describe('VoiceCallState', () => {
 
     expect(setVolume).toHaveBeenCalledWith(0.6, 'microphone');
     expect(setVolume).toHaveBeenCalledWith(0.2, 'screen_share_audio');
-  });
-
-  it('reports no screen-share audio when the sharer publishes none', async () => {
-    mockRemoteParticipants.set('remote-user', {
-      identity: 'remote-user',
-      name: 'Remote User',
-      metadata: '',
-      connectionQuality: 'good',
-      isSpeaking: false,
-      audioLevel: 0,
-      setVolume: vi.fn(),
-      trackPublications: new Map(),
-      audioTrackPublications: new Map(),
-      getTrackPublications: vi.fn(() => [
-        { isMuted: false, track: { source: 'microphone' }, source: 'microphone' },
-        { isMuted: false, track: { source: 'screen_share' }, source: 'screen_share' }
-      ])
-    });
-    const state = new VoiceCallState(createVoiceCallClient());
-    await state.join('wss://livekit.example.test', 'R1');
-
-    expect(state.participants.find((p) => p.identity === 'remote-user')).toMatchObject({
-      isScreenShareEnabled: true,
-      hasScreenShareAudio: false
-    });
   });
 
   it('unsubscribes a feed the viewer stops watching, and its stream audio with it', async () => {

@@ -95,7 +95,6 @@ connection that CI does not have.
       videoTrack: null,
       isScreenShareEnabled: false,
       screenShareTrack: null,
-      hasScreenShareAudio: false,
       isLocallyMuted: false,
       localVolume: 100,
       localScreenShareVolume: 100,
