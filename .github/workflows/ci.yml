@@ -645,14 +645,6 @@ jobs:
   # cannot consume this artifact until every required check succeeds.
   build-main-native-installer:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main-native' }}
-    needs:
-      - license-check
-      - codegen-proto-drift
-      - test-workspace
-      - test-desktop-windows
-      - test-cli
-      - test-e2e
-      - test-e2e-media
     runs-on: windows-latest
     timeout-minutes: 60
     permissions:
@@ -761,7 +753,7 @@ jobs:
       - build-main-native-installer
       - license-check
       - codegen-proto-drift
-      - test-frontend-unit
+      - test-workspace
       - test-desktop-windows
       - test-cli
       - test-e2e

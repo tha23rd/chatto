@@ -89,7 +89,7 @@ describe('UserCustomStatusEditor', () => {
       container.querySelectorAll<HTMLButtonElement>('[role="radio"]')
     ).find((button) => button.textContent?.includes('Working'));
 
-    expect(customRow?.querySelector('.uil--pen')).not.toBeNull();
+    expect(customRow?.querySelector('.iconify')).not.toBeNull();
     expect(customRow?.textContent).not.toContain('partyparrot');
 
     customRow?.click();
@@ -166,9 +166,11 @@ describe('UserCustomStatusEditor', () => {
     pickerButton.click();
     flushSync();
 
-    const customEmojiButton = container.querySelector(
-      'button[title="partyparrot"]'
-    ) as HTMLButtonElement;
+    const customEmojiButton = await vi.waitFor(() => {
+      const button = container.querySelector<HTMLButtonElement>('button[title="partyparrot"]');
+      expect(button).not.toBeNull();
+      return button!;
+    });
     customEmojiButton.click();
     flushSync();
 

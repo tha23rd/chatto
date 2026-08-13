@@ -1,5 +1,4 @@
 <script lang="ts">
-  import EmojiPicker from '$lib/components/EmojiPicker.svelte';
   import EmojiToken from '$lib/components/EmojiToken.svelte';
   import ContextMenu from '$lib/ui/ContextMenu.svelte';
   import { Button, FormField } from '$lib/ui/form';
@@ -19,9 +18,9 @@
     getCustomStatusTemplate,
     type CustomStatusTemplateId
   } from '$lib/customStatusTemplates';
-import { isCustomEmojiName } from '$lib/emoji';
-import { m } from '$lib/i18n/messages';
-import { getCustomEmoji } from '$lib/state/customEmojis.svelte';
+  import { isCustomEmojiName } from '$lib/emoji';
+  import { m } from '$lib/i18n/messages';
+  import { getCustomEmoji } from '$lib/state/customEmojis.svelte';
 
   type Mode = CustomStatusTemplateId | 'custom';
   const UNRESOLVED_STATUS_EMOJI_FALLBACK = '🙂';
