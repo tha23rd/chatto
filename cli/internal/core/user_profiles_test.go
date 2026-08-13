@@ -810,6 +810,14 @@ func TestChattoCore_SetAndClearUserCustomStatus(t *testing.T) {
 	core, _ := setupTestCore(t)
 	ctx := testContext(t)
 
+	// Admin is needed to seed a custom emoji in the catalog later.
+	admin, err := core.CreateUser(ctx, SystemActorID, "status-emoji-admin", "Admin", "password123")
+	if err != nil {
+		t.Fatalf("CreateUser admin failed: %v", err)
+	}
+	if err := core.AssignAdminRole(ctx, admin.Id); err != nil {
+		t.Fatalf("AssignAdminRole failed: %v", err)
+	}
 	user, err := core.CreateUser(ctx, "system", "statususer", "Status User", "password123")
 	if err != nil {
 		t.Fatalf("CreateUser failed: %v", err)
@@ -827,22 +835,47 @@ func TestChattoCore_SetAndClearUserCustomStatus(t *testing.T) {
 		t.Fatalf("custom status text = %q, want In focus mode", got)
 	}
 
-	if _, err := core.SetUserCustomStatus(ctx, user.Id, "🌿", "   ", nil); !errors.Is(err, ErrCustomStatusTextRequired) {
-		t.Fatalf("SetUserCustomStatus blank text error = %v, want ErrCustomStatusTextRequired", err)
+	// Emoji-only status: empty text is allowed (Slack-style).
+	emojiOnly, err := core.SetUserCustomStatus(ctx, user.Id, "🌿", "   ", nil)
+	if err != nil {
+		t.Fatalf("SetUserCustomStatus emoji-only failed: %v", err)
 	}
+	if got := emojiOnly.GetCustomStatus().GetEmoji(); got != "🌿" {
+		t.Fatalf("emoji-only status emoji = %q, want 🌿", got)
+	}
+	if got := emojiOnly.GetCustomStatus().GetText(); got != "" {
+		t.Fatalf("emoji-only status text = %q, want empty", got)
+	}
+
+	// Server custom emoji shortcodes are accepted and stored canonically.
+	created, err := core.CreateCustomEmoji(ctx, admin.Id, "partyparrot", createTestImage(2, 2))
+	if err != nil {
+		t.Fatalf("CreateCustomEmoji failed: %v", err)
+	}
+	custom, err := core.SetUserCustomStatus(ctx, user.Id, "PartyParrot", "Parroting", nil)
+	if err != nil {
+		t.Fatalf("SetUserCustomStatus custom emoji failed: %v", err)
+	}
+	if got := custom.GetCustomStatus().GetEmoji(); got != created.Name {
+		t.Fatalf("custom emoji status emoji = %q, want %q", got, created.Name)
+	}
+
 	if _, err := core.SetUserCustomStatus(ctx, user.Id, "e", "Invalid emoji", nil); !errors.Is(err, ErrCustomStatusEmojiInvalid) {
 		t.Fatalf("SetUserCustomStatus invalid emoji error = %v, want ErrCustomStatusEmojiInvalid", err)
 	}
 	if _, err := core.SetUserCustomStatus(ctx, user.Id, "🌿🌿", "Too many emoji", nil); !errors.Is(err, ErrCustomStatusEmojiInvalid) {
 		t.Fatalf("SetUserCustomStatus multiple emoji error = %v, want ErrCustomStatusEmojiInvalid", err)
 	}
+	if _, err := core.SetUserCustomStatus(ctx, user.Id, "not_in_catalog", "Unknown custom emoji", nil); !errors.Is(err, ErrCustomStatusEmojiInvalid) {
+		t.Fatalf("SetUserCustomStatus unknown custom emoji error = %v, want ErrCustomStatusEmojiInvalid", err)
+	}
 
 	statusEvents, _, err := core.EventPublisher.SubjectEvents(ctx, evtstream.UserAggregate(user.Id).Subject(evtstream.EventUserCustomStatusSet))
 	if err != nil {
 		t.Fatalf("SubjectEvents custom status set failed: %v", err)
 	}
-	if len(statusEvents) != 1 {
-		t.Fatalf("custom status set events = %d, want 1", len(statusEvents))
+	if len(statusEvents) != 3 {
+		t.Fatalf("custom status set events = %d, want 3", len(statusEvents))
 	}
 
 	cleared, err := core.ClearUserCustomStatus(ctx, user.Id)

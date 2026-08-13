@@ -343,7 +343,7 @@ to the user settings page for the active server.
         >
           <span class="grid w-5 shrink-0 place-items-center" aria-hidden="true">
             {#if activeServerUser.customStatus}
-              {activeServerUser.customStatus.emoji}
+              <UserCustomStatusBadge status={activeServerUser.customStatus} />
             {:else}
               <span class="iconify icon-[uil--comment-alt-edit] text-muted"></span>
             {/if}

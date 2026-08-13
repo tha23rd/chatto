@@ -83,7 +83,6 @@
           "custom": "Anpassad"
         },
         "emoji_required": "Välj en emoji för din status",
-        "text_required": "Ange statustext",
         "saved": "Status uppdaterad",
         "save_failed": "Det gick inte att spara status",
         "cleared": "Status rensad",

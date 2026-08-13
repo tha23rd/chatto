@@ -83,7 +83,6 @@
           "custom": "Benutzerdefiniert"
         },
         "emoji_required": "Wähle ein Emoji für deinen Status",
-        "text_required": "Gib einen Statustext ein",
         "saved": "Status aktualisiert",
         "save_failed": "Status konnte nicht gespeichert werden",
         "cleared": "Status gelöscht",

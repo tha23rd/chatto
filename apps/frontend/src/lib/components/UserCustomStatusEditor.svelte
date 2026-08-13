@@ -18,6 +18,8 @@
     type CustomStatusTemplateId
   } from '$lib/customStatusTemplates';
   import { m } from '$lib/i18n/messages';
+  import EmojiToken from './EmojiToken.svelte';
+  import { isCustomEmojiName } from '$lib/emoji';
 
   type Mode = CustomStatusTemplateId | 'custom';
   type ExpiryPreset =
@@ -46,6 +48,10 @@
   let selectedMode = $state<Mode>(initialMode(localStatus));
   // svelte-ignore state_referenced_locally
   let statusEmoji = $state(localStatus?.emoji ?? '🌿');
+  // Emoji the editor opened with; a change here is what makes an empty text
+  // box mean "emoji-only status" instead of "clear status".
+  // svelte-ignore state_referenced_locally
+  const initialStatusEmoji = localStatus?.emoji ?? '🌿';
   // svelte-ignore state_referenced_locally
   let statusText = $state(initialText(localStatus));
   // svelte-ignore state_referenced_locally
@@ -98,7 +104,8 @@
       activeText !== (localStatus?.text ?? '') ||
       statusExpiresAt !== currentExpiresAt
   );
-  const canSave = $derived(isModified && (!draftIsEmpty || hasActiveStatus));
+  const emojiModified = $derived(activeEmoji !== initialStatusEmoji);
+  const canSave = $derived(isModified && (!draftIsEmpty || hasActiveStatus || emojiModified));
   const expiryOptions = $derived([
     { value: 'today', label: m('settings.profile.status.expiry.today') },
     { value: 'thirty_minutes', label: m('settings.profile.status.expiry.thirty_minutes') },
@@ -240,7 +247,10 @@
     event.preventDefault();
     const emoji = activeEmoji.trim();
     const text = activeText.trim();
-    if (!text && localStatus) {
+    // Empty text with an unchanged emoji on an existing text status means
+    // "clear". An emoji-only status already has empty text, so Enter on it
+    // must not wipe it.
+    if (!text && !emojiModified && !!localStatus?.text) {
       await clearCustomStatus();
       return;
     }
@@ -248,8 +258,8 @@
       error = m('settings.profile.status.emoji_required');
       return;
     }
-    if (!text) {
-      error = m('settings.profile.status.text_required');
+    if (!text && !emojiModified) {
+      // Untouched empty draft (e.g. Enter in the text field); nothing to save.
       return;
     }
 
@@ -404,7 +414,11 @@
       >
         {#if hasActiveCustomStatus && localStatus}
           <span class="grid w-5 shrink-0 place-items-center" aria-hidden="true">
-            {localStatus.emoji}
+            {#if isCustomEmojiName(localStatus.emoji)}
+              <EmojiToken serverId={config.serverId} emoji={localStatus.emoji} imgClass="h-5 w-5 object-contain" />
+            {:else}
+              {localStatus.emoji}
+            {/if}
           </span>
         {:else}
           <span class="grid w-5 shrink-0 place-items-center" aria-hidden="true">
@@ -433,7 +447,13 @@
           onclick={openEmojiPicker}
           data-testid="settings-custom-status-emoji-picker"
         >
-          <span aria-hidden="true">{statusEmoji || '🙂'}</span>
+          <span aria-hidden="true">
+            {#if isCustomEmojiName(statusEmoji)}
+              <EmojiToken serverId={config.serverId} emoji={statusEmoji} imgClass="h-6 w-6 object-contain" />
+            {:else}
+              {statusEmoji || '🙂'}
+            {/if}
+          </span>
         </button>
         <input
           id={statusTextInputId}
@@ -485,7 +505,13 @@
         onclick={openEmojiPicker}
         data-testid="settings-custom-status-emoji-picker"
       >
-        <span aria-hidden="true">{activeEmoji || '🙂'}</span>
+        <span aria-hidden="true">
+          {#if isCustomEmojiName(activeEmoji)}
+            <EmojiToken serverId={config.serverId} emoji={activeEmoji} imgClass="h-6 w-6 object-contain" />
+          {:else}
+            {activeEmoji || '🙂'}
+          {/if}
+        </span>
       </button>
       <input
         id={statusTextInputId}
