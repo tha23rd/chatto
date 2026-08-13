@@ -135,6 +135,7 @@ function renderLayout() {
     version: 'test',
     authorizeUrl: '/oauth/authorize',
     directRegistrationEnabled: true,
+    accountCreationPolicy: 'open',
     welcomeMessage: null,
     description: null,
     iconUrl: null,
@@ -167,6 +168,7 @@ function pointer(type: string, x: number, y = 120) {
 describe('root layout mobile sidebar animation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    document.documentElement.dir = 'ltr';
     installMobileMatchMedia();
     resetSidebar();
   });
@@ -205,7 +207,7 @@ describe('root layout mobile sidebar animation', () => {
 
     expect(sidebarNav.isOpen).toBe(true);
     expect(q(container, '[data-testid="mobile-sidebar-panel"]')?.style.transform).toBe(
-      'translateX(0px)'
+      'translateX(calc(0px * var(--inline-direction)))'
     );
   });
 
@@ -225,7 +227,7 @@ describe('root layout mobile sidebar animation', () => {
     expect(backdrop).not.toBeNull();
     if (!panel || !backdrop) return;
 
-    expect(panel.style.transform).toBe('translateX(0px)');
+    expect(panel.style.transform).toBe('translateX(calc(0px * var(--inline-direction)))');
     expect(getComputedStyle(panel).visibility).toBe('visible');
     expect(backdrop.disabled).toBe(false);
     expect(backdrop.style.opacity).toBe('1');
@@ -236,7 +238,7 @@ describe('root layout mobile sidebar animation', () => {
     expect(q(container, '[data-testid="mobile-sidebar-backdrop"]')).toBe(backdrop);
     expect(backdrop.disabled).toBe(true);
     expect(backdrop.style.opacity).toBe('0');
-    expect(panel.style.transform).toBe('translateX(-324px)');
+    expect(panel.style.transform).toBe('translateX(calc(-324px * var(--inline-direction)))');
     expect(panel.classList.contains('sidebar-mobile-closed')).toBe(true);
   });
 
@@ -257,7 +259,24 @@ describe('root layout mobile sidebar animation', () => {
     await tick();
 
     expect(sidebarNav.isOpen).toBe(false);
-    expect(panel.style.transform).toBe('translateX(-324px)');
+    expect(panel.style.transform).toBe('translateX(calc(-324px * var(--inline-direction)))');
+  });
+
+  it('opens the inline-start sidebar from a leftward drag in RTL', async () => {
+    document.documentElement.dir = 'rtl';
+    const { container } = renderLayout();
+    await tick();
+
+    const child = q(container, '[data-testid="layout-child"]');
+    expect(child).not.toBeNull();
+    if (!child) return;
+
+    child.dispatchEvent(pointer('pointerdown', 310));
+    window.dispatchEvent(pointer('pointermove', 100));
+    window.dispatchEvent(pointer('pointerup', 100));
+    await tick();
+
+    expect(sidebarNav.isOpen).toBe(true);
   });
 });
 

@@ -48,7 +48,7 @@ import { getLoadedLiveKit } from './livekitModule';
 import { SvelteSet } from 'svelte/reactivity';
 import { globalSlot, type Codec } from '$lib/storage/slot';
 import { toast } from '$lib/ui/toast';
-import * as m from '$lib/i18n/messages';
+import { m } from '$lib/i18n/messages';
 import { MicProcessor, type MicProcessorOptions } from './micProcessor';
 
 export type NoiseSuppressionMode = 'off' | 'voice-isolation' | 'enhanced';
@@ -424,7 +424,7 @@ export class NoiseSuppressionController {
     // User-initiated change that ended in a fallback deserves feedback; the
     // silent path is reserved for automatic apply on join/unmute.
     if (this.status === 'unavailable' && this.mode === mode) {
-      toast.error(m['voice.noise_suppression_unavailable']());
+      toast.error(m('voice.noise_suppression_unavailable'));
     }
   }
 
@@ -718,7 +718,7 @@ export class NoiseSuppressionController {
     void Promise.resolve(processor.setNoiseSuppressionEnabled?.(false)).catch(() => {});
     if (this.status !== 'unavailable') {
       this.status = 'unavailable';
-      toast.error(m['voice.noise_suppression_overloaded']());
+      toast.error(m('voice.noise_suppression_overloaded'));
     }
   }
 

@@ -65,6 +65,16 @@ export class CreateMessageRequest extends Message<CreateMessageRequest> {
   linkPreviewToken = "";
 
   /**
+   * True to establish the new root message as a thread immediately. Requires
+   * both message.post and message.post-in-thread. Channel rooms only; cannot
+   * be combined with thread_root_event_id. This distribution uses tag 1000
+   * because its released wire contract already uses tag 11.
+   *
+   * @generated from field: bool create_thread = 1000;
+   */
+  createThread = false;
+
+  /**
    * Optional author-defined action buttons.
    *
    * @generated from field: chatto.api.v1.MessageActionSet actions = 11;
@@ -86,6 +96,7 @@ export class CreateMessageRequest extends Message<CreateMessageRequest> {
     { no: 5, name: "in_reply_to", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 6, name: "also_send_to_channel", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 10, name: "link_preview_token", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 1000, name: "create_thread", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 11, name: "actions", kind: "message", T: MessageActionSet },
   ]);
 

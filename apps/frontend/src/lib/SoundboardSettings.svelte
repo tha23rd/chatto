@@ -18,12 +18,11 @@ it down to the few seconds they want before uploading.
   import type { ConnectAPIConfig } from '$lib/api-client/connect';
   import { getActiveServer } from '$lib/state/activeServer.svelte';
   import { getSoundboard } from '$lib/state/soundboard.svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
 
   import { Panel, DataTable } from '$lib/components/admin';
   import { TextInput, Button, RangeField, FormField } from '$lib/ui/form';
   import ContextMenu from '$lib/ui/ContextMenu.svelte';
-  import EmojiPicker from '$lib/components/EmojiPicker.svelte';
   import { toast } from '$lib/ui/toast';
   import { dropZone } from '$lib/attachments/dropZone.svelte';
   import DropZoneOverlay from '$lib/attachments/DropZoneOverlay.svelte';
@@ -68,6 +67,15 @@ it down to the few seconds they want before uploading.
   let fileInput = $state<HTMLInputElement>();
   let isDragging = $state(false);
   let emojiPickerAnchor = $state<{ top: number; bottom: number; left: number } | null>(null);
+  let emojiPickerModule: Promise<typeof import('$lib/components/EmojiPicker.svelte')> | null = null;
+
+  function loadEmojiPicker() {
+    emojiPickerModule ??= import('$lib/components/EmojiPicker.svelte').catch((error: unknown) => {
+      emojiPickerModule = null;
+      throw error;
+    });
+    return emojiPickerModule;
+  }
 
   function openEmojiPicker(event: MouseEvent) {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -105,7 +113,7 @@ it down to the few seconds they want before uploading.
     // Force-refresh the shared store so this admin view shows the current
     // catalog and the in-call panel benefits from the refresh too.
     if (!(await store.load(apiConfig()))) {
-      error = m['soundboard.load_failed']();
+      error = m('soundboard.load_failed');
     }
     loading = false;
   }
@@ -121,11 +129,11 @@ it down to the few seconds they want before uploading.
    */
   async function acceptFile(file: File): Promise<void> {
     if (!ACCEPTED_AUDIO_TYPES.includes(file.type)) {
-      toast.error(m['soundboard.invalid_audio']());
+      toast.error(m('soundboard.invalid_audio'));
       return;
     }
     if (file.size > MAX_AUDIO_BYTES) {
-      toast.error(m['soundboard.audio_too_large']());
+      toast.error(m('soundboard.audio_too_large'));
       return;
     }
 
@@ -140,7 +148,7 @@ it down to the few seconds they want before uploading.
         void ctx.close();
       }
     } catch {
-      toast.error(m['soundboard.decode_failed']());
+      toast.error(m('soundboard.decode_failed'));
       return;
     }
 
@@ -190,14 +198,14 @@ it down to the few seconds they want before uploading.
     // The selected region must respect the duration limit. The trimmer already
     // constrains the window to this length, so this is a defensive backstop.
     if (buffer && trimEnd - trimStart > MAX_DURATION_SECONDS + 0.05) {
-      toast.error(m['soundboard.audio_too_long']());
+      toast.error(m('soundboard.audio_too_long'));
       return null;
     }
     const trimmed = buffer !== null && (trimStart > 0.001 || trimEnd < buffer.duration - 0.001);
     if (buffer && trimmed) {
       const wav = trimClipToWav(decodedClipFromAudioBuffer(buffer), trimStart, trimEnd);
       if (wav.byteLength > MAX_AUDIO_BYTES) {
-        toast.error(m['soundboard.audio_too_large']());
+        toast.error(m('soundboard.audio_too_large'));
         return null;
       }
       const base = file.name.replace(/\.[^.]+$/, '') || 'sound';
@@ -230,9 +238,9 @@ it down to the few seconds they want before uploading.
       emoji = '';
       volumePercent = 100;
       resetSelection();
-      toast.success(m['soundboard.uploaded']());
+      toast.success(m('soundboard.uploaded'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : m['soundboard.upload_failed']());
+      toast.error(err instanceof Error ? err.message : m('soundboard.upload_failed'));
     } finally {
       uploading = false;
     }
@@ -243,40 +251,40 @@ it down to the few seconds they want before uploading.
     const audio = new Audio(sound.url);
     audio.volume = Math.max(0, Math.min(1, sound.volume));
     previewAudio = audio;
-    void audio.play().catch(() => toast.error(m['soundboard.play_failed']()));
+    void audio.play().catch(() => toast.error(m('soundboard.play_failed')));
   }
 
   async function handleDelete(sound: Sound) {
     try {
       await createAdminSoundboardAPI(apiConfig()).remove(sound.id);
       store.remove(sound.id);
-      toast.success(m['soundboard.deleted']());
+      toast.success(m('soundboard.deleted'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : m['soundboard.delete_failed']());
+      toast.error(err instanceof Error ? err.message : m('soundboard.delete_failed'));
     }
   }
 </script>
 
 <div class="flex flex-col gap-6">
   <!-- Upload form -->
-  <Panel title={m['soundboard.upload']()} icon="iconify uil--music">
+  <Panel title={m('soundboard.upload')} icon="icon-[uil--music]">
     <form onsubmit={handleUpload} class="flex flex-col gap-4">
       <TextInput
         id="soundboard-name"
-        label={m['soundboard.name_label']()}
+        label={m('soundboard.name_label')}
         bind:value={name}
         disabled={uploading}
         maxlength={64}
-        description={m['soundboard.name_help']()}
+        description={m('soundboard.name_help')}
       />
 
-      <FormField label={m['soundboard.emoji_label']()}>
+      <FormField label={m('soundboard.emoji_label')}>
         <div class="flex items-center gap-2">
           <button
             type="button"
             class="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-md border border-border bg-background text-lg transition-[background-color,scale] hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-60"
-            title={m['soundboard.emoji_choose']()}
-            aria-label={m['soundboard.emoji_choose']()}
+            title={m('soundboard.emoji_choose')}
+            aria-label={m('soundboard.emoji_choose')}
             disabled={uploading}
             onclick={openEmojiPicker}
             data-testid="soundboard-emoji-picker"
@@ -284,25 +292,25 @@ it down to the few seconds they want before uploading.
             {#if emoji}
               <span aria-hidden="true">{emoji}</span>
             {:else}
-              <span class="iconify text-muted uil--smile" aria-hidden="true"></span>
+              <span class="text-muted icon-[uil--smile]" aria-hidden="true"></span>
             {/if}
           </button>
           {#if emoji}
             <Button variant="ghost" onclick={() => (emoji = '')} disabled={uploading}>
-              {m['soundboard.emoji_clear']()}
+              {m('soundboard.emoji_clear')}
             </Button>
           {:else}
-            <span class="text-sm text-muted">{m['soundboard.emoji_none']()}</span>
+            <span class="text-sm text-muted">{m('soundboard.emoji_none')}</span>
           {/if}
         </div>
       </FormField>
 
       <RangeField
         id="soundboard-volume"
-        label={m['soundboard.volume_label']()}
+        label={m('soundboard.volume_label')}
         bind:value={volumePercent}
         displayValue={`${volumePercent}%`}
-        icon="iconify uil--volume"
+        icon="icon-[uil--volume]"
         min={0}
         max={100}
         step={5}
@@ -316,13 +324,13 @@ it down to the few seconds they want before uploading.
       >
         <DropZoneOverlay
           visible={isDragging}
-          title={m['soundboard.drop_audio']()}
-          subtitle={m['soundboard.drop_subtitle']()}
+          title={m('soundboard.drop_audio')}
+          subtitle={m('soundboard.drop_subtitle')}
         />
         <div
           class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-emphasized text-muted"
         >
-          <span class="iconify text-2xl uil--music"></span>
+          <span class="text-2xl icon-[uil--music]"></span>
         </div>
         <div class="flex flex-col gap-2">
           <input
@@ -334,12 +342,12 @@ it down to the few seconds they want before uploading.
           />
           <Button variant="secondary" onclick={() => fileInput?.click()} disabled={uploading}>
             <span class="inline-flex items-center gap-2">
-              <span class="iconify uil--upload"></span>
-              {selectedFile ? m['soundboard.change_file']() : m['soundboard.choose_file']()}
+              <span class="icon-[uil--upload]"></span>
+              {selectedFile ? m('soundboard.change_file') : m('soundboard.choose_file')}
             </span>
           </Button>
           <span class="text-sm text-muted">
-            {selectedFile ? selectedFile.name : m['soundboard.no_file']()}
+            {selectedFile ? selectedFile.name : m('soundboard.no_file')}
           </span>
         </div>
       </div>
@@ -360,10 +368,10 @@ it down to the few seconds they want before uploading.
           type="submit"
           loading={uploading}
           disabled={!canSubmit}
-          loadingText={m['soundboard.uploading']()}
+          loadingText={m('soundboard.uploading')}
         >
-          <span class="iconify uil--plus"></span>
-          {m['soundboard.add_button']()}
+          <span class="icon-[uil--plus]"></span>
+          {m('soundboard.add_button')}
         </Button>
       </div>
     </form>
@@ -371,13 +379,13 @@ it down to the few seconds they want before uploading.
 
   <!-- Existing sounds -->
   <Panel
-    title={m['soundboard.list_title']()}
-    icon="iconify uil--music-note"
+    title={m('soundboard.list_title')}
+    icon="icon-[uil--music-note]"
     count={sounds.length}
     noPadding
   >
     {#if loading}
-      <div class="p-6 text-muted">{m['soundboard.loading']()}</div>
+      <div class="p-6 text-muted">{m('soundboard.loading')}</div>
     {:else if error}
       <div class="p-6 text-danger">{error}</div>
     {:else}
@@ -385,11 +393,11 @@ it down to the few seconds they want before uploading.
         items={sounds}
         columns={3}
         getKey={(sound) => sound.id}
-        emptyMessage={m['soundboard.empty']()}
+        emptyMessage={m('soundboard.empty')}
       >
         {#snippet header()}
-          <th class="px-4 py-2">{m['soundboard.column_preview']()}</th>
-          <th class="px-4 py-2">{m['soundboard.column_name']()}</th>
+          <th class="px-4 py-2">{m('soundboard.column_preview')}</th>
+          <th class="px-4 py-2">{m('soundboard.column_name')}</th>
           <th class="px-4 py-2"></th>
         {/snippet}
         {#snippet row(sound)}
@@ -399,9 +407,9 @@ it down to the few seconds they want before uploading.
                 {#if sound.emoji}
                   <span class="text-lg">{sound.emoji}</span>
                 {:else}
-                  <span class="iconify text-lg uil--play"></span>
+                  <span class="text-lg icon-[uil--play]"></span>
                 {/if}
-                <span class="sr-only">{m['soundboard.play']()}</span>
+                <span class="sr-only">{m('soundboard.play')}</span>
               </span>
             </Button>
           </td>
@@ -409,8 +417,8 @@ it down to the few seconds they want before uploading.
           <td class="px-4 py-2 text-right">
             <Button variant="ghost" onclick={() => handleDelete(sound)}>
               <span class="inline-flex items-center gap-2 text-error">
-                <span class="iconify uil--trash-alt"></span>
-                {m['soundboard.delete']()}
+                <span class="icon-[uil--trash-alt]"></span>
+                {m('soundboard.delete')}
               </span>
             </Button>
           </td>
@@ -422,11 +430,15 @@ it down to the few seconds they want before uploading.
 
 {#if emojiPickerAnchor}
   <ContextMenu anchor={emojiPickerAnchor} onclose={() => (emojiPickerAnchor = null)}>
-    <EmojiPicker
-      serverId={getActiveServer()}
-      includeCustom={false}
-      onSelect={handleEmojiSelect}
-      onClose={() => (emojiPickerAnchor = null)}
-    />
+    {#await loadEmojiPicker()}
+      <p class="p-4 text-center text-sm text-muted" aria-busy="true">{m('common.loading')}</p>
+    {:then { default: EmojiPicker }}
+      <EmojiPicker
+        serverId={getActiveServer()}
+        includeCustom={false}
+        onSelect={handleEmojiSelect}
+        onClose={() => (emojiPickerAnchor = null)}
+      />
+    {/await}
   </ContextMenu>
 {/if}

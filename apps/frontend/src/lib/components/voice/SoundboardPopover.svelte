@@ -14,7 +14,7 @@ flash a subtle notice driven by the caller's `throttled` flag.
 -->
 <script lang="ts">
   import FloatingPopover from '$lib/ui/FloatingPopover.svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import type { Sound } from '$lib/api-client/soundboard';
 
   let {
@@ -44,21 +44,21 @@ flash a subtle notice driven by the caller's `throttled` flag.
   {onclose}
   anchorPlacement="top"
   role="dialog"
-  ariaLabel={m['soundboard.panel_title']()}
+  ariaLabel={m('soundboard.panel_title')}
   class="menu w-64 p-3"
 >
   <div {onkeydown} role="presentation" class="flex flex-col gap-3">
     <div class="flex items-center justify-between">
-      <div class="text-sm font-medium">{m['soundboard.panel_title']()}</div>
+      <div class="text-sm font-medium">{m('soundboard.panel_title')}</div>
       {#if throttled}
         <span class="text-xs text-warning" data-testid="soundboard-throttled">
-          {m['soundboard.throttled']()}
+          {m('soundboard.throttled')}
         </span>
       {/if}
     </div>
 
     {#if sounds.length === 0}
-      <p class="text-xs text-muted">{m['soundboard.panel_empty']()}</p>
+      <p class="text-xs text-muted">{m('soundboard.panel_empty')}</p>
     {:else}
       <div class="grid grid-cols-3 gap-2" data-testid="soundboard-sound-grid">
         {#each sounds as sound (sound.id)}
@@ -70,7 +70,7 @@ flash a subtle notice driven by the caller's `throttled` flag.
             onclick={() => onplay(sound)}
           >
             <span class="text-xl leading-none">
-              {#if sound.emoji}{sound.emoji}{:else}<span class="iconify uil--music"></span>{/if}
+              {#if sound.emoji}{sound.emoji}{:else}<span class="icon-[uil--music]"></span>{/if}
             </span>
             <span class="w-full truncate text-center text-[0.65rem] leading-tight">
               {sound.name}

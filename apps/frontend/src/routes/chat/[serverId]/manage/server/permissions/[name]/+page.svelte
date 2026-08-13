@@ -29,7 +29,7 @@
   import { queryClient } from '$lib/query/client';
   import { registerQueryCacheRemovalListener } from '$lib/query/cacheRegistry';
   import RoleMetadataPanel from './RoleMetadataPanel.svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
 
   type User = RoleUser;
 
@@ -139,7 +139,7 @@
       mutationFn: ({ api, input }: UpdateRoleVariables) => api.updateRole(input),
       onSuccess: (updatedRole, variables) => {
         updateRoleSnapshot(variables, updatedRole);
-        if (isCurrentRole(variables)) toast.success(m['rbac.role_form.colour_updated']());
+        if (isCurrentRole(variables)) toast.success(m('rbac.role_form.colour_updated'));
       }
     }),
     () => queryClient
@@ -263,7 +263,7 @@
     if (colorMutation.isError && isCurrentRole(colorMutation.variables)) {
       return colorMutation.error instanceof Error
         ? colorMutation.error.message
-        : m['rbac.role_form.colour_update_failed']();
+        : m('rbac.role_form.colour_update_failed');
     }
     if (deleteMutation.isError && isCurrentRole(deleteMutation.variables)) {
       return deleteMutation.error instanceof Error
@@ -275,29 +275,29 @@
 </script>
 
 <PageTitle
-  title={m['admin.common.server_admin_page_title']({
-    title: role?.displayName ?? m['admin.permissions.edit_role_title']()
+  title={m('admin.common.server_admin_page_title', {
+    title: role?.displayName ?? m('admin.permissions.edit_role_title')
   })}
 />
 
 <div class="pane-page">
   <PaneHeader
-    title={m['admin.permissions.edit_role_title']()}
-    subtitle={role?.displayName ?? m['common.loading']()}
+    title={m('admin.permissions.edit_role_title')}
+    subtitle={role?.displayName ?? m('common.loading')}
     backHref={permissionsHref}
-    backLabel={m['admin.permissions.back_to_permissions']()}
+    backLabel={m('admin.permissions.back_to_permissions')}
     showMobileNav
   />
 
   <PaneContent>
     <div class="flex flex-col gap-6">
     {#if loading}
-      <div class="text-muted">{m['admin.permissions.loading_role']()}</div>
+      <div class="text-muted">{m('admin.permissions.loading_role')}</div>
     {:else if !role}
-      <div class="text-danger">{m['admin.permissions.role_not_found']()}</div>
+      <div class="text-danger">{m('admin.permissions.role_not_found')}</div>
     {:else if !canManageRoles}
       <div class="text-danger">
-        {m['admin.permissions.need_manage_edit']()}
+        {m('admin.permissions.need_manage_edit')}
       </div>
     {:else}
       {#if error}
@@ -323,23 +323,23 @@
       {#if canManageRoles && role}
         <Hint>
           {#if role.name === 'owner'}
-            {m['admin.permissions.owner_permissions_hint']()}
+            {m('admin.permissions.owner_permissions_hint')}
           {:else}
-            {m['admin.permissions.role_permissions_hint']()}
+            {m('admin.permissions.role_permissions_hint')}
           {/if}
         </Hint>
         <RolePermissionsMatrix roleName={role.name} />
       {/if}
 
       <!-- Users with this role -->
-      <Panel title={m['admin.permissions.users_with_role']()} icon="iconify uil--users-alt">
+      <Panel title={m('admin.permissions.users_with_role')} icon="icon-[uil--users-alt]">
         {#if role?.name === 'everyone'}
-          <p class="text-muted">{m['admin.permissions.everyone_implicit']()}</p>
+          <p class="text-muted">{m('admin.permissions.everyone_implicit')}</p>
         {:else}
           <UserList
             users={roleUsers}
             clickable={canAssignRoles}
-            emptyMessage={m['admin.permissions.no_users_with_role']()}
+            emptyMessage={m('admin.permissions.no_users_with_role')}
             onUserClick={(user) =>
               goto(
                 resolve('/chat/[serverId]/manage/server/members/[userId]', {

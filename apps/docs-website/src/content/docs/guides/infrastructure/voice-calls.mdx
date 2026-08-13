@@ -24,6 +24,8 @@ WebView2 may offer all-system audio when application capture is unavailable. Cha
 
 Chatto records call start/join/leave/end facts durably and reconciles active participants against LiveKit webhooks, so call indicators recover after server restarts. These call facts update the active call UI without appearing as room timeline messages. LiveKit media is end-to-end encrypted by current Chatto clients; older clients that do not support this call encryption cannot decode encrypted media.
 
+Reloading the page while in a call reconnects you automatically: the client remembers which room call you were in and rejoins as soon as it confirms the call is still active, so a refresh no longer drops you out of the conversation. If the call ended while the page was closed, no new call is started on your behalf.
+
 ## Requirements
 
 - A running [LiveKit server](https://docs.livekit.io/home/self-hosting/local/) (self-hosted or cloud)

@@ -17,7 +17,7 @@ Room sidebar panel for voice/video calls.
   import { PresenceStatus } from '@chatto/api-types/api/v1/presence_pb';
   import { useServerScope } from '$lib/state/server/scope.svelte';
   import { userPreferences } from '$lib/state/userPreferences.svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
 
   const serverScope = useServerScope();
   const activeServerId = $derived(serverScope.serverId);
@@ -209,10 +209,10 @@ Room sidebar panel for voice/video calls.
       // Only ever the hiding direction: the view option removes the tile outright, so the
       // way back is the header menu rather than a control on a tile that is no longer there.
       return tile.kind === 'screen'
-        ? m['voice.hide_own_screen_share']()
-        : m['voice.hide_own_camera']();
+        ? m('voice.hide_own_screen_share')
+        : m('voice.hide_own_camera');
     }
-    return tile.hidden ? m['voice.start_watching_feed']() : m['voice.stop_watching_feed']();
+    return tile.hidden ? m('voice.start_watching_feed') : m('voice.stop_watching_feed');
   }
   let screenShareTiles = $derived(
     screenShareParticipants.map((participant) => ({
@@ -241,7 +241,7 @@ Room sidebar panel for voice/video calls.
   // featured slot rather than merely hiding it from the strip.
   let callView = $derived(userPreferences.callView);
   let stripCollapsedLabel = $derived(
-    callView.collapsedStrip ? m['voice.show_participants']() : m['voice.hide_participants']()
+    callView.collapsedStrip ? m('voice.show_participants') : m('voice.hide_participants')
   );
   let filteredStageTiles = $derived(
     allStageTiles.filter((tile) => {
@@ -297,8 +297,8 @@ Room sidebar panel for voice/video calls.
   );
   let isIdle = $derived(!hasActiveCall && !isInThisCall);
   let joinLabel = $derived.by(() => {
-    if (isConnecting) return hasActiveCall ? m['voice.joining']() : m['voice.starting']();
-    return hasActiveCall ? m['voice.join_call']() : m['voice.start_call']();
+    if (isConnecting) return hasActiveCall ? m('voice.joining') : m('voice.starting');
+    return hasActiveCall ? m('voice.join_call') : m('voice.start_call');
   });
   const controlButtonClass = 'btn-secondary btn-sm h-9 w-full !px-0';
   const activeControlButtonClass = 'btn-success btn-sm h-9 w-full !px-0';
@@ -483,9 +483,9 @@ Room sidebar panel for voice/video calls.
       await navigator.clipboard.writeText(
         serializeScreenShareDiagnostics(voiceCallState.screenShareDiagnostics)
       );
-      toast.success(m['common.copied_to_clipboard']());
+      toast.success(m('common.copied_to_clipboard'));
     } catch {
-      toast.error(m['common.error.generic']());
+      toast.error(m('common.error.generic'));
     }
   }
 
@@ -530,7 +530,7 @@ Room sidebar panel for voice/video calls.
   async function onPlaySound(sound: Sound) {
     const result = await voiceCallState.playSoundIntoCall({ url: sound.url, volume: sound.volume });
     if (result === 'failed') {
-      toast.error(m['soundboard.play_failed']());
+      toast.error(m('soundboard.play_failed'));
     }
     // 'throttled' feedback is surfaced inline by the popover via the store flag.
   }
@@ -577,7 +577,7 @@ Room sidebar panel for voice/video calls.
       window
     );
     if (result === 'failed' || result === 'unsupported') {
-      toast.error(m['voice.pop_out_failed']());
+      toast.error(m('voice.pop_out_failed'));
     }
   }
 
@@ -622,8 +622,8 @@ Room sidebar panel for voice/video calls.
 
   function stageFocusLabel(tile: StageTile): string {
     return focusedStageTile?.key === tile.key
-      ? m['voice.unfocus_feed']()
-      : m['voice.focus_feed']();
+      ? m('voice.unfocus_feed')
+      : m('voice.focus_feed');
   }
 
   function toggleFeedMute(participant: DisplayParticipant, event: MouseEvent): void {
@@ -641,15 +641,15 @@ Room sidebar panel for voice/video calls.
     ? voiceCallState.isMuted
     : participant.isLocallyMuted}
   <CallTileActionButton
-    icon={isMutedForViewer ? 'uil--volume-mute' : 'uil--volume-up'}
+    icon={isMutedForViewer ? 'icon-[uil--volume-mute]' : 'icon-[uil--volume-up]'}
     active={isMutedForViewer}
     label={participant.isLocal
       ? isMutedForViewer
-        ? m['voice.unmute']()
-        : m['voice.mute']()
+        ? m('voice.unmute')
+        : m('voice.mute')
       : isMutedForViewer
-        ? m['voice.locally_unmute_participant']()
-        : m['voice.locally_mute_participant']()}
+        ? m('voice.locally_unmute_participant')
+        : m('voice.locally_mute_participant')}
     testId="call-feed-local-mute-button"
     onclick={(event) => toggleFeedMute(participant, event)}
   />
@@ -660,14 +660,14 @@ Room sidebar panel for voice/video calls.
     class="flex aspect-video w-full items-center justify-center rounded-sm bg-surface-emphasized/40 text-muted"
     data-testid="call-feed-hidden-placeholder"
   >
-    <span class="iconify text-2xl uil--eye-slash" aria-hidden="true"></span>
-    <span class="sr-only">{m['voice.feed_not_watched']()}</span>
+    <span class="text-2xl icon-[uil--eye-slash]" aria-hidden="true"></span>
+    <span class="sr-only">{m('voice.feed_not_watched')}</span>
   </div>
 {/snippet}
 
 {#snippet hideFeedButton(tile: StageTile)}
   <CallTileActionButton
-    icon={tile.hidden ? 'uil--eye-slash' : 'uil--eye'}
+    icon={tile.hidden ? 'icon-[uil--eye-slash]' : 'icon-[uil--eye]'}
     active={tile.hidden}
     label={feedWatchedLabel(tile)}
     testId="call-feed-watch-button"
@@ -682,15 +682,15 @@ Room sidebar panel for voice/video calls.
     {/if}
     {#if canPopOutFeeds && !tile?.hidden}
       <CallTileActionButton
-        icon="mdi--picture-in-picture-bottom-right"
-        label={m['voice.pop_out_feed']()}
+        icon="icon-[mdi--picture-in-picture-bottom-right]"
+        label={m('voice.pop_out_feed')}
         testId="call-feed-pop-out-button"
         onclick={(event) => void popOutClosestMedia(event)}
       />
     {/if}
     <CallTileActionButton
-      icon="mdi--fullscreen"
-      label={m['voice.fullscreen_feed']()}
+      icon="icon-[mdi--fullscreen]"
+      label={m('voice.fullscreen_feed')}
       testId="call-feed-fullscreen-button"
       onclick={toggleClosestMediaFullscreen}
     />
@@ -698,8 +698,8 @@ Room sidebar panel for voice/video calls.
       {@render localMuteButton(participant)}
       {#if !participant.isLocal}
         <CallTileActionButton
-          icon="uil--volume"
-          label={m['voice.participant_volume']()}
+          icon="icon-[uil--volume]"
+          label={m('voice.participant_volume')}
           active={volumePopoverParticipant?.key === participant.key}
           testId="call-feed-volume-button"
           onclick={(event) => openVolumePopover(participant, event)}
@@ -719,8 +719,8 @@ Room sidebar panel for voice/video calls.
       {@render localMuteButton(participant)}
       {#if !participant.isLocal}
         <CallTileActionButton
-          icon="uil--volume"
-          label={m['voice.participant_volume']()}
+          icon="icon-[uil--volume]"
+          label={m('voice.participant_volume')}
           active={volumePopoverParticipant?.key === participant.key}
           testId="call-feed-volume-button"
           onclick={(event) => openVolumePopover(participant, event)}
@@ -734,33 +734,33 @@ Room sidebar panel for voice/video calls.
   <span class="inline-flex h-5 min-w-5 shrink-0 items-center justify-end gap-1.5 text-sm">
     {#if participant.isMuted}
       <span
-        class="iconify text-danger uil--microphone-slash"
-        aria-label={m['voice.muted']()}
+        class="icon-[uil--microphone-slash] text-danger"
+        aria-label={m('voice.muted')}
         data-testid="call-muted-indicator"
       ></span>
     {/if}
     {#if participant.isDeafened}
       <span
-        class="iconify text-danger uil--headphone-slash"
-        aria-label={m['voice.deafened']()}
+        class="text-danger icon-[uil--headphone-slash]"
+        aria-label={m('voice.deafened')}
         data-testid="call-deafened-indicator"
       ></span>
     {/if}
     {#if participant.isLocallyMuted}
       <span
-        class="iconify text-muted uil--volume-mute"
-        aria-label={m['voice.locally_muted']()}
+        class="icon-[uil--volume-mute] text-muted"
+        aria-label={m('voice.locally_muted')}
         data-testid="call-locally-muted-indicator"
       ></span>
     {/if}
     {#if hasConnectionWarning(participant)}
       <span
         class={[
-          'iconify uil--exclamation-triangle',
+          'icon-[uil--exclamation-triangle]',
           participant.connectionQuality === 'lost' && 'text-danger',
           participant.connectionQuality === 'poor' && 'text-warning'
         ]}
-        aria-label={m['voice.poor_connection']()}
+        aria-label={m('voice.poor_connection')}
       ></span>
     {/if}
   </span>
@@ -883,14 +883,14 @@ Room sidebar panel for voice/video calls.
       fill ? 'h-full min-h-0' : '@min-[368px]:col-span-2'
     ]}
     {@attach isInThisCall && speakingCard(participant.key)}
-    title={m['voice.screen_title']({ name: participant.displayName })}
+    title={m('voice.screen_title', { name: participant.displayName })}
     data-testid="call-screen-share-card"
     data-speaking-ring={isInThisCall ? true : undefined}
     data-call-media-card
   >
     {@render participantHeader(
       participant,
-      m['voice.screen_title']({ name: participant.displayName }),
+      m('voice.screen_title', { name: participant.displayName }),
       'media',
       false,
       tile
@@ -908,7 +908,7 @@ Room sidebar panel for voice/video calls.
       >
         <VideoThumbnail
           track={participant.screenShareTrack!}
-          name={m['voice.screen_title']({ name: participant.displayName })}
+          name={m('voice.screen_title', { name: participant.displayName })}
           user={participant.avatarUser}
           showIdentityOverlay={false}
           fit="contain"
@@ -927,7 +927,7 @@ Room sidebar panel for voice/video calls.
     class={[callTileCardClass, 'participant-card-video h-full min-h-0']}
     {@attach isInThisCall && speakingCard(participant.key)}
     title={isScreen
-      ? m['voice.screen_title']({ name: participant.displayName })
+      ? m('voice.screen_title', { name: participant.displayName })
       : participantTitle(participant)}
     data-testid="call-featured-stage-card"
     data-speaking-ring={isInThisCall ? true : undefined}
@@ -936,7 +936,7 @@ Room sidebar panel for voice/video calls.
     {@render participantHeader(
       participant,
       isScreen
-        ? m['voice.screen_title']({ name: participant.displayName })
+        ? m('voice.screen_title', { name: participant.displayName })
         : participant.displayName,
       isScreen || isVideo ? 'media' : 'voice',
       true,
@@ -961,7 +961,7 @@ Room sidebar panel for voice/video calls.
       {:else if isScreen}
         <VideoThumbnail
           track={participant.screenShareTrack!}
-          name={m['voice.screen_title']({ name: participant.displayName })}
+          name={m('voice.screen_title', { name: participant.displayName })}
           user={participant.avatarUser}
           showIdentityOverlay={false}
           fit="contain"
@@ -1006,9 +1006,9 @@ Room sidebar panel for voice/video calls.
       <div class="grid grid-flow-col auto-cols-fr gap-2">
         <VoiceCallControlButton
           class={controlButtonClass}
-          label={m['voice.devices']()}
+          label={m('voice.devices')}
           testId="call-device-menu-button"
-          icon="uil--setting"
+          icon="icon-[uil--setting]"
           iconClass="text-lg"
           onclick={openDeviceMenu}
         />
@@ -1016,10 +1016,10 @@ Room sidebar panel for voice/video calls.
         <VoiceCallControlButton
           class={voiceCallState.isCameraEnabled ? activeControlButtonClass : controlButtonClass}
           label={voiceCallState.isCameraEnabled
-            ? m['voice.turn_off_camera']()
-            : m['voice.turn_on_camera']()}
+            ? m('voice.turn_off_camera')
+            : m('voice.turn_on_camera')}
           testId="call-camera-toggle"
-          icon={voiceCallState.isCameraEnabled ? 'uil--video' : 'uil--video-slash'}
+          icon={voiceCallState.isCameraEnabled ? 'icon-[uil--video]' : 'icon-[uil--video-slash]'}
           iconClass="text-lg"
           onclick={() => voiceCallState.toggleCamera()}
           pending={voiceCallState.isCameraPending}
@@ -1027,9 +1027,9 @@ Room sidebar panel for voice/video calls.
 
         <VoiceCallControlButton
           class={voiceCallState.isMuted ? controlButtonClass : activeControlButtonClass}
-          label={voiceCallState.isMuted ? m['voice.unmute']() : m['voice.mute']()}
+          label={voiceCallState.isMuted ? m('voice.unmute') : m('voice.mute')}
           testId="call-mute-toggle"
-          icon={voiceCallState.isMuted ? 'uil--microphone-slash' : 'uil--microphone'}
+          icon={voiceCallState.isMuted ? 'icon-[uil--microphone-slash]' : 'icon-[uil--microphone]'}
           iconClass="text-lg"
           onclick={() => voiceCallState.toggleMute()}
           pending={voiceCallState.isMicrophonePending}
@@ -1037,9 +1037,9 @@ Room sidebar panel for voice/video calls.
 
         <VoiceCallControlButton
           class={voiceCallState.isDeafened ? controlButtonClass : activeControlButtonClass}
-          label={voiceCallState.isDeafened ? m['voice.undeafen']() : m['voice.deafen']()}
+          label={voiceCallState.isDeafened ? m('voice.undeafen') : m('voice.deafen')}
           testId="call-deafen-toggle"
-          icon={voiceCallState.isDeafened ? 'uil--headphone-slash' : 'uil--headphones'}
+          icon={voiceCallState.isDeafened ? 'icon-[uil--headphone-slash]' : 'icon-[uil--headphones]'}
           iconClass="text-lg"
           pressed={voiceCallState.isDeafened}
           onclick={() => voiceCallState.toggleDeafen()}
@@ -1053,10 +1053,10 @@ Room sidebar panel for voice/video calls.
             ? activeControlButtonClass
             : controlButtonClass}
           label={voiceCallState.isScreenShareEnabled
-            ? m['voice.stream_quality_settings']()
-            : m['voice.share_screen']()}
+            ? m('voice.stream_quality_settings')
+            : m('voice.share_screen')}
           testId="call-screen-share-toggle"
-          icon="uil--desktop"
+          icon="icon-[uil--desktop]"
           iconClass="text-lg"
           haspopup="dialog"
           expanded={!!streamQualityAnchor}
@@ -1067,9 +1067,9 @@ Room sidebar panel for voice/video calls.
         {#if showSoundboardButton}
           <VoiceCallControlButton
             class={soundboardAnchor ? activeControlButtonClass : controlButtonClass}
-            label={m['soundboard.panel_button']()}
+            label={m('soundboard.panel_button')}
             testId="call-soundboard-button"
-            icon="uil--music"
+            icon="icon-[uil--music]"
             iconClass="text-lg"
             pressed={!!soundboardAnchor}
             onclick={toggleSoundboard}
@@ -1079,9 +1079,9 @@ Room sidebar panel for voice/video calls.
         <VoiceCallControlButton
           class={dangerControlButtonClass}
           onclick={() => voiceCallState.leave()}
-          label={m['voice.leave']()}
+          label={m('voice.leave')}
           testId="call-leave-button"
-          icon="uil--phone-slash"
+          icon="icon-[uil--phone-slash]"
           iconClass="text-lg"
         />
       </div>
@@ -1094,7 +1094,7 @@ Room sidebar panel for voice/video calls.
         data-testid="call-join-button"
         onclick={handleJoin}
         disabled={isInAnotherCall || isConnecting}
-        title={isInAnotherCall ? m['voice.already_in_another_call']() : joinLabel}
+        title={isInAnotherCall ? m('voice.already_in_another_call') : joinLabel}
       >
         {joinLabel}
       </button>
@@ -1123,7 +1123,7 @@ Room sidebar panel for voice/video calls.
       {#if isStageLayout && isGridView && stageTiles.length > 0}
         <section
           class="flex min-h-0 flex-1 flex-col"
-          aria-label={m['voice.participants']()}
+          aria-label={m('voice.participants')}
           data-testid="call-stage-grid"
         >
           <div
@@ -1138,7 +1138,7 @@ Room sidebar panel for voice/video calls.
       {:else if isStageLayout && featuredStageTile}
         <section
           class="flex min-h-0 flex-1 flex-col gap-3"
-          aria-label={m['voice.participants']()}
+          aria-label={m('voice.participants')}
           data-testid="call-stage-layout"
         >
           <div class="flex min-h-0 flex-1" data-testid="call-featured-stage">
@@ -1159,12 +1159,12 @@ Room sidebar panel for voice/video calls.
               >
                 <span
                   class={[
-                    'iconify uil--angle-down',
+                    'icon-[uil--angle-down]',
                     callView.collapsedStrip && 'rotate-180'
                   ]}
                   aria-hidden="true"
                 ></span>
-                <span class="iconify uil--users-alt" aria-hidden="true"></span>
+                <span class="icon-[uil--users-alt]" aria-hidden="true"></span>
               </button>
 
               {#if !callView.collapsedStrip}
@@ -1186,14 +1186,14 @@ Room sidebar panel for voice/video calls.
       {:else if isStageLayout}
         <section
           class="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 text-center"
-          aria-label={m['voice.participants']()}
+          aria-label={m('voice.participants')}
           data-testid="call-stage-empty"
         >
-          <p class="text-muted">{m['voice.all_feeds_hidden']()}</p>
-          <p class="text-muted">{m['voice.all_feeds_hidden_hint']()}</p>
+          <p class="text-muted">{m('voice.all_feeds_hidden')}</p>
+          <p class="text-muted">{m('voice.all_feeds_hidden_hint')}</p>
         </section>
       {:else}
-        <section class="@container flex flex-col gap-2" aria-label={m['voice.participants']()}>
+        <section class="@container flex flex-col gap-2" aria-label={m('voice.participants')}>
           <div
             class={[
               'grid grid-cols-1 gap-3',

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
   import { roleColorFromInputValue, roleColorToCSS, roleColorToInputValue } from '$lib/roleColors';
   import { Button } from '$lib/ui/form';
 
@@ -28,7 +28,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-  <label class="text-sm font-medium" for="roleColor">{m['rbac.role_form.colour']()}</label>
+  <label class="text-sm font-medium" for="roleColor">{m('rbac.role_form.colour')}</label>
   <div class="flex flex-wrap items-center gap-3">
     <input
       id="roleColor"
@@ -47,8 +47,8 @@
       Aa
     </span>
     <Button type="button" variant="secondary" onclick={clearColor} {disabled}>
-      {m['rbac.role_form.default_colour']()}
+      {m('rbac.role_form.default_colour')}
     </Button>
   </div>
-  <p class="text-xs text-muted">{m['rbac.role_form.colour_description']()}</p>
+  <p class="text-xs text-muted">{m('rbac.role_form.colour_description')}</p>
 </div>

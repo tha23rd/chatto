@@ -27,14 +27,14 @@ selected mode (live level meter on the sensitivity slider).
     type NoiseSuppressionMode
   } from '$lib/voice/noiseSuppression.svelte';
   import { MicTest } from '$lib/voice/micTest.svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
 
   let { controller }: { controller: NoiseSuppressionController } = $props();
 
   const modeOptions: { mode: NoiseSuppressionMode; label: string }[] = [
-    { mode: 'off', label: m['voice.noise_suppression_standard']() },
-    { mode: 'voice-isolation', label: m['voice.noise_suppression_voice_isolation']() },
-    { mode: 'enhanced', label: m['voice.noise_suppression_enhanced']() }
+    { mode: 'off', label: m('voice.noise_suppression_standard') },
+    { mode: 'voice-isolation', label: m('voice.noise_suppression_voice_isolation') },
+    { mode: 'enhanced', label: m('voice.noise_suppression_enhanced') }
   ];
 
   const test = new MicTest();
@@ -115,7 +115,7 @@ selected mode (live level meter on the sensitivity slider).
 </script>
 
 <div class="flex flex-col gap-4">
-  <div class="flex flex-col gap-2" role="radiogroup" aria-label={m['voice.noise_suppression']()}>
+  <div class="flex flex-col gap-2" role="radiogroup" aria-label={m('voice.noise_suppression')}>
     {#each modeOptions as option (option.mode)}
       <ChoiceRow
         label={option.label}
@@ -124,7 +124,7 @@ selected mode (live level meter on the sensitivity slider).
       />
     {/each}
     {#if voiceIsolationUnsupported}
-      <p class="text-sm text-danger">{m['voice.noise_suppression_unavailable']()}</p>
+      <p class="text-sm text-danger">{m('voice.noise_suppression_unavailable')}</p>
     {/if}
   </div>
 
@@ -132,8 +132,8 @@ selected mode (live level meter on the sensitivity slider).
     <RangeField
       id="dfn3-strength"
       testid="dfn3-strength"
-      label={m['voice.tuning.strength_label']()}
-      icon="uil--filter"
+      label={m('voice.tuning.strength_label')}
+      icon="icon-[uil--filter]"
       min={MIN_STRENGTH}
       max={MAX_STRENGTH}
       step={5}
@@ -142,15 +142,15 @@ selected mode (live level meter on the sensitivity slider).
       disabled={!isEnhanced}
       oninput={onStrengthInput}
     />
-    <p class="text-sm text-muted">{m['voice.tuning.strength_hint']()}</p>
+    <p class="text-sm text-muted">{m('voice.tuning.strength_hint')}</p>
   </div>
 
   <div class="flex flex-col gap-2">
     <RangeField
       id="mic-input-gain"
       testid="mic-input-gain"
-      label={m['voice.tuning.input_gain_label']()}
-      icon="uil--microphone"
+      label={m('voice.tuning.input_gain_label')}
+      icon="icon-[uil--microphone]"
       min={MIN_INPUT_GAIN}
       max={MAX_INPUT_GAIN}
       step={5}
@@ -158,21 +158,21 @@ selected mode (live level meter on the sensitivity slider).
       displayValue={`${controller.inputGain}%`}
       oninput={onInputGainInput}
     />
-    <p class="text-sm text-muted">{m['voice.tuning.input_gain_hint']()}</p>
+    <p class="text-sm text-muted">{m('voice.tuning.input_gain_hint')}</p>
   </div>
 
   <div class="flex flex-col gap-2">
     <RangeField
       id="mic-sensitivity"
       testid="mic-sensitivity"
-      label={m['voice.tuning.sensitivity_label']()}
-      icon="uil--signal-alt-3"
+      label={m('voice.tuning.sensitivity_label')}
+      icon="icon-[uil--signal-alt-3]"
       min={MIN_SENSITIVITY}
       max={MAX_SENSITIVITY}
       step={5}
       value={controller.sensitivity}
       displayValue={controller.sensitivity === 0
-        ? m['voice.tuning.sensitivity_off']()
+        ? m('voice.tuning.sensitivity_off')
         : String(controller.sensitivity)}
       oninput={onSensitivityInput}
     />
@@ -183,7 +183,7 @@ selected mode (live level meter on the sensitivity slider).
       <div
         class="relative h-2 w-full overflow-hidden rounded-full bg-surface-strong"
         role="meter"
-        aria-label={m['voice.mic_test.level']()}
+        aria-label={m('voice.mic_test.level')}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={micLevelPct}
@@ -197,12 +197,12 @@ selected mode (live level meter on the sensitivity slider).
         {/if}
       </div>
     {/if}
-    <p class="text-sm text-muted">{m['voice.tuning.sensitivity_hint']()}</p>
+    <p class="text-sm text-muted">{m('voice.tuning.sensitivity_hint')}</p>
   </div>
 
   <div class="flex flex-col gap-2">
     <div class="flex items-center justify-between gap-3">
-      <span class="font-medium text-text">{m['voice.mic_test.title']()}</span>
+      <span class="font-medium text-text">{m('voice.mic_test.title')}</span>
       <button
         type="button"
         class="btn-secondary cursor-pointer"
@@ -210,11 +210,11 @@ selected mode (live level meter on the sensitivity slider).
         disabled={isLoading}
       >
         {#if isLoading}
-          {m['voice.mic_test.loading']()}
+          {m('voice.mic_test.loading')}
         {:else if isRunning}
-          {m['voice.mic_test.stop']()}
+          {m('voice.mic_test.stop')}
         {:else}
-          {m['voice.mic_test.start']()}
+          {m('voice.mic_test.start')}
         {/if}
       </button>
     </div>
@@ -222,11 +222,11 @@ selected mode (live level meter on the sensitivity slider).
     {#if isRunning}
       <!-- The preview follows the selected mode above; switch modes to compare.
            The live input-level meter lives on the sensitivity slider. -->
-      <p class="text-sm text-muted">{m['voice.mic_test.headphones_hint']()}</p>
+      <p class="text-sm text-muted">{m('voice.mic_test.headphones_hint')}</p>
     {/if}
 
     {#if test.status === 'error'}
-      <p class="text-sm text-danger">{m['voice.mic_test.error']()}</p>
+      <p class="text-sm text-danger">{m('voice.mic_test.error')}</p>
     {/if}
   </div>
 </div>
