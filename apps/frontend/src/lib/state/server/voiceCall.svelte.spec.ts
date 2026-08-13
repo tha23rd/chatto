@@ -2704,4 +2704,96 @@ describe('VoiceCallState', () => {
       expect(stoppedTrackIds).toHaveLength(0);
     });
   });
+
+  describe('auto-rejoin after page reload', () => {
+    const REJOIN_KEY = 'chatto:i:server-1:autoRejoinRoom';
+
+    function makeState(): VoiceCallState {
+      localStorage.removeItem(REJOIN_KEY);
+      return new VoiceCallState(createVoiceCallClient(), undefined, 'server-1');
+    }
+
+    it('remembers the joined room call and forgets it on leave', async () => {
+      const state = makeState();
+      await state.join('wss://livekit.example.test', 'R1');
+      expect(localStorage.getItem(REJOIN_KEY)).toBe('"R1"');
+
+      await state.leave();
+      expect(localStorage.getItem(REJOIN_KEY)).toBeNull();
+    });
+
+    it('rejoins the marked room once the snapshot confirms its call is active', async () => {
+      const client = createVoiceCallClient();
+      const state = new VoiceCallState(client, undefined, 'server-1');
+      localStorage.setItem(REJOIN_KEY, '"R1"');
+
+      state.autoRejoin('wss://livekit.example.test', ['R2', 'R1'], true);
+
+      await vi.waitFor(() => expect(client.joinCall).toHaveBeenCalledWith('R1'));
+    });
+
+    it('does nothing before the first authoritative snapshot arrives', () => {
+      const client = createVoiceCallClient();
+      const state = new VoiceCallState(client, undefined, 'server-1');
+      localStorage.setItem(REJOIN_KEY, '"R1"');
+
+      state.autoRejoin('wss://livekit.example.test', ['R1'], false);
+
+      expect(client.joinCall).not.toHaveBeenCalled();
+      expect(localStorage.getItem(REJOIN_KEY)).toBe('"R1"');
+    });
+
+    it('does not rejoin while LiveKit is unconfigured', () => {
+      const client = createVoiceCallClient();
+      const state = new VoiceCallState(client, undefined, 'server-1');
+      localStorage.setItem(REJOIN_KEY, '"R1"');
+
+      state.autoRejoin(null, ['R1'], true);
+
+      expect(client.joinCall).not.toHaveBeenCalled();
+      expect(localStorage.getItem(REJOIN_KEY)).toBe('"R1"');
+    });
+
+    it('does not pull the viewer out of a call joined deliberately after the reload', async () => {
+      const client = createVoiceCallClient();
+      const state = new VoiceCallState(client, undefined, 'server-1');
+      localStorage.setItem(REJOIN_KEY, '"R1"');
+
+      await state.join('wss://livekit.example.test', 'R2');
+      state.autoRejoin('wss://livekit.example.test', ['R1'], true);
+
+      expect(client.joinCall).toHaveBeenCalledTimes(1);
+      expect(client.joinCall).toHaveBeenCalledWith('R2');
+    });
+
+    it('drops the marker when the snapshot shows the marked call ended while away', () => {
+      const client = createVoiceCallClient();
+      const state = new VoiceCallState(client, undefined, 'server-1');
+      localStorage.setItem(REJOIN_KEY, '"R1"');
+
+      state.autoRejoin('wss://livekit.example.test', ['R2'], true);
+
+      expect(client.joinCall).not.toHaveBeenCalled();
+      expect(localStorage.getItem(REJOIN_KEY)).toBeNull();
+    });
+
+    it('keeps the marker while connected even if a snapshot omits the room', async () => {
+      const state = makeState();
+      await state.join('wss://livekit.example.test', 'R1');
+      expect(localStorage.getItem(REJOIN_KEY)).toBe('"R1"');
+
+      state.autoRejoin('wss://livekit.example.test', [], true);
+
+      expect(localStorage.getItem(REJOIN_KEY)).toBe('"R1"');
+    });
+
+    it('drops the marker on session teardown', async () => {
+      const state = makeState();
+      await state.join('wss://livekit.example.test', 'R1');
+
+      state.clearAutoRejoinMarker();
+
+      expect(localStorage.getItem(REJOIN_KEY)).toBeNull();
+    });
+  });
 });

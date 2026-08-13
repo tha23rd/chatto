@@ -1,5 +1,6 @@
 import { isMessagePostedEvent, type TimelineEventView } from '$lib/render/timelineEvents';
 
+
 /** Return whether a deleted message has no visible context worth retaining. */
 export function shouldHideTombstone(event: TimelineEventView): boolean {
   const message = event.event;

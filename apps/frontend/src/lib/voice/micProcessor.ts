@@ -15,6 +15,10 @@
  * which reports periodic underrun stats; this class turns sustained underruns
  * into an `onSuppressionOverload` callback so the owner can fall back to
  * browser processing instead of letting the user sit through crackling audio.
+ * The noise gate runs in its own fork-owned worklet
+ * (`static/worklets/gate-processor.js`) so it stays sample-accurate on the
+ * audio thread instead of depending on a main-thread `requestAnimationFrame`
+ * loop, which browsers stop for hidden tabs and would freeze the gate shut.
  * `init`/`restart` (re)build the graph on the current capture track,
  * `destroy` tears it down. Kept dependency-free of Svelte runes — the
  * reactive preference lives in the controller; this class only owns the
@@ -70,6 +74,11 @@ export type MicProcessorOptions = {
   onSuppressionOverload?: () => void;
   /** DFN3 core loader; defaults to the fork's `DfnWorkletCore`. */
   loadCore?: DfnCoreFactory;
+  /**
+   * Gate worklet node factory; injectable so tests avoid the real worklet
+   * module. Defaults to the fork-owned `gate-processor.js` worklet.
+   */
+  createGateWorklet?: GateWorkletFactory;
 };
 
 const defaultLoadCore: DfnCoreFactory = async ({ noiseReductionLevel, assetPath, onStats }) => {
@@ -91,11 +100,25 @@ const clampGain = (n: number): number => (Number.isFinite(n) && n >= 0 ? n : 1);
 const clampThreshold = (n: number): number =>
   Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0;
 
-// Gate smoothing time constants (seconds) for AudioParam.setTargetAtTime, plus
-// a hold so brief dips below the threshold between words do not chatter it shut.
-const GATE_ATTACK = 0.01;
-const GATE_RELEASE = 0.12;
-const GATE_HOLD_SECONDS = 0.25;
+/** Same-origin gate worklet module path. Must match the file under `static/`. */
+const GATE_WORKLET_PATH = '/worklets/gate-processor.js';
+/** Registered processor name; must match `registerProcessor` in the worklet. */
+const GATE_PROCESSOR_NAME = 'chatto-gate-processor';
+
+/** Builds the audio-thread gate node; injectable so tests avoid the worklet. */
+export type GateWorkletFactory = (
+  ctx: AudioContext,
+  threshold: number
+) => Promise<AudioWorkletNode>;
+
+const defaultCreateGateWorklet: GateWorkletFactory = async (ctx, threshold) => {
+  await ctx.audioWorklet.addModule(GATE_WORKLET_PATH);
+  return new AudioWorkletNode(ctx, GATE_PROCESSOR_NAME, {
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    processorOptions: { threshold }
+  });
+};
 
 /**
  * Composite microphone processor. One instance per attached outbound track;
@@ -108,6 +131,7 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
   processedTrack?: MediaStreamTrack;
 
   private readonly loadCore: DfnCoreFactory;
+  private readonly createGateWorklet: GateWorkletFactory;
   private readonly monitor: boolean;
   private readonly onSuppressionOverload?: () => void;
   private assetPath: string;
@@ -124,18 +148,17 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
   private ctx: AudioContext | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private gainNode: GainNode | null = null;
-  private gateNode: GainNode | null = null;
+  /** Audio-thread noise gate (`static/worklets/gate-processor.js`). */
+  private gateWorklet: AudioWorkletNode | null = null;
   private analyser: AnalyserNode | null = null;
   private destination: MediaStreamAudioDestinationNode | null = null;
   /** Lazy DeepFilterNet3 stage, kept once loaded so re-enabling is instant. */
   private core: DfnCore | null = null;
   private worklet: AudioWorkletNode | null = null;
 
-  private raf = 0;
-  private gateOpenUntil = 0;
-
   constructor(options: MicProcessorOptions) {
     this.loadCore = options.loadCore ?? defaultLoadCore;
+    this.createGateWorklet = options.createGateWorklet ?? defaultCreateGateWorklet;
     this.monitor = options.monitor ?? false;
     this.onSuppressionOverload = options.onSuppressionOverload;
     this.assetPath = options.assetPath;
@@ -184,18 +207,16 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
   }
 
   async destroy(): Promise<void> {
-    if (this.raf) cancelAnimationFrame(this.raf);
-    this.raf = 0;
     this.source?.disconnect();
     this.gainNode?.disconnect();
-    this.gateNode?.disconnect();
+    this.gateWorklet?.disconnect();
     this.analyser?.disconnect();
     this.worklet?.disconnect();
     this.destination?.disconnect();
     this.core?.destroy();
     this.core = null;
     this.worklet = null;
-    this.source = this.gainNode = this.gateNode = null;
+    this.source = this.gainNode = this.gateWorklet = null;
     this.analyser = null;
     this.destination = null;
     const ctx = this.ctx;
@@ -207,17 +228,14 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
   setInputGain(gain: number): void {
     this.inputGain = clampGain(gain);
     if (this.gainNode && this.ctx) {
-      this.gainNode.gain.setTargetAtTime(this.inputGain, this.ctx.currentTime, GATE_ATTACK);
+      this.gainNode.gain.setTargetAtTime(this.inputGain, this.ctx.currentTime, 0.01);
     }
   }
 
   /** Gate open threshold (0..1); 0 disables gating. Applied live. */
   setGateThreshold(threshold: number): void {
     this.gateThreshold = clampThreshold(threshold);
-    // When disabled, force the gate fully open so audio is never held shut.
-    if (this.gateThreshold === 0 && this.gateNode && this.ctx) {
-      this.gateNode.gain.setTargetAtTime(1, this.ctx.currentTime, GATE_ATTACK);
-    }
+    this.gateWorklet?.port.postMessage({ type: 'SET_THRESHOLD', value: this.gateThreshold });
   }
 
   /** DeepFilterNet3 attenuation limit (0..100). Applied live. */
@@ -239,7 +257,7 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
       this.overloadedIntervals = 0;
       this.overloadFired = false;
     }
-    if (!this.ctx || !this.gateNode || !this.destination) return;
+    if (!this.ctx || !this.gateWorklet || !this.destination) return;
     if (enabled) {
       await this.ensureWorklet();
       this.core?.setNoiseSuppressionEnabled(true);
@@ -260,7 +278,6 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
     if (this.ctx.state === 'suspended') void this.ctx.resume().catch(() => {});
 
     this.gainNode ??= this.ctx.createGain();
-    this.gateNode ??= this.ctx.createGain();
     if (!this.analyser) {
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 256;
@@ -270,7 +287,8 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
       this.processedTrack = this.destination.stream.getAudioTracks()[0];
     }
     this.gainNode.gain.value = this.inputGain;
-    this.gateNode.gain.value = this.gateThreshold === 0 ? 1 : 0;
+
+    await this.ensureGateWorklet();
 
     if (this.dfnEnabled) await this.ensureWorklet();
 
@@ -279,10 +297,18 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
     this.source = this.ctx.createMediaStreamSource(new MediaStream([this.originalTrack]));
     this.source.connect(this.gainNode);
     this.gainNode.disconnect();
-    this.gainNode.connect(this.gateNode);
+    this.gainNode.connect(this.gateWorklet!);
     this.gainNode.connect(this.analyser);
     this.rewireDfn();
-    this.startGateLoop();
+  }
+
+  /** Creates the audio-thread gate node (idempotent). */
+  private async ensureGateWorklet(): Promise<AudioWorkletNode> {
+    if (!this.gateWorklet) {
+      if (!this.ctx) throw new Error('MicProcessor: no AudioContext');
+      this.gateWorklet = await this.createGateWorklet(this.ctx, this.gateThreshold);
+    }
+    return this.gateWorklet;
   }
 
   private async ensureWorklet(): Promise<void> {
@@ -318,38 +344,14 @@ export class MicProcessor implements TrackProcessor<Track.Kind.Audio> {
 
   /** Route the gate either through the DFN3 worklet or straight to output. */
   private rewireDfn(): void {
-    if (!this.gateNode || !this.destination) return;
-    this.gateNode.disconnect();
+    if (!this.gateWorklet || !this.destination) return;
+    this.gateWorklet.disconnect();
     this.worklet?.disconnect();
-    const terminal = this.dfnEnabled && this.worklet ? this.worklet : this.gateNode;
-    if (terminal === this.worklet) this.gateNode.connect(this.worklet);
+    const terminal = this.dfnEnabled && this.worklet ? this.worklet : this.gateWorklet;
+    if (terminal === this.worklet) this.gateWorklet.connect(this.worklet);
     terminal.connect(this.destination);
     // Local monitor (mic test): play straight from the graph, not via an
     // `<audio>` element fed by the destination-node stream, which crackles.
     if (this.monitor && this.ctx) terminal.connect(this.ctx.destination);
-  }
-
-  private startGateLoop(): void {
-    if (this.raf) cancelAnimationFrame(this.raf);
-    const analyser = this.analyser;
-    const gate = this.gateNode;
-    const ctx = this.ctx;
-    if (!analyser || !gate || !ctx) return;
-    const buf = new Uint8Array(analyser.fftSize);
-    const tick = () => {
-      if (!this.analyser || !this.gateNode || !this.ctx) return;
-      if (this.gateThreshold > 0) {
-        analyser.getByteTimeDomainData(buf);
-        let peak = 0;
-        for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
-        const level = peak / 128;
-        const now = this.ctx.currentTime;
-        if (level >= this.gateThreshold) this.gateOpenUntil = now + GATE_HOLD_SECONDS;
-        const open = now < this.gateOpenUntil;
-        this.gateNode.gain.setTargetAtTime(open ? 1 : 0, now, open ? GATE_ATTACK : GATE_RELEASE);
-      }
-      this.raf = requestAnimationFrame(tick);
-    };
-    this.raf = requestAnimationFrame(tick);
   }
 }

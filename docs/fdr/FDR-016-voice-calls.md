@@ -1,7 +1,7 @@
 # FDR-016: Voice Calls
 
 **Status:** Active
-**Last reviewed:** 2026-08-03
+**Last reviewed: 2026-08-11
 
 ## Overview
 
@@ -37,6 +37,7 @@ Rooms support real-time voice conversations with optional camera video and scree
 - The first join starts a call session, creates fresh per-call E2EE key material, and records durable call lifecycle facts. The final leave ends the call, records the end fact, and shreds the call key.
 - When the first member explicitly starts a call, every other current room member whose effective notification level is not MUTED receives one persistent call-start notification. Later joins and LiveKit reconciliation do not create duplicates. DND recipients retain the notification without sound or Web Push.
 - Hanging up disconnects from LiveKit and clears the participant from everyone else's view.
+- Reloading the page while joined does not leave the call for good: the client remembers which room call the viewer was connected to and automatically rejoins once the server's active-calls snapshot confirms that call is still running. If the call ended while the page was closed, the client drops the memory instead of starting a new call on its own.
 - New clients always enable LiveKit E2EE before connecting. Chatto distributes a KMS-backed per-call shared key with the LiveKit join token; the raw key is never written to EVT and is shredded when the call ends.
 - Screen sharing can request capture audio when the user enables **Share audio**. In supported browsers such as Chrome, presenters can select a browser tab and enable **Share tab audio** in the browser picker. On the Windows desktop client, an entire-display share can include Windows system audio, while a selected-window share requests audio from the application that owns that window and its process tree. Chatto never silently broadens a selected-window share to all system output. If application audio is unavailable, the window's video stays shared and the presenter sees a warning that it has no sound.
 - Shared audio is captured and published as media, not as speech: echo cancellation, noise suppression, and automatic gain control are explicitly off for it, and the published track is hinted as music. The microphone keeps its speech processing, with one refinement: while the optional DeepFilterNet3 suppressor (which only ever attaches to the microphone track) is active, the browser's own noise suppression is disabled so the two suppressors never stack; echo cancellation and automatic gain control stay on.
@@ -102,9 +103,9 @@ Rooms support real-time voice conversations with optional camera video and scree
 
 ### 10. E2EE keys are KMS-backed per-call secrets
 
-**Decision:** `voiceCallToken` returns both `token` and `e2eeKey`. The first join for a room creates a new call ID and per-call E2EE key through Chatto's KMS boundary, stores the raw key in `ENCRYPTION_KEYS` under `call.e2ee.{callId}`, and records only the key ref in `CallStartedEvent`. The final leave records `CallEndedEvent` and shreds the key ref. The frontend creates an `ExternalE2EEKeyProvider`, configures the LiveKit E2EE worker, sets the key, enables E2EE, then connects.
-**Why:** LiveKit E2EE key generation/distribution is application responsibility. Chatto already authorizes token access by room membership, so the token resolver is the narrow place to distribute the shared call key. Keeping the raw key out of EVT and normal backups avoids turning event-log copies into permanent decrypt material for captured media.
-**Tradeoff:** Always-on E2EE breaks media compatibility with older clients that do not enable E2EE. Restoring a backup without `ENCRYPTION_KEYS` cannot recover active call keys; active calls should be considered interrupted across such restores.
+**Decision:** `voiceCallToken` returns both `token` and `e2eeKey`. The first join for a room creates a new call ID and per-call E2EE key through Chatto's KMS boundary, stores the raw key in `ENCRYPTION_KEYS` under `call.e2ee.{callId}`, and records only the key ref in `CallStartedEvent`. The final leave records `CallEndedEvent`, then attempts idempotent key shredding. That event is also the durable trigger for the shared call-key cleanup consumer, which retries unfinished shredding across crashes and replicas. The frontend creates an `ExternalE2EEKeyProvider`, configures the LiveKit E2EE worker, sets the key, enables E2EE, then connects.
+**Why:** LiveKit E2EE key generation/distribution is application responsibility. Chatto already authorizes token access by room membership, so the token resolver is the narrow place to distribute the shared call key. Keeping the raw key out of EVT and normal backups avoids turning event-log copies into permanent decrypt material for captured media. Making the end fact the retry source closes the post-commit crash window without coupling recovery to LiveKit reconciliation.
+**Tradeoff:** Always-on E2EE breaks media compatibility with older clients that do not enable E2EE. Key deletion is at least once, so replicas may repeat the same idempotent shredding attempt; an unavailable KMS can briefly retain an ended call's key until retry succeeds. Restoring a backup without `ENCRYPTION_KEYS` cannot recover active call keys; active calls should be considered interrupted across such restores.
 
 ### 11. Deafen is transient in-call presence carried by a LiveKit participant attribute
 
@@ -159,7 +160,7 @@ Voice calling doesn't have a dedicated permission today; room membership is the 
 
 ## Related
 
-- **ADRs:** ADR-009 (durable LiveKit call state), ADR-012 (two-tier real-time events), ADR-020 (build-tag gated test endpoints), ADR-051 (server-scoped resumable client projection), ADR-063 (Deno Desktop and CEF packaging), ADR-900 (Windows desktop client)
+- **ADRs:** ADR-009 (durable LiveKit call state), ADR-012 (two-tier real-time events), ADR-020 (build-tag gated test endpoints), ADR-051 (server-scoped resumable client projection), ADR-063 (Deno Desktop and CEF packaging), ADR-067 (Electron desktop packaging), ADR-069 (explicit durable consumer lifecycle), ADR-900 (Windows desktop client)
 - **FDRs:** FDR-001 (Roles & Permissions), FDR-012 (Notifications), FDR-013 (Web Push Notifications), FDR-019 (Room Lifecycle), FDR-034 (Chatto Desktop)
 
 ## Open Questions

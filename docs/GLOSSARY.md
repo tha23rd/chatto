@@ -20,6 +20,8 @@ Names for visible surfaces and component groupings. When a name here disagrees w
 
 **Room View** — The main central area showing the current room: message list plus the composer at the bottom. Not "the chat area" — *Room View* is the canonical name.
 
+**Message Meta Bar** — Compact row beneath a message showing state and secondary actions such as thread status, reactions, and pin status.
+
 **Room Sidebar** — Right-hand pane scoped to the current room. Hosts room-specific extras such as the member list today and future surfaces like files or calls. Implemented in `apps/frontend/src/routes/chat/[serverId]/[roomId]/RoomSidebar.svelte`.
 
 **Composer** — The message input at the bottom of the Room View. Includes text input, attachment picker, emoji picker, mentions autocomplete.
@@ -40,6 +42,8 @@ User-facing concepts. If a user might say the word, it goes here.
 
 **Server** — Top-level Chatto deployment: one process, one NATS account, one membership boundary. Formerly called *Instance* in the codebase. See [ADR-029](adr/ADR-029-instance-to-server-rename.md).
 
+**Invite Link** — Shareable, revocable link that admits one or more new accounts when a server uses invite-only account creation; it may have a use limit or expiry. See [FDR-036](fdr/FDR-036-invite-links.md).
+
 **Space** — Legacy tier between server and room. Being consolidated into the server concept; in most deployments there is exactly one space per server (the *primary space*). See [ADR-027](adr/ADR-027-instance-space-server-consolidation.md).
 
 **Primary Space** — Transitional config-designated "the one space that matters" within a server. Bridge construct used while Instance + Space collapse into Server. See [ADR-027](adr/ADR-027-instance-space-server-consolidation.md).
@@ -55,6 +59,8 @@ User-facing concepts. If a user might say the word, it goes here.
 **DM (Direct Message)** — Private conversation between users, modelled as a room with `kind: dm`. See [FDR-007](fdr/FDR-007-direct-messages.md).
 
 **Message** — A user-posted entry in a room. Root messages live at the top level; thread replies hang off a root.
+
+**Slow Mode** — Per-channel pacing rule that limits each non-exempt member to one new message per configured interval across roots and threads. `room.manage` and `message.manage` bypass it; edits and other message interactions do not affect its timer. See [FDR-035](fdr/FDR-035-slow-mode.md).
 
 **Thread** — Reply chain rooted at a message. See [FDR-002](fdr/FDR-002-replies-and-threads.md).
 

@@ -80,8 +80,10 @@ redacted observations.
 - Specialist skills used: <names>
 - Conflict decisions: <summary or references>
 - Clean-merge fork surfaces audited: <summary>
+- Published client/server wire baselines and all applicable cross-version decode checks: <artifacts/results>
+- OCC retry authorization/invariant audit: <paths/tests/results>
 - Generated output: <status>
-- Documentation impact: <status>
+- Documentation and stale-command/path audit: <status>
 
 ## Compatibility and recovery
 
@@ -103,6 +105,7 @@ redacted observations.
 - PR: <number/url>
 - Stored PR head/base: <full SHAs>
 - PR CI: <run URL, conclusion>
+- Uploaded UI evidence: <GitHub attachment links or not applicable>
 - Approved merge: <message reference>
 - Origin/main after merge: <full SHA and parents>
 
@@ -143,6 +146,7 @@ redacted observations.
 - PR: <number/url>
 - Stored PR head/base: <full SHAs>
 - PR CI: <run URL, conclusion>
+- Uploaded UI evidence: <GitHub attachment links or not applicable>
 - Approved merge: <message reference>
 - Origin/main-native after merge: <full SHA and parents>
 - Downstream PR mergedAt: <authoritative UTC timestamp>

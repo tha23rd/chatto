@@ -2,18 +2,18 @@
   import WebhookSettings from '$lib/WebhookSettings.svelte';
   import PaneHeader from '$lib/ui/PaneHeader.svelte';
   import PageTitle from '$lib/ui/PageTitle.svelte';
-  import * as m from '$lib/i18n/messages';
+  import { m } from '$lib/i18n/messages';
 </script>
 
 <PageTitle
-  title={m['admin.common.server_admin_page_title']({
-    title: m['server_settings.webhooks.title']()
+  title={m('admin.common.server_admin_page_title', {
+    title: m('server_settings.webhooks.title')
   })}
 />
 
 <PaneHeader
-  title={m['server_settings.webhooks.title']()}
-  subtitle={m['server_settings.webhooks.subtitle']()}
+  title={m('server_settings.webhooks.title')}
+  subtitle={m('server_settings.webhooks.subtitle')}
   showMobileNav
 />
 

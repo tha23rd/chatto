@@ -1,7 +1,7 @@
 import '$lib/apiClientHooks';
 import { loadCurrentUser } from '$lib/auth/loadAuth';
 import { getPublicServerInfo } from '$lib/api-client/server';
-import { preloadActiveLocaleMessages } from '$lib/i18n/messages';
+import { preloadPublicLocaleMessages } from '$lib/i18n/messages';
 import { initializeNativeHost } from '$lib/native/host';
 import type { LayoutLoad } from './$types';
 
@@ -10,9 +10,8 @@ export const ssr = false;
 
 export const load: LayoutLoad = async ({ url }) => {
   await initializeNativeHost();
-  await preloadActiveLocaleMessages();
-
-  const [serverInfo, user] = await Promise.all([
+  const [, serverInfo, user] = await Promise.all([
+    preloadPublicLocaleMessages(),
     getPublicServerInfo(url.origin).catch(() => null),
     loadCurrentUser()
   ]);

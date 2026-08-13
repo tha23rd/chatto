@@ -9,7 +9,7 @@ import type {
 import type { User as APIUser } from '@chatto/api-types/api/v1/users_pb';
 import { RoomKind as APIRoomKind } from '@chatto/api-types/api/v1/rooms_pb';
 import { getEmojiByName } from '$lib/emoji';
-import * as m from '$lib/i18n/messages';
+import { m } from '$lib/i18n/messages';
 import { presenceStatusOrOffline } from './enumDefaults.js';
 
 export type NotificationAPIConfig = {
@@ -304,19 +304,19 @@ export function notificationSummary(
     case NotificationItemKind.RoomMessage:
       return actorName ? `${actorName} posted a message` : 'New message';
     case NotificationItemKind.VoiceCallStarted:
-      return m['voice.notification_started_by']({ name: actorName ?? m['common.deleted_user']() });
+      return m('voice.notification_started_by', { name: actorName ?? m('common.deleted_user') });
     case NotificationItemKind.Reaction: {
       // Custom emoji have no glyph, so fall back to the readable `:name:` form.
       const emoji = details?.emoji
         ? (getEmojiByName(details.emoji) ?? `:${details.emoji}:`)
         : null;
-      if (!actorName || !emoji) return m['chat.notifications.reaction_unknown']();
+      if (!actorName || !emoji) return m('chat.notifications.reaction_unknown');
       const count = details?.reactionCount ?? 1;
       // The actor and emoji describe the most recent reaction; the count only
       // appears once reactions have collapsed, so it is never singular there.
       return count > 1
-        ? m['chat.notifications.reaction_collapsed']({ name: actorName, emoji, count })
-        : m['chat.notifications.reaction']({ name: actorName, emoji });
+        ? m('chat.notifications.reaction_collapsed', { name: actorName, emoji, count })
+        : m('chat.notifications.reaction', { name: actorName, emoji });
     }
   }
 }

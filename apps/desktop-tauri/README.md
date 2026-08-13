@@ -130,7 +130,7 @@ for packaging or use `pushd` from `cmd.exe`, which temporarily maps the WSL path
 to a drive letter:
 
 ```powershell
-cmd.exe /d /c "pushd \\wsl.localhost\Ubuntu\home\your-user\path\to\chatto && corepack pnpm --filter chatto-desktop tauri build"
+cmd.exe /d /c "pushd \\wsl.localhost\Ubuntu\home\your-user\path\to\chatto && corepack pnpm --filter chatto-desktop-tauri tauri build"
 ```
 
 Do not treat a Linux-target Cargo build as Windows verification. It exercises a

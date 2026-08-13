@@ -99,6 +99,40 @@ State older-client/newer-server and newer-client/older-server impact. Keep
 release version, protocol capability, server configuration, and viewer
 permission decisions separate.
 
+### Published-wire collision audit
+
+Treat the exact currently published server and every client release line as
+compatibility baselines, including development and nightly artifacts whose
+software version did not change. For every public protobuf message that differs
+across the base, upstream candidate, merge result, or a published artifact:
+
+1. compare the base, upstream candidate, merge result, and published client and
+   server descriptors by fully qualified message, field number, wire type, and
+   semantic meaning;
+2. preserve any field number already consumed by a published fork artifact;
+3. cross-decode representative values in every applicable old/new producer and
+   consumer direction, including requests, responses, and events;
+4. fail the integration if either decoder populates a different known field,
+   silently drops a required request, or corrupts unrelated state; and
+5. when additive numbering cannot solve the collision, design and test an
+   explicit protocol version or negotiated capability before merging.
+
+Do not accept a claim that discovery or version gating makes a break safe
+unless the gate exists in both producer and consumer code, distinguishes the
+actual artifacts being rolled out, and has a mixed-version test.
+
+### Retry and documentation audits
+
+- Inspect every OCC/conflict retry loop in an affected operation. Authorization
+  and every mutable projection, KV, or domain precondition must be evaluated
+  inside each attempt after its boundary is refreshed. When such a precondition
+  exists, add a test that forces one conflict and changes it before the retry.
+- Search active maintenance, release, generated-output, and operator docs for
+  removed commands, paths, generators, package names, architectures, and
+  upstream-only claims. Validate each surviving instruction against the
+  resolved fork tree; upstream documentation is not automatically correct for
+  the fork.
+
 ## Compatibility forecast
 
 Before the main PR can be ready:
@@ -156,6 +190,12 @@ ready-for-review PR to `main`. Use a Markdown body file with:
 - server/native version forecast;
 - exact local verification; and
 - remaining manual checks.
+
+For visible UI changes, capture the rendered states required by
+`chatto-pr-checklist` and require their uploaded GitHub attachments before
+either integration PR is called ready. Refresh stored body claims after every
+head change and terminal CI transition, read each body back, and recapture UI
+evidence when a later commit changes the rendered state.
 
 Use `gh` to read the stored body, base, head SHA, and issue-closing references
 back after creation. Apply `chatto-pr-checklist`.

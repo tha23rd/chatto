@@ -150,7 +150,8 @@ describe('getCurrentUserViaConnect', () => {
           { capability: 'role.manage', granted: false },
           { capability: 'admin.view-system', granted: true },
           { capability: 'admin.view-audit', granted: true },
-          { capability: 'user.manage-permissions', granted: true }
+          { capability: 'user.manage-permissions', granted: true },
+          { capability: 'user.invite', granted: true }
         ]
       },
       serverNotificationPreference: {
@@ -201,6 +202,7 @@ describe('getCurrentUserViaConnect', () => {
         canAdminViewSystem: true,
         canAdminViewAudit: true,
         canManageUserPermissions: true,
+        canManageInvites: true,
         serverNotificationPreference: {
           level: NotificationLevel.ALL_MESSAGES,
           effectiveLevel: NotificationLevel.ALL_MESSAGES

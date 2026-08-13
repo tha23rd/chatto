@@ -97,7 +97,7 @@ independent of presence and hides itself after its expiry timestamp.
       </span>
     {/if}
     {#if showText && displayText}
-      <span class="min-w-0 truncate">{displayText}</span>
+      <bdi class="min-w-0 truncate">{displayText}</bdi>
     {/if}
   </span>
 {/if}
