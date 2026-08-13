@@ -59,7 +59,6 @@ const callStore = vi.hoisted(() => ({
       videoTrack: unknown;
       isScreenShareEnabled: boolean;
       screenShareTrack: unknown;
-      hasScreenShareAudio?: boolean;
       localVolume?: number;
       localScreenShareVolume?: number;
     }>,
@@ -1284,7 +1283,6 @@ describe('RoomSidebar', () => {
         videoTrack: null,
         isScreenShareEnabled: true,
         screenShareTrack: screenTrack,
-        hasScreenShareAudio: true,
         localVolume: 90,
         localScreenShareVolume: 40
       }
@@ -1327,7 +1325,7 @@ describe('RoomSidebar', () => {
     expect(callStore.voiceCall.setParticipantVolume).toHaveBeenCalledWith('user-2', 70);
   });
 
-  it('hides the stream-audio fader when the sharer publishes no audio', async () => {
+  it('always offers the stream-audio fader for a sharer, even without stream audio', async () => {
     const screenTrack = { attach: vi.fn(), detach: vi.fn() };
     callStore.voiceCall.connected = true;
     callStore.voiceCall.isInAnyCall = true;
@@ -1357,8 +1355,7 @@ describe('RoomSidebar', () => {
         isCameraEnabled: false,
         videoTrack: null,
         isScreenShareEnabled: true,
-        screenShareTrack: screenTrack,
-        hasScreenShareAudio: false
+        screenShareTrack: screenTrack
       }
     ];
 
@@ -1376,8 +1373,14 @@ describe('RoomSidebar', () => {
     await tick();
 
     expect(q(container, '[data-testid="call-participant-volume-slider"]')).toBeTruthy();
-    // A dead control is worse than no control.
-    expect(q(container, '[data-testid="call-stream-volume-slider"]')).toBeNull();
+    // Screen-share audio is off by default, but the fader is still there: the level
+    // applies the moment the sharer starts publishing stream audio.
+    const streamSlider = q(
+      container,
+      '[data-testid="call-stream-volume-slider"]'
+    ) as HTMLInputElement;
+    expect(streamSlider).toBeTruthy();
+    expect(streamSlider.value).toBe('100');
   });
 
   it('pops a call media feed out into a picture-in-picture window', async () => {
