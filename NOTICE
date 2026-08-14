@@ -77,6 +77,10 @@ Frontend and Documentation Components:
   (https://fontsource.org/fonts/ibm-plex-sans,
   https://fontsource.org/fonts/ibm-plex-mono) - SIL Open Font License 1.1
 - gemoji (https://github.com/github/gemoji) - MIT License
+- Noto Color Emoji (https://github.com/googlefonts/noto-emoji) - SIL Open
+  Font License 1.1. Desktop builds bundle a COLRv1 subset covering flag
+  codepoints only (apps/frontend/src/lib/native/emoji-flags.woff2); web
+  builds do not include it.
 - heic2any (https://github.com/alexcorvi/heic2any) - MIT License
 - highlight.js (https://highlightjs.org/) - BSD 3-Clause License
 - hls.js (https://github.com/video-dev/hls.js) - Apache License 2.0

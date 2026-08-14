@@ -1,0 +1,29 @@
+/*
+ * Desktop-only flag emoji font.
+ *
+ * Windows' Segoe UI Emoji has no country-flag glyphs, so WebView2 (the Tauri
+ * desktop host) falls back to regional-indicator letters and renders 🇺🇸 as
+ * "US". Desktop builds bundle a COLRv1 subset of Noto Color Emoji
+ * (emoji-flags.woff2) covering exactly the flag codepoints — regional
+ * indicators, subdivision-flag tags, and the ZWJ sequences they need — and
+ * append it to the app font stacks. The @font-face unicode-range keeps every
+ * other emoji on the platform font.
+ *
+ * This file is imported only when VITE_CHATTO_DESKTOP is set (see
+ * +layout.svelte), so web builds neither ship nor fetch the font.
+ */
+@font-face {
+  font-family: 'Noto Color Emoji';
+  src: url('./emoji-flags.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+1F1E6-1F1FF, U+1F3F3, U+1F3F4, U+1F6A9, U+200D, U+FE0F, U+2620, U+26A7, U+E0062, U+E0063,
+    U+E0065, U+E0067, U+E006C, U+E006E, U+E0073, U+E0074, U+E0077, U+E007F;
+}
+
+:root {
+  --font-sans: 'IBM Plex Sans Variable', 'Noto Color Emoji', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Noto Color Emoji', monospace;
+}
