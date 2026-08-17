@@ -641,6 +641,50 @@ jobs:
             echo "Version: \`${{ needs.build-main-image-contexts.outputs.image-version }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  deploy-production:
+    if: >-
+      github.repository == 'tha23rd/chatto' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      vars.AUTO_DEPLOY_PRODUCTION == 'true'
+    needs: publish-main-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    concurrency:
+      group: chatto-production
+      cancel-in-progress: false
+    permissions: {}
+    steps:
+      - name: Connect to the production tailnet
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:chatto-ci-deploy
+          ping: chatto-vps
+
+      - name: Promote and verify the main image
+        shell: bash
+        env:
+          CHATTO_DEPLOY_SSH_KEY: ${{ secrets.CHATTO_DEPLOY_SSH_KEY }}
+          CHATTO_VPS_KNOWN_HOSTS: ${{ secrets.CHATTO_VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$CHATTO_DEPLOY_SSH_KEY" > "$HOME/.ssh/chatto-deploy"
+          printf '%s\n' "$CHATTO_VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+          ssh \
+            -i "$HOME/.ssh/chatto-deploy" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=10 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            root@chatto-vps "promote ${GITHUB_SHA}"
+
   publish-main-native-installer:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main-native' }}
     needs:
