@@ -1447,12 +1447,16 @@ func TestMyAccountServiceSetAndDeleteCustomStatus(t *testing.T) {
 		t.Fatalf("stored CustomStatus = %+v, want set status", stored.GetCustomStatus())
 	}
 
-	_, err = env.account.UpdateCustomStatus(ctx, connect.NewRequest(&apiv1.UpdateCustomStatusRequest{
+	// Emoji-only status: empty (blank) text is allowed.
+	emojiOnlyResp, err := env.account.UpdateCustomStatus(ctx, connect.NewRequest(&apiv1.UpdateCustomStatusRequest{
 		Emoji: "🌿",
 		Text:  "   ",
 	}))
-	if connect.CodeOf(err) != connect.CodeInvalidArgument {
-		t.Fatalf("UpdateCustomStatus blank text error = %v, want InvalidArgument", err)
+	if err != nil {
+		t.Fatalf("UpdateCustomStatus emoji-only: %v", err)
+	}
+	if got := emojiOnlyResp.Msg.GetStatus(); got.GetEmoji() != "🌿" || got.GetText() != "" {
+		t.Fatalf("emoji-only status = %+v, want 🌿 with empty text", got)
 	}
 
 	_, err = env.account.UpdateCustomStatus(ctx, connect.NewRequest(&apiv1.UpdateCustomStatusRequest{

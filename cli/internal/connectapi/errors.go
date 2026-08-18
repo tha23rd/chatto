@@ -54,7 +54,6 @@ func connectError(err error) error {
 	}
 	if errors.Is(err, core.ErrCustomStatusEmojiRequired) ||
 		errors.Is(err, core.ErrCustomStatusEmojiInvalid) ||
-		errors.Is(err, core.ErrCustomStatusTextRequired) ||
 		errors.Is(err, core.ErrCustomStatusEmojiTooLong) ||
 		errors.Is(err, core.ErrCustomStatusTextTooLong) ||
 		errors.Is(err, core.ErrCustomStatusExpiryInPast) ||

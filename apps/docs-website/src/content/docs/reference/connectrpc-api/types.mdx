@@ -135,8 +135,8 @@ Custom status shown on a user profile, separate from presence.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `emoji` | `string` | Short emoji marker displayed with the status. |
-| `text` | `string` | User-written status text. |
+| `emoji` | `string` | Emoji marker displayed with the status: a unicode emoji or a server custom-emoji shortcode name (e.g. "partyparrot"). |
+| `text` | `string` | User-written status text. May be empty for an emoji-only status. |
 | `expires_at` | `google.protobuf.Timestamp` | Optional time after which clients should stop showing the status. |
 
 <a id="chatto-api-v1-User"></a>

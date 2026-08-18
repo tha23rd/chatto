@@ -11,6 +11,9 @@ independent of presence and hides itself after its expiry timestamp.
 <script lang="ts">
   import type { CustomUserStatus } from '$lib/state/userProfiles.svelte';
   import { formatCustomStatusText } from '$lib/customStatusTemplates';
+  import { isCustomEmojiName } from '$lib/emoji';
+  import { getCustomEmoji, getCustomEmojis } from '$lib/state/customEmojis.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
 
   const MAX_TIMEOUT_DELAY_MS = 2_147_483_647;
 
@@ -26,6 +29,15 @@ independent of presence and hides itself after its expiry timestamp.
 
   let expiryTick = $state(0);
 
+  // Most badge surfaces sit inside a server scope; outside one, custom
+  // shortcodes fall back to their readable `:name:` form.
+  let serverScope: ReturnType<typeof useServerScope> | null = null;
+  try {
+    serverScope = useServerScope();
+  } catch {
+    serverScope = null;
+  }
+
   const activeStatus = $derived.by(() => {
     void expiryTick;
     if (!status) return null;
@@ -33,9 +45,31 @@ independent of presence and hides itself after its expiry timestamp.
     return new Date(status.expiresAt).getTime() > Date.now() ? status : null;
   });
   const displayText = $derived(activeStatus?.text ? formatCustomStatusText(activeStatus.text) : '');
-  const title = $derived(
-    activeStatus ? `${activeStatus.emoji}${displayText ? ` ${displayText}` : ''}` : undefined
+  const customEmoji = $derived(
+    serverScope && activeStatus && isCustomEmojiName(activeStatus.emoji)
+      ? getCustomEmoji(serverScope.serverId, activeStatus.emoji)
+      : undefined
   );
+  const emojiLabel = $derived(
+    activeStatus && isCustomEmojiName(activeStatus.emoji)
+      ? `:${activeStatus.emoji}:`
+      : (activeStatus?.emoji ?? '')
+  );
+  const title = $derived(
+    activeStatus ? `${emojiLabel}${displayText ? ` ${displayText}` : ''}` : undefined
+  );
+
+  // Load the server's custom-emoji catalog on demand so a shortcode status
+  // renders as an image even on surfaces that never load it themselves.
+  $effect(() => {
+    if (!serverScope || !activeStatus || !isCustomEmojiName(activeStatus.emoji)) return;
+    const conn = serverScope.connection;
+    getCustomEmojis(serverScope.serverId).ensureLoaded({
+      serverId: conn.serverId,
+      baseUrl: conn.connectBaseUrl,
+      bearerToken: conn.bearerToken
+    });
+  });
 
   $effect(() => {
     const expiresAt = status?.expiresAt;
@@ -70,7 +104,17 @@ independent of presence and hides itself after its expiry timestamp.
     {title}
     aria-label={title}
   >
-    <span aria-hidden="true">{activeStatus.emoji}</span>
+    <span aria-hidden="true">
+      {#if customEmoji}
+        <img
+          src={customEmoji.url}
+          alt=":{customEmoji.name}:"
+          class="inline-block h-[1.35em] w-auto object-contain"
+        />
+      {:else}
+        {emojiLabel}
+      {/if}
+    </span>
     {#if showText && displayText}
       <bdi class="min-w-0 truncate">{displayText}</bdi>
     {/if}

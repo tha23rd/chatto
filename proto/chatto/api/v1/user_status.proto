@@ -7,14 +7,14 @@ import "google/protobuf/timestamp.proto";
 
 // Custom status shown on a user profile, separate from presence.
 message CustomUserStatus {
-  // Short emoji marker displayed with the status.
+  // Emoji marker displayed with the status: a unicode emoji or a server
+  // custom-emoji shortcode name (e.g. "partyparrot").
   string emoji = 1 [(buf.validate.field).string = {
     min_len: 1
-    max_len: 16
+    max_len: 64
   }];
-  // User-written status text.
+  // User-written status text. May be empty for an emoji-only status.
   string text = 2 [(buf.validate.field).string = {
-    min_len: 1
     max_len: 100
   }];
   // Optional time after which clients should stop showing the status.
@@ -23,9 +23,10 @@ message CustomUserStatus {
 
 // Request to update or replace the current user's custom status.
 message UpdateCustomStatusRequest {
-  // Short emoji marker displayed with the status.
+  // Emoji marker displayed with the status: a unicode emoji or a server
+  // custom-emoji shortcode name (e.g. "partyparrot").
   string emoji = 1;
-  // User-written status text.
+  // User-written status text. May be empty for an emoji-only status.
   string text = 2;
   // Optional future time after which clients should stop showing the status.
   google.protobuf.Timestamp expires_at = 3;

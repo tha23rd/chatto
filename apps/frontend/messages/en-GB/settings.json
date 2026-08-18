@@ -83,7 +83,6 @@
           "custom": "Custom"
         },
         "emoji_required": "Choose an emoji for your status",
-        "text_required": "Enter status text",
         "saved": "Status updated",
         "save_failed": "Failed to save status",
         "cleared": "Status cleared",
