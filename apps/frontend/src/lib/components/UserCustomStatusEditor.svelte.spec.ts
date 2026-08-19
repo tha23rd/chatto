@@ -1,188 +1,101 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushSync } from 'svelte';
 import { render } from 'vitest-browser-svelte';
-import { __resetCustomEmojisForTests, getCustomEmojis } from '$lib/state/customEmojis.svelte';
+import { flushSync, tick } from 'svelte';
+import { __resetRecentEmojisForTests } from '$lib/state/recentEmojis.svelte';
 import UserCustomStatusEditor from './UserCustomStatusEditor.svelte';
 
-const userStatusAPI = vi.hoisted(() => ({
-  updateCustomStatus: vi.fn(),
-  deleteCustomStatus: vi.fn()
+const { updateCustomStatusMock, deleteCustomStatusMock } = vi.hoisted(() => ({
+  updateCustomStatusMock: vi.fn(),
+  deleteCustomStatusMock: vi.fn()
 }));
 
 vi.mock('$lib/api-client/userStatus', () => ({
-  updateCustomStatus: userStatusAPI.updateCustomStatus,
-  deleteCustomStatus: userStatusAPI.deleteCustomStatus
+  updateCustomStatus: updateCustomStatusMock,
+  deleteCustomStatus: deleteCustomStatusMock
 }));
 
 const config = {
-  serverId: 'origin',
+  serverId: 'test-server',
   baseUrl: 'https://chat.example.test',
-  bearerToken: 'token'
-};
-const unresolvedStatus = {
-  emoji: 'partyparrot',
-  text: 'Working',
-  expiresAt: null
+  bearerToken: 'test-token'
 };
 
 beforeEach(() => {
-  __resetCustomEmojisForTests();
-  userStatusAPI.updateCustomStatus.mockReset();
-  userStatusAPI.updateCustomStatus.mockResolvedValue({
-    emoji: '🙂',
-    text: 'Updated',
-    expiresAt: null
-  });
-  userStatusAPI.deleteCustomStatus.mockReset();
-  userStatusAPI.deleteCustomStatus.mockResolvedValue(null);
+  localStorage.clear();
+  __resetRecentEmojisForTests();
+  updateCustomStatusMock.mockReset();
+  updateCustomStatusMock.mockImplementation(async (_config, input) => ({
+    ...input,
+    expiresAt: input.expiresAt ?? null
+  }));
+  deleteCustomStatusMock.mockReset();
+  deleteCustomStatusMock.mockResolvedValue(null);
 });
 
 describe('UserCustomStatusEditor', () => {
-  it('keeps known custom and Unicode status markers visible', () => {
-    getCustomEmojis('origin').upsert({
-      id: 'emoji-partyparrot',
-      name: 'partyparrot',
-      url: 'https://example.test/assets/emoji/partyparrot'
-    });
-    const knownCustom = render(UserCustomStatusEditor, {
+  it('saves an expiry-only edit to an emoji-only status', async () => {
+    const { container } = render(UserCustomStatusEditor, {
       props: {
-        status: unresolvedStatus,
         config,
-        compact: true
+        status: { emoji: '🌿', text: '', expiresAt: null }
       }
     });
-    const customRow = Array.from(
-      knownCustom.container.querySelectorAll<HTMLButtonElement>('[role="radio"]')
-    ).find((button) => button.textContent?.includes('Working'));
 
-    expect(customRow?.querySelector('img[alt=":partyparrot:"]')).not.toBeNull();
-    customRow?.click();
-    flushSync();
-    expect(
-      knownCustom.container.querySelector(
-        '[data-testid="settings-custom-status-emoji-picker"] img[alt=":partyparrot:"]'
-      )
-    ).not.toBeNull();
-    knownCustom.unmount();
-
-    const unicode = render(UserCustomStatusEditor, {
-      props: {
-        status: { ...unresolvedStatus, emoji: '🍜' },
-        config
-      }
-    });
-    expect(
-      unicode.container.querySelector('[data-testid="settings-custom-status-emoji-picker"]')
-        ?.textContent
-    ).toContain('🍜');
-  });
-
-  it('uses neutral fallbacks for an unresolved marker in the compact editor', () => {
-    const { container } = render(UserCustomStatusEditor, {
-      props: {
-        status: unresolvedStatus,
-        config,
-        compact: true
-      }
-    });
-    const customRow = Array.from(
-      container.querySelectorAll<HTMLButtonElement>('[role="radio"]')
-    ).find((button) => button.textContent?.includes('Working'));
-
-    expect(customRow?.querySelector('.iconify')).not.toBeNull();
-    expect(customRow?.textContent).not.toContain('partyparrot');
-
-    customRow?.click();
+    const expiryPreset = container.querySelector<HTMLSelectElement>(
+      '[data-testid="settings-custom-status-expiry-preset"]'
+    )!;
+    expiryPreset.value = 'one_hour';
+    expiryPreset.dispatchEvent(new Event('change', { bubbles: true }));
     flushSync();
 
-    const picker = container.querySelector('[data-testid="settings-custom-status-emoji-picker"]');
-    expect(picker?.textContent).toContain('🙂');
-    expect(picker?.textContent).not.toContain('partyparrot');
-    expect(picker?.querySelector('img')).toBeNull();
-  });
-
-  it('uses a neutral fallback for an unresolved marker in the full editor', () => {
-    const { container } = render(UserCustomStatusEditor, {
-      props: {
-        status: unresolvedStatus,
-        config
-      }
-    });
-    const picker = container.querySelector('[data-testid="settings-custom-status-emoji-picker"]');
-
-    expect(picker?.textContent).toContain('🙂');
-    expect(picker?.textContent).not.toContain('partyparrot');
-    expect(picker?.querySelector('img')).toBeNull();
-  });
-
-  it('submits the visible fallback when editing a status with an unresolved marker', async () => {
-    const { container } = render(UserCustomStatusEditor, {
-      props: {
-        status: unresolvedStatus,
-        config
-      }
-    });
-    const textInput = container.querySelector(
-      '[data-testid="settings-custom-status-text"]'
-    ) as HTMLInputElement;
-    textInput.value = 'Updated';
-    textInput.dispatchEvent(new Event('input', { bubbles: true }));
-    flushSync();
-
-    (container.querySelector('button[type="submit"]') as HTMLButtonElement).click();
+    container.querySelector<HTMLFormElement>('form')!.requestSubmit();
 
     await vi.waitFor(() => {
-      expect(userStatusAPI.updateCustomStatus).toHaveBeenCalledWith(config, {
-        emoji: '🙂',
-        text: 'Updated',
-        expiresAt: null
-      });
+      expect(updateCustomStatusMock).toHaveBeenCalledWith(
+        config,
+        expect.objectContaining({
+          emoji: '🌿',
+          text: '',
+          expiresAt: expect.any(String)
+        })
+      );
     });
-    expect(JSON.stringify(userStatusAPI.updateCustomStatus.mock.calls)).not.toContain(
-      'partyparrot'
-    );
   });
 
-  it('switches a preset draft to custom when a custom emoji is selected', async () => {
-    getCustomEmojis('origin').upsert({
-      id: 'emoji-partyparrot',
-      name: 'partyparrot',
-      url: 'https://example.test/assets/emoji/partyparrot'
-    });
-    const { container } = render(UserCustomStatusEditor, {
-      props: {
-        status: {
-          emoji: '🌴',
-          text: 'chatto:status:vacation',
-          expiresAt: null
-        },
-        config
-      }
-    });
+  it('saves a default emoji-only status after explicitly selecting its emoji', async () => {
+    const { container } = render(UserCustomStatusEditor, { props: { config } });
+    const form = container.querySelector<HTMLFormElement>('form')!;
+    const saveButton = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    expect(saveButton.disabled).toBe(true);
 
-    const pickerButton = container.querySelector(
-      '[data-testid="settings-custom-status-emoji-picker"]'
-    ) as HTMLButtonElement;
-    pickerButton.click();
+    container
+      .querySelector<HTMLButtonElement>('[data-testid="settings-custom-status-emoji-picker"]')!
+      .click();
     flushSync();
 
-    const customEmojiButton = await vi.waitFor(() => {
-      const button = container.querySelector<HTMLButtonElement>('button[title="partyparrot"]');
-      expect(button).not.toBeNull();
-      return button!;
+    let searchInput: HTMLInputElement | null = null;
+    await vi.waitFor(() => {
+      searchInput = document.querySelector<HTMLInputElement>('input[type="text"]');
+      expect(searchInput).not.toBeNull();
     });
-    customEmojiButton.click();
+    searchInput!.value = 'herb';
+    searchInput!.dispatchEvent(new Event('input', { bubbles: true }));
+    flushSync();
+    await tick();
+
+    const herb = document.querySelector<HTMLButtonElement>('button[title="herb"]');
+    expect(herb).not.toBeNull();
+    herb!.click();
     flushSync();
 
-    expect(pickerButton.querySelector('img[alt=":partyparrot:"]')).not.toBeNull();
-
-    (container.querySelector('button[type="submit"]') as HTMLButtonElement).click();
+    expect(saveButton.disabled).toBe(false);
+    form.requestSubmit();
 
     await vi.waitFor(() => {
-      expect(userStatusAPI.updateCustomStatus).toHaveBeenCalledWith(config, {
-        emoji: 'partyparrot',
-        text: 'Holiday',
-        expiresAt: null
+      expect(updateCustomStatusMock).toHaveBeenCalledWith(config, {
+        emoji: '🌿',
+        text: '',
+        expiresAt: expect.any(String)
       });
     });
   });

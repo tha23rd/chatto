@@ -83,7 +83,6 @@
           "custom": "Niestandardowe"
         },
         "emoji_required": "Wybierz emoji dla swojego statusu",
-        "text_required": "Wprowadź tekst statusu",
         "saved": "Stan zaktualizowany",
         "save_failed": "Nie udało się zapisać statusu",
         "cleared": "Stan wyczyszczony",

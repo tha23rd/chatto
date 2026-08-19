@@ -5,32 +5,38 @@ Displays a user's custom status emoji with optional text. The status is
 independent of presence and hides itself after its expiry timestamp.
 
 **Props:**
-- `serverId` - Server whose custom emoji catalog resolves the status marker.
 - `status` - The custom user status to display.
 - `showText` - Whether to show the status text next to the emoji.
 -->
 <script lang="ts">
-  import { isCustomEmojiName } from '$lib/emoji';
-  import { getCustomEmoji } from '$lib/state/customEmojis.svelte';
   import type { CustomUserStatus } from '$lib/state/userProfiles.svelte';
   import { formatCustomStatusText } from '$lib/customStatusTemplates';
-  import EmojiToken from './EmojiToken.svelte';
+  import { isCustomEmojiName } from '$lib/emoji';
+  import { getCustomEmoji, getCustomEmojis } from '$lib/state/customEmojis.svelte';
+  import { useServerScope } from '$lib/state/server/scope.svelte';
 
   const MAX_TIMEOUT_DELAY_MS = 2_147_483_647;
 
   let {
-    serverId,
     status,
     showText = false,
     class: className = ''
   }: {
-    serverId: string;
     status?: CustomUserStatus | null;
     showText?: boolean;
     class?: string;
   } = $props();
 
   let expiryTick = $state(0);
+
+  // Most badge surfaces sit inside a server scope; outside one, custom
+  // shortcodes fall back to their readable `:name:` form.
+  let serverScope: ReturnType<typeof useServerScope> | null = null;
+  try {
+    serverScope = useServerScope();
+  } catch {
+    serverScope = null;
+  }
 
   const activeStatus = $derived.by(() => {
     void expiryTick;
@@ -40,22 +46,29 @@ independent of presence and hides itself after its expiry timestamp.
   });
   const displayText = $derived(activeStatus?.text ? formatCustomStatusText(activeStatus.text) : '');
   const customEmoji = $derived(
-    activeStatus && isCustomEmojiName(activeStatus.emoji)
-      ? getCustomEmoji(serverId, activeStatus.emoji)
+    serverScope && activeStatus && isCustomEmojiName(activeStatus.emoji)
+      ? getCustomEmoji(serverScope.serverId, activeStatus.emoji)
       : undefined
   );
-  const hasEmojiMarker = $derived(
-    !!activeStatus && (!isCustomEmojiName(activeStatus.emoji) || !!customEmoji)
+  const emojiLabel = $derived(
+    activeStatus && isCustomEmojiName(activeStatus.emoji)
+      ? `:${activeStatus.emoji}:`
+      : (activeStatus?.emoji ?? '')
   );
-  const shouldRender = $derived(!!activeStatus && (hasEmojiMarker || (showText && !!displayText)));
-  const title = $derived.by(() => {
-    if (!activeStatus) return undefined;
-    const markerLabel = customEmoji
-      ? `:${customEmoji.name}:`
-      : hasEmojiMarker
-        ? activeStatus.emoji
-        : '';
-    return [markerLabel, displayText].filter(Boolean).join(' ') || undefined;
+  const title = $derived(
+    activeStatus ? `${emojiLabel}${displayText ? ` ${displayText}` : ''}` : undefined
+  );
+
+  // Load the server's custom-emoji catalog on demand so a shortcode status
+  // renders as an image even on surfaces that never load it themselves.
+  $effect(() => {
+    if (!serverScope || !activeStatus || !isCustomEmojiName(activeStatus.emoji)) return;
+    const conn = serverScope.connection;
+    getCustomEmojis(serverScope.serverId).ensureLoaded({
+      serverId: conn.serverId,
+      baseUrl: conn.connectBaseUrl,
+      bearerToken: conn.bearerToken
+    });
   });
 
   $effect(() => {
@@ -81,7 +94,7 @@ independent of presence and hides itself after its expiry timestamp.
   });
 </script>
 
-{#if activeStatus && shouldRender}
+{#if activeStatus}
   <span
     class={[
       'inline-flex min-w-0 shrink-0 items-center align-middle leading-none',
@@ -91,11 +104,17 @@ independent of presence and hides itself after its expiry timestamp.
     {title}
     aria-label={title}
   >
-    {#if hasEmojiMarker}
-      <span aria-hidden="true">
-        <EmojiToken {serverId} emoji={activeStatus.emoji} imgClass="h-[1em] w-auto" />
-      </span>
-    {/if}
+    <span aria-hidden="true">
+      {#if customEmoji}
+        <img
+          src={customEmoji.url}
+          alt=":{customEmoji.name}:"
+          class="inline-block h-[1.35em] w-auto object-contain"
+        />
+      {:else}
+        {emojiLabel}
+      {/if}
+    </span>
     {#if showText && displayText}
       <bdi class="min-w-0 truncate">{displayText}</bdi>
     {/if}

@@ -42,7 +42,6 @@ let originalShowPopover: typeof HTMLElement.prototype.showPopover;
 function renderMenu(props: Record<string, unknown> = {}) {
   return render(UserContextMenu, {
     props: {
-      serverId: 'origin',
       user,
       anchorRect: { top: 10, bottom: 30, left: 20 },
       onClose: vi.fn(),

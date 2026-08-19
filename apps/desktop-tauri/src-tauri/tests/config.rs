@@ -37,6 +37,23 @@ fn production_config_has_no_remotely_configured_window() {
 }
 
 #[test]
+fn desktop_bundle_includes_font_license_and_notice() {
+    let config = json("tauri.conf.json");
+    let resources = &config["bundle"]["resources"];
+    assert_eq!(
+        resources["../../../LICENSES/OFL-1.1.txt"],
+        "licenses/OFL-1.1.txt"
+    );
+    assert_eq!(resources["../../../NOTICE"], "NOTICE");
+
+    let license = fs::read_to_string(manifest_path("../../../LICENSES/OFL-1.1.txt")).unwrap();
+    assert!(license.contains("SIL OPEN FONT LICENSE Version 1.1"));
+
+    let notice = fs::read_to_string(manifest_path("../../../NOTICE")).unwrap();
+    assert!(notice.contains("Noto Color Emoji"));
+}
+
+#[test]
 fn production_csp_blocks_remote_code_and_frames() {
     let config = json("tauri.conf.json");
     let csp = config["app"]["security"]["csp"].as_str().unwrap();

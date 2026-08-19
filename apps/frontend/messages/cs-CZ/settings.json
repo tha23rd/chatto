@@ -83,7 +83,6 @@
           "custom": "Vlastní"
         },
         "emoji_required": "Vyberte emodži pro svůj stav",
-        "text_required": "Zadejte text stavu",
         "saved": "Stav aktualizován",
         "save_failed": "Stav se nepodařilo uložit",
         "cleared": "Stav vymazán",

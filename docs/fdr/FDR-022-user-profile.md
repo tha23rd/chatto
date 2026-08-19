@@ -1,7 +1,7 @@
 # FDR-022: User Profile
 
 **Status:** Active
-**Last reviewed:** 2026-08-03
+**Last reviewed:** 2026-07-15
 
 ## Overview
 
@@ -13,8 +13,7 @@ A user's profile carries the public identity they present to the rest of the ser
 - **Login (username)** — editable by the user with a 30-day cooldown between changes. Logins start with a letter or number and cannot end with a period; periods remain valid within a login. Each successful change records a timestamp; subsequent changes within the window are rejected with a clear error message.
 - **Case-only changes** (e.g., `alice` → `Alice`) bypass the cooldown.
 - **Avatar** — users upload an image; the server resizes to 256×256 max and stores it as lossless WebP. The old avatar is deleted after the new one is committed. Users can also delete their avatar (falling back to an initial-letter placeholder).
-- **Custom status** — users can set one supported Unicode emoji or an emoji from the current server custom-emoji catalog plus short text. Custom-emoji names are matched case-insensitively and stored in the catalog's canonical lowercase form. The emoji is shown next to the user's name; the text is shown alongside it where space allows and as hover/accessible text in compact places.
-- **Deleted custom status emoji** — deleting or otherwise losing access to a catalog emoji hides that status marker without clearing the durable status text. Text-capable surfaces continue to show the text, while compact marker-only badges disappear rather than exposing a raw shortcode. If the member later edits the status, the editor displays a neutral 🙂 fallback and saves that supported marker unless the member chooses another emoji.
+- **Custom status** — users can set an emoji plus short text; the text may be empty for an emoji-only status. The emoji is either a unicode emoji or a server custom-emoji shortcode name, shown next to their name; the text is shown alongside it where space allows and as hover/accessible text in compact places.
 - **Custom status templates** — the web client offers preset statuses for lunch, holiday/vacation, and sick leave plus a custom mode. Presets store reserved text tokens in the same free-form status text field so each client can render the label in its active locale. Custom mode stores the user's literal text.
 - **Custom status expiry** — users can optionally choose an expiry date and time. After that instant, projected reads and the web client hide the status automatically. Users can also clear it manually.
 - **Settings** — currently timezone (IANA name, e.g., `Europe/Berlin`) and time format (browser default / 12-hour / 24-hour). Stored server-side so they sync across devices. If not set, the frontend uses the browser timezone and locale time-format default.
@@ -83,12 +82,6 @@ A user's profile carries the public identity they present to the rest of the ser
 **Why:** This keeps the durable EVT model simple and preserves the "any emoji plus any text" API while allowing built-in statuses to be localized for each viewer.
 **Tradeoff:** Older clients that do not know the reserved tokens may display the raw token. This is acceptable during early development and avoids a protobuf shape change solely for UI presets.
 
-### 11. Custom status markers resolve through the current custom-emoji catalog
-
-**Decision:** The server accepts either one supported Unicode emoji or the name of an emoji in its current custom-emoji catalog. Custom names are matched case-insensitively, canonicalised on write, and stored durably in the existing marker string, whose limit is 64 characters. Clients resolve canonical names against their server-scoped catalog at render time. An unresolved name is hidden without changing the status text; when the member later opens the editor, it presents 🙂 as a visible, valid replacement and writes that replacement only if the member modifies and saves the status.
-**Why:** Reusing the existing durable marker keeps Unicode statuses unchanged while allowing the same stable shortcode identity used by messages and reactions to select an image. Validating against the current catalog prevents invented names from becoming statuses. Preserving the text when a catalog entry disappears avoids destructive cleanup of useful profile context.
-**Tradeoff:** Rendering a custom marker depends on the current catalog, so deleting an emoji intentionally degrades an existing status to text-only. The public API remains the same string-shaped contract, with only its length limit widened; the behavioural repair needs neither a new compatibility capability nor a stored-event migration, but older clients may expose an unresolved name instead of hiding it.
-
 ## Permissions
 
 - Self-edit (display name, avatar, custom status, settings, own login subject to cooldown) — no explicit permission; just authentication.
@@ -98,4 +91,4 @@ A user's profile carries the public identity they present to the rest of the ser
 ## Related
 
 - **ADRs:** ADR-007 (per-user encryption with crypto-shredding), ADR-021 (dual asset storage), ADR-065 (runtime JSON client internationalization)
-- **FDRs:** FDR-001 (Roles & Permissions), FDR-008 (File Attachments & Video Processing), FDR-011 (User Presence), FDR-018 (Account Lifecycle), FDR-900 (Custom Emoji)
+- **FDRs:** FDR-001 (Roles & Permissions), FDR-008 (File Attachments & Video Processing), FDR-011 (User Presence), FDR-018 (Account Lifecycle)

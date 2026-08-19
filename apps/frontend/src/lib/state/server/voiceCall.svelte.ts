@@ -63,11 +63,6 @@ export type CallParticipantInfo = {
   videoTrack: Track | null;
   isScreenShareEnabled: boolean;
   screenShareTrack: Track | null;
-  /**
-   * Whether this participant is publishing audio alongside their screen share, so the UI
-   * only offers a stream-audio volume control when there is something to turn down.
-   */
-  hasScreenShareAudio: boolean;
   isLocallyMuted: boolean;
   /** Per-viewer playback volume for this remote participant, percent 0-100. Local participant is always 100. */
   localVolume: number;
@@ -2121,7 +2116,6 @@ export class VoiceCallState {
         videoTrack: getParticipantCameraTrack(p),
         isScreenShareEnabled: isParticipantScreenShareEnabled(p),
         screenShareTrack: getParticipantScreenShareTrack(p),
-        hasScreenShareAudio: !isLocal && isParticipantScreenShareAudioPublished(p),
         isLocallyMuted: !isLocal && this.isParticipantLocallyMuted(p.identity),
         localVolume: isLocal ? 100 : this.getParticipantVolume(p.identity),
         localScreenShareVolume: isLocal ? 100 : this.getParticipantScreenShareVolume(p.identity),
@@ -2639,22 +2633,6 @@ function getParticipantScreenShareTrack(participant: Participant): Track | null 
     }
   }
   return null;
-}
-
-/**
- * Whether this participant publishes audio with their screen share.
- *
- * Screen-share audio is a separate track from the screen-share video, and sharers often have
- * none, so the stream-audio volume control is only meaningful when this is true.
- */
-function isParticipantScreenShareAudioPublished(participant: Participant): boolean {
-  const { Track } = getLoadedLiveKit();
-  for (const pub of participant.getTrackPublications()) {
-    if (pub.source === Track.Source.ScreenShareAudio && !pub.isMuted) {
-      return true;
-    }
-  }
-  return false;
 }
 
 function assertLiveKitE2EESupported(): void {

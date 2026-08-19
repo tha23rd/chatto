@@ -26,6 +26,14 @@
   import { onMount } from 'svelte';
   import '../app.css';
 
+  // The desktop WebView's Windows fonts have no flag glyphs (🇺🇸 falls back
+  // to "US"), so desktop builds load a bundled Noto Color Emoji subset that
+  // covers exactly the flag codepoints. Web builds keep the platform
+  // fallback and never ship or fetch the font.
+  if (import.meta.env.VITE_CHATTO_DESKTOP === '1') {
+    void import('$lib/native/desktopEmoji.css');
+  }
+
   let { data, children } = $props();
   let modalContainerModule: Promise<typeof import('./chat/ModalContainer.svelte')> | null = null;
 

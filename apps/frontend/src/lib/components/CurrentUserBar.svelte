@@ -282,11 +282,7 @@ to the user settings page for the active server.
           <bdi class="min-w-0 truncate" style:color={roleColorToCSS(activeServerUser.roleColor)}
             >{displayName}</bdi
           >
-          <UserCustomStatusBadge
-            serverId={activeServerId}
-            status={activeServerUser.customStatus}
-            class="text-xs"
-          />
+          <UserCustomStatusBadge status={activeServerUser.customStatus} class="text-xs" />
         </span>
         <span class="block truncate text-start text-xs text-muted" data-testid="current-user-login">
           <bdi dir="ltr">@{login}</bdi>
@@ -347,10 +343,7 @@ to the user settings page for the active server.
         >
           <span class="grid w-5 shrink-0 place-items-center" aria-hidden="true">
             {#if activeServerUser.customStatus}
-              <UserCustomStatusBadge
-                serverId={activeServerId}
-                status={activeServerUser.customStatus}
-              />
+              <UserCustomStatusBadge status={activeServerUser.customStatus} />
             {:else}
               <span class="iconify icon-[uil--comment-alt-edit] text-muted"></span>
             {/if}

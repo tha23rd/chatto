@@ -102,7 +102,7 @@
   const customStatus = $derived(
     user && !user.deleted ? getLiveCustomStatus(user.id, user.customStatus) : null
   );
-  const showCustomStatusBadge = $derived(!!user && !!serverId && showStatus && !user.deleted);
+  const showCustomStatusBadge = $derived(!!user && showStatus && !user.deleted);
   const showPresenceDot = $derived(!!presence && showPresence && size !== 'xs');
   const hasOverlay = $derived(showCustomStatusBadge || showPresenceDot);
   const wrapperClass = $derived(
@@ -146,9 +146,8 @@
         {initials}
       </div>
     {/if}
-    {#if showCustomStatusBadge && serverId}
+    {#if showCustomStatusBadge}
       <UserCustomStatusBadge
-        {serverId}
         status={customStatus}
         class="{customStatusTextSizeClasses[
           size

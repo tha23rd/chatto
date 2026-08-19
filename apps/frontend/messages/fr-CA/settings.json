@@ -83,7 +83,6 @@
           "custom": "Personnalisé"
         },
         "emoji_required": "Choisissez un émoji pour votre statut",
-        "text_required": "Entrez le texte d'état",
         "saved": "Mise à jour du statut",
         "save_failed": "Échec de l'enregistrement du statut",
         "cleared": "Statut effacé",

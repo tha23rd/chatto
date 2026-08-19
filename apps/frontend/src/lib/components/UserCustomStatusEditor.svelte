@@ -1,5 +1,4 @@
 <script lang="ts">
-  import EmojiToken from '$lib/components/EmojiToken.svelte';
   import ContextMenu from '$lib/ui/ContextMenu.svelte';
   import { Button, FormField } from '$lib/ui/form';
   import { Hint } from '$lib/ui';
@@ -18,12 +17,11 @@
     getCustomStatusTemplate,
     type CustomStatusTemplateId
   } from '$lib/customStatusTemplates';
-  import { isCustomEmojiName } from '$lib/emoji';
   import { m } from '$lib/i18n/messages';
-  import { getCustomEmoji } from '$lib/state/customEmojis.svelte';
+  import EmojiToken from './EmojiToken.svelte';
+  import { isCustomEmojiName } from '$lib/emoji';
 
   type Mode = CustomStatusTemplateId | 'custom';
-  const UNRESOLVED_STATUS_EMOJI_FALLBACK = '🙂';
   type ExpiryPreset =
     'today' | 'thirty_minutes' | 'one_hour' | 'four_hours' | 'tomorrow' | 'never' | 'custom';
 
@@ -50,6 +48,10 @@
   let selectedMode = $state<Mode>(initialMode(localStatus));
   // svelte-ignore state_referenced_locally
   let statusEmoji = $state(localStatus?.emoji ?? '🌿');
+  // Emoji the editor opened with; used to distinguish an emoji edit from an
+  // untouched empty draft.
+  // svelte-ignore state_referenced_locally
+  const initialStatusEmoji = localStatus?.emoji ?? '🌿';
   // svelte-ignore state_referenced_locally
   let statusText = $state(initialText(localStatus));
   // svelte-ignore state_referenced_locally
@@ -68,6 +70,8 @@
   let isClearing = $state(false);
   let error = $state('');
   let compactCustomEditorOpen = $state(false);
+  // An explicit emoji or expiry edit makes an empty-text status saveable.
+  let emptyTextSaveIntent = $state(false);
   // svelte-ignore state_referenced_locally
   let expiryPreset = $state<ExpiryPreset>(initialExpiryPreset(localStatus));
 
@@ -85,15 +89,6 @@
       : CUSTOM_STATUS_TEMPLATES.find((template) => template.id === selectedMode)
   );
   const activeEmoji = $derived(isCustom ? statusEmoji : (activeTemplate?.emoji ?? statusEmoji));
-  const localStatusEmojiRenderable = $derived(
-    !!localStatus && isRenderableStatusEmoji(localStatus.emoji)
-  );
-  const effectiveStatusEmoji = $derived(
-    isRenderableStatusEmoji(statusEmoji) ? statusEmoji : UNRESOLVED_STATUS_EMOJI_FALLBACK
-  );
-  const effectiveActiveEmoji = $derived(
-    isRenderableStatusEmoji(activeEmoji) ? activeEmoji : UNRESOLVED_STATUS_EMOJI_FALLBACK
-  );
   const activeText = $derived(
     isCustom ? statusText.trim() : customStatusTemplateText(selectedMode as CustomStatusTemplateId)
   );
@@ -111,7 +106,10 @@
       activeText !== (localStatus?.text ?? '') ||
       statusExpiresAt !== currentExpiresAt
   );
-  const canSave = $derived(isModified && (!draftIsEmpty || hasActiveStatus));
+  const emojiModified = $derived(activeEmoji !== initialStatusEmoji);
+  const canSave = $derived(
+    isModified && (!draftIsEmpty || hasActiveStatus || emojiModified || emptyTextSaveIntent)
+  );
   const expiryOptions = $derived([
     { value: 'today', label: m('settings.profile.status.expiry.today') },
     { value: 'thirty_minutes', label: m('settings.profile.status.expiry.thirty_minutes') },
@@ -124,11 +122,6 @@
 
   function initialMode(value: CustomUserStatus | null | undefined): Mode {
     return getCustomStatusTemplate(value)?.id ?? 'custom';
-  }
-
-  function isRenderableStatusEmoji(emoji: string | undefined): emoji is string {
-    if (!emoji) return false;
-    return !isCustomEmojiName(emoji) || !!getCustomEmoji(config.serverId, emoji);
   }
 
   function initialText(value: CustomUserStatus | null | undefined): string {
@@ -197,6 +190,15 @@
     }
   }
 
+  function handleExpiryPresetChange() {
+    emptyTextSaveIntent = true;
+    updateExpiryFromPreset();
+  }
+
+  function handleCustomExpiryInput() {
+    emptyTextSaveIntent = true;
+  }
+
   function selectMode(mode: Mode) {
     selectedMode = mode;
     error = '';
@@ -241,6 +243,7 @@
     statusText = '';
     expiryPreset = 'today';
     updateExpiryFromPreset();
+    emptyTextSaveIntent = false;
     error = '';
   }
 
@@ -250,16 +253,18 @@
   }
 
   function handleEmojiSelect(emoji: string) {
-    markCustomDraft();
     statusEmoji = emoji;
+    emptyTextSaveIntent = true;
     emojiPickerAnchor = null;
   }
 
   async function saveCustomStatus(event: Event) {
     event.preventDefault();
-    const emoji = effectiveActiveEmoji.trim();
+    const emoji = activeEmoji.trim();
     const text = activeText.trim();
-    if (!text && localStatus) {
+    // Empty text with no explicit non-text edit on an existing text status
+    // means "clear". Enter on an emoji-only status must not wipe it.
+    if (!text && !emojiModified && !emptyTextSaveIntent && !!localStatus?.text) {
       await clearCustomStatus();
       return;
     }
@@ -267,8 +272,8 @@
       error = m('settings.profile.status.emoji_required');
       return;
     }
-    if (!text) {
-      error = m('settings.profile.status.text_required');
+    if (!text && !emojiModified && !emptyTextSaveIntent) {
+      // Untouched empty draft (e.g. Enter in the text field); nothing to save.
       return;
     }
 
@@ -288,6 +293,7 @@
       statusText = initialText(customStatus);
       statusExpiresAt = toDatetimeLocalValue(customStatus?.expiresAt);
       expiryPreset = initialExpiryPreset(customStatus);
+      emptyTextSaveIntent = false;
       compactCustomEditorOpen = false;
       toast.success(m('settings.profile.status.saved'));
       onClose?.();
@@ -318,6 +324,7 @@
       statusText = initialText(customStatus);
       statusExpiresAt = toDatetimeLocalValue(customStatus?.expiresAt);
       expiryPreset = initialExpiryPreset(customStatus);
+      emptyTextSaveIntent = false;
       compactCustomEditorOpen = false;
       toast.success(m('settings.profile.status.saved'));
       onClose?.();
@@ -341,6 +348,7 @@
       statusText = '';
       expiryPreset = 'today';
       statusExpiresAt = toLocalDatetime(endOfToday());
+      emptyTextSaveIntent = false;
       compactCustomEditorOpen = false;
       toast.success(m('settings.profile.status.cleared'));
       onClose?.();
@@ -391,7 +399,7 @@
           {m('settings.profile.status.template.none')}
         </span>
         {#if noStatusSelected}
-          <span class="ms-auto iconify shrink-0 icon-[uil--check]" aria-hidden="true"></span>
+          <span class="iconify ms-auto icon-[uil--check] shrink-0" aria-hidden="true"></span>
         {/if}
       </button>
       {#each CUSTOM_STATUS_TEMPLATES as template (template.id)}
@@ -409,7 +417,7 @@
           </span>
           <span class={['min-w-0 truncate', isSelected && 'font-medium']}>{template.label()}</span>
           {#if isSelected}
-            <span class="ms-auto iconify shrink-0 icon-[uil--check]" aria-hidden="true"></span>
+            <span class="iconify ms-auto icon-[uil--check] shrink-0" aria-hidden="true"></span>
           {/if}
         </button>
       {/each}
@@ -421,13 +429,17 @@
         disabled={isSaving || isClearing}
         onclick={openCompactCustomEditor}
       >
-        {#if hasActiveCustomStatus && localStatus && localStatusEmojiRenderable}
+        {#if hasActiveCustomStatus && localStatus}
           <span class="grid w-5 shrink-0 place-items-center" aria-hidden="true">
-            <EmojiToken
-              serverId={config.serverId}
-              emoji={localStatus.emoji}
-              imgClass="max-h-5 w-auto"
-            />
+            {#if isCustomEmojiName(localStatus.emoji)}
+              <EmojiToken
+                serverId={config.serverId}
+                emoji={localStatus.emoji}
+                imgClass="h-5 w-5 object-contain"
+              />
+            {:else}
+              {localStatus.emoji}
+            {/if}
           </span>
         {:else}
           <span class="grid w-5 shrink-0 place-items-center" aria-hidden="true">
@@ -440,7 +452,7 @@
             : m('settings.profile.status.template.custom')}
         </bdi>
         {#if hasActiveCustomStatus}
-          <span class="ms-auto iconify shrink-0 icon-[uil--check]" aria-hidden="true"></span>
+          <span class="iconify ms-auto icon-[uil--check] shrink-0" aria-hidden="true"></span>
         {/if}
       </button>
     </div>
@@ -457,11 +469,15 @@
           data-testid="settings-custom-status-emoji-picker"
         >
           <span aria-hidden="true">
-            <EmojiToken
-              serverId={config.serverId}
-              emoji={effectiveStatusEmoji}
-              imgClass="h-5 w-auto"
-            />
+            {#if isCustomEmojiName(statusEmoji)}
+              <EmojiToken
+                serverId={config.serverId}
+                emoji={statusEmoji}
+                imgClass="h-6 w-6 object-contain"
+              />
+            {:else}
+              {statusEmoji || '🙂'}
+            {/if}
           </span>
         </button>
         <input
@@ -515,11 +531,15 @@
         data-testid="settings-custom-status-emoji-picker"
       >
         <span aria-hidden="true">
-          <EmojiToken
-            serverId={config.serverId}
-            emoji={effectiveActiveEmoji}
-            imgClass="h-5 w-auto"
-          />
+          {#if isCustomEmojiName(activeEmoji)}
+            <EmojiToken
+              serverId={config.serverId}
+              emoji={activeEmoji}
+              imgClass="h-6 w-6 object-contain"
+            />
+          {:else}
+            {activeEmoji || '🙂'}
+          {/if}
         </span>
       </button>
       <input
@@ -580,7 +600,7 @@
           disabled={isSaving || isClearing}
           class="input"
           data-testid="settings-custom-status-expiry-preset"
-          onchange={updateExpiryFromPreset}
+          onchange={handleExpiryPresetChange}
         >
           {#each expiryOptions as option (option.value)}
             <option value={option.value}>{option.label}</option>
@@ -602,6 +622,7 @@
             disabled={isSaving || isClearing}
             class="input"
             data-testid="settings-custom-status-expires-at"
+            oninput={handleCustomExpiryInput}
           />
         </FormField>
       </div>
