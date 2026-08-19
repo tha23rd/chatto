@@ -58,22 +58,9 @@ func (c *ChattoCore) publishUserProfileUpdate(ctx context.Context, userID string
 
 var ErrCustomStatusEmojiRequired = fmt.Errorf("custom status emoji is required")
 var ErrCustomStatusEmojiInvalid = fmt.Errorf("custom status emoji must be a single supported emoji")
-var ErrCustomStatusTextRequired = fmt.Errorf("custom status text is required")
 var ErrCustomStatusEmojiTooLong = fmt.Errorf("custom status emoji is too long")
 var ErrCustomStatusTextTooLong = fmt.Errorf("custom status text is too long")
 var ErrCustomStatusExpiryInPast = fmt.Errorf("custom status expiry must be in the future")
-
-func (c *ChattoCore) resolveCustomStatusEmoji(emoji string) (string, error) {
-	if IsValidUnicodeEmoji(emoji) {
-		return emoji, nil
-	}
-	if customEmojis := c.customEmojis.Projection(); customEmojis != nil {
-		if customEmoji, ok := customEmojis.ByName(emoji); ok {
-			return customEmoji.Name, nil
-		}
-	}
-	return "", ErrCustomStatusEmojiInvalid
-}
 
 // UpdateUserDisplayName updates a user's display name.
 // Authorization: Caller should verify the actor is the user being updated.
@@ -453,23 +440,32 @@ func (c *ChattoCore) ClearLoginChangeCooldownAs(ctx context.Context, actorID, us
 }
 
 // SetUserCustomStatus stores or replaces a user's durable custom status.
-// Expiry is modeled on the event itself; readers hide expired statuses without
-// writing auxiliary runtime state.
+// Emoji may be a unicode emoji or a server custom-emoji shortcode name; text
+// may be empty for an emoji-only status. Expiry is modeled on the event
+// itself; readers hide expired statuses without writing auxiliary runtime
+// state.
 func (c *ChattoCore) SetUserCustomStatus(ctx context.Context, userID, emoji, text string, expiresAt *time.Time) (*corev1.User, error) {
 	emoji = strings.TrimSpace(emoji)
 	text = strings.TrimSpace(text)
 	if emoji == "" {
 		return nil, ErrCustomStatusEmojiRequired
 	}
-	if text == "" {
-		return nil, ErrCustomStatusTextRequired
-	}
-	if utf8.RuneCountInString(emoji) > MaxCustomStatusEmojiLength {
-		return nil, ErrCustomStatusEmojiTooLong
-	}
-	emoji, err := c.resolveCustomStatusEmoji(emoji)
-	if err != nil {
-		return nil, err
+	if IsValidUnicodeEmoji(emoji) {
+		if utf8.RuneCountInString(emoji) > MaxCustomStatusEmojiLength {
+			return nil, ErrCustomStatusEmojiTooLong
+		}
+	} else {
+		// Custom emoji shortcode: must exist in the server catalog, and is
+		// stored under its canonical (lowercase) name.
+		projection := c.customEmojis.Projection()
+		if projection == nil {
+			return nil, ErrCustomStatusEmojiInvalid
+		}
+		custom, ok := projection.ByName(emoji)
+		if !ok {
+			return nil, ErrCustomStatusEmojiInvalid
+		}
+		emoji = custom.Name
 	}
 	if utf8.RuneCountInString(text) > MaxCustomStatusTextLength {
 		return nil, ErrCustomStatusTextTooLong

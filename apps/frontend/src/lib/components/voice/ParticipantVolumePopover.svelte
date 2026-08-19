@@ -6,13 +6,15 @@ participant. The percentages are per-viewer local playback volumes, independent
 of the participant's own microphone. Local mute overrides playback audibly
 without discarding the stored slider values.
 
-A participant sharing their screen with audio gets a second, independent slider:
-game and music audio is routinely much louder than the voice mixed alongside it,
-so turning the stream down must not also turn the person down.
+A participant sharing their screen gets a second, independent slider: game and
+music audio is routinely much louder than the voice mixed alongside it, so
+turning the stream down must not also turn the person down. The stream slider
+is offered for every screen sharer, whether or not they are publishing stream
+audio right now — the chosen level applies the moment stream audio starts.
 
 **Props:**
 - `anchor` - Position rect for the FloatingPopover
-- `participant` - The participant being adjusted (needs `volume`, `screenShareVolume`, `hasScreenShareAudio` + `isLocallyMuted`)
+- `participant` - The participant being adjusted (needs `volume`, `screenShareVolume`, `isScreenShareEnabled` + `isLocallyMuted`)
 - `onclose` - Called when the popover should dismiss
 - `oninput` - Called on each voice slider input event
 - `onscreensharinput` - Called on each stream-audio slider input event
@@ -32,7 +34,7 @@ so turning the stream down must not also turn the person down.
     participant: {
       volume: number;
       screenShareVolume: number;
-      hasScreenShareAudio: boolean;
+      isScreenShareEnabled: boolean;
       isLocallyMuted: boolean;
     };
     onclose: () => void;
@@ -77,7 +79,7 @@ so turning the stream down must not also turn the person down.
       />
     </label>
 
-    {#if participant.hasScreenShareAudio}
+    {#if participant.isScreenShareEnabled}
       <label class="flex flex-col gap-2">
         <span class="flex items-center justify-between gap-3 text-sm">
           <span class="flex min-w-0 items-center gap-2 font-medium">

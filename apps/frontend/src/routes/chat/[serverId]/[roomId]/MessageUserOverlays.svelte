@@ -135,7 +135,6 @@
     </ContextMenu>
   {:then { default: UserContextMenu }}
     <UserContextMenu
-      {serverId}
       user={interactions.user}
       anchorRect={interactions.anchorRect}
       roles={interactions.user.roles}

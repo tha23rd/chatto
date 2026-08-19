@@ -93,8 +93,6 @@ Room sidebar panel for voice/video calls.
     volume: number;
     /** Playback volume for this participant's screen-share audio, independent of `volume`. */
     screenShareVolume: number;
-    /** Whether they publish stream audio at all; the stream fader is pointless without it. */
-    hasScreenShareAudio: boolean;
     connectionQuality: string;
     isCameraEnabled: boolean;
     videoTrack: Track | null;
@@ -125,7 +123,6 @@ Room sidebar panel for voice/video calls.
         isLocallyMuted: p.isLocallyMuted ?? false,
         volume: p.localVolume ?? 100,
         screenShareVolume: p.localScreenShareVolume ?? 100,
-        hasScreenShareAudio: p.hasScreenShareAudio ?? false,
         connectionQuality: p.connectionQuality,
         isCameraEnabled: p.isCameraEnabled,
         videoTrack: p.videoTrack,
@@ -153,7 +150,6 @@ Room sidebar panel for voice/video calls.
       isLocallyMuted: false,
       volume: 100,
       screenShareVolume: 100,
-      hasScreenShareAudio: false,
       connectionQuality: 'unknown',
       isCameraEnabled: false,
       videoTrack: null,
@@ -1223,7 +1219,6 @@ Room sidebar panel for voice/video calls.
 
 {#if popoverParticipant && popoverAnchorRect}
   <UserContextMenu
-    serverId={activeServerId}
     user={popoverParticipant.avatarUser}
     anchorRect={popoverAnchorRect}
     roles={memberRoles(popoverParticipant.avatarUser.id)}

@@ -83,7 +83,6 @@
           "custom": "自定义"
         },
         "emoji_required": "请选择状态表情",
-        "text_required": "请输入状态文本",
         "saved": "状态已更新",
         "save_failed": "状态保存失败",
         "cleared": "状态已清除",

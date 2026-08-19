@@ -1,7 +1,6 @@
 package connectapi
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -1448,35 +1447,16 @@ func TestMyAccountServiceSetAndDeleteCustomStatus(t *testing.T) {
 		t.Fatalf("stored CustomStatus = %+v, want set status", stored.GetCustomStatus())
 	}
 
-	if err := env.core.AssignServerRole(env.ctx, core.SystemActorID, env.viewer.Id, core.RoleAdmin); err != nil {
-		t.Fatalf("AssignServerRole admin: %v", err)
-	}
-	customEmojiName := strings.Repeat("a", 64)
-	if _, err := env.core.CreateCustomEmoji(
-		env.ctx,
-		env.viewer.Id,
-		customEmojiName,
-		bytes.NewReader(connectAPITestPNG()),
-	); err != nil {
-		t.Fatalf("CreateCustomEmoji: %v", err)
-	}
-	customResp, err := env.account.UpdateCustomStatus(ctx, connect.NewRequest(&apiv1.UpdateCustomStatusRequest{
-		Emoji: strings.ToUpper(customEmojiName),
-		Text:  "Parrot mode",
-	}))
-	if err != nil {
-		t.Fatalf("UpdateCustomStatus custom emoji: %v", err)
-	}
-	if got := customResp.Msg.GetStatus().GetEmoji(); got != customEmojiName {
-		t.Fatalf("custom status emoji = %q, want canonical %q", got, customEmojiName)
-	}
-
-	_, err = env.account.UpdateCustomStatus(ctx, connect.NewRequest(&apiv1.UpdateCustomStatusRequest{
+	// Emoji-only status: empty (blank) text is allowed.
+	emojiOnlyResp, err := env.account.UpdateCustomStatus(ctx, connect.NewRequest(&apiv1.UpdateCustomStatusRequest{
 		Emoji: "🌿",
 		Text:  "   ",
 	}))
-	if connect.CodeOf(err) != connect.CodeInvalidArgument {
-		t.Fatalf("UpdateCustomStatus blank text error = %v, want InvalidArgument", err)
+	if err != nil {
+		t.Fatalf("UpdateCustomStatus emoji-only: %v", err)
+	}
+	if got := emojiOnlyResp.Msg.GetStatus(); got.GetEmoji() != "🌿" || got.GetText() != "" {
+		t.Fatalf("emoji-only status = %+v, want 🌿 with empty text", got)
 	}
 
 	_, err = env.account.UpdateCustomStatus(ctx, connect.NewRequest(&apiv1.UpdateCustomStatusRequest{
